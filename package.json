@@ -1,10 +1,10 @@
 {
-	"name": "playwright",
-	"displayName": "Playwright Test",
+	"name": "playwright-vscode",
+	"displayName": "Playwright Test for VSCode",
 	"description": "Integration of Playwright Test and Visual Studio Code.",
 	"icon": "images/playwright-logo.png",
 	"version": "0.0.1",
-	"publisher": "vscode-samples",
+	"publisher": "Microsoft",
 	"repository": "https://github.com/Microsoft/playwright-vscode",
 	"enableProposedApi": true,
 	"engines": {
@@ -14,8 +14,8 @@
 		"Other"
 	],
 	"activationEvents": [
-		"workspaceContains:*.js",
-		"workspaceContains:*.ts"
+		"workspaceContains:*.spec.js",
+		"workspaceContains:*.spec.ts"
 	],
 	"main": "./out/extension.js",
 	"contributes": {

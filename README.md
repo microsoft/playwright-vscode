@@ -1,6 +1,6 @@
 # Playwright for Visual Studio Code
 
-## Running the Sample
+## Running the Example
 
 - Run `npm install` in terminal to install dependencies
 - Run the `Run Extension` target in the Debug View. This will:

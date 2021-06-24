@@ -5,4 +5,4 @@ node_modules
 yarn.lock
 /vscode.d.ts
 /vscode.proposed.d.ts
-/sample/package-lock.json
+/example/package-lock.json

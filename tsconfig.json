@@ -8,5 +8,5 @@
 		"strict": true,
 		"rootDir": "src"
 	},
-	"exclude": ["node_modules", ".vscode-test", "sample"]
+	"exclude": ["node_modules", ".vscode-test", "example"]
 }
