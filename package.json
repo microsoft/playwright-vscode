@@ -1,0 +1,51 @@
+{
+	"name": "playwright-vscode",
+	"displayName": "Playwright Test for VSCode",
+	"description": "Integration of Playwright Test and Visual Studio Code.",
+	"icon": "images/playwright-logo.png",
+	"version": "0.0.1",
+	"publisher": "Microsoft",
+	"repository": "https://github.com/Microsoft/playwright-vscode",
+	"enableProposedApi": true,
+	"engines": {
+		"vscode": "^1.58.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"workspaceContains:*.spec.js",
+		"workspaceContains:*.spec.ts"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "playwright-test-provider.selectProject",
+				"title": "Select Playwright Test project"
+			}
+		]
+	},
+	"prettier": {
+		"printWidth": 120,
+		"singleQuote": true,
+		"arrowParens": "avoid"
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"lint": "eslint . --ext .ts,.tsx",
+		"watch": "tsc -watch -p ./",
+		"download-api": "vscode-dts dev",
+		"postdownload-api": "vscode-dts main",
+		"postinstall": "npm run download-api"
+	},
+	"devDependencies": {
+		"@types/node": "^15.12.4",
+		"@typescript-eslint/eslint-plugin": "^4.28.0",
+		"@typescript-eslint/parser": "^4.28.0",
+		"eslint": "^7.29.0",
+		"typescript": "^4.3.4",
+		"vscode-dts": "^0.3.1"
+	}
+}
