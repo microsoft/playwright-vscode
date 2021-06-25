@@ -1,3 +1,5 @@
+const path = require("path");
+
 /**@type {import('eslint').Linter.Config} */
 // eslint-disable-next-line no-undef
 module.exports = {
@@ -5,6 +7,7 @@ module.exports = {
 	parser: '@typescript-eslint/parser',
 	plugins: [
 		'@typescript-eslint',
+		'notice',
 	],
 	extends: [
 		'eslint:recommended',
@@ -16,5 +19,19 @@ module.exports = {
 		'@typescript-eslint/no-explicit-any': 0,
 		'@typescript-eslint/explicit-module-boundary-types': 0,
 		'@typescript-eslint/no-non-null-assertion': 0,
-	}
+		// copyright
+		"notice/notice": [2, {
+			"mustMatch": "Copyright",
+			"templateFile": path.join(__dirname, "utils", "copyright.js"),
+		}],
+	},
+	"overrides": [
+    {
+      "files": "**/*.js",
+			rules: {
+				"@typescript-eslint/no-var-requires": "off",
+				"no-undef": "off",
+			}
+		}
+  ]
 };
