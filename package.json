@@ -14,8 +14,8 @@
 		"Other"
 	],
 	"activationEvents": [
-		"workspaceContains:*.spec.js",
-		"workspaceContains:*.spec.ts"
+		"workspaceContains:**/*.spec.js",
+		"workspaceContains:**/*.spec.ts"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -24,7 +24,26 @@
 				"command": "playwright-test-provider.selectProject",
 				"title": "Select Playwright Test project"
 			}
-		]
+		],
+		"configuration": {
+			"title": "Playwright Test path",
+			"properties": {
+				"playwright.cliPath": {
+					"type": "string",
+					"default": "./node_modules/@playwright/test/lib/cli/cli.js",
+					"description": "Playwright Test CLI path"
+				},
+				"playwright.configs": {
+					"type": "array",
+					"scope": "resource",
+					"description": "If its empty, it will use the Playwrigh Test defaults (playwright.config.{ts,js})",
+					"items": {
+						"type": "string",
+						"description": "Playwright Test configuration file"
+					}
+				}
+			}
+		}
 	},
 	"prettier": {
 		"printWidth": 120,
@@ -45,6 +64,7 @@
 		"@typescript-eslint/eslint-plugin": "^4.28.0",
 		"@typescript-eslint/parser": "^4.28.0",
 		"eslint": "^7.29.0",
+		"eslint-plugin-notice": "^0.9.10",
 		"typescript": "^4.3.4",
 		"vscode-dts": "^0.3.1"
 	}

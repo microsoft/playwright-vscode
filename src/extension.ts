@@ -14,18 +14,21 @@
  * limitations under the License.
  */
 
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { PlaywrightTestNPMPackage } from './playwrightTest';
 import { TestCase, TestFile, testData } from './testTree';
 
-export async function activate(context: vscode.ExtensionContext) {
-  const ctrl = vscode.test.createTestController('playwrightTestController');
-  context.subscriptions.push(ctrl);
+const configuration = vscode.workspace.getConfiguration();
 
+export async function activate(context: vscode.ExtensionContext) {
   if (!vscode.workspace.workspaceFolders) {
     vscode.window.showWarningMessage('Playwright Test only works when a folder is opened.');
     return;
   }
+
+  const ctrl = vscode.test.createTestController('playwrightTestController');
+  context.subscriptions.push(ctrl);
 
   // All VS Code tests are in a tree, starting at the automatically created "root".
   // We'll give it a label, and set its status so that VS Code will call
@@ -74,7 +77,10 @@ export async function activate(context: vscode.ExtensionContext) {
     discoverTests(request.tests).then(runTestQueue);
   };
 
-  const playwrightTest = await PlaywrightTestNPMPackage.create(vscode.workspace.workspaceFolders[0].uri.path);
+  const playwrightTestConfigsFromSettings = configuration.get<string[]>("playwright.configs");
+  const playwrightTestConfig = playwrightTestConfigsFromSettings?.length === 1 ? playwrightTestConfigsFromSettings[0] : null;
+
+  const playwrightTest = await PlaywrightTestNPMPackage.create(vscode.workspace.workspaceFolders[0].uri.path, playwrightTestConfig);
 
   ctrl.resolveChildrenHandler = async item => {
     if (item === ctrl.root) {
@@ -133,7 +139,7 @@ function getOrCreateFile(controller: vscode.TestController, uri: vscode.Uri, pla
 
   const file = controller.createTestItem(
     uri.toString(),
-    uri.path.split('/').pop()!,
+    path.relative(vscode.workspace.workspaceFolders![0].uri.path, uri.path),
     controller.root,
     uri,
   );
@@ -158,7 +164,7 @@ function startWatchingWorkspace(controller: vscode.TestController, playwrightTes
       // set default project
       playwrightTest.setProject(tests.config.projects[0].name);
       for (const suite of tests.suites)
-        getOrCreateFile(controller, vscode.Uri.file(suite.file), playwrightTest);
+        getOrCreateFile(controller, vscode.Uri.file(path.join(tests.config.rootDir, suite.file)), playwrightTest);
     })
   );
 }
