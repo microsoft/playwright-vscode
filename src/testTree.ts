@@ -17,6 +17,7 @@
 import * as vscode from 'vscode';
 import { PlaywrightTestNPMPackage } from './playwrightTest';
 import * as playwrightTestTypes from './testTypes';
+import { assert } from './utils';
 
 type MarkdownTestData = TestFile | TestHeading | TestCase;
 
@@ -130,29 +131,48 @@ export class TestCase {
   }
 
   async run(item: vscode.TestItem, options: vscode.TestRun): Promise<void> {
-    const result = await this.playwrightTest.runTest(item.uri!.path, this.spec.line);
+    let result;
+    try {
+      result = await this.playwrightTest.runTest(item.uri!.path, this.spec.line);
+    } catch (error) {
+      options.setState(item, vscode.TestResultState.Errored);
+      console.log(error);
+      return;
+    }
     const processSpec = (spec: playwrightTestTypes.TestSpec) => {
-      if (!spec.tests || spec.tests.length === 0)
-        throw new Error("todo");
+      assert(spec.tests);
+      assert(spec.tests.length === 1);
       const test = spec.tests[0];
-      if (test.results[0].status === 'passed') {
-        options.setState(item, vscode.TestResultState.Passed, test.results[0].duration);
-      } else if (test.results[0].status === 'failed') {
-        if (test.results[0].error) {
-          const message = new vscode.TestMessage(test.results[0].error.stack);
-          message.location = new vscode.Location(item.uri!, item.range!);
-          options.appendMessage(item, message);
-        }
-      // TODO: better diffs
-        /**
-       *
-      const message = vscode.TestMessage.diff(`Expected ${item.label}`, String(this.expected), String(actual));
-      message.location = new vscode.Location(item.uri!, item.range!);
-      options.appendMessage(item, message);
-      options.setState(item, vscode.TestResultState.Failed, duration);
-       */
-        options.setState(item, vscode.TestResultState.Failed, test.results[0].duration);
+      assert(test.results.length === 1);
+      switch (test.results[0].status) {
+        case "passed":
+          options.setState(item, vscode.TestResultState.Passed, test.results[0].duration);
+          break;
+        case "failed":
+          if (test.results[0].error) {
+            const message = new vscode.TestMessage(test.results[0].error.stack);
+            message.location = new vscode.Location(item.uri!, item.range!);
+            options.appendMessage(item, message);
+          }
+          options.setState(item, vscode.TestResultState.Failed, test.results[0].duration);
+          break;
+        case "skipped":
+          options.setState(item, vscode.TestResultState.Skipped, test.results[0].duration);
+          break;
+        case "timedOut":
+          options.setState(item, vscode.TestResultState.Errored, test.results[0].duration);
+          break;
+        default:
+          throw new Error(`Unexpected status ${test.results[0].status}`);
       }
+      // TODO: better diffs
+      /**
+     *
+    const message = vscode.TestMessage.diff(`Expected ${item.label}`, String(this.expected), String(actual));
+    message.location = new vscode.Location(item.uri!, item.range!);
+    options.appendMessage(item, message);
+    options.setState(item, vscode.TestResultState.Failed, duration);
+     */
     };
     let found = false;
     const visit = (suite: playwrightTestTypes.Suite) => {

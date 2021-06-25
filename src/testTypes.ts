@@ -75,7 +75,7 @@ export interface Test {
 
 export interface TestResult {
   workerIndex: number
-  status: "passed" | "failed"
+  status: 'passed' | 'failed' | 'timedOut' | 'skipped'
   duration: number
   stdout: string[]
   stderr: string[]

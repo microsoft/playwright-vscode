@@ -1,5 +1,5 @@
 // playwright.config.ts
-import { PlaywrightTestConfig } from '@playwright/test';
+import { PlaywrightTestConfig, devices } from '@playwright/test';
 
 const config: PlaywrightTestConfig = {
   projects: [
@@ -17,8 +17,8 @@ const config: PlaywrightTestConfig = {
       use: { browserName: 'firefox' },
     },
     {
-      name: 'WebKit',
-      use: { browserName: 'webkit' },
+      name: 'WebKit with iPhone 12 Pro Max',
+      use: { browserName: 'webkit', ...devices["iPhone 12 Pro Max"] },
     },
   ],
 };
