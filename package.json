@@ -4,7 +4,8 @@
 	"description": "Integration of Playwright Test and Visual Studio Code.",
 	"icon": "images/playwright-logo.png",
 	"version": "0.0.1",
-	"publisher": "Microsoft",
+	"preview": true,
+	"publisher": "ms-playwright",
 	"repository": "https://github.com/Microsoft/playwright-vscode",
 	"enableProposedApi": true,
 	"engines": {
@@ -21,7 +22,7 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "playwright-test-provider.selectProject",
+				"command": "playwright-vscode.selectProject",
 				"title": "Select Playwright Test project"
 			}
 		],

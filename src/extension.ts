@@ -127,7 +127,7 @@ export async function activate(context: vscode.ExtensionContext) {
     playwrightTest.setProject(selection.label);
   };
   context.subscriptions.push(
-    vscode.commands.registerCommand('playwright-test-provider.selectProject', commandHandler)
+    vscode.commands.registerCommand('playwright-vscode.selectProject', commandHandler)
   );
 }
 
