@@ -6,3 +6,4 @@ yarn.lock
 /vscode.d.ts
 /vscode.proposed.d.ts
 /example/package-lock.json
+.DS_Store

@@ -1,5 +1,5 @@
 {
-	"name": "playwright-vscode",
+	"name": "playwright",
 	"displayName": "Playwright Test for VSCode",
 	"description": "Integration of Playwright Test and Visual Studio Code.",
 	"icon": "images/playwright-logo.png",
@@ -22,7 +22,7 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "playwright-vscode.selectProject",
+				"command": "playwright.selectProject",
 				"title": "Select Playwright Test project"
 			}
 		],
