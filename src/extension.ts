@@ -27,6 +27,19 @@ export async function activate(context: vscode.ExtensionContext) {
     return;
   }
 
+  const playwrightTestConfigsFromSettings = configuration.get<string[]>("playwright.configs");
+  const playwrightTestConfig = playwrightTestConfigsFromSettings?.length === 1 ? playwrightTestConfigsFromSettings[0] : null;
+
+  let playwrightTest: PlaywrightTestNPMPackage;
+
+  try {
+    playwrightTest = await PlaywrightTestNPMPackage.create(vscode.workspace.workspaceFolders[0].uri.path, playwrightTestConfig);
+  } catch (error) {
+    vscode.window.showWarningMessage(error.toString());
+    return;
+  }
+
+
   const ctrl = vscode.test.createTestController('playwrightTestController');
   context.subscriptions.push(ctrl);
 
@@ -76,11 +89,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
     discoverTests(request.tests).then(runTestQueue);
   };
-
-  const playwrightTestConfigsFromSettings = configuration.get<string[]>("playwright.configs");
-  const playwrightTestConfig = playwrightTestConfigsFromSettings?.length === 1 ? playwrightTestConfigsFromSettings[0] : null;
-
-  const playwrightTest = await PlaywrightTestNPMPackage.create(vscode.workspace.workspaceFolders[0].uri.path, playwrightTestConfig);
 
   ctrl.resolveChildrenHandler = async item => {
     if (item === ctrl.root) {

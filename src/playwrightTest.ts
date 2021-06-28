@@ -55,11 +55,8 @@ export class PlaywrightTestNPMPackage {
   }
   static async create(directory: string, playwrightTestConfig: string | null) {
     const pwTest = new PlaywrightTestNPMPackage(directory, playwrightTestConfig);
-    try {
-      await fileExistsAsync(pwTest._cliEntrypoint);
-    } catch (error) {
+    if (!await fileExistsAsync(pwTest._cliEntrypoint))
       throw new Error(`Could not locate Playwright Test. Is it installed? 'npm install -D @playwright/test'`);
-    }
     return pwTest;
   }
   public async listTests(fileOrFolder: string): Promise<playwrightTestTypes.PlaywrightTestOutput | null> {
