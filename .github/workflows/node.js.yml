@@ -16,3 +16,20 @@ jobs:
     - run: npm ci
     - run: npm run lint
     - run: npm run compile
+
+    - name: Dependency Detection setup
+      uses: actions/checkout@v2
+      with:
+        repository: github/dependency-detection
+        ref: releases/v1
+        token: ${{ secrets.GH_PRIVATE_REPO_PAT }}
+        path: .github/actions/dependency-detection
+  
+      # This is an experimental action that Microsoft OSE + GH Dependency Graph are piloting.
+      #
+      # If it ever encounters issues, see PR that introduced this for contacts to reach out to and
+      # feel free to disable this step to unblock builds.
+    - name: Dependency Detection
+      uses: ./.github/actions/dependency-detection
+      with:
+        token: ${{ github.token }}
