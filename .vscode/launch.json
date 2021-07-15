@@ -5,7 +5,7 @@
 {
 	"version": "0.2.0",
 	"configurations": [{
-			"name": "Run Extension",
+			"name": "Run Extension in example project",
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",

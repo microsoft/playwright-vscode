@@ -19,8 +19,8 @@ test("should be awesome1", () => {
   expect(1).toBe(1);
 });
 
-test("1212me", () => {
-  expect(1).toBe(1);
+test("1212me", async ({page}) => {
+  expect(await page.evaluate(() => window.navigator.userAgent)).toContain("WebKit");
 });
 
 test.describe("should be awesome²", () => {
