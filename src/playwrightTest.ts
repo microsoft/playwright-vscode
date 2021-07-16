@@ -19,6 +19,7 @@ import * as fs from 'fs';
 import { spawn, SpawnOptionsWithoutStdio } from 'child_process';
 import * as vscode from 'vscode';
 import * as playwrightTestTypes from './testTypes';
+import { logger } from './logger';
 
 const configuration = vscode.workspace.getConfiguration();
 
@@ -44,7 +45,7 @@ async function fileExistsAsync(file: string): Promise<boolean> {
 }
 
 export class PlaywrightTestNPMPackage {
-  private _projectName?: string;
+  private _projectName = 'chromium';
   private _directory: string;
   private _cliEntrypoint: string;
   private _playwrightTestConfig: string | null;
@@ -70,7 +71,13 @@ export class PlaywrightTestNPMPackage {
   }
   public async runTest(path: string, line: number): Promise<playwrightTestTypes.PlaywrightTestOutput> {
     const proc = await this._executePlaywrightTestCommand([`--project=${this._projectName}`, `${path}:${line}`]);
-    return JSON.parse(proc.stdout.toString());
+    const stdout = proc.stdout.toString();
+    try {
+      return JSON.parse(stdout);
+    } catch (error) {
+      logger.debug('could not parse JSON', stdout, proc.stderr.toString());
+      throw error;
+    }
   }
   private async _executePlaywrightTestCommand(additionalArguments: string[]) {
     const spawnArguments = [
