@@ -22,7 +22,7 @@ class Logger {
     this._outputChannel = vscode.window.createOutputChannel('Playwright');
   }
   debug(message: string, ...params: any[]) {
-    this._outputChannel.appendLine(`${new Date().toISOString()} ${message} ${params.join(' ')}}`);
+    this._outputChannel.appendLine(`${new Date().toISOString()} ${message} ${params.join(' ')}`);
   }
 }
 

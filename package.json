@@ -61,6 +61,7 @@
 		"postinstall": "npm run download-api"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.13.0-next-alpha-jul-19-2021",
 		"@types/node": "^15.12.4",
 		"@typescript-eslint/eslint-plugin": "^4.28.0",
 		"@typescript-eslint/parser": "^4.28.0",

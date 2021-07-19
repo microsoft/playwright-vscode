@@ -14,74 +14,68 @@
  * limitations under the License.
  */
 
-export interface PlaywrightTestOutput {
-  config: Config;
-  suites: Suite[];
-  errors: any[];
+import type { FullConfig, TestStatus, TestError, Project, TestInfo } from '@playwright/test';
+
+//#region Mirrored from @playwright/test JSON reporter
+
+export interface JSONReport {
+  config: Omit<FullConfig, 'projects'> & {
+    projects: {
+      outputDir: string,
+      repeatEach: number,
+      retries: number,
+      metadata: any,
+      name: string,
+      testDir: string,
+      testIgnore: string[],
+      testMatch: string[],
+      timeout: number,
+    }[],
+  };
+  suites: JSONReportSuite[];
+  errors: TestError[];
+}
+export interface JSONReportSuite {
+  title: string;
+  file: string;
+  column: number;
+  line: number;
+  specs: JSONReportSpec[];
+  suites?: JSONReportSuite[];
 }
 
-export interface Config {
-  forbidOnly:      boolean;
-  globalSetup:     null;
-  globalTeardown:  null;
-  globalTimeout:   number;
-  maxFailures:     number;
-  preserveOutput:  string;
-  projects:        Project[];
-  reporter:        Array<string[]>;
-  rootDir:         string;
-  quiet:           boolean;
-  shard:           null;
-  updateSnapshots: string;
-  workers:         number;
-}
-
-export interface Project {
-  outputDir:  string;
-  repeatEach: number;
-  retries:    number;
-  name:       string;
-  testDir:    string;
-  testIgnore: any[];
-  testMatch:  string[];
-  timeout:    number;
-}
-
-export interface Suite {
-  title:   string;
-  file:    string;
-  line:    number;
-  column:  number;
-  specs:   TestSpec[];
-  suites?: Suite[];
-}
-
-export interface TestSpec {
-  title:  string;
-  ok:     boolean;
-  tests:  Test[];
-  file:   string;
-  line:   number;
+export interface JSONReportSpec {
+  title: string;
+  ok: boolean;
+  tests: JSONReportTest[];
+  file: string;
+  line: number;
   column: number;
 }
-
-export interface Test {
-  timeout:        number;
-  annotations:    any[];
-  expectedStatus: string;
-  projectName:    string;
-  results:        TestResult[];
+export interface JSONReportTest {
+  timeout: number;
+  annotations: { type: string, description?: string }[],
+  expectedStatus: TestStatus;
+  projectName: string;
+  results: JSONReportTestResult[];
+  status: 'skipped' | 'expected' | 'unexpected' | 'flaky';
 }
+export interface JSONReportTestResult {
+  workerIndex: number;
+  status: TestStatus | undefined;
+  duration: number;
+  error: TestError | undefined;
+  stdout: JSONReportSTDIOEntry[],
+  stderr: JSONReportSTDIOEntry[],
+  retry: number;
+  attachments: { name: string, path?: string, body?: string, contentType: string }[];
+}
+export type JSONReportSTDIOEntry = { text: string } | { buffer: string };
+//#endregion
 
-export interface TestResult {
-  workerIndex: number
-  status: 'passed' | 'failed' | 'timedOut' | 'skipped'
-  duration: number
-  stdout: string[]
-  stderr: string[]
-  retry: number
-  error?: {
-    message: string
-    stack: string
-  }
+export type TestSpec = JSONReportSpec;
+export type Suite = JSONReportSuite;
+
+export type ProjectWithIndex = Project & {
+  index: number
 }

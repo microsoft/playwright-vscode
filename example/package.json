@@ -6,7 +6,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "@playwright/test": "^1.13.0-next-1624575246000"
+  "devDependencies": {
+    "@playwright/test": "^1.13.0-next-alpha-jul-19-2021"
   }
 }

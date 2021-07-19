@@ -15,19 +15,26 @@
  */
 
 import * as vscode from 'vscode';
-import { PlaywrightTestNPMPackage } from './playwrightTest';
+import { logger } from './logger';
+import { DEFAULT_CONFIG, PlaywrightTestConfig, PlaywrightTestNPMPackage } from './playwrightTest';
 import * as playwrightTestTypes from './testTypes';
 import { assert } from './utils';
 
-type MarkdownTestData = TestFile | TestHeading | TestCase;
+type PlaywrightTestData = TestFile | TestHeading | TestCase;
 
 let generationCounter = 0;
-export const testData = new WeakMap<vscode.TestItem, MarkdownTestData>();
+export const testData = new WeakMap<vscode.TestItem, PlaywrightTestData>();
+type Ancestors = { 
+  item: vscode.TestItem,
+  children: vscode.TestItem[]
+}
 
 export class TestFile {
   public didResolve = false;
   constructor(
     private readonly playwrightTest: PlaywrightTestNPMPackage,
+    private readonly config: PlaywrightTestConfig,
+    private readonly project: string,
   ) { }
 
   public async updateFromDisk(item: vscode.TestItem) {
@@ -47,8 +54,9 @@ export class TestFile {
    * by this file to be those from the text,
    */
   private async _updateFromDisk(item: vscode.TestItem) {
-    const ancestors = [{ item, children: [] as vscode.TestItem[]}];
-    const tests = await this.playwrightTest.listTests(item.uri!.path);
+    logger.debug(`TestFile._updateFromDisk ${this.config === DEFAULT_CONFIG ? 'default' : this.config} and ${this.project}`);
+    const ancestors: Ancestors[] = [{ item, children: []}];
+    const tests = await this.playwrightTest.listTests(this.config, this.project, item.uri!.path);
     if (!tests)
       return;
     const thisGeneration = generationCounter++;
@@ -57,17 +65,15 @@ export class TestFile {
     const ascend = (depth: number) => {
       while (ancestors.length > depth) {
         const finished = ancestors.pop()!;
-        finished.item.children.all = finished.children;
+        finished.item.children.set(finished.children);
       }
     };
 
-    const addTests = (suite: playwrightTestTypes.Suite, parent: vscode.TestItem) => {
+    const addTests = (suite: playwrightTestTypes.Suite, parent: Ancestors) => {
       for (const test of suite.specs) {
-        const data = new TestCase(this.playwrightTest, test, thisGeneration);
+        const data = new TestCase(this.playwrightTest, this.config, this.project, test, thisGeneration);
         const id = `${item.uri}/${data.getLabel()}`;
         const range = createRangeFromPlaywright(test);
-        const parent = ancestors[ancestors.length - 1];
-
         
         const tcase = vscode.test.createTestItem(id, data.getLabel(), item.uri);
         testData.set(tcase, data);
@@ -76,20 +82,20 @@ export class TestFile {
       }
       for (const subSuite of suite.suites || []) {
         const range = createRangeFromPlaywright(subSuite);
-        const parent = ancestors[ancestors.length - 1];
         const id = `${item.uri}/${subSuite.title}`;
 
         const thead = vscode.test.createTestItem(id, subSuite.title, item.uri);
         thead.range = range;
         testData.set(thead, new TestHeading(thisGeneration));
         parent.children.push(thead);
-        ancestors.push({ item: thead, children: [] });
-        addTests(subSuite, thead);
+        const ancestor: Ancestors = { item: thead, children: [] };
+        ancestors.push(ancestor);
+        addTests(subSuite, ancestor);
       }
     };
 
     for (const suite of tests.suites)
-      addTests(suite, item);
+      addTests(suite, ancestors[0]);
 
     ascend(0); // finish and assign children for all remaining items
   }
@@ -102,18 +108,20 @@ export class TestHeading {
 export class TestCase {
   constructor(
     private readonly playwrightTest: PlaywrightTestNPMPackage,
+    private readonly config: PlaywrightTestConfig,
+    private readonly project: string,
     private readonly spec: playwrightTestTypes.TestSpec,
     public generation: number
   ) { }
 
   getLabel() {
-    return this.spec.title;
+    return `this.spec.title [${this.project}]`;
   }
 
   async run(item: vscode.TestItem, options: vscode.TestRun): Promise<void> {
     let result;
     try {
-      result = await this.playwrightTest.runTest(item.uri!.path, this.spec.line);
+      result = await this.playwrightTest.runTest(this.config, this.project, item.uri!.path, this.spec.line);
     } catch (error) {
       options.setState(item, vscode.TestResultState.Errored);
       console.log(error);
@@ -124,26 +132,31 @@ export class TestCase {
       assert(spec.tests.length === 1);
       const test = spec.tests[0];
       assert(test.results.length === 1);
-      switch (test.results[0].status) {
+      const result = test.results[0];
+      for (const entry of result.stderr)
+        options.appendOutput(decodeJSONReporterSTDIOEntry(entry));
+      for (const entry of result.stdout)
+        options.appendOutput(decodeJSONReporterSTDIOEntry(entry));
+      switch (result.status) {
         case "passed":
-          options.setState(item, vscode.TestResultState.Passed, test.results[0].duration);
+          options.setState(item, vscode.TestResultState.Passed, result.duration);
           break;
         case "failed":
-          if (test.results[0].error) {
-            const message = new vscode.TestMessage(test.results[0].error.stack);
+          if (result.error?.stack) {
+            const message = new vscode.TestMessage(result.error.stack);
             message.location = new vscode.Location(item.uri!, item.range!);
             options.appendMessage(item, message);
           }
-          options.setState(item, vscode.TestResultState.Failed, test.results[0].duration);
+          options.setState(item, vscode.TestResultState.Failed, result.duration);
           break;
         case "skipped":
-          options.setState(item, vscode.TestResultState.Skipped, test.results[0].duration);
+          options.setState(item, vscode.TestResultState.Skipped, result.duration);
           break;
         case "timedOut":
-          options.setState(item, vscode.TestResultState.Errored, test.results[0].duration);
+          options.setState(item, vscode.TestResultState.Errored, result.duration);
           break;
         default:
-          throw new Error(`Unexpected status ${test.results[0].status}`);
+          throw new Error(`Unexpected status ${result.status}`);
       }
       // TODO: better diffs
       /**
@@ -175,4 +188,8 @@ export class TestCase {
 
 function createRangeFromPlaywright(subSuite: playwrightTestTypes.Suite | playwrightTestTypes.TestSpec): vscode.Range {
   return new vscode.Range(new vscode.Position(subSuite.line - 1, subSuite.column), new vscode.Position(subSuite.line - 1, subSuite.column + 1));
+}
+
+function decodeJSONReporterSTDIOEntry(entry: playwrightTestTypes.JSONReportSTDIOEntry): string {
+  return 'text' in entry ? entry.text : Buffer.from(entry.buffer, 'base64').toString();
 }

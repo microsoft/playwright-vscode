@@ -17,11 +17,11 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { spawn, SpawnOptionsWithoutStdio } from 'child_process';
-import * as vscode from 'vscode';
 import * as playwrightTestTypes from './testTypes';
 import { logger } from './logger';
 
-const configuration = vscode.workspace.getConfiguration();
+export const DEFAULT_CONFIG = Symbol("default config");
+export type PlaywrightTestConfig = string | typeof DEFAULT_CONFIG
 
 function spawnAsync(cmd: string, args: string[], options: SpawnOptionsWithoutStdio): Promise<{ stdout: Buffer, stderr: Buffer, code: number | null, error?: Error }> {
   const process = spawn(cmd, args, options);
@@ -45,23 +45,20 @@ async function fileExistsAsync(file: string): Promise<boolean> {
 }
 
 export class PlaywrightTestNPMPackage {
-  private _projectName = 'chromium';
   private _directory: string;
   private _cliEntrypoint: string;
-  private _playwrightTestConfig: string | null;
-  constructor(directory: string, playwrightTestConfig: string | null) {
+  constructor(directory: string, cliPath: string) {
     this._directory = directory;
-    this._playwrightTestConfig = playwrightTestConfig;
-    this._cliEntrypoint = path.join(directory, configuration.get("playwright.cliPath")!);
+    this._cliEntrypoint = path.join(directory, cliPath);
   }
-  static async create(directory: string, playwrightTestConfig: string | null) {
-    const pwTest = new PlaywrightTestNPMPackage(directory, playwrightTestConfig);
+  static async create(directory: string, cliPath: string) {
+    const pwTest = new PlaywrightTestNPMPackage(directory, cliPath);
     if (!await fileExistsAsync(pwTest._cliEntrypoint))
       throw new Error(`Could not locate Playwright Test. Is it installed? 'npm install -D @playwright/test'`);
     return pwTest;
   }
-  public async listTests(fileOrFolder: string): Promise<playwrightTestTypes.PlaywrightTestOutput | null> {
-    const proc = await this._executePlaywrightTestCommand(['--list', fileOrFolder]);
+  public async listTests(config: PlaywrightTestConfig, project: string, fileOrFolder: string): Promise<playwrightTestTypes.JSONReport | null> {
+    const proc = await this._executePlaywrightTestCommand(config, project, ['--list', fileOrFolder]);
     if (proc.code !== 0) {
       if (proc.stderr.includes("no tests found."))
         return null;
@@ -69,8 +66,8 @@ export class PlaywrightTestNPMPackage {
     }
     return JSON.parse(proc.stdout.toString());
   }
-  public async runTest(path: string, line: number): Promise<playwrightTestTypes.PlaywrightTestOutput> {
-    const proc = await this._executePlaywrightTestCommand([`--project=${this._projectName}`, `${path}:${line}`]);
+  public async runTest(config: PlaywrightTestConfig, project: string, path: string, line: number): Promise<playwrightTestTypes.JSONReport> {
+    const proc = await this._executePlaywrightTestCommand(config, project, [`${path}:${line}`]);
     const stdout = proc.stdout.toString();
     try {
       return JSON.parse(stdout);
@@ -79,20 +76,20 @@ export class PlaywrightTestNPMPackage {
       throw error;
     }
   }
-  private async _executePlaywrightTestCommand(additionalArguments: string[]) {
+  private async _executePlaywrightTestCommand(config: PlaywrightTestConfig, project: string, additionalArguments: string[]) {
     const spawnArguments = [
       this._cliEntrypoint,
       'test',
-      ...(this._playwrightTestConfig ? [`--config=${this._playwrightTestConfig}`] : []),
+      ...(config !== DEFAULT_CONFIG ? [`--config=${config}`] : []),
+      `--project=${project}`,
       '--reporter=json',
       ...additionalArguments
     ];
+    logger.debug(`Executing command: ${spawnArguments.join(' ')}`);
     const result = await spawnAsync('node', spawnArguments, {
       cwd: this._directory,
     });
+    logger.debug(`Exit code ${result.code}`);
     return result;
-  }
-  public setProject(projectName: string) {
-    this._projectName = projectName;
   }
 }
