@@ -37,10 +37,10 @@ export class TestFile {
     private readonly project: string,
   ) { }
 
-  public async updateFromDisk(item: vscode.TestItem) {
+  public async updateFromDisk(ctrl: vscode.TestController, item: vscode.TestItem) {
     try {
       item.error = undefined;
-      await this._updateFromDisk(item);
+      await this._updateFromDisk(ctrl, item);
     } catch (e) {
       console.debug("--Playwright Test Exception while reloading the tests--");
       console.debug(e);
@@ -53,7 +53,7 @@ export class TestFile {
    * Parses the tests from the input text, and updates the tests contained
    * by this file to be those from the text,
    */
-  private async _updateFromDisk(item: vscode.TestItem) {
+  private async _updateFromDisk(controller: vscode.TestController, item: vscode.TestItem) {
     logger.debug(`TestFile._updateFromDisk ${this.config === DEFAULT_CONFIG ? 'default' : this.config} and ${this.project}`);
     const ancestors: Ancestors[] = [{ item, children: []}];
     const tests = await this.playwrightTest.listTests(this.config, this.project, item.uri!.path);
@@ -65,7 +65,7 @@ export class TestFile {
     const ascend = (depth: number) => {
       while (ancestors.length > depth) {
         const finished = ancestors.pop()!;
-        finished.item.children.set(finished.children);
+        finished.item.children.replace(finished.children);
       }
     };
 
@@ -75,7 +75,7 @@ export class TestFile {
         const id = `${item.uri}/${data.getLabel()}`;
         const range = createRangeFromPlaywright(test);
         
-        const tcase = vscode.test.createTestItem(id, data.getLabel(), item.uri);
+        const tcase = controller.createTestItem(id, data.getLabel(), item.uri);
         testData.set(tcase, data);
         tcase.range = range;
         parent.children.push(tcase);
@@ -84,7 +84,7 @@ export class TestFile {
         const range = createRangeFromPlaywright(subSuite);
         const id = `${item.uri}/${subSuite.title}`;
 
-        const thead = vscode.test.createTestItem(id, subSuite.title, item.uri);
+        const thead = controller.createTestItem(id, subSuite.title, item.uri);
         thead.range = range;
         testData.set(thead, new TestHeading(thisGeneration));
         parent.children.push(thead);
@@ -115,7 +115,7 @@ export class TestCase {
   ) { }
 
   getLabel() {
-    return `this.spec.title [${this.project}]`;
+    return `${this.spec.title} [${this.project}]`;
   }
 
   async run(item: vscode.TestItem, options: vscode.TestRun): Promise<void> {
@@ -150,7 +150,7 @@ export class TestCase {
           options.setState(item, vscode.TestResultState.Failed, result.duration);
           break;
         case "skipped":
-          options.setState(item, vscode.TestResultState.Skipped, result.duration);
+          options.setState(item, vscode.TestResultState.Skipped);
           break;
         case "timedOut":
           options.setState(item, vscode.TestResultState.Errored, result.duration);

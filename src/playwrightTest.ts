@@ -81,7 +81,7 @@ export class PlaywrightTestNPMPackage {
       this._cliEntrypoint,
       'test',
       ...(config !== DEFAULT_CONFIG ? [`--config=${config}`] : []),
-      `--project=${project}`,
+      ...(project ? [`--project=${project}`] : []),
       '--reporter=json',
       ...additionalArguments
     ];
