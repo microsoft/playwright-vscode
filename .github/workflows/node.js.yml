@@ -16,3 +16,10 @@ jobs:
     - run: npm ci
     - run: npm run lint
     - run: npm run compile
+    - run: npm i -g vsce
+    - run: vsce package
+    - uses: actions/upload-artifact@v2
+      with:
+        name: vsc-extension
+        path: "*.vsix"
+        retention-days: 30
