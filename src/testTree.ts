@@ -24,7 +24,7 @@ type PlaywrightTestData = TestFile | TestHeading | TestCase;
 
 let generationCounter = 0;
 export const testData = new WeakMap<vscode.TestItem, PlaywrightTestData>();
-type Ancestors = { 
+type Ancestors = {
   item: vscode.TestItem,
   children: vscode.TestItem[]
 }
@@ -55,7 +55,7 @@ export class TestFile {
    */
   private async _updateFromDisk(controller: vscode.TestController, item: vscode.TestItem) {
     logger.debug(`TestFile._updateFromDisk ${this.config === DEFAULT_CONFIG ? 'default' : this.config} and ${this.project}`);
-    const ancestors: Ancestors[] = [{ item, children: []}];
+    const ancestors: Ancestors[] = [{ item, children: [] }];
     const tests = await this.playwrightTest.listTests(this.config, this.project, item.uri!.path);
     if (!tests)
       return;
@@ -69,12 +69,12 @@ export class TestFile {
       }
     };
 
-    const addTests = (suite: playwrightTestTypes.Suite, parent: Ancestors) => {
+    const addTests = (suite: playwrightTestTypes.TestSuite, parent: Ancestors) => {
       for (const test of suite.specs) {
         const data = new TestCase(this.playwrightTest, this.config, this.project, test, thisGeneration);
         const id = `${item.uri}/${data.getLabel()}`;
         const range = createRangeFromPlaywright(test);
-        
+
         const tcase = controller.createTestItem(id, data.getLabel(), item.uri);
         testData.set(tcase, data);
         tcase.range = range;
@@ -126,7 +126,7 @@ export class TestCase {
       await this._run(item, options);
   }
 
-  async _debug(item:  vscode.TestItem, options: vscode.TestRun): Promise<void> {
+  async _debug(item: vscode.TestItem, options: vscode.TestRun): Promise<void> {
     await this.playwrightTest.debug(this.config, this.project, item.uri!.path, this.spec.line);
   }
 
@@ -181,7 +181,7 @@ export class TestCase {
      */
     };
     let found = false;
-    const visit = (suite: playwrightTestTypes.Suite) => {
+    const visit = (suite: playwrightTestTypes.TestSuite) => {
       if (found)
         return;
       for (const spec of suite.specs) {
@@ -199,7 +199,7 @@ export class TestCase {
   }
 }
 
-function createRangeFromPlaywright(subSuite: playwrightTestTypes.Suite | playwrightTestTypes.TestSpec): vscode.Range {
+function createRangeFromPlaywright(subSuite: playwrightTestTypes.TestSuite | playwrightTestTypes.TestSpec): vscode.Range {
   return new vscode.Range(new vscode.Position(subSuite.line - 1, subSuite.column), new vscode.Position(subSuite.line - 1, subSuite.column + 1));
 }
 

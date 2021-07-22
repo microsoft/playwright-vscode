@@ -74,8 +74,4 @@ export type JSONReportSTDIOEntry = { text: string } | { buffer: string };
 //#endregion
 
 export type TestSpec = JSONReportSpec;
-export type Suite = JSONReportSuite;
-
-export type ProjectWithIndex = Project & {
-  index: number
-}
+export type TestSuite = JSONReportSuite;
