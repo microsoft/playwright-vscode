@@ -16,8 +16,10 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { PlaywrightTestNPMPackage } from './playwrightTest';
+import { logger } from './logger';
+import { DEFAULT_CONFIG, PlaywrightTestConfig, PlaywrightTestNPMPackage } from './playwrightTest';
 import { TestCase, TestFile, testData } from './testTree';
+import { ProjectWithIndex } from './testTypes';
 
 const configuration = vscode.workspace.getConfiguration();
 
@@ -27,16 +29,37 @@ export async function activate(context: vscode.ExtensionContext) {
     return;
   }
 
-  const ctrl = vscode.test.createTestController('playwrightTestController');
+  const playwrightTestConfigsFromSettings = configuration.get<string[]>("playwright.configs");
+  const playwrightTestConfigs: PlaywrightTestConfig[] = playwrightTestConfigsFromSettings?.length ? playwrightTestConfigsFromSettings : [DEFAULT_CONFIG];
+
+  let playwrightTest: PlaywrightTestNPMPackage;
+  try {
+    playwrightTest = await PlaywrightTestNPMPackage.create(vscode.workspace.workspaceFolders[0].uri.path , configuration.get("playwright.cliPath")!);
+  } catch (error) {
+    vscode.window.showWarningMessage(error.toString());
+    return;
+  }
+
+  for (const config of playwrightTestConfigs) {
+    const tests = await playwrightTest.listTests(config, '', '.');
+    if (!tests)
+      continue;
+    for (let i = 0; i < (tests.config.projects|| []).length; i++) {
+      const project = tests.config.projects[i] as ProjectWithIndex;
+      project.index = i;
+      await createTestController(context, playwrightTest, config, project);
+    }
+  }
+}
+
+async function createTestController(context: vscode.ExtensionContext, playwrightTest: PlaywrightTestNPMPackage, config: PlaywrightTestConfig, project: ProjectWithIndex) {
+  const controllerName = `Playwright Test [${project.name}] [${config === DEFAULT_CONFIG ? 'default' : config}]`;
+  logger.debug(`Creating test controller: ${controllerName}`);
+  const ctrl = vscode.tests.createTestController('playwrightTestController'+(config === DEFAULT_CONFIG ? 'default' : config) + project.index, controllerName);
+  ctrl.label = controllerName;
   context.subscriptions.push(ctrl);
 
-  // All VS Code tests are in a tree, starting at the automatically created "root".
-  // We'll give it a label, and set its status so that VS Code will call
-  // `resolveChildrenHandler` when the test explorer is opened.
-  ctrl.root.label = 'Playwright Test';
-  ctrl.root.canResolveChildren = true;
-
-  ctrl.runHandler = (request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) => {
+  const runHandler = (request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) => {
     const queue: { test: vscode.TestItem; data: TestCase }[] = [];
     const run = ctrl.createTestRun(request);
     const discoverTests = async (tests: Iterable<vscode.TestItem>) => {
@@ -47,49 +70,49 @@ export async function activate(context: vscode.ExtensionContext) {
 
         const data = testData.get(test);
         if (data instanceof TestCase) {
-          run.setState(test, vscode.TestResultState.Queued);
-          queue.push({test, data});
+          run.enqueued(test);
+          queue.push({test, data });
         } else {
-          if (data instanceof TestFile && test.children.size === 0) {
+          if (data instanceof TestFile && !data.didResolve) {
             await data.updateFromDisk(ctrl, test);
           }
 
-          await discoverTests(test.children.values());
+          await discoverTests(gatherTestItems(test.children));
         }
       }
     };
 
     const runTestQueue = async () => {
-      for (const {test, data} of queue) {
+      for (const { test, data } of queue) {
         run.appendOutput(`Running ${test.id}\r\n`);
         if (cancellation.isCancellationRequested) {
-          run.setState(test, vscode.TestResultState.Skipped);
+          run.skipped(test);
         } else {
-          run.setState(test, vscode.TestResultState.Running);
+          run.started(test);
           await data.run(test, run);
         }
+
         run.appendOutput(`Completed ${test.id}\r\n`);
       }
 
       run.end();
     };
 
-    discoverTests(request.tests).then(runTestQueue);
+    discoverTests(request.include ?? gatherTestItems(ctrl.items)).then(runTestQueue);
   };
 
-  const playwrightTestConfigsFromSettings = configuration.get<string[]>("playwright.configs");
-  const playwrightTestConfig = playwrightTestConfigsFromSettings?.length === 1 ? playwrightTestConfigsFromSettings[0] : null;
+  
+  ctrl.createRunProfile(`Run Tests in ${project.name} [${config === DEFAULT_CONFIG ? 'default' : config}]`, vscode.TestRunProfileKind.Run, runHandler, true);
 
-  const playwrightTest = await PlaywrightTestNPMPackage.create(vscode.workspace.workspaceFolders[0].uri.path, playwrightTestConfig);
-
-  ctrl.resolveChildrenHandler = async item => {
-    if (item === ctrl.root) {
-      await startWatchingWorkspace(ctrl, playwrightTest);
+  ctrl.resolveHandler = async item => {
+    if (!item) {
+      await startWatchingWorkspace(ctrl, playwrightTest, config, project);
       return;
     }
     const data = testData.get(item);
-    if (data instanceof TestFile)
+    if (data instanceof TestFile) {
       await data.updateFromDisk(ctrl, item);
+    }
   };
 
   function updateNodeForDocument(e: vscode.TextDocument) {
@@ -97,7 +120,7 @@ export async function activate(context: vscode.ExtensionContext) {
       return;
     }
 
-    const { file, data } = getOrCreateFile(ctrl, e.uri, playwrightTest);
+    const { file, data } = getOrCreateFile(ctrl, e.uri, playwrightTest, config, project);
     data.updateFromDisk(ctrl, file);
   }
 
@@ -109,62 +132,38 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidOpenTextDocument(updateNodeForDocument),
     vscode.workspace.onDidSaveTextDocument(updateNodeForDocument)
   );
-
-  const commandHandler = async () => {
-    const tests = await playwrightTest.listTests(vscode.workspace.workspaceFolders![0].uri.path);
-    if (!tests)
-      return;
-    const items: vscode.QuickPickItem[] = tests.config.projects.map(project => ({
-      label: project.name,
-      description: `Playwright Test project: ${project.name}`,
-    }));
-
-    const selection = await vscode.window.showQuickPick(items);
-    // the user canceled the selection
-    if (!selection) {
-      return;
-    }
-    playwrightTest.setProject(selection.label);
-  };
-  context.subscriptions.push(
-    vscode.commands.registerCommand('playwright.selectProject', commandHandler)
-  );
 }
 
-function getOrCreateFile(controller: vscode.TestController, uri: vscode.Uri, playwrightTest: PlaywrightTestNPMPackage) {
-  const existing = controller.root.children.get(uri.toString());
+function getOrCreateFile(controller: vscode.TestController, uri: vscode.Uri, playwrightTest: PlaywrightTestNPMPackage, config: PlaywrightTestConfig, project: ProjectWithIndex) {
+  const existing = controller.items.get(uri.toString());
   if (existing) {
     return { file: existing, data: testData.get(existing) as TestFile };
   }
+  const label = path.relative(vscode.workspace.workspaceFolders![0].uri.path, uri.path);
+  const file = controller.createTestItem(uri.toString(), label, uri);
+  controller.items.add(file);
 
-  const file = controller.createTestItem(
-    uri.toString(),
-    path.relative(vscode.workspace.workspaceFolders![0].uri.path, uri.path),
-    controller.root,
-    uri,
-  );
-
-  const data = new TestFile(playwrightTest);
+  const data = new TestFile(playwrightTest, config, project.name!);
   testData.set(file, data);
 
   file.canResolveChildren = true;
   return { file, data };
 }
 
-function startWatchingWorkspace(controller: vscode.TestController, playwrightTest: PlaywrightTestNPMPackage) {
-  if (!vscode.workspace.workspaceFolders) {
-    return [];
-  }
+function gatherTestItems(collection: vscode.TestItemCollection) {
+  const items: vscode.TestItem[] = [];
+  collection.forEach(item => items.push(item));
+  return items;
+}
 
+function startWatchingWorkspace(controller: vscode.TestController, playwrightTest: PlaywrightTestNPMPackage, config: PlaywrightTestConfig, project: ProjectWithIndex) {
   return Promise.all(
-    vscode.workspace.workspaceFolders.map(async workspaceFolder => {
-      const tests = await playwrightTest.listTests(workspaceFolder.uri.path);
+    vscode.workspace.workspaceFolders!.map(async workspaceFolder => {
+      const tests = await playwrightTest.listTests(config, '', workspaceFolder.uri.path);
       if (!tests)
         return;
-      // set default project
-      playwrightTest.setProject(tests.config.projects[0].name);
       for (const suite of tests.suites)
-        getOrCreateFile(controller, vscode.Uri.file(path.join(tests.config.rootDir, suite.file)), playwrightTest);
+        getOrCreateFile(controller, vscode.Uri.file(path.join(tests.config.rootDir, suite.file)), playwrightTest, config, project);
     })
   );
 }
