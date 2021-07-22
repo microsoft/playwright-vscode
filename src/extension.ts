@@ -17,7 +17,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { logger } from './logger';
-import { DEFAULT_CONFIG, PlaywrightTestConfig, PlaywrightTestNPMPackage } from './playwrightTest';
+import { DEFAULT_CONFIG, getConfigDisplayName, PlaywrightTestConfig, PlaywrightTestNPMPackage } from './playwrightTest';
 import { TestCase, TestFile, testData } from './testTree';
 
 const configuration = vscode.workspace.getConfiguration();

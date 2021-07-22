@@ -16,7 +16,7 @@
 
 import * as vscode from 'vscode';
 import { logger } from './logger';
-import { DEFAULT_CONFIG, PlaywrightTestConfig, PlaywrightTestNPMPackage } from './playwrightTest';
+import { DEFAULT_CONFIG, getConfigDisplayName, PlaywrightTestConfig, PlaywrightTestNPMPackage } from './playwrightTest';
 import * as playwrightTestTypes from './testTypes';
 import { assert } from './utils';
 

@@ -125,3 +125,7 @@ export class PlaywrightTestNPMPackage {
     await vscode.debug.startDebugging(vscode.workspace.workspaceFolders![0], debugConfiguration);
   }
 }
+
+export function getConfigDisplayName(config: PlaywrightTestConfig): string {
+  return config === DEFAULT_CONFIG ? 'default' : config;
+}
