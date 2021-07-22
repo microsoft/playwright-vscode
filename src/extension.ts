@@ -70,7 +70,7 @@ async function createTestController(context: vscode.ExtensionContext, playwright
 
         const data = testData.get(test);
         if (data instanceof TestCase) {
-          run.setState(test, vscode.TestResultState.Queued);
+          run.enqueued(test);
           queue.push({test, data });
         } else {
           if (data instanceof TestFile && !data.didResolve) {
@@ -86,9 +86,9 @@ async function createTestController(context: vscode.ExtensionContext, playwright
       for (const { test, data } of queue) {
         run.appendOutput(`Running ${test.id}\r\n`);
         if (cancellation.isCancellationRequested) {
-          run.setState(test, vscode.TestResultState.Skipped);
+          run.skipped(test);
         } else {
-          run.setState(test, vscode.TestResultState.Running);
+          run.started(test);
           await data.run(test, run);
         }
 
@@ -104,7 +104,7 @@ async function createTestController(context: vscode.ExtensionContext, playwright
   
   ctrl.createRunProfile(`Run Tests in ${project.name} [${config === DEFAULT_CONFIG ? 'default' : config}]`, vscode.TestRunProfileKind.Run, runHandler, true);
 
-  ctrl.resolveChildrenHandler = async item => {
+  ctrl.resolveHandler = async item => {
     if (!item) {
       await startWatchingWorkspace(ctrl, playwrightTest, config, project);
       return;

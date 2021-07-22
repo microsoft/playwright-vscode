@@ -86,7 +86,7 @@ export class PlaywrightTestNPMPackage {
       ...additionalArguments
     ];
     logger.debug(`Executing command: ${spawnArguments.join(' ')}`);
-    const result = await spawnAsync('node', spawnArguments, {
+    const result = await spawnAsync('/Users/max/.nvm/versions/node/v14.17.1/bin/node', spawnArguments, {
       cwd: this._directory,
     });
     logger.debug(`Exit code ${result.code}`);

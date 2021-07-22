@@ -123,7 +123,7 @@ export class TestCase {
     try {
       result = await this.playwrightTest.runTest(this.config, this.project, item.uri!.path, this.spec.line);
     } catch (error) {
-      options.setState(item, vscode.TestResultState.Errored);
+      options.failed(item, new vscode.TestMessage(error.toString()));
       console.log(error);
       return;
     }
@@ -139,21 +139,22 @@ export class TestCase {
         options.appendOutput(decodeJSONReporterSTDIOEntry(entry));
       switch (result.status) {
         case "passed":
-          options.setState(item, vscode.TestResultState.Passed, result.duration);
+          options.passed(item, result.duration);
           break;
-        case "failed":
+        case "failed": {
+          let message = new vscode.TestMessage('');
           if (result.error?.stack) {
-            const message = new vscode.TestMessage(result.error.stack);
+            message = new vscode.TestMessage(result.error.stack);
             message.location = new vscode.Location(item.uri!, item.range!);
-            options.appendMessage(item, message);
           }
-          options.setState(item, vscode.TestResultState.Failed, result.duration);
+          options.failed(item, message, result.duration);
           break;
+        }
         case "skipped":
-          options.setState(item, vscode.TestResultState.Skipped);
+          options.skipped(item);
           break;
         case "timedOut":
-          options.setState(item, vscode.TestResultState.Errored, result.duration);
+          options.failed(item, new vscode.TestMessage('Timeout!'), result.duration);
           break;
         default:
           throw new Error(`Unexpected status ${result.status}`);
