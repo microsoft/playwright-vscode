@@ -53,13 +53,14 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 async function createTestController(context: vscode.ExtensionContext, playwrightTest: PlaywrightTestNPMPackage, config: PlaywrightTestConfig, project: ProjectWithIndex) {
-  const controllerName = `Playwright Test [${project.name}] [${config === DEFAULT_CONFIG ? 'default' : config}]`;
+  const displayProjectAndConfigName = `${project.name} [${config === DEFAULT_CONFIG ? 'default' : config}]`;
+  const controllerName = `Playwright Test ${displayProjectAndConfigName}`;
   logger.debug(`Creating test controller: ${controllerName}`);
   const ctrl = vscode.tests.createTestController('playwrightTestController'+(config === DEFAULT_CONFIG ? 'default' : config) + project.index, controllerName);
   ctrl.label = controllerName;
   context.subscriptions.push(ctrl);
 
-  const runHandler = (request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) => {
+  const makeRunHandler = (debug: boolean) => (request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) => {
     const queue: { test: vscode.TestItem; data: TestCase }[] = [];
     const run = ctrl.createTestRun(request);
     const discoverTests = async (tests: Iterable<vscode.TestItem>) => {
@@ -89,7 +90,7 @@ async function createTestController(context: vscode.ExtensionContext, playwright
           run.skipped(test);
         } else {
           run.started(test);
-          await data.run(test, run);
+          await data.run(test, run, debug);
         }
 
         run.appendOutput(`Completed ${test.id}\r\n`);
@@ -102,7 +103,8 @@ async function createTestController(context: vscode.ExtensionContext, playwright
   };
 
   
-  ctrl.createRunProfile(`Run Tests in ${project.name} [${config === DEFAULT_CONFIG ? 'default' : config}]`, vscode.TestRunProfileKind.Run, runHandler, true);
+  ctrl.createRunProfile(`Run Tests in ${displayProjectAndConfigName}`, vscode.TestRunProfileKind.Run, makeRunHandler(false), true);
+  ctrl.createRunProfile(`Debug Tests in ${displayProjectAndConfigName}`, vscode.TestRunProfileKind.Debug, makeRunHandler(true), true);
 
   ctrl.resolveHandler = async item => {
     if (!item) {
