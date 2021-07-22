@@ -15,10 +15,14 @@
  */
 
 import * as vscode from 'vscode';
+import * as StackUtils from 'stack-utils';
+
 import { logger } from './logger';
-import { DEFAULT_CONFIG, getConfigDisplayName, PlaywrightTestConfig, PlaywrightTestNPMPackage } from './playwrightTest';
+import { DEFAULT_CONFIG, PlaywrightTestConfig, PlaywrightTestNPMPackage } from './playwrightTest';
 import * as playwrightTestTypes from './testTypes';
 import { assert } from './utils';
+
+const stackUtils = new StackUtils();
 
 type PlaywrightTestData = TestFile | TestHeading | TestCase;
 
@@ -154,12 +158,7 @@ export class TestCase {
           options.passed(item, result.duration);
           break;
         case "failed": {
-          let message = new vscode.TestMessage('');
-          if (result.error?.stack) {
-            message = new vscode.TestMessage(result.error.stack);
-            message.location = new vscode.Location(item.uri!, item.range!);
-          }
-          options.failed(item, message, result.duration);
+          options.failed(item, parsePlaywrightTestError(item, result.error), result.duration);
           break;
         }
         case "skipped":
@@ -199,8 +198,26 @@ export class TestCase {
   }
 }
 
+function parsePlaywrightTestError(item: vscode.TestItem, error?: playwrightTestTypes.TestError): vscode.TestMessage {
+  if (!error || !error.stack || !error.message)
+    return new vscode.TestMessage('Error could not get extracted!');
+  const lines = error.stack.split('\n').reverse();
+  for (const line of lines) {
+    const frame = stackUtils.parseLine(line);
+    if (!frame || !frame.file || !frame.line || !frame.column)
+      continue;
+    if (frame.file === item.uri!.path) {
+      const message = new vscode.TestMessage(`${error.message|| ''}\n${error.stack}`);
+      const position = new vscode.Position(frame.line - 1, frame.column - 1);
+      message.location = new vscode.Location(item.uri!, position);
+      return message;
+    }
+  }
+  return new vscode.TestMessage(error.message);
+}
+
 function createRangeFromPlaywright(subSuite: playwrightTestTypes.TestSuite | playwrightTestTypes.TestSpec): vscode.Range {
-  return new vscode.Range(new vscode.Position(subSuite.line - 1, subSuite.column), new vscode.Position(subSuite.line - 1, subSuite.column + 1));
+  return new vscode.Range(new vscode.Position(subSuite.line - 1, subSuite.column -1), new vscode.Position(subSuite.line - 1, subSuite.column));
 }
 
 function decodeJSONReporterSTDIOEntry(entry: playwrightTestTypes.JSONReportSTDIOEntry): string {

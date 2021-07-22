@@ -24,7 +24,7 @@ test("1212me", async ({page}) => {
 });
 
 test.describe("should be awesome²", () => {
-  test("me333", ({ page }) => {
+  test("me333", () => {
     expect(1).toBe(1);
   });
   test.describe("layer 2", () => {

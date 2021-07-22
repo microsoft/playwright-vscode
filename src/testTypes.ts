@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import type { FullConfig, TestStatus, TestError, Project, TestInfo } from '@playwright/test';
+import type { FullConfig, TestStatus, TestError } from '@playwright/test';
+export type { TestError } from '@playwright/test';
 
 //#region Mirrored from @playwright/test JSON reporter
 
