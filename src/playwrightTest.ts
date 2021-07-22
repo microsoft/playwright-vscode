@@ -17,6 +17,8 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { spawn, SpawnOptionsWithoutStdio } from 'child_process';
+import * as vscode from 'vscode';
+
 import * as playwrightTestTypes from './testTypes';
 import { logger } from './logger';
 
@@ -79,17 +81,43 @@ export class PlaywrightTestNPMPackage {
   private async _executePlaywrightTestCommand(config: PlaywrightTestConfig, project: string, additionalArguments: string[]) {
     const spawnArguments = [
       this._cliEntrypoint,
-      'test',
-      ...(config !== DEFAULT_CONFIG ? [`--config=${config}`] : []),
-      ...(project ? [`--project=${project}`] : []),
+      ...this._buildBaseArgs(config, project),
       '--reporter=json',
       ...additionalArguments
     ];
     logger.debug(`Executing command: ${spawnArguments.join(' ')}`);
-    const result = await spawnAsync('/Users/max/.nvm/versions/node/v14.17.1/bin/node', spawnArguments, {
+    const result = await spawnAsync('node', spawnArguments, {
       cwd: this._directory,
     });
     logger.debug(`Exit code ${result.code}`);
     return result;
+  } 
+  
+  private _buildBaseArgs(config: PlaywrightTestConfig, project: string) {
+    return [
+      'test',
+      ...(config !== DEFAULT_CONFIG ? [`--config=${config}`] : []),
+      ...(project ? [`--project=${project}`] : []),
+    ];
+  }
+
+  public async debug(config: PlaywrightTestConfig, project: string, path: string, line: number): Promise<void> {
+    const args = [
+      ...this._buildBaseArgs(config, project),
+      '--reporter=list',
+      `${path}:${line}`
+    ];
+    const debugConfiguration: vscode.DebugConfiguration = {
+      args,
+      console: 'internalConsole',
+      cwd: "${workspaceFolder}",
+      internalConsoleOptions: "neverOpen",
+      name: "playwright-test",
+      request: "launch",
+      type: "node",
+      runtimeExecutable: this._cliEntrypoint,
+    };
+
+    await vscode.debug.startDebugging(vscode.workspace.workspaceFolders![0], debugConfiguration);
   }
 }

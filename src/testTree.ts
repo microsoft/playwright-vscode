@@ -118,7 +118,19 @@ export class TestCase {
     return `${this.spec.title} [${this.project}]`;
   }
 
-  async run(item: vscode.TestItem, options: vscode.TestRun): Promise<void> {
+  async run(item: vscode.TestItem, options: vscode.TestRun, debug: boolean): Promise<void> {
+    logger.debug(`Running test ${item.label} debug=${debug}`);
+    if (debug)
+      await this._debug(item, options);
+    else
+      await this._run(item, options);
+  }
+
+  async _debug(item:  vscode.TestItem, options: vscode.TestRun): Promise<void> {
+    await this.playwrightTest.debug(this.config, this.project, item.uri!.path, this.spec.line);
+  }
+
+  async _run(item: vscode.TestItem, options: vscode.TestRun): Promise<void> {
     let result;
     try {
       result = await this.playwrightTest.runTest(this.config, this.project, item.uri!.path, this.spec.line);
