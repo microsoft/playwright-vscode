@@ -15,8 +15,21 @@
  */
 import { expect, test } from '@playwright/test';
 
-test("should be awesome1", () => {
-  expect(1).toBe(1);
+function bar() {
+  throw new Error("kek");
+}
+
+function foo() {
+  bar();
+}
+
+test("should be able to debug", async ({page}) => {
+  const userAgent = await page.evaluate(() => window.navigator.userAgent);
+  console.log("1", userAgent);
+  console.log("2,", userAgent);
+  foo();
+  console.log("3", userAgent);
+  console.log("4", userAgent);
 });
 
 test.describe("should be awesome²", () => {

@@ -17,7 +17,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { logger } from './logger';
-import { DEFAULT_CONFIG, PlaywrightTestConfig, PlaywrightTestNPMPackage } from './playwrightTest';
+import { DEFAULT_CONFIG, getConfigDisplayName, PlaywrightTestConfig, PlaywrightTestNPMPackage } from './playwrightTest';
 import { TestCase, TestFile, testData } from './testTree';
 
 const configuration = vscode.workspace.getConfiguration();
@@ -46,16 +46,19 @@ export async function activate(context: vscode.ExtensionContext) {
     return;
   }
 
-  for (const config of playwrightTestConfigs) {
+  for (let configIndex = 0; configIndex < playwrightTestConfigs.length; configIndex++) {
+    const config = playwrightTestConfigs[configIndex];
     const tests = await playwrightTest.listTests(config, '', '.');
     if (!tests)
       continue;
-    for (let i = 0; i < tests.config.projects.length; i++)
-      await createTestController(context, workspaceFolder, playwrightTest, config, tests.config.projects[i].name, i);
+    for (let projectsIndex = 0; projectsIndex < tests.config.projects.length; projectsIndex++) {
+      const isDefault = projectsIndex === 0 && configIndex === 0;
+      await createTestController(context, workspaceFolder, playwrightTest, config, tests.config.projects[projectsIndex].name, projectsIndex, isDefault);
+    }
   }
 }
 
-async function createTestController(context: vscode.ExtensionContext, workspaceFolder: vscode.WorkspaceFolder, playwrightTest: PlaywrightTestNPMPackage, config: PlaywrightTestConfig, projectName: string, projectIndex: number) {
+async function createTestController(context: vscode.ExtensionContext, workspaceFolder: vscode.WorkspaceFolder, playwrightTest: PlaywrightTestNPMPackage, config: PlaywrightTestConfig, projectName: string, projectIndex: number, isDefault: boolean) {
   const displayProjectAndConfigName = `${projectName}${config === DEFAULT_CONFIG ? '' : `[${config}]`}`;
   const controllerName = `Playwright Test ${displayProjectAndConfigName}`;
   logger.debug(`Creating test controller: ${controllerName}`);
@@ -106,8 +109,8 @@ async function createTestController(context: vscode.ExtensionContext, workspaceF
   };
 
 
-  ctrl.createRunProfile(`Run Tests in ${displayProjectAndConfigName}`, vscode.TestRunProfileKind.Run, makeRunHandler(false), true);
-  ctrl.createRunProfile(`Debug Tests in ${displayProjectAndConfigName}`, vscode.TestRunProfileKind.Debug, makeRunHandler(true), true);
+  ctrl.createRunProfile(`Run Tests in ${displayProjectAndConfigName}`, vscode.TestRunProfileKind.Run, makeRunHandler(false), isDefault);
+  ctrl.createRunProfile(`Debug Tests in ${displayProjectAndConfigName}`, vscode.TestRunProfileKind.Debug, makeRunHandler(true), isDefault);
 
   ctrl.resolveHandler = async item => {
     if (!item) {
