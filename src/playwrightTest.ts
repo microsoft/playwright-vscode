@@ -21,6 +21,7 @@ import * as vscode from 'vscode';
 
 import * as playwrightTestTypes from './testTypes';
 import { logger } from './logger';
+import type { PlaywrightDebugMode } from './extension';
 
 export const DEFAULT_CONFIG = Symbol("default config");
 export type PlaywrightTestConfig = string | typeof DEFAULT_CONFIG
@@ -49,13 +50,15 @@ async function fileExistsAsync(file: string): Promise<boolean> {
 export class PlaywrightTestNPMPackage {
   private _directory: string;
   private _cliEntrypoint: string;
-  private constructor(directory: string, cliPath: string) {
+  private _debugMode: PlaywrightDebugMode;
+  private constructor(directory: string, cliPath: string, debugMode: PlaywrightDebugMode) {
     this._directory = directory;
     this._cliEntrypoint = path.join(directory, cliPath);
+    this._debugMode = debugMode;
   }
 
-  static async create(directory: string, cliPath: string) {
-    const pwTest = new PlaywrightTestNPMPackage(directory, cliPath);
+  static async create(directory: string, cliPath: string, debugMode: PlaywrightDebugMode) {
+    const pwTest = new PlaywrightTestNPMPackage(directory, cliPath, debugMode);
     if (!await fileExistsAsync(pwTest._cliEntrypoint))
       throw new Error(`Could not locate Playwright Test. Is it installed? 'npm install -D @playwright/test'`);
     return pwTest;
@@ -72,7 +75,9 @@ export class PlaywrightTestNPMPackage {
   }
 
   public async runTest(config: PlaywrightTestConfig, project: string, path: string, line: number): Promise<playwrightTestTypes.JSONReport> {
-    const proc = await this._executePlaywrightTestCommand(config, project, [`${path}:${line}`]);
+    const proc = await this._executePlaywrightTestCommand(config, project, [`${path}:${line}`], {
+      env: this._getEnv(),
+    });
     const stdout = proc.stdout.toString();
     try {
       return JSON.parse(stdout);
@@ -82,7 +87,7 @@ export class PlaywrightTestNPMPackage {
     }
   }
 
-  private async _executePlaywrightTestCommand(config: PlaywrightTestConfig, project: string, additionalArguments: string[]) {
+  private async _executePlaywrightTestCommand(config: PlaywrightTestConfig, project: string, additionalArguments: string[], options?: SpawnOptionsWithoutStdio) {
     const spawnArguments = [
       this._cliEntrypoint,
       ...this._buildBaseArgs(config, project),
@@ -92,9 +97,19 @@ export class PlaywrightTestNPMPackage {
     logger.debug(`Executing command: ${spawnArguments.join(' ')}`);
     const result = await spawnAsync('node', spawnArguments, {
       cwd: this._directory,
+      ...options,
     });
     logger.debug(`Exit code ${result.code}`);
     return result;
+  }
+
+  private _getEnv(): NodeJS.ProcessEnv {
+    if (this._debugMode.isEnabled())
+      return {
+        ...process.env,
+        "PWDEBUG": "1"
+      };
+    return process.env;
   }
 
   private _buildBaseArgs(config: PlaywrightTestConfig, project: string) {
@@ -120,6 +135,7 @@ export class PlaywrightTestNPMPackage {
       request: "launch",
       type: "node",
       runtimeExecutable: this._cliEntrypoint,
+      env: this._getEnv(),
     };
 
     await vscode.debug.startDebugging(vscode.workspace.workspaceFolders![0], debugConfiguration);

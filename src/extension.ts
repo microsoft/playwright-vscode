@@ -33,6 +33,8 @@ export async function activate(context: vscode.ExtensionContext) {
     return;
   }
 
+  const debugModeHandler = new PlaywrightDebugMode(context);
+
   const workspaceFolder = vscode.workspace.workspaceFolders[0];
 
   const playwrightTestConfigsFromSettings = configuration.get<string[]>("playwright.configs");
@@ -40,7 +42,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   let playwrightTest: PlaywrightTestNPMPackage;
   try {
-    playwrightTest = await PlaywrightTestNPMPackage.create(workspaceFolder.uri.path, configuration.get("playwright.cliPath")!);
+    playwrightTest = await PlaywrightTestNPMPackage.create(workspaceFolder.uri.path, configuration.get("playwright.cliPath")!, debugModeHandler);
   } catch (error) {
     vscode.window.showWarningMessage(error.toString());
     return;
@@ -170,4 +172,42 @@ async function startIndexingWorkspace(workspaceFolder: vscode.WorkspaceFolder, c
     return;
   for (const suite of tests.suites)
     getOrCreateFile(controller, workspaceFolder, vscode.Uri.file(path.join(tests.config.rootDir, suite.file)), playwrightTest, config, projectName);
+}
+
+export class PlaywrightDebugMode {
+  private toggleCommand = 'playwright.toggleDebugMode';
+  private isDebugModeEnabled = false;
+  private statusBarItem!: vscode.StatusBarItem;
+    constructor(readonly context: vscode.ExtensionContext) {
+      this._initStatusBarItem();
+    }
+
+    private _initStatusBarItem() {
+      this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+      this.statusBarItem.command = this.toggleCommand;
+      this._updateDebugModeText();
+      this.statusBarItem.tooltip = 'Enable Playwright Test Debug mode (PWDEBUG=1)';
+      this.statusBarItem.show();
+      this.context.subscriptions.push(this.statusBarItem);
+
+      this.context.subscriptions.push(
+          vscode.commands.registerCommand(this.toggleCommand, () => {
+            this.isDebugModeEnabled = !this.isDebugModeEnabled;
+            this._updateDebugModeText();
+        })
+      );
+    }
+
+    private _updateDebugModeText = () => {
+      let text;
+      if (this.isDebugModeEnabled)
+        text = `$(debug-alt) Playwright Debug enabled`;
+      else
+        text = `Enable Playwright Debug`;
+      this.statusBarItem.text = text;
+    }
+
+    public isEnabled(): boolean {
+      return this.isDebugModeEnabled;
+    }
 }
