@@ -58,7 +58,7 @@ export async function activate(context: vscode.ExtensionContext) {
   }
 }
 
-async function createTestController(context: vscode.ExtensionContext, workspaceFolder: vscode.WorkspaceFolder, playwrightTest: PlaywrightTestNPMPackage, config: PlaywrightTestConfig, projectName: string, projectIndex: number) {
+async function createTestController(context: vscode.ExtensionContext, workspaceFolder: vscode.WorkspaceFolder, playwrightTest: PlaywrightTestNPMPackage, config: PlaywrightTestConfig, projectName: string, projectIndex: number, isDefault: boolean) {
   const displayProjectAndConfigName = `${projectName}${config === DEFAULT_CONFIG ? '' : `[${config}]`}`;
   const controllerName = `Playwright Test ${displayProjectAndConfigName}`;
   logger.debug(`Creating test controller: ${controllerName}`);
