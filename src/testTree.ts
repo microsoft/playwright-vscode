@@ -200,7 +200,7 @@ export class TestCase {
 
 function parsePlaywrightTestError(item: vscode.TestItem, error?: playwrightTestTypes.TestError): vscode.TestMessage {
   if (!error || !error.stack || !error.message)
-    return new vscode.TestMessage('Error could not get extracted!');
+    return new vscode.TestMessage('Error could not be extracted!');
   const lines = error.stack.split('\n').reverse();
   for (const line of lines) {
     const frame = stackUtils.parseLine(line);
