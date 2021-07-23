@@ -49,16 +49,18 @@ async function fileExistsAsync(file: string): Promise<boolean> {
 export class PlaywrightTestNPMPackage {
   private _directory: string;
   private _cliEntrypoint: string;
-  constructor(directory: string, cliPath: string) {
+  private constructor(directory: string, cliPath: string) {
     this._directory = directory;
     this._cliEntrypoint = path.join(directory, cliPath);
   }
+
   static async create(directory: string, cliPath: string) {
     const pwTest = new PlaywrightTestNPMPackage(directory, cliPath);
     if (!await fileExistsAsync(pwTest._cliEntrypoint))
       throw new Error(`Could not locate Playwright Test. Is it installed? 'npm install -D @playwright/test'`);
     return pwTest;
   }
+
   public async listTests(config: PlaywrightTestConfig, project: string, fileOrFolder: string): Promise<playwrightTestTypes.JSONReport | null> {
     const proc = await this._executePlaywrightTestCommand(config, project, ['--list', fileOrFolder]);
     if (proc.code !== 0) {
@@ -68,6 +70,7 @@ export class PlaywrightTestNPMPackage {
     }
     return JSON.parse(proc.stdout.toString());
   }
+
   public async runTest(config: PlaywrightTestConfig, project: string, path: string, line: number): Promise<playwrightTestTypes.JSONReport> {
     const proc = await this._executePlaywrightTestCommand(config, project, [`${path}:${line}`]);
     const stdout = proc.stdout.toString();
@@ -78,6 +81,7 @@ export class PlaywrightTestNPMPackage {
       throw error;
     }
   }
+
   private async _executePlaywrightTestCommand(config: PlaywrightTestConfig, project: string, additionalArguments: string[]) {
     const spawnArguments = [
       this._cliEntrypoint,
@@ -91,8 +95,8 @@ export class PlaywrightTestNPMPackage {
     });
     logger.debug(`Exit code ${result.code}`);
     return result;
-  } 
-  
+  }
+
   private _buildBaseArgs(config: PlaywrightTestConfig, project: string) {
     return [
       'test',
