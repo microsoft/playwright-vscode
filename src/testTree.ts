@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import * as path from 'path';
 import * as vscode from 'vscode';
 import * as StackUtils from 'stack-utils';
 
@@ -39,6 +40,7 @@ export class TestFile {
   public didResolve = false;
   constructor(
     private readonly playwrightTest: PlaywrightTest,
+    private readonly workspaceFolder: vscode.WorkspaceFolder,
     private readonly config: PlaywrightTestConfig,
     private readonly project: string,
   ) { }
@@ -62,7 +64,7 @@ export class TestFile {
   private async _updateFromDisk(controller: vscode.TestController, item: vscode.TestItem) {
     logger.debug(`TestFile._updateFromDisk ${this.config === DEFAULT_CONFIG ? 'default' : this.config} and ${this.project}`);
     const ancestors: Ancestors[] = [{ item, children: [] }];
-    const tests = await this.playwrightTest.listTests(this.config, this.project, item.uri!.fsPath);
+    const tests = await this.playwrightTest.listTests(this.config, this.project, path.relative(this.workspaceFolder.uri.fsPath, item.uri!.fsPath));
     if (!tests)
       return;
     const thisGeneration = generationCounter++;

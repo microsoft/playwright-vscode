@@ -158,7 +158,7 @@ function getOrCreateFile(controller: vscode.TestController, workspaceFolder: vsc
   const file = controller.createTestItem(uri.toString(), label, uri);
   controller.items.add(file);
 
-  const data = new TestFile(playwrightTest, config, projectName);
+  const data = new TestFile(playwrightTest, workspaceFolder, config, projectName);
   testData.set(file, data);
 
   file.canResolveChildren = true;
@@ -172,7 +172,7 @@ function gatherTestItems(collection: vscode.TestItemCollection) {
 }
 
 async function startIndexingWorkspace(workspaceFolder: vscode.WorkspaceFolder, controller: vscode.TestController, playwrightTest: PlaywrightTest, config: PlaywrightTestConfig, projectName: string) {
-  const tests = await playwrightTest.listTests(config, projectName, workspaceFolder.uri.fsPath);
+  const tests = await playwrightTest.listTests(config, projectName, '.');
   if (!tests)
     return;
   for (const suite of tests.suites)

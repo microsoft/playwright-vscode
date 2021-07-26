@@ -72,7 +72,7 @@ export class PlaywrightTest {
 
   private async _executePlaywrightTestCommand(config: PlaywrightTestConfig, projectName: string, additionalArguments: string[], options?: SpawnOptionsWithoutStdio) {
     const spawnArguments = [
-      this._cliEntrypoint,
+      path.relative(this._directory, this._cliEntrypoint),
       ...this._buildBaseArgs(config, projectName),
       '--reporter=json',
       ...additionalArguments
