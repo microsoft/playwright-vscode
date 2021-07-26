@@ -15,39 +15,18 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs';
-import { spawn, SpawnOptionsWithoutStdio } from 'child_process';
+import type { SpawnOptionsWithoutStdio } from 'child_process';
 import * as vscode from 'vscode';
 
 import * as playwrightTestTypes from './testTypes';
 import { logger } from './logger';
 import type { PlaywrightDebugMode } from './extension';
+import { fileExistsAsync, spawnAsync } from './utils';
 
-export const DEFAULT_CONFIG = Symbol("default config");
+export const DEFAULT_CONFIG = Symbol('default config');
 export type PlaywrightTestConfig = string | typeof DEFAULT_CONFIG
 
-function spawnAsync(cmd: string, args: string[], options: SpawnOptionsWithoutStdio): Promise<{ stdout: Buffer, stderr: Buffer, code: number | null, error?: Error }> {
-  const process = spawn(cmd, args, options);
-
-  return new Promise((resolve, reject) => {
-    let stdout = Buffer.from([]);
-    let stderr = Buffer.from([]);
-    if (process.stdout)
-      process.stdout.on('data', data => stdout = Buffer.concat([stdout, data]));
-    if (process.stderr)
-      process.stderr.on('data', data => stderr = Buffer.concat([stderr, data]));
-    process.on('close', code => resolve({ stdout, stderr, code }));
-    process.on('error', error => reject(error));
-  });
-}
-
-async function fileExistsAsync(file: string): Promise<boolean> {
-  return fs.promises.access(file, fs.constants.F_OK)
-    .then(() => true)
-    .catch(() => false);
-}
-
-export class PlaywrightTestNPMPackage {
+export class PlaywrightTest {
   private _directory: string;
   private _cliEntrypoint: string;
   private _debugMode: PlaywrightDebugMode;
@@ -58,39 +37,43 @@ export class PlaywrightTestNPMPackage {
   }
 
   static async create(directory: string, cliPath: string, debugMode: PlaywrightDebugMode) {
-    const pwTest = new PlaywrightTestNPMPackage(directory, cliPath, debugMode);
+    const pwTest = new PlaywrightTest(directory, cliPath, debugMode);
     if (!await fileExistsAsync(pwTest._cliEntrypoint))
-      throw new Error(`Could not locate Playwright Test. Is it installed? 'npm install -D @playwright/test'`);
+      throw new Error('Could not locate Playwright Test. Is it installed? \'npm install -D @playwright/test\'');
     return pwTest;
   }
 
-  public async listTests(config: PlaywrightTestConfig, project: string, fileOrFolder: string): Promise<playwrightTestTypes.JSONReport | null> {
-    const proc = await this._executePlaywrightTestCommand(config, project, ['--list', fileOrFolder]);
+  public async listTests(config: PlaywrightTestConfig, projectName: string, fileOrFolder: string): Promise<playwrightTestTypes.JSONReport | null> {
+    const proc = await this._executePlaywrightTestCommand(config, projectName, ['--list', fileOrFolder]);
     if (proc.code !== 0) {
-      if (proc.stderr.includes("no tests found."))
+      if (proc.stderr.includes('no tests found.'))
         return null;
-      throw new Error(proc.stderr.toString() || proc.stdout.toString());
+      throw new Error(proc.stderr || proc.stdout);
     }
-    return JSON.parse(proc.stdout.toString());
-  }
-
-  public async runTest(config: PlaywrightTestConfig, project: string, path: string, line: number): Promise<playwrightTestTypes.JSONReport> {
-    const proc = await this._executePlaywrightTestCommand(config, project, [`${path}:${line}`], {
-      env: this._getEnv(),
-    });
-    const stdout = proc.stdout.toString();
     try {
-      return JSON.parse(stdout);
+      return JSON.parse(proc.stdout);
     } catch (error) {
-      logger.debug('could not parse JSON', stdout, proc.stderr.toString());
+      logger.debug('could not parse JSON', proc.stdout, proc.stderr);
       throw error;
     }
   }
 
-  private async _executePlaywrightTestCommand(config: PlaywrightTestConfig, project: string, additionalArguments: string[], options?: SpawnOptionsWithoutStdio) {
+  public async runTest(config: PlaywrightTestConfig, projectName: string, path: string, line: number): Promise<playwrightTestTypes.JSONReport> {
+    const proc = await this._executePlaywrightTestCommand(config, projectName, [`${path}:${line}`], {
+      env: this._getEnv(),
+    });
+    try {
+      return JSON.parse(proc.stdout);
+    } catch (error) {
+      logger.debug('could not parse JSON', proc.stdout, proc.stderr);
+      throw error;
+    }
+  }
+
+  private async _executePlaywrightTestCommand(config: PlaywrightTestConfig, projectName: string, additionalArguments: string[], options?: SpawnOptionsWithoutStdio) {
     const spawnArguments = [
       this._cliEntrypoint,
-      ...this._buildBaseArgs(config, project),
+      ...this._buildBaseArgs(config, projectName),
       '--reporter=json',
       ...additionalArguments
     ];
@@ -99,7 +82,6 @@ export class PlaywrightTestNPMPackage {
       cwd: this._directory,
       ...options,
     });
-    logger.debug(`Exit code ${result.code}`);
     return result;
   }
 
@@ -107,41 +89,37 @@ export class PlaywrightTestNPMPackage {
     if (this._debugMode.isEnabled())
       return {
         ...process.env,
-        "PWDEBUG": "1"
+        'PWDEBUG': '1'
       };
     return process.env;
   }
 
-  private _buildBaseArgs(config: PlaywrightTestConfig, project: string) {
+  private _buildBaseArgs(config: PlaywrightTestConfig, projectName: string) {
     return [
       'test',
       ...(config !== DEFAULT_CONFIG ? [`--config=${config}`] : []),
-      ...(project ? [`--project=${project}`] : []),
+      ...(projectName ? [`--project=${projectName}`] : []),
     ];
   }
 
-  public async debug(config: PlaywrightTestConfig, project: string, path: string, line: number): Promise<void> {
+  public async debug(config: PlaywrightTestConfig, projectName: string, workspaceFolder: vscode.WorkspaceFolder, path: string, line: number): Promise<void> {
     const args = [
-      ...this._buildBaseArgs(config, project),
+      ...this._buildBaseArgs(config, projectName),
       '--reporter=list',
       `${path}:${line}`
     ];
     const debugConfiguration: vscode.DebugConfiguration = {
       args,
       console: 'internalConsole',
-      cwd: "${workspaceFolder}",
-      internalConsoleOptions: "neverOpen",
-      name: "playwright-test",
-      request: "launch",
-      type: "node",
+      cwd: '${workspaceFolder}',
+      internalConsoleOptions: 'neverOpen',
+      name: 'playwright-test',
+      request: 'launch',
+      type: 'node',
       runtimeExecutable: this._cliEntrypoint,
       env: this._getEnv(),
     };
 
-    await vscode.debug.startDebugging(vscode.workspace.workspaceFolders![0], debugConfiguration);
+    await vscode.debug.startDebugging(workspaceFolder, debugConfiguration);
   }
-}
-
-export function getConfigDisplayName(config: PlaywrightTestConfig): string {
-  return config === DEFAULT_CONFIG ? 'default' : config;
 }

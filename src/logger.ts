@@ -17,10 +17,7 @@
 import * as vscode from 'vscode';
 
 class Logger {
-  private _outputChannel: vscode.OutputChannel;
-  constructor() {
-    this._outputChannel = vscode.window.createOutputChannel('Playwright Test');
-  }
+  private _outputChannel = vscode.window.createOutputChannel('Playwright Test');
   debug(message: string, ...params: any[]) {
     this._outputChannel.appendLine(`${new Date().toISOString()} ${message} ${params.join(' ')}`);
   }
