@@ -17,6 +17,7 @@ import * as path from 'path';
 import * as glob from 'glob';
 import * as util from 'util';
 import * as fs from 'fs';
+import * as os from 'os';
 
 import { runTests } from '@vscode/test-electron';
 
@@ -31,8 +32,11 @@ async function main() {
 		const suites = await globAsync(path.join(__dirname, 'suites', '*'));
 
 		for (const suite of suites) {
-			if (!fs.statSync(suite).isDirectory())
+			if (!(await fs.promises.stat(suite)).isDirectory())
 				return;
+			const userDataDir = path.join(os.tmpdir(), 'pw-vsc-tests');
+			// eslint-disable-next-line @typescript-eslint/no-empty-function
+			await fs.promises.rmdir(userDataDir).catch(() => { });
 			// The path to the extension test script
 			// Passed to --extensionTestsPath
 			const extensionTestsPath = path.resolve(suite, 'index');
@@ -42,11 +46,15 @@ async function main() {
 				version: 'insiders',
 				extensionDevelopmentPath,
 				extensionTestsPath,
-				launchArgs: [path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite))]
+				launchArgs: [
+					`--user-data-dir=${userDataDir}`,
+					'--disable-extensions',
+					path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite))
+				]
 			});
 		}
 	} catch (err) {
-		console.error('Failed to run tests');
+		console.error('Failed to run tests', err);
 		process.exit(1);
 	}
 }

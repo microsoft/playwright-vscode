@@ -21,6 +21,7 @@ import { logger } from './logger';
 import { DEFAULT_CONFIG, PlaywrightTestConfig, PlaywrightTest } from './playwrightTest';
 import type * as playwrightTestTypes from './testTypes';
 import { assert } from './utils';
+import { testControllerEvents } from './extension';
 
 const stackUtils = new StackUtils();
 
@@ -84,6 +85,7 @@ export class TestFile {
         testData.set(tcase, data);
         tcase.range = range;
         parent.children.push(tcase);
+        testControllerEvents.emit('testItemCreated', tcase, this);
       }
       for (const subSuite of suite.suites || []) {
         const range = createRangeFromPlaywright(subSuite);

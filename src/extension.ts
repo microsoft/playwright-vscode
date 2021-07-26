@@ -15,12 +15,14 @@
  */
 
 import * as path from 'path';
+import { EventEmitter } from 'events';
 import * as vscode from 'vscode';
 import { logger } from './logger';
 import { DEFAULT_CONFIG, PlaywrightTestConfig, PlaywrightTest } from './playwrightTest';
 import { TestCase, TestFile, testData } from './testTree';
 
 export const testControllers: vscode.TestController[] = [];
+export const testControllerEvents = new EventEmitter();
 
 const configuration = vscode.workspace.getConfiguration();
 

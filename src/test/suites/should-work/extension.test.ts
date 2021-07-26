@@ -22,9 +22,13 @@ import * as myExtension from '../../../extension';
 import { assertTestItemTree, itemCollectionToArray, openFile } from '../utils';
 
 suite('Basic file parsing', () => {
-	test('does parse a single file correctly', async () => {
+	test('does parse a single file correctly', async () => { 
+		const waitForTestResolveHandler = new Promise<void>(resolve => myExtension.testControllerEvents.on('testItemCreated', (testItem: vscode.TestItem) => {
+			if (testItem.label == 'you')
+				resolve();
+		}));
 		await openFile('example1.spec.ts');
-		await new Promise(resolve => setTimeout(resolve, 1000));
+		await waitForTestResolveHandler;
 		assert.strictEqual(myExtension.testControllers.length, 1);
 		const items = itemCollectionToArray(myExtension.testControllers[0].items);
 		assert.strictEqual(items.length, 1);
