@@ -16,40 +16,41 @@
 import { expect, test } from '@playwright/test';
 
 function bar() {
-  throw new Error("kek");
+  // throw new Error("kek");
 }
 
 function foo() {
   bar();
 }
 
-test("should be able to debug", async ({page}) => {
+test('should be able to debug', async ({page}) => {
   const userAgent = await page.evaluate(() => window.navigator.userAgent);
-  console.log("1", userAgent);
-  console.log("2,", userAgent);
+  console.log('1');
+  console.log('2');
   foo();
-  console.log("3", userAgent);
-  console.log("4", userAgent);
+  console.log('3');
+  console.log('4');
 });
 
-test.describe("should be awesome²", () => {
-  test("me", () => {
+test.describe('should be awesome²', () => {
+  test('me', () => {
     expect(2).toBe(1);
   });
-  test("you", () => {
+  test('you', () => {
     expect(1).toBe(1);
   });
-  test("he", () => {
+  test('he', () => {
     expect(1).toBe(1);
   });
-  test("she123", ({page}) => {
+  test('she123', ({page}) => {
     expect(1).toBe(1);
   });
-  test("it", () => {
+  test('it', () => {
     expect(1).toBe(1);
   });
 
-  test("but not my cat", () => {
+  test('but not my cat', () => {
     expect(1).toBe(1);
   });
 });
+

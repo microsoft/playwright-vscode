@@ -15,6 +15,7 @@ module.exports = {
 	],
 	rules: {
 		'semi': [2, "always"],
+		'quotes': [2, 'single'],
 		'@typescript-eslint/no-unused-vars': 0,
 		'@typescript-eslint/no-explicit-any': 0,
 		'@typescript-eslint/explicit-module-boundary-types': 0,

@@ -17,7 +17,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { logger } from './logger';
-import { DEFAULT_CONFIG, getConfigDisplayName, PlaywrightTestConfig, PlaywrightTestNPMPackage } from './playwrightTest';
+import { DEFAULT_CONFIG, PlaywrightTestConfig, PlaywrightTest } from './playwrightTest';
 import { TestCase, TestFile, testData } from './testTree';
 
 const configuration = vscode.workspace.getConfiguration();
@@ -37,34 +37,34 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const workspaceFolder = vscode.workspace.workspaceFolders[0];
 
-  const playwrightTestConfigsFromSettings = configuration.get<string[]>("playwright.configs");
+  const playwrightTestConfigsFromSettings = configuration.get<string[]>('playwright.configs');
   const playwrightTestConfigs: PlaywrightTestConfig[] = playwrightTestConfigsFromSettings?.length ? playwrightTestConfigsFromSettings : [DEFAULT_CONFIG];
 
-  let playwrightTest: PlaywrightTestNPMPackage;
+  let playwrightTest: PlaywrightTest;
   try {
-    playwrightTest = await PlaywrightTestNPMPackage.create(workspaceFolder.uri.path, configuration.get("playwright.cliPath")!, debugModeHandler);
+    playwrightTest = await PlaywrightTest.create(workspaceFolder.uri.path, configuration.get('playwright.cliPath')!, debugModeHandler);
   } catch (error) {
     vscode.window.showWarningMessage(error.toString());
     return;
   }
 
-  for (let configIndex = 0; configIndex < playwrightTestConfigs.length; configIndex++) {
-    const config = playwrightTestConfigs[configIndex];
+  for (const [configIndex, config] of playwrightTestConfigs.entries()) {
     const tests = await playwrightTest.listTests(config, '', '.');
     if (!tests)
       continue;
-    for (let projectsIndex = 0; projectsIndex < tests.config.projects.length; projectsIndex++) {
+    for (const [projectsIndex, project] of tests.config.projects.entries()) {
       const isDefault = projectsIndex === 0 && configIndex === 0;
-      await createTestController(context, workspaceFolder, playwrightTest, config, tests.config.projects[projectsIndex].name, projectsIndex, isDefault);
+      await createTestController(context, workspaceFolder, playwrightTest, config, project.name, projectsIndex, isDefault);
     }
   }
 }
 
-async function createTestController(context: vscode.ExtensionContext, workspaceFolder: vscode.WorkspaceFolder, playwrightTest: PlaywrightTestNPMPackage, config: PlaywrightTestConfig, projectName: string, projectIndex: number, isDefault: boolean) {
+async function createTestController(context: vscode.ExtensionContext, workspaceFolder: vscode.WorkspaceFolder, playwrightTest: PlaywrightTest, config: PlaywrightTestConfig, projectName: string, projectIndex: number, isDefault: boolean) {
   const displayProjectAndConfigName = `${projectName}${config === DEFAULT_CONFIG ? '' : `[${config}]`}`;
   const controllerName = `Playwright Test ${displayProjectAndConfigName}`;
   logger.debug(`Creating test controller: ${controllerName}`);
   const ctrl = vscode.tests.createTestController('playwrightTestController' + (config === DEFAULT_CONFIG ? 'default' : config) + projectIndex, controllerName);
+  // TODO: currently an upstream VSC bug, should not be necessary since we set it in the createTestController constructor.
   ctrl.label = controllerName;
   context.subscriptions.push(ctrl);
 
@@ -98,7 +98,7 @@ async function createTestController(context: vscode.ExtensionContext, workspaceF
           run.skipped(test);
         } else {
           run.started(test);
-          await data.run(test, run, debug);
+          await data.run(test, workspaceFolder, run, debug);
         }
 
         run.appendOutput(`Completed ${test.id}\r\n`);
@@ -144,7 +144,7 @@ async function createTestController(context: vscode.ExtensionContext, workspaceF
   );
 }
 
-function getOrCreateFile(controller: vscode.TestController, workspaceFolder: vscode.WorkspaceFolder, uri: vscode.Uri, playwrightTest: PlaywrightTestNPMPackage, config: PlaywrightTestConfig, projectName: string) {
+function getOrCreateFile(controller: vscode.TestController, workspaceFolder: vscode.WorkspaceFolder, uri: vscode.Uri, playwrightTest: PlaywrightTest, config: PlaywrightTestConfig, projectName: string) {
   const existing = controller.items.get(uri.toString());
   if (existing) {
     return { file: existing, data: testData.get(existing) as TestFile };
@@ -166,8 +166,8 @@ function gatherTestItems(collection: vscode.TestItemCollection) {
   return items;
 }
 
-async function startIndexingWorkspace(workspaceFolder: vscode.WorkspaceFolder, controller: vscode.TestController, playwrightTest: PlaywrightTestNPMPackage, config: PlaywrightTestConfig, projectName: string) {
-  const tests = await playwrightTest.listTests(config, '', workspaceFolder.uri.path);
+async function startIndexingWorkspace(workspaceFolder: vscode.WorkspaceFolder, controller: vscode.TestController, playwrightTest: PlaywrightTest, config: PlaywrightTestConfig, projectName: string) {
+  const tests = await playwrightTest.listTests(config, projectName, workspaceFolder.uri.path);
   if (!tests)
     return;
   for (const suite of tests.suites)
@@ -201,9 +201,9 @@ export class PlaywrightDebugMode {
     private _updateDebugModeText = () => {
       let text;
       if (this.isDebugModeEnabled)
-        text = `$(debug-alt) Playwright Debug enabled`;
+        text = '$(debug-alt) Playwright Debug enabled';
       else
-        text = `Enable Playwright Debug`;
+        text = 'Enable Playwright Debug';
       this.statusBarItem.text = text;
     }
 

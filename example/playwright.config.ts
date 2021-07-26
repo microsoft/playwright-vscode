@@ -33,7 +33,7 @@ const config: PlaywrightTestConfig = {
     },
     {
       name: 'WebKit with iPhone 12 Pro Max',
-      use: { browserName: 'webkit', ...devices["iPhone 12 Pro Max"] },
+      use: { browserName: 'webkit', ...devices['iPhone 12 Pro Max'] },
     },
   ],
 };

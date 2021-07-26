@@ -14,7 +14,30 @@
  * limitations under the License.
  */
 
+import * as fs from 'fs';
+import { spawn, SpawnOptionsWithoutStdio } from 'child_process';
+ 
 export function assert(value: any, message?: string): asserts value {
   if (!value)
     throw new Error(message);
+}
+
+export function spawnAsync(cmd: string, args: string[], options: SpawnOptionsWithoutStdio): Promise<{ stdout: string, stderr: string, code: number | null }> {
+  return new Promise((resolve, reject) => {
+    const process = spawn(cmd, args, options);
+    let stdout = '';
+    let stderr = '';
+    if (process.stdout)
+      process.stdout.on('data', data => stdout += data);
+    if (process.stderr)
+      process.stderr.on('data', data => stderr += data);
+    process.on('close', code => resolve({ stdout, stderr, code }));
+    process.on('error', error => reject(error));
+  });
+}
+
+export async function fileExistsAsync(file: string): Promise<boolean> {
+  return fs.promises.access(file, fs.constants.F_OK)
+    .then(() => true)
+    .catch(() => false);
 }
