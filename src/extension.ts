@@ -20,6 +20,8 @@ import { logger } from './logger';
 import { DEFAULT_CONFIG, PlaywrightTestConfig, PlaywrightTest } from './playwrightTest';
 import { TestCase, TestFile, testData } from './testTree';
 
+export const testControllers: vscode.TestController[] = [];
+
 const configuration = vscode.workspace.getConfiguration();
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -67,6 +69,7 @@ async function createTestController(context: vscode.ExtensionContext, workspaceF
   // TODO: currently an upstream VSC bug, should not be necessary since we set it in the createTestController constructor.
   ctrl.label = controllerName;
   context.subscriptions.push(ctrl);
+  testControllers.push(ctrl);
 
   const makeRunHandler = (debug: boolean) => (request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) => {
     const queue: { test: vscode.TestItem; data: TestCase }[] = [];

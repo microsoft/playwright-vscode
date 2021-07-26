@@ -120,7 +120,9 @@ export class TestCase {
   ) { }
 
   getLabel() {
-    return `${this.spec.title} [${this.project}]`;
+    if (this.project)
+      return `${this.spec.title} [${this.project}]`;
+    return this.spec.title;
   }
 
   async run(item: vscode.TestItem, workspaceFolder: vscode.WorkspaceFolder, options: vscode.TestRun, debug: boolean): Promise<void> {

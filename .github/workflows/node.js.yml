@@ -6,7 +6,12 @@ on:
     branches: [ main ]
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    name: Run tests on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, window-latest, macos-latest ]
     steps:
     - uses: actions/checkout@v2
     - name: Use Node.js
@@ -16,9 +21,14 @@ jobs:
     - run: npm ci
     - run: npm run lint
     - run: npm run compile
+    - if: matrix.os == 'ubuntu-latest'
+      run: xvfb-run node out/test/runTest.js
+    - if: matrix.os != 'ubuntu-latest'
+      run: node out/test/runTest.js
     - run: npm i -g vsce
     - run: vsce package
     - uses: actions/upload-artifact@v2
+      if: matrix.os == 'ubuntu-latest'
       with:
         name: vsc-extension
         path: "*.vsix"
