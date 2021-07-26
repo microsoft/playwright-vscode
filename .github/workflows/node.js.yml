@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, window-latest, macos-latest ]
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
     steps:
     - uses: actions/checkout@v2
     - name: Use Node.js
@@ -21,6 +21,9 @@ jobs:
     - run: npm ci
     - run: npm run lint
     - run: npm run compile
+    - name: Prepare test workspace
+      run: npm install
+      working-directory: test/assets/should-work
     - if: matrix.os == 'ubuntu-latest'
       run: xvfb-run node out/test/runTest.js
     - if: matrix.os != 'ubuntu-latest'
