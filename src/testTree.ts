@@ -62,7 +62,7 @@ export class TestFile {
   private async _updateFromDisk(controller: vscode.TestController, item: vscode.TestItem) {
     logger.debug(`TestFile._updateFromDisk ${this.config === DEFAULT_CONFIG ? 'default' : this.config} and ${this.project}`);
     const ancestors: Ancestors[] = [{ item, children: [] }];
-    const tests = await this.playwrightTest.listTests(this.config, this.project, item.uri!.path);
+    const tests = await this.playwrightTest.listTests(this.config, this.project, item.uri!.fsPath);
     if (!tests)
       return;
     const thisGeneration = generationCounter++;
@@ -136,13 +136,13 @@ export class TestCase {
   }
 
   async _debug(item: vscode.TestItem, options: vscode.TestRun, workspaceFolder: vscode.WorkspaceFolder): Promise<void> {
-    await this.playwrightTest.debug(this.config, this.project, workspaceFolder, item.uri!.path, this.spec.line);
+    await this.playwrightTest.debug(this.config, this.project, workspaceFolder, item.uri!.fsPath, this.spec.line);
   }
 
   async _run(item: vscode.TestItem, options: vscode.TestRun): Promise<void> {
     let result;
     try {
-      result = await this.playwrightTest.runTest(this.config, this.project, item.uri!.path, this.spec.line);
+      result = await this.playwrightTest.runTest(this.config, this.project, item.uri!.fsPath, this.spec.line);
     } catch (error) {
       // TODO: migrate to options.errrored once its back
       options.failed(item, new vscode.TestMessage(error.toString()));

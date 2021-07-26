@@ -25,9 +25,9 @@ jobs:
       run: npm install
       working-directory: test/assets/should-work
     - if: matrix.os == 'ubuntu-latest'
-      run: xvfb-run node out/test/runTest.js
+      run: xvfb-run npm run test
     - if: matrix.os != 'ubuntu-latest'
-      run: node out/test/runTest.js
+      run: npm run test
     - run: npm i -g vsce
     - run: vsce package
     - uses: actions/upload-artifact@v2
