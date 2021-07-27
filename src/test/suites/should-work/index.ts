@@ -23,7 +23,8 @@ export function run(): Promise<void> {
 	// Create the mocha test
 	const mocha = new Mocha({
 		ui: 'tdd',
-		timeout: 20 * 1000,
+		// eslint-disable-next-line @typescript-eslint/no-var-requires
+		timeout: require('inspector').url() ? 0 : 30000,
 	});
 
 	const testsRoot = path.resolve(__dirname);
