@@ -18,19 +18,19 @@ import * as assert from 'assert';
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
 import * as vscode from 'vscode';
-import * as myExtension from '../../../extension';
+import * as playwrightTestExtension from '../../../extension';
 import { assertTestItemTree, itemCollectionToArray, openFile } from '../utils';
 
 suite('Basic file parsing', () => {
 	test('does parse a single file correctly', async () => { 
-		const waitForTestResolveHandler = new Promise<void>(resolve => myExtension.testControllerEvents.on('testItemCreated', (testItem: vscode.TestItem) => {
-			if (testItem.label == 'you')
+		const waitForTestResolveHandler = new Promise<void>(resolve => playwrightTestExtension.testControllerEvents.on('testItemCreated', (testItem: vscode.TestItem) => {
+			if (testItem.label === 'last-test-name')
 				resolve();
 		}));
 		await openFile('example1.spec.ts');
 		await waitForTestResolveHandler;
-		assert.strictEqual(myExtension.testControllers.length, 1);
-		const items = itemCollectionToArray(myExtension.testControllers[0].items);
+		assert.strictEqual(playwrightTestExtension.testControllers.length, 1);
+		const items = itemCollectionToArray(playwrightTestExtension.testControllers[0].items);
 		assert.strictEqual(items.length, 1);
 		assertTestItemTree(items[0], {
 			label: 'example1.spec.ts',
@@ -41,7 +41,7 @@ suite('Basic file parsing', () => {
 				children: [{
 					label: 'layer 2',
 					children: [{
-						label: 'you'
+						label: 'last-test-name'
 					}]
 				}]
 			}]

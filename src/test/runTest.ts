@@ -31,12 +31,16 @@ async function main() {
 
 		const suites = await globAsync(path.join(__dirname, 'suites', '*'));
 
+		const userDataDir = path.join(os.tmpdir(), 'pw-vsc-tests');
+		const cleanupUserDir = async () => {
+				// eslint-disable-next-line @typescript-eslint/no-empty-function
+				await fs.promises.rmdir(userDataDir).catch(() => { });
+		};
+
 		for (const suite of suites) {
 			if (!(await fs.promises.stat(suite)).isDirectory())
 				return;
-			const userDataDir = path.join(os.tmpdir(), 'pw-vsc-tests');
-			// eslint-disable-next-line @typescript-eslint/no-empty-function
-			await fs.promises.rmdir(userDataDir).catch(() => { });
+			await cleanupUserDir();
 			// The path to the extension test script
 			// Passed to --extensionTestsPath
 			const extensionTestsPath = path.resolve(suite, 'index');
@@ -53,6 +57,7 @@ async function main() {
 				]
 			});
 		}
+		await cleanupUserDir();
 	} catch (err) {
 		console.error('Failed to run tests', err);
 		process.exit(1);
