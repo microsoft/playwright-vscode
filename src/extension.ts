@@ -15,10 +15,14 @@
  */
 
 import * as path from 'path';
+import { EventEmitter } from 'events';
 import * as vscode from 'vscode';
 import { logger } from './logger';
 import { DEFAULT_CONFIG, PlaywrightTestConfig, PlaywrightTest } from './playwrightTest';
 import { TestCase, TestFile, testData } from './testTree';
+
+export const testControllers: vscode.TestController[] = [];
+export const testControllerEvents = new EventEmitter();
 
 const configuration = vscode.workspace.getConfiguration();
 
@@ -42,7 +46,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   let playwrightTest: PlaywrightTest;
   try {
-    playwrightTest = await PlaywrightTest.create(workspaceFolder.uri.path, configuration.get('playwright.cliPath')!, debugModeHandler);
+    playwrightTest = await PlaywrightTest.create(workspaceFolder.uri.fsPath, configuration.get('playwright.cliPath')!, debugModeHandler);
   } catch (error) {
     vscode.window.showWarningMessage(error.toString());
     return;
@@ -67,6 +71,7 @@ async function createTestController(context: vscode.ExtensionContext, workspaceF
   // TODO: currently an upstream VSC bug, should not be necessary since we set it in the createTestController constructor.
   ctrl.label = controllerName;
   context.subscriptions.push(ctrl);
+  testControllers.push(ctrl);
 
   const makeRunHandler = (debug: boolean) => (request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) => {
     const queue: { test: vscode.TestItem; data: TestCase }[] = [];
@@ -126,7 +131,7 @@ async function createTestController(context: vscode.ExtensionContext, workspaceF
   };
 
   function updateNodeForDocument(e: vscode.TextDocument) {
-    if (!['.ts', '.js', '.mjs'].some(extension => e.uri.path.endsWith(extension))) {
+    if (!['.ts', '.js', '.mjs'].some(extension => e.uri.fsPath.endsWith(extension))) {
       return;
     }
 
@@ -149,11 +154,11 @@ function getOrCreateFile(controller: vscode.TestController, workspaceFolder: vsc
   if (existing) {
     return { file: existing, data: testData.get(existing) as TestFile };
   }
-  const label = path.relative(workspaceFolder.uri.path, uri.path);
+  const label = path.relative(workspaceFolder.uri.fsPath, uri.fsPath);
   const file = controller.createTestItem(uri.toString(), label, uri);
   controller.items.add(file);
 
-  const data = new TestFile(playwrightTest, config, projectName);
+  const data = new TestFile(playwrightTest, workspaceFolder, config, projectName);
   testData.set(file, data);
 
   file.canResolveChildren = true;
@@ -167,7 +172,7 @@ function gatherTestItems(collection: vscode.TestItemCollection) {
 }
 
 async function startIndexingWorkspace(workspaceFolder: vscode.WorkspaceFolder, controller: vscode.TestController, playwrightTest: PlaywrightTest, config: PlaywrightTestConfig, projectName: string) {
-  const tests = await playwrightTest.listTests(config, projectName, workspaceFolder.uri.path);
+  const tests = await playwrightTest.listTests(config, projectName, '.');
   if (!tests)
     return;
   for (const suite of tests.suites)

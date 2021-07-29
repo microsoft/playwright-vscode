@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import * as path from 'path';
 import * as vscode from 'vscode';
 import * as StackUtils from 'stack-utils';
 
@@ -21,6 +22,7 @@ import { logger } from './logger';
 import { DEFAULT_CONFIG, PlaywrightTestConfig, PlaywrightTest } from './playwrightTest';
 import type * as playwrightTestTypes from './testTypes';
 import { assert } from './utils';
+import { testControllerEvents } from './extension';
 
 const stackUtils = new StackUtils();
 
@@ -38,6 +40,7 @@ export class TestFile {
   public didResolve = false;
   constructor(
     private readonly playwrightTest: PlaywrightTest,
+    private readonly workspaceFolder: vscode.WorkspaceFolder,
     private readonly config: PlaywrightTestConfig,
     private readonly project: string,
   ) { }
@@ -61,7 +64,7 @@ export class TestFile {
   private async _updateFromDisk(controller: vscode.TestController, item: vscode.TestItem) {
     logger.debug(`TestFile._updateFromDisk ${this.config === DEFAULT_CONFIG ? 'default' : this.config} and ${this.project}`);
     const ancestors: Ancestors[] = [{ item, children: [] }];
-    const tests = await this.playwrightTest.listTests(this.config, this.project, item.uri!.path);
+    const tests = await this.playwrightTest.listTests(this.config, this.project, item.uri!.fsPath);
     if (!tests)
       return;
     const thisGeneration = generationCounter++;
@@ -77,18 +80,18 @@ export class TestFile {
     const addTests = (suite: playwrightTestTypes.TestSuite, parent: Ancestors) => {
       for (const test of suite.specs) {
         const data = new TestCase(this.playwrightTest, this.config, this.project, test, thisGeneration);
-        const id = `${item.uri}/${data.getLabel()}`;
+        const id = `${test.file}/${data.getLabel()}`;
         const range = createRangeFromPlaywright(test);
 
         const tcase = controller.createTestItem(id, data.getLabel(), item.uri);
         testData.set(tcase, data);
         tcase.range = range;
         parent.children.push(tcase);
+        testControllerEvents.emit('testItemCreated', tcase, this);
       }
       for (const subSuite of suite.suites || []) {
         const range = createRangeFromPlaywright(subSuite);
-        const id = `${item.uri}/${subSuite.title}`;
-
+        const id = `${subSuite.file}/${subSuite.title}`;
         const thead = controller.createTestItem(id, subSuite.title, item.uri);
         thead.range = range;
         testData.set(thead, new TestHeading(thisGeneration));
@@ -120,7 +123,9 @@ export class TestCase {
   ) { }
 
   getLabel() {
-    return `${this.spec.title} [${this.project}]`;
+    if (this.project)
+      return `${this.spec.title} [${this.project}]`;
+    return this.spec.title;
   }
 
   async run(item: vscode.TestItem, workspaceFolder: vscode.WorkspaceFolder, options: vscode.TestRun, debug: boolean): Promise<void> {
@@ -132,13 +137,13 @@ export class TestCase {
   }
 
   async _debug(item: vscode.TestItem, options: vscode.TestRun, workspaceFolder: vscode.WorkspaceFolder): Promise<void> {
-    await this.playwrightTest.debug(this.config, this.project, workspaceFolder, item.uri!.path, this.spec.line);
+    await this.playwrightTest.debug(this.config, this.project, workspaceFolder, item.uri!.fsPath, this.spec.line);
   }
 
   async _run(item: vscode.TestItem, options: vscode.TestRun): Promise<void> {
     let result;
     try {
-      result = await this.playwrightTest.runTest(this.config, this.project, item.uri!.path, this.spec.line);
+      result = await this.playwrightTest.runTest(this.config, this.project, item.uri!.fsPath, this.spec.line);
     } catch (error) {
       // TODO: migrate to options.errrored once its back
       options.failed(item, new vscode.TestMessage(error.toString()));
@@ -151,15 +156,17 @@ export class TestCase {
       assert(test.results.length === 1);
       const result = test.results[0];
       for (const entry of result.stderr)
-        options.appendOutput(decodeJSONReporterSTDIOEntry(entry).replaceAll('\n', '\r\n'));
+        options.appendOutput(extendLineFeedWithCarriageReturns(decodeJSONReporterSTDIOEntry(entry)) + '\r\n');
       for (const entry of result.stdout)
-        options.appendOutput(decodeJSONReporterSTDIOEntry(entry).replaceAll('\n', '\r\n'));
+        options.appendOutput(extendLineFeedWithCarriageReturns(decodeJSONReporterSTDIOEntry(entry)) + '\r\n');
       switch (result.status) {
         case 'passed':
           options.passed(item, result.duration);
           break;
         case 'failed': {
           options.failed(item, parsePlaywrightTestError(item, result.error), result.duration);
+          if (result.error)
+            options.appendOutput(extendLineFeedWithCarriageReturns(result.error.message) + '\r\n' + extendLineFeedWithCarriageReturns(result.error.stack) + '\r\n');
           break;
         }
         case 'skipped':
@@ -215,4 +222,10 @@ function createRangeFromPlaywright(subSuite: playwrightTestTypes.TestSuite | pla
 
 function decodeJSONReporterSTDIOEntry(entry: playwrightTestTypes.JSONReportSTDIOEntry): string {
   return 'text' in entry ? entry.text : Buffer.from(entry.buffer, 'base64').toString();
+}
+
+function extendLineFeedWithCarriageReturns(input?: string): string {
+  if (!input)
+    return '';
+  return input.replaceAll('\n', '\r\n');
 }

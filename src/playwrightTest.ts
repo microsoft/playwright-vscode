@@ -44,7 +44,7 @@ export class PlaywrightTest {
   }
 
   public async listTests(config: PlaywrightTestConfig, projectName: string, fileOrFolder: string): Promise<playwrightTestTypes.JSONReport | null> {
-    const proc = await this._executePlaywrightTestCommand(config, projectName, ['--list', fileOrFolder]);
+    const proc = await this._executePlaywrightTestCommand(config, projectName, ['--list', fileOrFolder.replaceAll('\\', '\\\\')]);
     if (proc.code !== 0) {
       if (proc.stderr.includes('no tests found.'))
         return null;
@@ -72,7 +72,7 @@ export class PlaywrightTest {
 
   private async _executePlaywrightTestCommand(config: PlaywrightTestConfig, projectName: string, additionalArguments: string[], options?: SpawnOptionsWithoutStdio) {
     const spawnArguments = [
-      this._cliEntrypoint,
+      path.relative(this._directory, this._cliEntrypoint),
       ...this._buildBaseArgs(config, projectName),
       '--reporter=json',
       ...additionalArguments
