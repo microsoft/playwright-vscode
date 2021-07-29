@@ -89,7 +89,7 @@ export class PlaywrightTest {
     if (this._debugMode.isEnabled())
       return {
         ...process.env,
-        'PWDEBUG': '1'
+        'DEBUG': 'pw:api'
       };
     return process.env;
   }

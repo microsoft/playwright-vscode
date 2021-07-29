@@ -68,8 +68,6 @@ async function createTestController(context: vscode.ExtensionContext, workspaceF
   const controllerName = `Playwright Test ${displayProjectAndConfigName}`;
   logger.debug(`Creating test controller: ${controllerName}`);
   const ctrl = vscode.tests.createTestController('playwrightTestController' + (config === DEFAULT_CONFIG ? 'default' : config) + projectIndex, controllerName);
-  // TODO: currently an upstream VSC bug, should not be necessary since we set it in the createTestController constructor.
-  ctrl.label = controllerName;
   context.subscriptions.push(ctrl);
   testControllers.push(ctrl);
 
