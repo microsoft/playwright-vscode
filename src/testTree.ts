@@ -145,8 +145,7 @@ export class TestCase {
     try {
       result = await this.playwrightTest.runTest(this.config, this.project, item.uri!.fsPath, this.spec.line);
     } catch (error) {
-      // TODO: migrate to options.errrored once its back
-      options.failed(item, new vscode.TestMessage(error.toString()));
+      options.errored(item, new vscode.TestMessage(error.toString()));
       logger.debug('Could not run tests', error);
       return;
     }
@@ -156,9 +155,9 @@ export class TestCase {
       assert(test.results.length === 1);
       const result = test.results[0];
       for (const entry of result.stderr)
-        options.appendOutput(extendLineFeedWithCarriageReturns(decodeJSONReporterSTDIOEntry(entry)) + '\r\n');
+        options.appendOutput(extendLineFeedWithCarriageReturns(decodeJSONReporterSTDIOEntry(entry)));
       for (const entry of result.stdout)
-        options.appendOutput(extendLineFeedWithCarriageReturns(decodeJSONReporterSTDIOEntry(entry)) + '\r\n');
+        options.appendOutput(extendLineFeedWithCarriageReturns(decodeJSONReporterSTDIOEntry(entry)));
       switch (result.status) {
         case 'passed':
           options.passed(item, result.duration);
