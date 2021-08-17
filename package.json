@@ -1,12 +1,12 @@
 {
 	"name": "playwright",
 	"displayName": "Playwright Test for VSCode",
-	"description": "Integration of Playwright Test and Visual Studio Code.",
+	"description": "Show and Run your Playwright Test tests inside Visual Studio Code.",
 	"icon": "images/playwright-logo.png",
 	"version": "0.0.1",
 	"preview": true,
 	"publisher": "ms-playwright",
-	"repository": "https://github.com/Microsoft/playwright-vscode",
+	"repository": "https://github.com/microsoft/playwright-vscode",
 	"enableProposedApi": true,
 	"engines": {
 		"vscode": "^1.59.0"
@@ -19,12 +19,6 @@
 	],
 	"main": "./out/extension.js",
 	"contributes": {
-		"commands": [
-			{
-				"command": "playwright.selectProject",
-				"title": "Select Playwright Test project"
-			}
-		],
 		"configuration": {
 			"title": "Playwright Test path",
 			"properties": {

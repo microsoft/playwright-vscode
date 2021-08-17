@@ -1,12 +1,6 @@
 {
   "name": "example",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
-    "@playwright/test": "^1.14.0-next-alpha-jul-22-2021"
+    "@playwright/test": "^1.14.0"
   }
 }
