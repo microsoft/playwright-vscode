@@ -8,7 +8,7 @@ This extension integrates [Playwright Test] with Visual Studio Code by using the
 
 The extension automatically detects if you have [Playwright Test] installed and loads the [Playwright Test] projects into Visual Studio Code. By default it will select the first project and by right clicking on the play icon next to a test you can run a test in a specific browser (or project).
 
-All tests of the project get shown inside the Test Explorer.
+All tests of the project are shown inside the Test Explorer.
 
 ![Test Explorer](./images/test-explorer.png)
 
