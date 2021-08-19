@@ -41,3 +41,7 @@ export async function fileExistsAsync(file: string): Promise<boolean> {
     .then(() => true)
     .catch(() => false);
 }
+
+export function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
