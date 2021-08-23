@@ -48,7 +48,7 @@ export async function activate(context: vscode.ExtensionContext) {
   try {
     playwrightTest = await PlaywrightTest.create(workspaceFolder.uri.fsPath, configuration.get('playwright.cliPath')!, debugModeHandler);
   } catch (error) {
-    vscode.window.showWarningMessage(error.toString());
+    logger.debug(error.toString());
     return;
   }
 
