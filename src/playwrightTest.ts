@@ -21,7 +21,7 @@ import * as vscode from 'vscode';
 import * as playwrightTestTypes from './testTypes';
 import { logger } from './logger';
 import type { PlaywrightDebugMode } from './extension';
-import { fileExistsAsync, spawnAsync } from './utils';
+import { fileExistsAsync, spawnAsync, escapeRegExp } from './utils';
 
 export const DEFAULT_CONFIG = Symbol('default config');
 export type PlaywrightTestConfig = string | typeof DEFAULT_CONFIG
@@ -44,7 +44,7 @@ export class PlaywrightTest {
   }
 
   public async listTests(config: PlaywrightTestConfig, projectName: string, fileOrFolder: string): Promise<playwrightTestTypes.JSONReport | null> {
-    const proc = await this._executePlaywrightTestCommand(config, projectName, ['--list', fileOrFolder.replaceAll('\\', '\\\\')]);
+    const proc = await this._executePlaywrightTestCommand(config, projectName, ['--list', escapeRegExp(fileOrFolder)]);
     if (proc.code !== 0) {
       if (proc.stderr.includes('no tests found.'))
         return null;
@@ -59,7 +59,7 @@ export class PlaywrightTest {
   }
 
   public async runTest(config: PlaywrightTestConfig, projectName: string, path: string, line: number): Promise<playwrightTestTypes.JSONReport> {
-    const proc = await this._executePlaywrightTestCommand(config, projectName, [`${path}:${line}`], {
+    const proc = await this._executePlaywrightTestCommand(config, projectName, [`${escapeRegExp(path)}:${line}`], {
       env: this._getEnv(),
     });
     try {
@@ -106,7 +106,7 @@ export class PlaywrightTest {
     const args = [
       ...this._buildBaseArgs(config, projectName),
       '--reporter=list',
-      `${path}:${line}`
+      `${escapeRegExp(path)}:${line}`
     ];
     const debugConfiguration: vscode.DebugConfiguration = {
       args,
