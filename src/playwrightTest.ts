@@ -89,11 +89,12 @@ export class PlaywrightTest {
     if (!this._debugMode.isEnabled())
       return process.env;
     // we don't want to have two debuggers at the same time
-    if (vscodeDebuggerEnabled)
+    if (vscodeDebuggerEnabled) {
       return {
         ...process.env,
         'DEBUG': 'pw:api'
       };
+    }
     return {
       ...process.env,
       'PWDEBUG': '1'
