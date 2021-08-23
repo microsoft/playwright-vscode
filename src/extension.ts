@@ -96,7 +96,7 @@ async function createTestController(context: vscode.ExtensionContext, workspaceF
 
     const runTestQueue = async () => {
       for (const { test, data } of queue) {
-        run.appendOutput(`Running ${test.id}\r\n`);
+        run.appendOutput(`Running ${data.getLabelWithFilename()}\r\n`);
         if (cancellation.isCancellationRequested) {
           run.skipped(test);
         } else {
@@ -104,7 +104,7 @@ async function createTestController(context: vscode.ExtensionContext, workspaceF
           await data.run(test, workspaceFolder, run, debug);
         }
 
-        run.appendOutput(`Completed ${test.id}\r\n`);
+        run.appendOutput(`Completed ${data.getLabelWithFilename()}\r\n`);
       }
 
       run.end();
