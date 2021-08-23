@@ -60,7 +60,7 @@ export class PlaywrightTest {
 
   public async runTest(config: PlaywrightTestConfig, projectName: string, path: string, line: number): Promise<playwrightTestTypes.JSONReport> {
     const proc = await this._executePlaywrightTestCommand(config, projectName, [`${escapeRegExp(path)}:${line}`], {
-      env: this._getEnv(),
+      env: this._getEnv(false),
     });
     try {
       return JSON.parse(proc.stdout);
@@ -85,13 +85,19 @@ export class PlaywrightTest {
     return result;
   }
 
-  private _getEnv(): NodeJS.ProcessEnv {
-    if (this._debugMode.isEnabled())
+  private _getEnv(vscodeDebuggerEnabled: boolean): NodeJS.ProcessEnv {
+    if (!this._debugMode.isEnabled())
+      return process.env;
+    // we don't want to have two debuggers at the same time
+    if (vscodeDebuggerEnabled)
       return {
         ...process.env,
         'DEBUG': 'pw:api'
       };
-    return process.env;
+    return {
+      ...process.env,
+      'PWDEBUG': '1'
+    };
   }
 
   private _buildBaseArgs(config: PlaywrightTestConfig, projectName: string) {
@@ -116,8 +122,9 @@ export class PlaywrightTest {
       name: 'playwright-test',
       request: 'launch',
       type: 'node',
+      outputCapture: 'std',
       runtimeExecutable: this._cliEntrypoint,
-      env: this._getEnv(),
+      env: this._getEnv(true),
     };
 
     await vscode.debug.startDebugging(workspaceFolder, debugConfiguration);
