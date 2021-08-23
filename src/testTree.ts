@@ -128,6 +128,11 @@ export class TestCase {
     return this.spec.title;
   }
 
+  getLabelWithFilename() {
+    const prefix = this.project ? `[${this.project}] › ` : '';
+    return `${prefix}${this.spec.file} › ${this.spec.title}`;
+  }
+
   async run(item: vscode.TestItem, workspaceFolder: vscode.WorkspaceFolder, options: vscode.TestRun, debug: boolean): Promise<void> {
     logger.debug(`Running test ${item.label} debug=${debug}`);
     if (debug)
