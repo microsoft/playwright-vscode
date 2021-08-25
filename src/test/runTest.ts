@@ -56,6 +56,17 @@ async function main() {
 					path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite))
 				]
 			});
+
+			await runTests({
+				version: 'stable',
+				extensionDevelopmentPath,
+				extensionTestsPath,
+				launchArgs: [
+					`--user-data-dir=${userDataDir}`,
+					'--disable-extensions',
+					path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite))
+				]
+			});
 		}
 		await cleanupUserDir();
 	} catch (err) {
