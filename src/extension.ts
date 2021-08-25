@@ -192,6 +192,7 @@ export class PlaywrightDebugMode {
       this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
       this.statusBarItem.command = this.toggleCommand;
       this._updateDebugModeText();
+      this.statusBarItem.name = 'Playwright Test: Enable Debug Mode';
       this.statusBarItem.tooltip = 'Enable Playwright Test Debug mode (PWDEBUG=1)';
       this.statusBarItem.show();
       this.context.subscriptions.push(this.statusBarItem);
