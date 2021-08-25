@@ -132,9 +132,12 @@ async function createTestController(context: vscode.ExtensionContext, workspaceF
     if (!['.ts', '.js', '.mjs'].some(extension => e.uri.fsPath.endsWith(extension))) {
       return;
     }
-
-    const { file, data } = getOrCreateFile(ctrl, workspaceFolder, e.uri, playwrightTest, config, projectName);
-    data.updateFromDisk(ctrl, file);
+    playwrightTest.listTests(config, projectName, e.uri!.fsPath).then(tests => {
+      if (!tests)
+        return;
+      const { file, data } = getOrCreateFile(ctrl, workspaceFolder, e.uri, playwrightTest, config, projectName);
+      data.updateFromDisk(ctrl, file, tests);
+    }).catch(error => logger.debug(error));
   }
 
   for (const document of vscode.workspace.textDocuments) {
