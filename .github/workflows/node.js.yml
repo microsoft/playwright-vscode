@@ -24,6 +24,9 @@ jobs:
     - name: Prepare test workspace
       run: npm install
       working-directory: test/assets/should-work
+    - name: Prepare test workspace
+      run: npm install
+      working-directory: test/assets/should-set-environment-variables
     - if: matrix.os == 'ubuntu-latest'
       run: xvfb-run npm run test
     - if: matrix.os != 'ubuntu-latest'
