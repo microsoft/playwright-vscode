@@ -26,6 +26,7 @@ import { fileExistsAsync, spawnAsync, escapeRegExp } from './utils';
 export const DEFAULT_CONFIG = Symbol('default config');
 export type PlaywrightTestConfig = string | typeof DEFAULT_CONFIG
 
+const configuration = vscode.workspace.getConfiguration();
 export class PlaywrightTest {
   private _directory: string;
   private _cliEntrypoint: string;
@@ -59,9 +60,7 @@ export class PlaywrightTest {
   }
 
   public async runTest(config: PlaywrightTestConfig, projectName: string, path: string, line: number): Promise<playwrightTestTypes.JSONReport> {
-    const proc = await this._executePlaywrightTestCommand(config, projectName, [`${escapeRegExp(path)}:${line}`], {
-      env: this._getEnv(false),
-    });
+    const proc = await this._executePlaywrightTestCommand(config, projectName, [`${escapeRegExp(path)}:${line}`]);
     try {
       return JSON.parse(proc.stdout);
     } catch (error) {
@@ -70,7 +69,7 @@ export class PlaywrightTest {
     }
   }
 
-  private async _executePlaywrightTestCommand(config: PlaywrightTestConfig, projectName: string, additionalArguments: string[], options?: SpawnOptionsWithoutStdio) {
+  private async _executePlaywrightTestCommand(config: PlaywrightTestConfig, projectName: string, additionalArguments: string[]) {
     const spawnArguments = [
       path.relative(this._directory, this._cliEntrypoint),
       ...this._buildBaseArgs(config, projectName),
@@ -80,25 +79,25 @@ export class PlaywrightTest {
     logger.debug(`Executing command: ${spawnArguments.join(' ')}`);
     const result = await spawnAsync('node', spawnArguments, {
       cwd: this._directory,
-      ...options,
+      env: this._getEnv(false),
     });
     return result;
   }
 
   private _getEnv(vscodeDebuggerEnabled: boolean): NodeJS.ProcessEnv {
-    if (!this._debugMode.isEnabled())
-      return process.env;
-    // we don't want to have two debuggers at the same time
-    if (vscodeDebuggerEnabled) {
-      return {
-        ...process.env,
-        'DEBUG': 'pw:api'
-      };
-    }
-    return {
+    const env = {
       ...process.env,
-      'PWDEBUG': '1'
+      ...configuration.get<Record<string, string>>('playwright.env'),
     };
+    if (this._debugMode.isEnabled()) {
+      // we don't want to have two debuggers at the same time
+      if (vscodeDebuggerEnabled) {
+        env['DEBUG'] = 'pw:api';
+      } else {
+        env['PWDEBUG'] = '1';
+      }
+    }
+    return env;
   }
 
   private _buildBaseArgs(config: PlaywrightTestConfig, projectName: string) {
