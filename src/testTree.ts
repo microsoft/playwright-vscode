@@ -45,10 +45,10 @@ export class TestFile {
     private readonly project: string,
   ) { }
 
-  public async updateFromDisk(ctrl: vscode.TestController, item: vscode.TestItem) {
+  public async updateFromDisk(ctrl: vscode.TestController, item: vscode.TestItem, cachedTests?: playwrightTestTypes.JSONReport) {
     try {
       item.error = undefined;
-      await this._updateFromDisk(ctrl, item);
+      await this._updateFromDisk(ctrl, item, cachedTests);
     } catch (e) {
       console.debug('--Playwright Test Exception while reloading the tests--');
       console.debug(e);
@@ -61,10 +61,10 @@ export class TestFile {
    * Parses the tests from the input text, and updates the tests contained
    * by this file to be those from the text,
    */
-  private async _updateFromDisk(controller: vscode.TestController, item: vscode.TestItem) {
+  private async _updateFromDisk(controller: vscode.TestController, item: vscode.TestItem, cachedTests?: playwrightTestTypes.JSONReport) {
     logger.debug(`TestFile._updateFromDisk ${this.config === DEFAULT_CONFIG ? 'default' : this.config} and ${this.project}`);
     const ancestors: Ancestors[] = [{ item, children: [] }];
-    const tests = await this.playwrightTest.listTests(this.config, this.project, item.uri!.fsPath);
+    const tests = cachedTests ? cachedTests : await this.playwrightTest.listTests(this.config, this.project, item.uri!.fsPath);
     if (!tests)
       return;
     const thisGeneration = generationCounter++;
