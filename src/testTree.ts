@@ -168,7 +168,7 @@ export class TestCase {
           options.passed(item, result.duration);
           break;
         case 'failed': {
-          options.failed(item, parsePlaywrightTestError(item, result.error), result.duration);
+          options.failed(item, parsePlaywrightTestError(spec, item, result.error), result.duration);
           if (result.error)
             options.appendOutput(extendLineFeedWithCarriageReturns(result.error.message) + '\r\n' + extendLineFeedWithCarriageReturns(result.error.stack) + '\r\n');
           break;
@@ -176,9 +176,12 @@ export class TestCase {
         case 'skipped':
           options.skipped(item);
           break;
-        case 'timedOut':
-          options.failed(item, new vscode.TestMessage('Timeout!'), result.duration);
+        case 'timedOut': {
+          const message = new vscode.TestMessage('Timeout!');
+          message.location = new vscode.Location(item.uri!, new vscode.Position(spec.line - 1, spec.column - 1));
+          options.failed(item, message);
           break;
+        }
         default:
           throw new Error(`Unexpected status ${result.status}`);
       }
@@ -202,9 +205,12 @@ export class TestCase {
   }
 }
 
-function parsePlaywrightTestError(item: vscode.TestItem, error?: playwrightTestTypes.TestError): vscode.TestMessage {
-  if (!error || !error.stack || !error.message)
-    return new vscode.TestMessage('Error could not be extracted!');
+function parsePlaywrightTestError(spec: playwrightTestTypes.TestSpec, item: vscode.TestItem, error?: playwrightTestTypes.TestError): vscode.TestMessage {
+  if (!error || !error.stack || !error.message) {
+    const message = new vscode.TestMessage('Error could not be extracted!');
+    message.location = new vscode.Location(item.uri!, new vscode.Position(spec.line - 1, spec.column - 1));
+    return message;
+  }
   const lines = error.stack.split('\n').reverse();
   for (const line of lines) {
     const frame = stackUtils.parseLine(line);
@@ -217,7 +223,9 @@ function parsePlaywrightTestError(item: vscode.TestItem, error?: playwrightTestT
       return message;
     }
   }
-  return new vscode.TestMessage(error.message);
+  const message = new vscode.TestMessage(error.message);
+  message.location = new vscode.Location(item.uri!, new vscode.Position(spec.line - 1, spec.column - 1));
+  return message;
 }
 
 function createRangeFromPlaywright(subSuite: playwrightTestTypes.TestSuite | playwrightTestTypes.TestSpec): vscode.Range {
