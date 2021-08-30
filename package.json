@@ -41,7 +41,9 @@
 					"default": {},
 					"description": "Object with environment variables that will be added to the Playwright Test process.",
 					"additionalProperties": {
-						"type": ["string"]
+						"type": [
+							"string"
+						]
 					}
 				}
 			}
