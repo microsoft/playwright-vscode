@@ -8,6 +8,10 @@ This extension integrates [Playwright Test] with Visual Studio Code by using the
 
 ![Example test](./images/example-test.png)
 
+## Requirements
+
+- [Playwright Test] version 1.14+
+
 ## Usage
 
 The extension automatically detects if you have [Playwright Test] installed and loads the [Playwright Test] projects into Visual Studio Code. By default it will select the first project and by right clicking on the play icon next to a test you can run a test in a specific browser (project).
