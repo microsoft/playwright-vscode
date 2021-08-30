@@ -15,6 +15,7 @@
  */
 
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 import { spawn, SpawnOptionsWithoutStdio } from 'child_process';
  
 export function assert(value: any, message?: string): asserts value {
@@ -44,4 +45,8 @@ export async function fileExistsAsync(file: string): Promise<boolean> {
 
 export function escapeRegExp(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
+
+export function createGuid(): string {
+  return crypto.randomBytes(16).toString('hex');
 }

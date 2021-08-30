@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
+import * as fs from 'fs';
 import * as path from 'path';
-import type { SpawnOptionsWithoutStdio } from 'child_process';
+import * as os from 'os';
 import * as vscode from 'vscode';
 
 import * as playwrightTestTypes from './testTypes';
 import { logger } from './logger';
 import type { PlaywrightDebugMode } from './extension';
-import { fileExistsAsync, spawnAsync, escapeRegExp } from './utils';
+import { fileExistsAsync, spawnAsync, escapeRegExp, createGuid } from './utils';
 
 export const DEFAULT_CONFIG = Symbol('default config');
 export type PlaywrightTestConfig = string | typeof DEFAULT_CONFIG
@@ -45,31 +46,31 @@ export class PlaywrightTest {
   }
 
   public async listTests(config: PlaywrightTestConfig, projectName: string, fileOrFolder: string): Promise<playwrightTestTypes.JSONReport | null> {
-    const proc = await this._executePlaywrightTestCommand(config, projectName, ['--list', escapeRegExp(fileOrFolder)]);
+    const jsonOutputPath = path.join(os.tmpdir(), createGuid());
+    const proc = await this._executePlaywrightTestCommand(jsonOutputPath, config, projectName, ['--list', escapeRegExp(fileOrFolder)]);
     if (proc.code !== 0) {
       if (proc.stderr.includes('no tests found.'))
         return null;
       throw new Error(proc.stderr || proc.stdout);
     }
     try {
-      return JSON.parse(proc.stdout);
-    } catch (error) {
-      logger.debug('could not parse JSON', proc.stdout, proc.stderr);
-      throw error;
+      return JSON.parse(await fs.promises.readFile(jsonOutputPath, 'utf8'));
+    } finally {
+      await fs.promises.unlink(jsonOutputPath);
     }
   }
 
-  public async runTest(config: PlaywrightTestConfig, projectName: string, path: string, line: number): Promise<playwrightTestTypes.JSONReport> {
-    const proc = await this._executePlaywrightTestCommand(config, projectName, [`${escapeRegExp(path)}:${line}`]);
+  public async runTest(config: PlaywrightTestConfig, projectName: string, testPath: string, line: number): Promise<playwrightTestTypes.JSONReport> {
+    const jsonOutputPath = path.join(os.tmpdir(), createGuid());
+    await this._executePlaywrightTestCommand(jsonOutputPath, config, projectName, [`${escapeRegExp(testPath)}:${line}`]);
     try {
-      return JSON.parse(proc.stdout);
-    } catch (error) {
-      logger.debug('could not parse JSON', proc.stdout, proc.stderr);
-      throw error;
+      return JSON.parse(await fs.promises.readFile(jsonOutputPath, 'utf8'));
+    } finally {
+      await fs.promises.unlink(jsonOutputPath);
     }
   }
 
-  private async _executePlaywrightTestCommand(config: PlaywrightTestConfig, projectName: string, additionalArguments: string[]) {
+  private async _executePlaywrightTestCommand(jsonOutputPath: string, config: PlaywrightTestConfig, projectName: string, additionalArguments: string[]) {
     const spawnArguments = [
       path.relative(this._directory, this._cliEntrypoint),
       ...this._buildBaseArgs(config, projectName),
@@ -79,7 +80,10 @@ export class PlaywrightTest {
     logger.debug(`Executing command: ${spawnArguments.join(' ')}`);
     const result = await spawnAsync('node', spawnArguments, {
       cwd: this._directory,
-      env: this._getEnv(false),
+      env: {
+        ...this._getEnv(false),
+        PLAYWRIGHT_JSON_OUTPUT_NAME: jsonOutputPath,
+      },
     });
     return result;
   }
