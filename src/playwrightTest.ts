@@ -107,6 +107,7 @@ export class PlaywrightTest {
   private _buildBaseArgs(config: PlaywrightTestConfig, projectName: string) {
     return [
       'test',
+      '--retries=0',
       ...(config !== DEFAULT_CONFIG ? [`--config=${config}`] : []),
       ...(projectName ? [`--project=${projectName}`] : []),
     ];
