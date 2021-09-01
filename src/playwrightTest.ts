@@ -133,5 +133,6 @@ export class PlaywrightTest {
     };
 
     await vscode.debug.startDebugging(workspaceFolder, debugConfiguration);
+    await vscode.commands.executeCommand('workbench.debug.action.focusRepl');
   }
 }
