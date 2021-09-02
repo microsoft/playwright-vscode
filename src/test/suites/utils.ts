@@ -37,7 +37,7 @@ export function itemCollectionToArray(collection: vscode.TestItemCollection): vs
   return items;
 }
 
-export async function openFile(path: string) {
-  const uri = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, path);
+export async function openFile(path: string, workspaceFolder: vscode.WorkspaceFolder = vscode.workspace.workspaceFolders![0]) {
+  const uri = vscode.Uri.joinPath(workspaceFolder.uri, path);
   await vscode.commands.executeCommand('vscode.open', uri);
 }
