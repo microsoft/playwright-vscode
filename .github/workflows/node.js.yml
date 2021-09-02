@@ -20,13 +20,7 @@ jobs:
         node-version: 14.x
     - run: npm ci
     - run: npm run lint
-    - run: npm run compile
-    - name: Prepare test workspace
-      run: npm install
-      working-directory: test/assets/should-work
-    - name: Prepare test workspace
-      run: npm install
-      working-directory: test/assets/should-set-environment-variables
+    - run: npm run build
     - if: matrix.os == 'ubuntu-latest'
       run: xvfb-run npm run test
     - if: matrix.os != 'ubuntu-latest'
