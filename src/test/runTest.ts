@@ -29,86 +29,86 @@ type Suite = {
 }
 
 function getSuites(): Suite[] {
-	return glob.sync(path.join(__dirname, 'suites', '*'))
-		.map(suite => {
-			if (!(fs.statSync(suite)).isDirectory())
-				return;
-			const assetDir = path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite));
-			const potentialWorkspaceFile = path.join(assetDir, 'my.code-workspace');
-			return {
-				suite,
-				assetDir,
-				open: fs.existsSync(potentialWorkspaceFile) ? potentialWorkspaceFile : assetDir
-			};
-		}).filter((suite): suite is Suite => !!suite);
+  return glob.sync(path.join(__dirname, 'suites', '*'))
+    .map(suite => {
+      if (!(fs.statSync(suite)).isDirectory())
+        return;
+      const assetDir = path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite));
+      const potentialWorkspaceFile = path.join(assetDir, 'my.code-workspace');
+      return {
+        suite,
+        assetDir,
+        open: fs.existsSync(potentialWorkspaceFile) ? potentialWorkspaceFile : assetDir
+      };
+    }).filter((suite): suite is Suite => !!suite);
 }
 
 async function runTests() {
-	// The folder containing the Extension Manifest package.json
-	// Passed to `--extensionDevelopmentPath`
-	const extensionDevelopmentPath = path.resolve(__dirname, '../../');
+  // The folder containing the Extension Manifest package.json
+  // Passed to `--extensionDevelopmentPath`
+  const extensionDevelopmentPath = path.resolve(__dirname, '../../');
 
-	const userDataDir = path.join(os.tmpdir(), 'pw-vsc-tests');
-	const cleanupUserDir = async () => {
-		// eslint-disable-next-line @typescript-eslint/no-empty-function
-		await fs.promises.rmdir(userDataDir).catch(() => { });
-	};
+  const userDataDir = path.join(os.tmpdir(), 'pw-vsc-tests');
+  const cleanupUserDir = async () => {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    await fs.promises.rmdir(userDataDir).catch(() => { });
+  };
 
-	const suites = getSuites();
+  const suites = getSuites();
 
-	for (const { suite, open } of suites) {
-		await cleanupUserDir();
-		// The path to the extension test script
-		// Passed to --extensionTestsPath
-		const extensionTestsPath = path.resolve(suite, 'index');
+  for (const { suite, open } of suites) {
+    await cleanupUserDir();
+    // The path to the extension test script
+    // Passed to --extensionTestsPath
+    const extensionTestsPath = path.resolve(suite, 'index');
 
-		// Download VS Code, unzip it and run the integration test
-		await runVSCodeTests({
-			version: 'insiders',
-			extensionDevelopmentPath,
-			extensionTestsPath,
-			launchArgs: [
-				`--user-data-dir=${userDataDir}`,
-				'--disable-extensions',
-				open,
-			]
-		});
+    // Download VS Code, unzip it and run the integration test
+    await runVSCodeTests({
+      version: 'insiders',
+      extensionDevelopmentPath,
+      extensionTestsPath,
+      launchArgs: [
+        `--user-data-dir=${userDataDir}`,
+        '--disable-extensions',
+        open,
+      ]
+    });
 
-		await runVSCodeTests({
-			version: 'stable',
-			extensionDevelopmentPath,
-			extensionTestsPath,
-			launchArgs: [
-				`--user-data-dir=${userDataDir}`,
-				'--disable-extensions',
-				open,
-			]
-		});
-	}
-	await cleanupUserDir();
+    await runVSCodeTests({
+      version: 'stable',
+      extensionDevelopmentPath,
+      extensionTestsPath,
+      launchArgs: [
+        `--user-data-dir=${userDataDir}`,
+        '--disable-extensions',
+        open,
+      ]
+    });
+  }
+  await cleanupUserDir();
 }
 
 
 async function main() {
-	switch (process.argv[2]) {
-		case 'run':
-			await runTests();
-			break;
-		case 'install':
-			for (const { assetDir } of getSuites())
-				spawnSync('npm i', { cwd: assetDir, stdio: 'inherit', shell: true });
-			break;
-		default: {
-			const command = 'node ' + path.relative(process.cwd(), process.argv[1]) + ' ';
-			throw new Error(`Unkown parameter '${command}${process.argv[2] || ''}'\n` +
+  switch (process.argv[2]) {
+  case 'run':
+    await runTests();
+    break;
+  case 'install':
+    for (const { assetDir } of getSuites())
+      spawnSync('npm i', { cwd: assetDir, stdio: 'inherit', shell: true });
+    break;
+  default: {
+    const command = 'node ' + path.relative(process.cwd(), process.argv[1]) + ' ';
+    throw new Error(`Unkown parameter '${command}${process.argv[2] || ''}'\n` +
 				'Supported parameters:\n' +
 				`	- ${command}run\n` +
 				`	- ${command}install`);
-		}
-	}
+  }
+  }
 }
 
 main().catch(err => {
-	console.error(err);
-	process.exit(1);
+  console.error(err);
+  process.exit(1);
 });

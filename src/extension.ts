@@ -208,26 +208,26 @@ export class PlaywrightDebugMode {
   private toggleCommand = 'playwright.toggleDebugMode';
   private isDebugModeEnabled = false;
   private statusBarItem!: vscode.StatusBarItem;
-    constructor(readonly context: vscode.ExtensionContext) {
-      this._initStatusBarItem();
-    }
+  constructor(readonly context: vscode.ExtensionContext) {
+    this._initStatusBarItem();
+  }
 
-    private _initStatusBarItem() {
-      this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-      this.statusBarItem.command = this.toggleCommand;
-      this._updateDebugModeText();
-      this.statusBarItem.name = 'Playwright Test: Enable Debug Mode';
-      this.statusBarItem.tooltip = 'Enable Playwright Test Debug mode (PWDEBUG=1)';
-      this.statusBarItem.show();
-      this.context.subscriptions.push(this.statusBarItem);
+  private _initStatusBarItem() {
+    this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    this.statusBarItem.command = this.toggleCommand;
+    this._updateDebugModeText();
+    this.statusBarItem.name = 'Playwright Test: Enable Debug Mode';
+    this.statusBarItem.tooltip = 'Enable Playwright Test Debug mode (PWDEBUG=1)';
+    this.statusBarItem.show();
+    this.context.subscriptions.push(this.statusBarItem);
 
-      this.context.subscriptions.push(
-          vscode.commands.registerCommand(this.toggleCommand, () => {
-            this.isDebugModeEnabled = !this.isDebugModeEnabled;
-            this._updateDebugModeText();
-        })
-      );
-    }
+    this.context.subscriptions.push(
+      vscode.commands.registerCommand(this.toggleCommand, () => {
+        this.isDebugModeEnabled = !this.isDebugModeEnabled;
+        this._updateDebugModeText();
+      })
+    );
+  }
 
     private _updateDebugModeText = () => {
       let text;

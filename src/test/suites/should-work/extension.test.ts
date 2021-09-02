@@ -22,29 +22,29 @@ import * as playwrightTestExtension from '../../../extension';
 import { assertTestItemTree, itemCollectionToArray, openFile } from '../utils';
 
 suite('Basic file parsing', () => {
-	test('does parse a single file correctly', async () => { 
-		const waitForTestResolveHandler = new Promise<void>(resolve => playwrightTestExtension.testControllerEvents.on('testItemCreated', (testItem: vscode.TestItem) => {
-			if (testItem.label === 'last-test-name')
-				resolve();
-		}));
-		await openFile('example1.spec.ts');
-		await waitForTestResolveHandler;
-		assert.strictEqual(playwrightTestExtension.testControllers.length, 1);
-		const items = itemCollectionToArray(playwrightTestExtension.testControllers[0].items);
-		assert.strictEqual(items.length, 1);
-		assertTestItemTree(items[0], {
-			label: 'example1.spec.ts',
-			children: [{
-				label: '1212me',
-			}, {
-				label: 'should be awesome²',
-				children: [{
-					label: 'layer 2',
-					children: [{
-						label: 'last-test-name'
-					}]
-				}]
-			}]
-		});
-	});
+  test('does parse a single file correctly', async () => { 
+    const waitForTestResolveHandler = new Promise<void>(resolve => playwrightTestExtension.testControllerEvents.on('testItemCreated', (testItem: vscode.TestItem) => {
+      if (testItem.label === 'last-test-name')
+        resolve();
+    }));
+    await openFile('example1.spec.ts');
+    await waitForTestResolveHandler;
+    assert.strictEqual(playwrightTestExtension.testControllers.length, 1);
+    const items = itemCollectionToArray(playwrightTestExtension.testControllers[0].items);
+    assert.strictEqual(items.length, 1);
+    assertTestItemTree(items[0], {
+      label: 'example1.spec.ts',
+      children: [{
+        label: '1212me',
+      }, {
+        label: 'should be awesome²',
+        children: [{
+          label: 'layer 2',
+          children: [{
+            label: 'last-test-name'
+          }]
+        }]
+      }]
+    });
+  });
 });
