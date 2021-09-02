@@ -32,10 +32,10 @@ function getSuites(): Suite[] {
 		.map(suite => {
 			if (!(fs.statSync(suite)).isDirectory())
 				return;
-			const assetDir = path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite));
+			let assetDir = path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite));
 			const potentialWorkspaceFile = path.join(assetDir, 'my.code-workspace');
 			if (fs.existsSync(potentialWorkspaceFile))
-				suite = potentialWorkspaceFile;
+				assetDir = potentialWorkspaceFile;
 			return {
 				suite,
 				assetDir,
