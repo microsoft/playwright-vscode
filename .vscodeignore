@@ -1,2 +1,6 @@
 test/**/*
 example/**/*
+out/test/**/*
+src/**/*
+.gitignore
+tsconfig.json
