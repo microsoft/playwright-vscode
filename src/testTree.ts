@@ -164,26 +164,26 @@ export class TestCase {
       for (const entry of result.stdout)
         options.appendOutput(extendLineFeedWithCarriageReturns(decodeJSONReporterSTDIOEntry(entry)));
       switch (result.status) {
-        case 'passed':
-          options.passed(item, result.duration);
-          break;
-        case 'failed': {
-          options.failed(item, parsePlaywrightTestError(spec, item, result.error), result.duration);
-          if (result.error)
-            options.appendOutput(extendLineFeedWithCarriageReturns(result.error.message) + '\r\n' + extendLineFeedWithCarriageReturns(result.error.stack) + '\r\n');
-          break;
-        }
-        case 'skipped':
-          options.skipped(item);
-          break;
-        case 'timedOut': {
-          const message = new vscode.TestMessage('Timeout!');
-          message.location = new vscode.Location(item.uri!, new vscode.Position(spec.line - 1, spec.column - 1));
-          options.failed(item, message);
-          break;
-        }
-        default:
-          throw new Error(`Unexpected status ${result.status}`);
+      case 'passed':
+        options.passed(item, result.duration);
+        break;
+      case 'failed': {
+        options.failed(item, parsePlaywrightTestError(spec, item, result.error), result.duration);
+        if (result.error)
+          options.appendOutput(extendLineFeedWithCarriageReturns(result.error.message) + '\r\n' + extendLineFeedWithCarriageReturns(result.error.stack) + '\r\n');
+        break;
+      }
+      case 'skipped':
+        options.skipped(item);
+        break;
+      case 'timedOut': {
+        const message = new vscode.TestMessage('Timeout!');
+        message.location = new vscode.Location(item.uri!, new vscode.Position(spec.line - 1, spec.column - 1));
+        options.failed(item, message);
+        break;
+      }
+      default:
+        throw new Error(`Unexpected status ${result.status}`);
       }
     };
     let found = false;

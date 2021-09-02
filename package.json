@@ -51,7 +51,7 @@
 	"scripts": {
 		"vscode:prepublish": "npm run build",
 		"build": "tsc -p ./",
-		"lint": "eslint . --ext .ts,.tsx",
+		"lint": "eslint . --ext .ts,.tsx,.js",
 		"watch": "tsc -watch -p ./",
 		"download-api": "vscode-dts dev",
 		"postdownload-api": "vscode-dts main",
