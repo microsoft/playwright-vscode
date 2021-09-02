@@ -1,5 +1,5 @@
 {
     "scripts": {
-        "postinstall": "node install.js"
+        "install": "node install.js"
     }
 }

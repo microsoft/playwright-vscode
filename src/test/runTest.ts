@@ -25,6 +25,7 @@ import { runTests as runVSCodeTests } from '@vscode/test-electron';
 type Suite = {
 	suite: string;
 	assetDir: string;
+	open: string;
 }
 
 function getSuites(): Suite[] {
@@ -32,15 +33,14 @@ function getSuites(): Suite[] {
 		.map(suite => {
 			if (!(fs.statSync(suite)).isDirectory())
 				return;
-			let assetDir = path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite));
+			const assetDir = path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite));
 			const potentialWorkspaceFile = path.join(assetDir, 'my.code-workspace');
-			if (fs.existsSync(potentialWorkspaceFile))
-				assetDir = potentialWorkspaceFile;
 			return {
 				suite,
 				assetDir,
+				open: fs.existsSync(potentialWorkspaceFile) ? potentialWorkspaceFile : assetDir
 			};
-		}).filter(Boolean) as Suite[];
+		}).filter((suite): suite is Suite => !!suite);
 }
 
 async function runTests() {
@@ -56,13 +56,23 @@ async function runTests() {
 
 	const suites = getSuites();
 
-	for (const { suite, assetDir } of suites) {
+	for (const { suite, open } of suites) {
 		await cleanupUserDir();
 		// The path to the extension test script
 		// Passed to --extensionTestsPath
 		const extensionTestsPath = path.resolve(suite, 'index');
 
 		// Download VS Code, unzip it and run the integration test
+		await runVSCodeTests({
+			version: 'insiders',
+			extensionDevelopmentPath,
+			extensionTestsPath,
+			launchArgs: [
+				`--user-data-dir=${userDataDir}`,
+				'--disable-extensions',
+				open,
+			]
+		});
 
 		await runVSCodeTests({
 			version: 'stable',
@@ -71,7 +81,7 @@ async function runTests() {
 			launchArgs: [
 				`--user-data-dir=${userDataDir}`,
 				'--disable-extensions',
-				assetDir,
+				open,
 			]
 		});
 	}
