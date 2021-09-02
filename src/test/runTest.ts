@@ -63,16 +63,6 @@ async function runTests() {
 		const extensionTestsPath = path.resolve(suite, 'index');
 
 		// Download VS Code, unzip it and run the integration test
-		await runVSCodeTests({
-			version: 'insiders',
-			extensionDevelopmentPath,
-			extensionTestsPath,
-			launchArgs: [
-				`--user-data-dir=${userDataDir}`,
-				'--disable-extensions',
-				assetDir,
-			]
-		});
 
 		await runVSCodeTests({
 			version: 'stable',

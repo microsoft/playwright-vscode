@@ -23,6 +23,7 @@ import { TestCase, TestFile, testData } from './testTree';
 
 export const testControllers: vscode.TestController[] = [];
 export const testControllerEvents = new EventEmitter();
+export const testController2Profile = new Map<vscode.TestController, vscode.TestRunProfile>();
 
 const configuration = vscode.workspace.getConfiguration();
 
@@ -153,7 +154,8 @@ async function createTestController(context: vscode.ExtensionContext, workspaceF
   };
 
 
-  ctrl.createRunProfile(`Run Tests in ${displayProjectAndConfigName}`, vscode.TestRunProfileKind.Run, makeRunHandler(false), isDefault);
+  const runProfile = ctrl.createRunProfile(`Run Tests in ${displayProjectAndConfigName}`, vscode.TestRunProfileKind.Run, makeRunHandler(false), isDefault);
+  testController2Profile.set(ctrl, runProfile);
   ctrl.createRunProfile(`Debug Tests in ${displayProjectAndConfigName}`, vscode.TestRunProfileKind.Debug, makeRunHandler(true), isDefault);
 
   ctrl.resolveHandler = async item => {

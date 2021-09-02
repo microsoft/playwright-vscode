@@ -16,5 +16,6 @@
 import { expect, test } from '@playwright/test';
 
 test('this is workspace b', async ({page}) => {
+  console.log(await page.evaluate(() => window.navigator.userAgent));
   expect(await page.evaluate(() => window.navigator.userAgent)).toContain('WebKit');
 });
