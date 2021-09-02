@@ -32,42 +32,81 @@ export async function activate(context: vscode.ExtensionContext) {
     return;
   }
 
-  if (vscode.workspace.workspaceFolders.length !== 1) {
-    vscode.window.showWarningMessage('Playwright Test only works in a single workspace folder.');
-    return;
-  }
-
   const debugModeHandler = new PlaywrightDebugMode(context);
-
-  const workspaceFolder = vscode.workspace.workspaceFolders[0];
 
   const playwrightTestConfigsFromSettings = configuration.get<string[]>('playwright.configs');
   const playwrightTestConfigs: PlaywrightTestConfig[] = playwrightTestConfigsFromSettings?.length ? playwrightTestConfigsFromSettings : [DEFAULT_CONFIG];
 
-  let playwrightTest: PlaywrightTest;
-  try {
-    playwrightTest = await PlaywrightTest.create(workspaceFolder.uri.fsPath, configuration.get('playwright.cliPath')!, debugModeHandler);
-  } catch (error) {
-    logger.debug(error.toString());
-    return;
-  }
+  const workspace2TestController = new Map<vscode.WorkspaceFolder, PlaywrightTestController[]>();
 
-  for (const [configIndex, config] of playwrightTestConfigs.entries()) {
-    const tests = await playwrightTest.listTests(config, '', '.');
-    if (!tests)
-      continue;
-    for (const [projectsIndex, project] of tests.config.projects.entries()) {
-      const isDefault = projectsIndex === 0 && configIndex === 0;
-      await createTestController(context, workspaceFolder, playwrightTest, config, project.name, projectsIndex, isDefault);
+  for (const workspaceFolder of vscode.workspace.workspaceFolders) {
+    let playwrightTest: PlaywrightTest;
+    try {
+      playwrightTest = await PlaywrightTest.create(workspaceFolder.uri.fsPath, configuration.get('playwright.cliPath')!, debugModeHandler);
+    } catch (error) {
+      logger.debug(error.toString());
+      return;
+    }
+
+    for (const [configIndex, config] of playwrightTestConfigs.entries()) {
+      const tests = await playwrightTest.listTests(config, '', '.');
+      if (!tests)
+        continue;
+      for (const [projectsIndex, project] of tests.config.projects.entries()) {
+        const isDefault = projectsIndex === 0 && configIndex === 0;
+        const controller = await createTestController(context, workspaceFolder, playwrightTest, config, project.name, projectsIndex, isDefault);
+        if (!workspace2TestController.has(workspaceFolder))
+          workspace2TestController.set(workspaceFolder, []);
+        workspace2TestController.get(workspaceFolder)?.push(controller);
+      }
     }
   }
+
+  function updateNodeForDocument(e: vscode.TextDocument) {
+    if (!['.ts', '.js', '.mjs'].some(extension => e.uri.fsPath.endsWith(extension))) {
+      return;
+    }
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(e.uri);
+    if (!workspaceFolder)
+      return;
+
+    const testControllers = workspace2TestController.get(workspaceFolder);
+    if (!testControllers)
+      return;
+    
+    for (const [, {config, projectName, controller, playwrightTest}] of testControllers.entries()) {
+      playwrightTest.listTests(config, projectName, e.uri.fsPath).then(tests => {
+        if (!tests)
+          return;
+        const { file, data } = getOrCreateFile(controller, workspaceFolder, e.uri, playwrightTest, config, projectName);
+        data.updateFromDisk(controller, file, tests);
+      }).catch(error => logger.debug(error));
+    }
+  }
+
+  for (const document of vscode.workspace.textDocuments) {
+    updateNodeForDocument(document);
+  }
+
+  context.subscriptions.push(
+    vscode.workspace.onDidOpenTextDocument(updateNodeForDocument),
+    vscode.workspace.onDidSaveTextDocument(updateNodeForDocument)
+  );
 }
 
-async function createTestController(context: vscode.ExtensionContext, workspaceFolder: vscode.WorkspaceFolder, playwrightTest: PlaywrightTest, config: PlaywrightTestConfig, projectName: string, projectIndex: number, isDefault: boolean) {
+type PlaywrightTestController = {
+  controller: vscode.TestController;
+  playwrightTest: PlaywrightTest;
+  config: PlaywrightTestConfig;
+  projectName: string;
+}
+
+async function createTestController(context: vscode.ExtensionContext, workspaceFolder: vscode.WorkspaceFolder, playwrightTest: PlaywrightTest, config: PlaywrightTestConfig, projectName: string, projectIndex: number, isDefault: boolean): Promise<PlaywrightTestController> {
   const displayProjectAndConfigName = `${projectName}${config === DEFAULT_CONFIG ? '' : `[${config}]`}`;
-  const controllerName = `Playwright Test ${displayProjectAndConfigName}`;
+  const workspaceName = vscode.workspace.workspaceFolders!.length > 1 ? ` [${workspaceFolder.name}]` : '';
+  const controllerName = `Playwright Test${workspaceName} ${displayProjectAndConfigName}`;
   logger.debug(`Creating test controller: ${controllerName}`);
-  const ctrl = vscode.tests.createTestController('playwrightTestController' + (config === DEFAULT_CONFIG ? 'default' : config) + projectIndex, controllerName);
+  const ctrl = vscode.tests.createTestController('playwrightTestController' + (config === DEFAULT_CONFIG ? 'default' : config) + workspaceFolder.uri.fsPath + projectIndex, controllerName);
   context.subscriptions.push(ctrl);
   testControllers.push(ctrl);
 
@@ -127,27 +166,12 @@ async function createTestController(context: vscode.ExtensionContext, workspaceF
       await data.updateFromDisk(ctrl, item);
     }
   };
-
-  function updateNodeForDocument(e: vscode.TextDocument) {
-    if (!['.ts', '.js', '.mjs'].some(extension => e.uri.fsPath.endsWith(extension))) {
-      return;
-    }
-    playwrightTest.listTests(config, projectName, e.uri!.fsPath).then(tests => {
-      if (!tests)
-        return;
-      const { file, data } = getOrCreateFile(ctrl, workspaceFolder, e.uri, playwrightTest, config, projectName);
-      data.updateFromDisk(ctrl, file, tests);
-    }).catch(error => logger.debug(error));
-  }
-
-  for (const document of vscode.workspace.textDocuments) {
-    updateNodeForDocument(document);
-  }
-
-  context.subscriptions.push(
-    vscode.workspace.onDidOpenTextDocument(updateNodeForDocument),
-    vscode.workspace.onDidSaveTextDocument(updateNodeForDocument)
-  );
+  return {
+    controller: ctrl,
+    playwrightTest,
+    config,
+    projectName
+  };
 }
 
 function getOrCreateFile(controller: vscode.TestController, workspaceFolder: vscode.WorkspaceFolder, uri: vscode.Uri, playwrightTest: PlaywrightTest, config: PlaywrightTestConfig, projectName: string) {
