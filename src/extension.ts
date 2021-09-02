@@ -102,9 +102,9 @@ type PlaywrightTestController = {
 }
 
 async function createTestController(context: vscode.ExtensionContext, workspaceFolder: vscode.WorkspaceFolder, playwrightTest: PlaywrightTest, config: PlaywrightTestConfig, projectName: string, projectIndex: number, isDefault: boolean): Promise<PlaywrightTestController> {
-  const displayProjectAndConfigName = `${projectName}${config === DEFAULT_CONFIG ? '' : `[${config}]`}`;
+  const displayProjectAndConfigName = `${projectName}${config === DEFAULT_CONFIG ? '' : ` [${config}]`}`;
   const workspaceName = vscode.workspace.workspaceFolders!.length > 1 ? ` [${workspaceFolder.name}]` : '';
-  const controllerName = `Playwright Test${workspaceName} ${displayProjectAndConfigName}`;
+  const controllerName = `Playwright Test${workspaceName}${displayProjectAndConfigName}`;
   logger.debug(`Creating test controller: ${controllerName}`);
   const ctrl = vscode.tests.createTestController('playwrightTestController' + (config === DEFAULT_CONFIG ? 'default' : config) + workspaceFolder.uri.fsPath + projectIndex, controllerName);
   context.subscriptions.push(ctrl);

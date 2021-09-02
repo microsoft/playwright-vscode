@@ -1,5 +1,5 @@
 {
     "devDependencies": {
-        "@playwright/test": "^1.14.0-next-alpha-jul-26-2021"
+        "@playwright/test": "^1.14.0"
     }
 }

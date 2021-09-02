@@ -22,13 +22,25 @@ import * as os from 'os';
 
 import { runTests as runVSCodeTests } from '@vscode/test-electron';
 
-const globAsync = util.promisify(glob);
+type Suite = {
+	suite: string;
+	assetDir: string;
+}
 
-async function getSuites() {
-	return (await globAsync(path.join(__dirname, 'suites', '*'))).map(suite => ({
-		suite,
-		assetDir: path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite))
-	}));
+function getSuites(): Suite[] {
+	return glob.sync(path.join(__dirname, 'suites', '*'))
+		.map(suite => {
+			if (!(fs.statSync(suite)).isDirectory())
+				return;
+			const assetDir = path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite));
+			const potentialWorkspaceFile = path.join(assetDir, 'my.code-workspace');
+			if (fs.existsSync(potentialWorkspaceFile))
+				suite = potentialWorkspaceFile;
+			return {
+				suite,
+				assetDir,
+			};
+		}).filter(Boolean) as Suite[];
 }
 
 async function runTests() {
@@ -42,11 +54,9 @@ async function runTests() {
 		await fs.promises.rmdir(userDataDir).catch(() => { });
 	};
 
-	const suites = await getSuites();
+	const suites = getSuites();
 
 	for (const { suite, assetDir } of suites) {
-		if (!(await fs.promises.stat(suite)).isDirectory())
-			return;
 		await cleanupUserDir();
 		// The path to the extension test script
 		// Passed to --extensionTestsPath
@@ -85,7 +95,7 @@ async function main() {
 			await runTests();
 			break;
 		case 'install':
-			for (const { assetDir } of await getSuites())
+			for (const { assetDir } of getSuites())
 				spawnSync('npm i', { cwd: assetDir, stdio: 'inherit', shell: true });
 			break;
 		default: {
