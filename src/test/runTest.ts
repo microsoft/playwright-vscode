@@ -16,63 +16,89 @@
 import * as path from 'path';
 import * as glob from 'glob';
 import * as util from 'util';
+import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 
-import { runTests } from '@vscode/test-electron';
+import { runTests as runVSCodeTests } from '@vscode/test-electron';
 
 const globAsync = util.promisify(glob);
 
-async function main() {
-	try {
-		// The folder containing the Extension Manifest package.json
-		// Passed to `--extensionDevelopmentPath`
-		const extensionDevelopmentPath = path.resolve(__dirname, '../../');
+async function getSuites() {
+	return (await globAsync(path.join(__dirname, 'suites', '*'))).map(suite => ({
+		suite,
+		assetDir: path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite))
+	}));
+}
 
-		const suites = await globAsync(path.join(__dirname, 'suites', '*'));
+async function runTests() {
+	// The folder containing the Extension Manifest package.json
+	// Passed to `--extensionDevelopmentPath`
+	const extensionDevelopmentPath = path.resolve(__dirname, '../../');
 
-		const userDataDir = path.join(os.tmpdir(), 'pw-vsc-tests');
-		const cleanupUserDir = async () => {
-				// eslint-disable-next-line @typescript-eslint/no-empty-function
-				await fs.promises.rmdir(userDataDir).catch(() => { });
-		};
+	const userDataDir = path.join(os.tmpdir(), 'pw-vsc-tests');
+	const cleanupUserDir = async () => {
+		// eslint-disable-next-line @typescript-eslint/no-empty-function
+		await fs.promises.rmdir(userDataDir).catch(() => { });
+	};
 
-		for (const suite of suites) {
-			if (!(await fs.promises.stat(suite)).isDirectory())
-				return;
-			await cleanupUserDir();
-			// The path to the extension test script
-			// Passed to --extensionTestsPath
-			const extensionTestsPath = path.resolve(suite, 'index');
+	const suites = await getSuites();
 
-			// Download VS Code, unzip it and run the integration test
-			await runTests({
-				version: 'insiders',
-				extensionDevelopmentPath,
-				extensionTestsPath,
-				launchArgs: [
-					`--user-data-dir=${userDataDir}`,
-					'--disable-extensions',
-					path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite))
-				]
-			});
-
-			await runTests({
-				version: 'stable',
-				extensionDevelopmentPath,
-				extensionTestsPath,
-				launchArgs: [
-					`--user-data-dir=${userDataDir}`,
-					'--disable-extensions',
-					path.join(__dirname, '..', '..', 'test', 'assets', path.basename(suite))
-				]
-			});
-		}
+	for (const { suite, assetDir } of suites) {
+		if (!(await fs.promises.stat(suite)).isDirectory())
+			return;
 		await cleanupUserDir();
-	} catch (err) {
-		console.error('Failed to run tests', err);
-		process.exit(1);
+		// The path to the extension test script
+		// Passed to --extensionTestsPath
+		const extensionTestsPath = path.resolve(suite, 'index');
+
+		// Download VS Code, unzip it and run the integration test
+		await runVSCodeTests({
+			version: 'insiders',
+			extensionDevelopmentPath,
+			extensionTestsPath,
+			launchArgs: [
+				`--user-data-dir=${userDataDir}`,
+				'--disable-extensions',
+				assetDir,
+			]
+		});
+
+		await runVSCodeTests({
+			version: 'stable',
+			extensionDevelopmentPath,
+			extensionTestsPath,
+			launchArgs: [
+				`--user-data-dir=${userDataDir}`,
+				'--disable-extensions',
+				assetDir,
+			]
+		});
+	}
+	await cleanupUserDir();
+}
+
+
+async function main() {
+	switch (process.argv[2]) {
+		case 'run':
+			await runTests();
+			break;
+		case 'install':
+			for (const { assetDir } of await getSuites())
+				spawnSync('npm i', { cwd: assetDir, stdio: 'inherit', shell: true });
+			break;
+		default: {
+			const command = 'node ' + path.relative(process.cwd(), process.argv[1]) + ' ';
+			throw new Error(`Unkown parameter '${command}${process.argv[2] || ''}'\n` +
+				'Supported parameters:\n' +
+				`	- ${command}run\n` +
+				`	- ${command}install`);
+		}
 	}
 }
 
-main();
+main().catch(err => {
+	console.error(err);
+	process.exit(1);
+});

@@ -49,14 +49,14 @@
 		}
 	},
 	"scripts": {
-		"vscode:prepublish": "npm run compile",
-		"compile": "tsc -p ./",
+		"vscode:prepublish": "npm run build",
+		"build": "tsc -p ./",
 		"lint": "eslint . --ext .ts,.tsx",
 		"watch": "tsc -watch -p ./",
 		"download-api": "vscode-dts dev",
 		"postdownload-api": "vscode-dts main",
-		"postinstall": "npm run download-api",
-		"test": "node ./out/test/runTest.js"
+		"postinstall": "npm run download-api && npm run build && node out/test/runTest.js install",
+		"test": "node ./out/test/runTest.js run"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.14.0",
