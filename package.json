@@ -15,6 +15,7 @@
 		"Testing"
 	],
 	"activationEvents": [
+		"workspaceContains:playwright.config.{ts,js}",
 		"workspaceContains:**/*.{test,spec}.{ts,js,mjs}"
 	],
 	"main": "./out/extension.js",
