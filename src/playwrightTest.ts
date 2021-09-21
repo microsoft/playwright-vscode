@@ -108,8 +108,8 @@ export class PlaywrightTest {
     return [
       'test',
       '--retries=0',
-      ...(config !== DEFAULT_CONFIG ? [`--config=${config}`] : []),
-      ...(projectName ? [`--project=${projectName}`] : []),
+      ...(config !== DEFAULT_CONFIG ? ['--config', config] : []),
+      ...(projectName ? ['--project', projectName] : []),
     ];
   }
 
