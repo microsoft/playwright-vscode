@@ -60,9 +60,9 @@ export class PlaywrightTest {
     }
   }
 
-  public async runTest(config: PlaywrightTestConfig, projectName: string, testPath: string, line: number): Promise<playwrightTestTypes.JSONReport> {
+  public async runTest(config: PlaywrightTestConfig, projectName: string, testPath: string, line: number, cancelationToken: vscode.CancellationToken): Promise<playwrightTestTypes.JSONReport> {
     const jsonOutputPath = path.join(os.tmpdir(), 'playwright-vscode-test-extension-' + createGuid() + '.json');
-    await this._executePlaywrightTestCommand(jsonOutputPath, config, projectName, [`${escapeRegExp(testPath)}:${line}`]);
+    await this._executePlaywrightTestCommand(jsonOutputPath, config, projectName, [`${escapeRegExp(testPath)}:${line}`], cancelationToken);
     try {
       return JSON.parse(await fs.promises.readFile(jsonOutputPath, 'utf8'));
     } finally {
@@ -70,7 +70,7 @@ export class PlaywrightTest {
     }
   }
 
-  private async _executePlaywrightTestCommand(jsonOutputPath: string, config: PlaywrightTestConfig, projectName: string, additionalArguments: string[]) {
+  private async _executePlaywrightTestCommand(jsonOutputPath: string, config: PlaywrightTestConfig, projectName: string, additionalArguments: string[], cancelationToken?: vscode.CancellationToken) {
     const spawnArguments = [
       path.relative(this._directory, this._cliEntrypoint),
       ...this._buildBaseArgs(config, projectName),
@@ -84,7 +84,7 @@ export class PlaywrightTest {
         ...this._getEnv(false),
         PLAYWRIGHT_JSON_OUTPUT_NAME: jsonOutputPath,
       },
-    });
+    }, cancelationToken);
     return result;
   }
 

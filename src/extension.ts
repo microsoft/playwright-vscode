@@ -44,7 +44,7 @@ export async function activate(context: vscode.ExtensionContext) {
     try {
       playwrightTest = await PlaywrightTest.create(workspaceFolder.uri.fsPath, configuration.get('playwright.cliPath')!, debugModeHandler);
     } catch (error) {
-      logger.debug(error.toString());
+      logger.debug((error as Error).toString());
       return;
     }
 
@@ -140,7 +140,7 @@ async function createTestController(context: vscode.ExtensionContext, workspaceF
           run.skipped(test);
         } else {
           run.started(test);
-          await data.run(test, workspaceFolder, run, debug);
+          await data.run(test, workspaceFolder, run, debug, cancellation);
         }
 
         run.appendOutput(`Completed ${data.getLabelWithFilename()}\r\n`);
