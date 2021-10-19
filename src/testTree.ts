@@ -52,8 +52,8 @@ export class TestFile {
     } catch (e) {
       console.debug('--Playwright Test Exception while reloading the tests--');
       console.debug(e);
-      vscode.window.showWarningMessage(e.toString());
-      item.error = e.stack;
+      vscode.window.showWarningMessage((e as Error).toString());
+      item.error = (e as Error).stack;
     }
   }
 
@@ -133,27 +133,29 @@ export class TestCase {
     return `${prefix}${this.spec.file} › ${this.spec.title}`;
   }
 
-  async run(item: vscode.TestItem, workspaceFolder: vscode.WorkspaceFolder, options: vscode.TestRun, debug: boolean): Promise<void> {
+  async run(item: vscode.TestItem, workspaceFolder: vscode.WorkspaceFolder, options: vscode.TestRun, debug: boolean, cancelationToken: vscode.CancellationToken): Promise<void> {
     logger.debug(`Running test ${item.label} debug=${debug}`);
     if (debug)
       await this._debug(item, options, workspaceFolder);
     else
-      await this._run(item, options);
+      await this._run(item, options, cancelationToken);
   }
 
   async _debug(item: vscode.TestItem, options: vscode.TestRun, workspaceFolder: vscode.WorkspaceFolder): Promise<void> {
     await this.playwrightTest.debug(this.config, this.project, workspaceFolder, item.uri!.fsPath, this.spec.line);
   }
 
-  async _run(item: vscode.TestItem, options: vscode.TestRun): Promise<void> {
+  async _run(item: vscode.TestItem, options: vscode.TestRun, cancelationToken: vscode.CancellationToken): Promise<void> {
     let result;
     try {
-      result = await this.playwrightTest.runTest(this.config, this.project, item.uri!.fsPath, this.spec.line);
+      result = await this.playwrightTest.runTest(this.config, this.project, item.uri!.fsPath, this.spec.line, cancelationToken);
     } catch (error) {
-      options.errored(item, new vscode.TestMessage(error.toString()));
+      options.errored(item, new vscode.TestMessage((error as Error).toString()));
       logger.debug('Could not run tests', error);
       return;
     }
+    if (cancelationToken.isCancellationRequested)
+      return;
     const processSpec = (spec: playwrightTestTypes.TestSpec) => {
       assert(spec.tests.length === 1);
       const test = spec.tests[0];

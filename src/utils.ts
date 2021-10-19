@@ -16,25 +16,41 @@
 
 import * as fs from 'fs';
 import * as crypto from 'crypto';
-import { spawn, SpawnOptionsWithoutStdio } from 'child_process';
- 
+import { execSync, spawn, SpawnOptionsWithoutStdio } from 'child_process';
+import * as vscode from 'vscode';
+
 export function assert(value: any, message?: string): asserts value {
   if (!value)
     throw new Error(message);
 }
 
-export function spawnAsync(cmd: string, args: string[], options: SpawnOptionsWithoutStdio): Promise<{ stdout: string, stderr: string, code: number | null }> {
+export function spawnAsync(cmd: string, args: string[], options: SpawnOptionsWithoutStdio, cancelationToken?: vscode.CancellationToken): Promise<{ stdout: string, stderr: string, code: number | null }> {
   return new Promise((resolve, reject) => {
-    const process = spawn(cmd, args, options);
+    const proc = spawn(cmd, args, {
+      // On non-windows platforms, `detached: true` makes child process a leader of a new
+      // process group, making it possible to kill child process tree with `.kill(-pid)` command.
+      // @see https://nodejs.org/api/child_process.html#child_process_options_detached
+      detached: process.platform !== 'win32',
+      ...options
+    });
+    cancelationToken?.onCancellationRequested(() => killProcess(proc.pid!));
     let stdout = '';
     let stderr = '';
-    if (process.stdout)
-      process.stdout.on('data', data => stdout += data);
-    if (process.stderr)
-      process.stderr.on('data', data => stderr += data);
-    process.on('close', code => resolve({ stdout, stderr, code }));
-    process.on('error', error => reject(error));
+    if (proc.stdout)
+      proc.stdout.on('data', data => stdout += data);
+    if (proc.stderr)
+      proc.stderr.on('data', data => stderr += data);
+    proc.on('close', code => resolve({ stdout, stderr, code }));
+    proc.on('error', error => reject(error));
   });
+}
+
+function killProcess(pid: number): void {
+  if (process.platform === 'win32') {
+    execSync(`taskkill /pid ${pid} /T /F /FI "MEMUSAGE gt 0"`);
+  } else {
+    process.kill(-pid, 'SIGKILL');
+  }
 }
 
 export async function fileExistsAsync(file: string): Promise<boolean> {
