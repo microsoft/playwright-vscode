@@ -44,8 +44,13 @@ export async function activate(context: vscode.ExtensionContext) {
     try {
       playwrightTest = await PlaywrightTest.create(workspaceFolder.uri.fsPath, configuration.get('playwright.cliPath')!, debugModeHandler);
     } catch (error) {
-      logger.debug((error as Error).toString());
-      return;
+      // Fallback for Playwright 1.14-1.15
+      try {
+        playwrightTest = await PlaywrightTest.create(workspaceFolder.uri.fsPath, './node_modules/@playwright/test/lib/cli/cli.js', debugModeHandler);
+      } catch (error) {
+        logger.debug((error as Error).toString());
+        return;
+      }
     }
 
     for (const [configIndex, config] of playwrightTestConfigs.entries()) {

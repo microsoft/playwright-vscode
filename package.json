@@ -27,7 +27,7 @@
 			"properties": {
 				"playwright.cliPath": {
 					"type": "string",
-					"default": "./node_modules/@playwright/test/lib/cli/cli.js",
+					"default": "./node_modules/@playwright/test/cli.js",
 					"description": "Playwright Test CLI path"
 				},
 				"playwright.configs": {
@@ -62,7 +62,7 @@
 		"test": "node ./out/test/runTest.js run"
 	},
 	"devDependencies": {
-		"@playwright/test": "^1.14.0",
+		"@playwright/test": "^1.16.1",
 		"@types/glob": "^7.1.4",
 		"@types/mocha": "^9.0.0",
 		"@types/node": "^15.12.4",
