@@ -10,7 +10,6 @@
 	"bugs": {
 		"url": "https://github.com/microsoft/playwright-vscode/issues"
 	},
-	"enableProposedApi": true,
 	"engines": {
 		"vscode": "^1.59.0"
 	},
