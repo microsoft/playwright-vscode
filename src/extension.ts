@@ -234,16 +234,16 @@ export class PlaywrightDebugMode {
     );
   }
 
-    private _updateDebugModeText = () => {
-      let text;
-      if (this.isDebugModeEnabled)
-        text = '$(debug-alt) Playwright Debug enabled';
-      else
-        text = 'Enable Playwright Debug';
-      this.statusBarItem.text = text;
-    }
+  private _updateDebugModeText = () => {
+    let text;
+    if (this.isDebugModeEnabled)
+      text = '$(debug-alt) Playwright Debug enabled';
+    else
+      text = 'Enable Playwright Debug';
+    this.statusBarItem.text = text;
+  };
 
-    public isEnabled(): boolean {
-      return this.isDebugModeEnabled;
-    }
+  public isEnabled(): boolean {
+    return this.isDebugModeEnabled;
+  }
 }
