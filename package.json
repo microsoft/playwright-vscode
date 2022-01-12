@@ -21,36 +21,6 @@
 		"workspaceContains:**/*.{test,spec}.{ts,js,mjs}"
 	],
 	"main": "./out/extension.js",
-	"contributes": {
-		"configuration": {
-			"title": "Playwright Test path",
-			"properties": {
-				"playwright.cliPath": {
-					"type": "string",
-					"default": "./node_modules/@playwright/test/cli.js",
-					"description": "Playwright Test CLI path"
-				},
-				"playwright.configs": {
-					"type": "array",
-					"scope": "resource",
-					"description": "If its empty, it will use the Playwrigh Test defaults (playwright.config.{ts,js,mjs})",
-					"items": {
-						"type": "string",
-						"description": "Playwright Test configuration file"
-					}
-				},
-				"playwright.env": {
-					"type": "object",
-					"description": "Object with environment variables that will be added to the Playwright Test process.",
-					"additionalProperties": {
-						"type": [
-							"string"
-						]
-					}
-				}
-			}
-		}
-	},
 	"scripts": {
 		"vscode:prepublish": "npm run build",
 		"build": "tsc -p ./",
@@ -58,11 +28,11 @@
 		"watch": "tsc -watch -p ./",
 		"download-api": "vscode-dts dev",
 		"postdownload-api": "vscode-dts main",
-		"postinstall": "npm run download-api && npm run build && node out/test/runTest.js install",
-		"test": "node ./out/test/runTest.js run"
+		"postinstall": "npm run download-api && npm run build && node out/test/runTest.js install"
 	},
 	"devDependencies": {
-		"@playwright/test": "^1.16.3",
+		"@playwright/test": "^1.17.2",
+		"@types/babel__traverse": "^7.14.2",
 		"@types/glob": "^7.2.0",
 		"@types/mocha": "^9.0.0",
 		"@types/node": "^16.11.10",
@@ -77,6 +47,8 @@
 		"vscode-dts": "^0.3.2"
 	},
 	"dependencies": {
+		"@babel/parser": "^7.16.8",
+		"@babel/traverse": "^7.16.8",
 		"stack-utils": "^2.0.5"
 	}
 }

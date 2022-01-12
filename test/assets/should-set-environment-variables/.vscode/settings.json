@@ -1,5 +1,0 @@
-{
-    "playwright.env": {
-        "FOO": "bar"
-    }
-}

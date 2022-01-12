@@ -2,11 +2,12 @@
 	"compilerOptions": {
 		"module": "commonjs",
 		"target": "ES2021",
-		"lib": ["ES2021", "DOM"],
+    "lib": ["esnext"],
 		"outDir": "out",
 		"sourceMap": true,
 		"strict": true,
-		"rootDir": "src"
+		"rootDir": "src",
+    "esModuleInterop": true,
 	},
 	"exclude": ["node_modules", ".vscode-test", "example", "test"]
 }
