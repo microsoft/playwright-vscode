@@ -29,14 +29,10 @@ const debugSessions = new Map<string, vscode.DebugSession>();
 export async function activate(context: vscode.ExtensionContext) {
   // When extension activates, list config files and register them in the model.
   const testModel = new TestModel();
-  const files = await vscode.workspace.findFiles('**/*.config.[tj]s');
-  for (const file of files) {
-    const isPlaywrightConfig =
-        file.fsPath.includes('playwright.config') ||
-        (await fs.promises.readFile(file.fsPath, 'utf-8')).includes('// @playwright.config');
-    if (isPlaywrightConfig)
-      testModel.addConfig(vscode.workspace.getWorkspaceFolder(file)!.uri.fsPath, file.fsPath);
-  }
+  await addWorkspaceConfigsToModel(testModel);
+  vscode.workspace.onDidChangeConfiguration((_) => {
+    addWorkspaceConfigsToModel(testModel).catch(() => {});
+  });
 
   const codeLensProvider = new CodelensProvider(testModel);
   context.subscriptions.push(
@@ -49,7 +45,7 @@ export async function activate(context: vscode.ExtensionContext) {
       codeLensProvider.onDidChangeCodeLensesEmitter.fire();
     }),
     vscode.debug.onDidStartDebugSession(session => {
-      if (session.type === 'node-terminal')
+      if (session.type === 'node-terminal' || session.type === 'pwa-node')
         debugSessions.set(session.id, session);
     }),
     vscode.debug.onDidTerminateDebugSession(session => {
@@ -67,4 +63,26 @@ export async function activate(context: vscode.ExtensionContext) {
       highlight(debugSessions, event.textEditor.document, event.selections[0].start).catch();
     }),
   );
+}
+
+async function addWorkspaceConfigsToModel(testModel: TestModel) {
+  let isDogFood = false;
+  try {
+    const packages = await vscode.workspace.findFiles('package.json');
+    if (packages.length === 1) {
+      const content = await fs.promises.readFile(packages[0].fsPath, 'utf-8');
+      if (JSON.parse(content).name === 'playwright-internal')
+        isDogFood = true;
+    }
+  } catch {
+  }
+  testModel.reset(isDogFood);
+  const files = await vscode.workspace.findFiles('**/*.config.[tj]s');
+  for (const file of files) {
+    const isPlaywrightConfig =
+        file.fsPath.includes('playwright.config') ||
+        (await fs.promises.readFile(file.fsPath, 'utf-8')).includes('// @playwright.config');
+    if (isPlaywrightConfig)
+      testModel.addConfig(vscode.workspace.getWorkspaceFolder(file)!.uri.fsPath, file.fsPath);
+  }
 }

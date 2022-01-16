@@ -26,6 +26,13 @@ export type Config = { workspaceFolder: string, configFile: string };
 export class TestModel {
   private _configs: Config[] = [];
   private _files = new Map<string, { entries: Entry[] | null, configs: Config[] }>();
+  private _nodeModules!: string;
+
+  reset(isDogFood: boolean) {
+    this._configs = [];
+    this._files.clear();
+    this._nodeModules = isDogFood ? 'packages' : 'node_modules';
+  }
 
   addConfig(workspaceFolder: string, configFile: string) {
     this._configs.push({
@@ -82,7 +89,8 @@ export class TestModel {
         name: 'Playwright Test',
         request: 'launch',
         cwd: config.workspaceFolder,
-        args: ['node_modules/playwright-core/lib/cli/cli', 'test', '-c', config.configFile, location.file + ':' + location.line, '--project', projectName, '--headed']
+        env: { ...process.env, PW_OUT_OF_PROCESS: '1' },
+        args: [`${this._nodeModules}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, location.file + ':' + location.line, '--project', projectName, '--headed']
       });
     }
   }
@@ -91,7 +99,7 @@ export class TestModel {
     const node = findInPath('node', process.env);
     if (!node)
       throw new Error('Unable to launch `node`, make sure it is in your PATH');
-    const allArgs = ['node_modules/playwright-core/lib/cli/cli', 'test', '-c', config.configFile, ...args];
+    const allArgs = [`${this._nodeModules}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, ...args];
     const childProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
       stdio: 'pipe',
