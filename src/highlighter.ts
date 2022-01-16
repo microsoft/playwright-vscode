@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-import { parse, ParseResult } from '@babel/parser';
-import traverse from '@babel/traverse';
-import type { File, SourceLocation } from '@babel/types';
 import vscode from 'vscode';
+import { discardBabelAstCache, locatorForPosition } from './babelUtil';
 
 export type StackFrame = {
   id: string;
@@ -26,7 +24,6 @@ export type StackFrame = {
   source: { path: string };
 };
 
-const astCache = new Map<string, { text: string, ast: ParseResult<File> }>();
 const sessionsWithHighlight = new Set<vscode.DebugSession>();
 
 export async function highlightLocator(debugSessions: Map<string, vscode.DebugSession>, document: vscode.TextDocument, position: vscode.Position) {
@@ -40,8 +37,9 @@ export async function highlightLocator(debugSessions: Map<string, vscode.DebugSe
     for (const stackFrame of stackFrames) {
       if (!stackFrame.source || document.uri.fsPath !== stackFrame.source.path)
         continue;
+      const vars = await scopeVariables(session, stackFrame);
       const text = document.getText();
-      const locatorExpression = locatorForPosition(text, fsPath, position);
+      const locatorExpression = locatorForPosition(text, vars, fsPath, position);
       if (!locatorExpression)
         continue;
       if (await doHighlightLocator(session, stackFrame.id, locatorExpression))
@@ -65,6 +63,30 @@ async function pausedStackFrames(session: vscode.DebugSession, threadId: number 
   }
 }
 
+async function scopeVariables(session: vscode.DebugSession, stackFrame: StackFrame): Promise<{
+  pages: string[],
+  locators: string[],
+}> {
+  const pages: string[] = [];
+  const locators: string[] = [];
+  const { scopes } = await session.customRequest('scopes', { frameId: stackFrame.id }).then(result => result, () => ({ scopes: [] }));
+  for (const scope of scopes) {
+    if (scope.name === 'Global')
+      continue;
+    const { variables } = await session.customRequest('variables', {
+      variablesReference: scope.variablesReference,
+      filter: 'names',
+    }).then(result => result, () => ({ variables: [] }));
+    for (const variable of variables) {
+      if (variable.value.startsWith('Page '))
+        pages.push(variable.name);
+      if (variable.value.startsWith('Locator '))
+        locators.push(variable.name);
+    }
+  }
+  return { pages, locators };
+}
+
 async function doHighlightLocator(session: vscode.DebugSession, frameId: string, locatorExpression: string) {
   const expression = `(${locatorExpression})._highlight()`;
   sessionsWithHighlight.add(session);
@@ -86,79 +108,5 @@ export async function hideHighlight() {
 }
 
 export function discardHighlightCaches() {
-  astCache.clear();
+  discardBabelAstCache();
 }
-
-function locatorForPosition(text: string, fsPath: string, position: vscode.Position): string | undefined {
-  const cached = astCache.get(fsPath);
-  let ast = cached?.ast;
-  if (!cached || cached.text !== text) {
-    ast = parse(text, { errorRecovery: true, plugins: ['typescript'], sourceType: 'module' });
-    astCache.set(fsPath, { text, ast });
-  }
-
-  let rangeMatch: string | undefined;
-  let lineMatch: string | undefined;
-  traverse(ast, {
-    enter(path) {
-      let locatorNode;
-      // Web-first assertions: expect(a).to*
-      if (path.node.type === 'MemberExpression' &&
-          path.node.property.type === 'Identifier' &&
-          matchers.includes(path.node.property.name) &&
-          path.node.object.type === 'CallExpression' &&
-          path.node.object.callee.type === 'Identifier' &&
-          path.node.object.callee.name === 'expect') {
-        locatorNode = path.node.object.arguments[0];
-      }
-
-      // *.locator() call
-      if (path.node.type === 'CallExpression' &&
-          path.node.callee.type === 'MemberExpression' &&
-          path.node.callee.property.type === 'Identifier' &&
-          path.node.callee.property.name === 'locator') {
-        locatorNode = path.node;
-      }
-
-      if (!locatorNode)
-        return;
-      const locatorRange = babelLocationToVsCodeRange(locatorNode.loc!);
-
-      if (!lineMatch && locatorRange.start.line === position.line)
-        lineMatch = text.substring(locatorNode.start!, locatorNode.end!);
-
-        if (locatorRange.contains(position)) {
-        const candidate = text.substring(locatorNode.start!, locatorNode.end!);
-        if (!rangeMatch || candidate.length < rangeMatch.length)
-          rangeMatch = candidate;  
-      }
-    }
-  });
-  return rangeMatch || lineMatch;
-}
-
-function babelLocationToVsCodeRange(location: SourceLocation): vscode.Range {
-  return new vscode.Range(
-    new vscode.Position(location.start.line - 1, location.start.column - 1),
-    new vscode.Position(location.end.line - 1, location.end.column - 1));
-}
-
-const matchers = [
-  'toBeChecked',
-  'toBeDisabled',
-  'toBeEditable',
-  'toBeEmpty',
-  'toBeEnabled',
-  'toBeFocused',
-  'toBeHidden',
-  'toContainText',
-  'toHaveAttribute',
-  'toHaveClass',
-  'toHaveCount',
-  'toHaveCSS',
-  'toHaveId',
-  'toHaveJSProperty',
-  'toHaveText',
-  'toHaveValue',
-  'toBeVisible',
-];
