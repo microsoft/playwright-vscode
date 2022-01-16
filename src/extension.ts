@@ -18,7 +18,7 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import vscode from 'vscode';
 import { CodelensProvider } from './codeLensProvider';
-import { discardHighlightCaches, hideHighlight, highlight } from './highlighter';
+import { discardHighlightCaches, hideHighlight, highlightLocator } from './highlighter';
 import { TestModel } from './testModel';
 
 export const testControllers: vscode.TestController[] = [];
@@ -55,12 +55,12 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
     vscode.languages.registerHoverProvider('typescript', {
       provideHover(document, position, token) {
-        highlight(debugSessions, document, position).catch();
+        highlightLocator(debugSessions, document, position).catch();
         return null;
       }
     }),
     vscode.window.onDidChangeTextEditorSelection(event => {
-      highlight(debugSessions, event.textEditor.document, event.selections[0].start).catch();
+      highlightLocator(debugSessions, event.textEditor.document, event.selections[0].start).catch();
     }),
   );
 }

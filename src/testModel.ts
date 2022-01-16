@@ -90,7 +90,9 @@ export class TestModel {
         request: 'launch',
         cwd: config.workspaceFolder,
         env: { ...process.env, PW_OUT_OF_PROCESS: '1' },
-        args: [`${this._nodeModules}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, location.file + ':' + location.line, '--project', projectName, '--headed']
+        args: [`${this._nodeModules}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, location.file + ':' + location.line, '--project', projectName, '--headed'],
+        resolveSourceMapLocations: [],
+        outFiles: [],
       });
     }
   }

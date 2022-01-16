@@ -17,48 +17,62 @@
 import { parse, ParseResult } from '@babel/parser';
 import traverse from '@babel/traverse';
 import type { File, SourceLocation } from '@babel/types';
-import { EventEmitter } from 'events';
 import vscode from 'vscode';
 
-export const testControllers: vscode.TestController[] = [];
-export const testControllerEvents = new EventEmitter();
+export type StackFrame = {
+  id: string;
+  line: number;
+  column: number;
+  source: { path: string };
+};
 
 const astCache = new Map<string, { text: string, ast: ParseResult<File> }>();
 const sessionsWithHighlight = new Set<vscode.DebugSession>();
 
-export async function highlight(debugSessions: Map<string, vscode.DebugSession>, document: vscode.TextDocument, position: vscode.Position) {
+export async function highlightLocator(debugSessions: Map<string, vscode.DebugSession>, document: vscode.TextDocument, position: vscode.Position) {
   if (!debugSessions.size)
     return;
   const fsPath = document.uri.fsPath;
   for (const session of debugSessions.values()) {
-    const { threads } = await session.customRequest('threads').then(result => result, () => ({ threads: [] }));
-    for (const thread of threads) {
-      let stackTrace;
-      try {
-        stackTrace = await session.customRequest('stackTrace', { threadId: thread.id }).then(result => result, () => ({ stackFrames: [] }));
-      } catch {
+    const stackFrames = await pausedStackFrames(session, undefined);
+    if (!stackFrames)
+      continue;
+    for (const stackFrame of stackFrames) {
+      if (!stackFrame.source || document.uri.fsPath !== stackFrame.source.path)
         continue;
-      }
-      const { stackFrames } = stackTrace;
-      for (const stackFrame of stackFrames) {
-        if (!stackFrame.source || document.uri.fsPath !== stackFrame.source.path)
-          continue;
-        const text = document.getText();
-        const locatorExpression = locatorAtPosition(text, fsPath, position);
-        if (!locatorExpression)
-          continue;
-        const expression = `(${locatorExpression})._highlight()`;
-        sessionsWithHighlight.add(session);
-        const result = await session.customRequest('evaluate', {
-          expression,
-          frameId: stackFrame.id,
-        }).then(result => result, () => undefined);
-        if (result)
-          return;
-      }
+      const text = document.getText();
+      const locatorExpression = locatorForPosition(text, fsPath, position);
+      if (!locatorExpression)
+        continue;
+      if (await doHighlightLocator(session, stackFrame.id, locatorExpression))
+        return;
     }
   }
   await hideHighlight();
+}
+
+async function pausedStackFrames(session: vscode.DebugSession, threadId: number | undefined): Promise<StackFrame[] | undefined> {
+  const { threads } = await session.customRequest('threads').then(result => result, () => ({ threads: [] }));
+  for (const thread of threads) {
+    if (threadId !== undefined && thread.id !== threadId)
+      continue;
+    try {
+      const { stackFrames } = await session.customRequest('stackTrace', { threadId: thread.id }).then(result => result, () => ({ stackFrames: [] }));
+      return stackFrames;
+    } catch {
+      continue;
+    }
+  }
+}
+
+async function doHighlightLocator(session: vscode.DebugSession, frameId: string, locatorExpression: string) {
+  const expression = `(${locatorExpression})._highlight()`;
+  sessionsWithHighlight.add(session);
+  const result = await session.customRequest('evaluate', {
+    expression,
+    frameId,
+  }).then(result => result, () => undefined);
+  return !!result;
 }
 
 export async function hideHighlight() {
@@ -75,7 +89,7 @@ export function discardHighlightCaches() {
   astCache.clear();
 }
 
-function locatorAtPosition(text: string, fsPath: string, position: vscode.Position) {
+function locatorForPosition(text: string, fsPath: string, position: vscode.Position): string | undefined {
   const cached = astCache.get(fsPath);
   let ast = cached?.ast;
   if (!cached || cached.text !== text) {
@@ -83,7 +97,8 @@ function locatorAtPosition(text: string, fsPath: string, position: vscode.Positi
     astCache.set(fsPath, { text, ast });
   }
 
-  let locatorExpression: string | undefined;
+  let rangeMatch: string | undefined;
+  let lineMatch: string | undefined;
   traverse(ast, {
     enter(path) {
       let locatorNode;
@@ -107,15 +122,19 @@ function locatorAtPosition(text: string, fsPath: string, position: vscode.Positi
 
       if (!locatorNode)
         return;
-      const range = babelLocationToVsCodeRange(locatorNode.loc!);
-      if (!range.contains(position))
-        return;
-      const candidate = text.substring(locatorNode.start!, locatorNode.end!);
-      if (!locatorExpression || candidate.length < locatorExpression.length)
-        locatorExpression = candidate;
+      const locatorRange = babelLocationToVsCodeRange(locatorNode.loc!);
+
+      if (!lineMatch && locatorRange.start.line === position.line)
+        lineMatch = text.substring(locatorNode.start!, locatorNode.end!);
+
+        if (locatorRange.contains(position)) {
+        const candidate = text.substring(locatorNode.start!, locatorNode.end!);
+        if (!rangeMatch || candidate.length < rangeMatch.length)
+          rangeMatch = candidate;  
+      }
     }
   });
-  return locatorExpression;
+  return rangeMatch || lineMatch;
 }
 
 function babelLocationToVsCodeRange(location: SourceLocation): vscode.Range {
