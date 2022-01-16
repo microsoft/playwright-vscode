@@ -40,6 +40,8 @@ export function locatorForPosition(text: string, vars: { pages: string[], locato
       let expressionNode;
       let pageSelectorNode;
       let pageSelectorCallee;
+
+      // page.*(selector) will highlight `page.locator(selector)`
       if (path.node.type === 'CallExpression' &&
           path.node.callee.type === 'MemberExpression' &&
           path.node.callee.object.type === 'Identifier' &&
@@ -48,6 +50,12 @@ export function locatorForPosition(text: string, vars: { pages: string[], locato
         expressionNode = path.node;
         pageSelectorNode = path.node.arguments[0];
         pageSelectorCallee = path.node.callee.object.name;
+      }
+
+      // locator.*() will highlight `locator`
+      if (path.node.type === 'Identifier' &&
+          vars.locators.includes(path.node.name)) {
+        expressionNode = path.node;
       }
 
       // Web-first assertions: expect(a).to*
@@ -79,12 +87,15 @@ export function locatorForPosition(text: string, vars: { pages: string[], locato
           expression = `${pageSelectorCallee}.locator(${text.substring(pageSelectorNode.start!, pageSelectorNode.end!)})`;
         else
           expression = text.substring(expressionNode.start!, expressionNode.end!);
+
         if (isRangeMatch && (!rangeMatch || expression.length < rangeMatch.length)) {
           // Prefer shortest range match to better support chains.
           rangeMatch = expression;
         }
-        if (isLineMatch)
+        if (isLineMatch && (!lineMatch || expression.length < lineMatch.length)) {
+          // Prefer longest line match to better support chains.
           lineMatch = expression;
+        }
       }
     }
   });
