@@ -36,8 +36,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const codeLensProvider = new CodelensProvider(testModel);
   context.subscriptions.push(
-    vscode.languages.registerCodeLensProvider({ language: 'typescript', scheme: 'file', pattern: '**/*.{spec,test}.ts' }, codeLensProvider),
-    vscode.languages.registerCodeLensProvider({ language: 'javascript', scheme: 'file', pattern: '**/*.{spec,test}.js' }, codeLensProvider),
+    vscode.languages.registerCodeLensProvider({ language: '*', scheme: 'file', pattern: '**/*.{spec,test}.[tj]s' }, codeLensProvider),
     vscode.commands.registerCommand("pw.extension.runTest", async (location: { file: string, line: number }, project: { projectName: string, configFile: string }) => {
       testModel.runTest(project.configFile, project.projectName, location, false);
     }),
@@ -81,12 +80,7 @@ async function addWorkspaceConfigsToModel(testModel: TestModel) {
   } catch {
   }
   testModel.reset(isDogFood);
-  const files = await vscode.workspace.findFiles('**/*.config.[tj]s');
-  for (const file of files) {
-    const isPlaywrightConfig =
-        file.fsPath.includes('playwright.config') ||
-        (await fs.promises.readFile(file.fsPath, 'utf-8')).includes('// @playwright.config');
-    if (isPlaywrightConfig)
-      testModel.addConfig(vscode.workspace.getWorkspaceFolder(file)!.uri.fsPath, file.fsPath);
-  }
+  const files = await vscode.workspace.findFiles('**/*playwright*.config.[tj]s');
+  for (const file of files)
+    testModel.addConfig(vscode.workspace.getWorkspaceFolder(file)!.uri.fsPath, file.fsPath);
 }

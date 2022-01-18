@@ -26,12 +26,12 @@ export type Config = { workspaceFolder: string, configFile: string };
 export class TestModel {
   private _configs: Config[] = [];
   private _files = new Map<string, { entries: Entry[] | null, configs: Config[] }>();
-  private _nodeModules!: string;
+  private _isDogFood = false;
 
   reset(isDogFood: boolean) {
     this._configs = [];
     this._files.clear();
-    this._nodeModules = isDogFood ? 'packages' : 'node_modules';
+    this._isDogFood = isDogFood;
   }
 
   addConfig(workspaceFolder: string, configFile: string) {
@@ -84,7 +84,7 @@ export class TestModel {
     for (const config of fileInfo.configs) {
       if (config.configFile !== configFile)
         continue;
-      const args = [`${this._nodeModules}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, location.file + ':' + location.line, '--project', projectName];
+      const args = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, location.file + ':' + location.line, '--project', projectName, '--timeout', 0];
       if (debug)
         args.push('--headed');
       vscode.debug.startDebugging(undefined, {
@@ -105,7 +105,7 @@ export class TestModel {
     const node = findInPath('node', process.env);
     if (!node)
       throw new Error('Unable to launch `node`, make sure it is in your PATH');
-    const allArgs = [`${this._nodeModules}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, ...args];
+    const allArgs = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, ...args];
     const childProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
       stdio: 'pipe',
@@ -123,5 +123,14 @@ export class TestModel {
         f(result);
       };
     });
+  }
+
+  private _nodeModules(config: Config) {
+    if (!this._isDogFood)
+      return 'node_modules';
+
+    if (config.configFile.includes('playwright-test'))
+      return 'tests/playwright-test/stable-test-runner/node_modules';
+    return 'packages';
   }
 }
