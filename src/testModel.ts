@@ -77,22 +77,26 @@ export class TestModel {
       this._files.get(file)!.entries = null;
   }
 
-  async runTest(configFile: string, projectName: string, location: { file: string; line: number; }) {
+  async runTest(configFile: string, projectName: string, location: { file: string; line: number; }, debug: boolean) {
     const fileInfo = this._files.get(location.file);
     if (!fileInfo)
       return;
     for (const config of fileInfo.configs) {
       if (config.configFile !== configFile)
         continue;
+      const args = [`${this._nodeModules}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, location.file + ':' + location.line, '--project', projectName];
+      if (debug)
+        args.push('--headed');
       vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
         name: 'Playwright Test',
         request: 'launch',
         cwd: config.workspaceFolder,
         env: { ...process.env, PW_OUT_OF_PROCESS: '1' },
-        args: [`${this._nodeModules}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, location.file + ':' + location.line, '--project', projectName, '--headed'],
+        args,
         resolveSourceMapLocations: [],
         outFiles: [],
+        noDebug: !debug,
       });
     }
   }

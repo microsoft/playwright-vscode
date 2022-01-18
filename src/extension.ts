@@ -36,9 +36,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const codeLensProvider = new CodelensProvider(testModel);
   context.subscriptions.push(
-    vscode.languages.registerCodeLensProvider({ language: 'typescript', scheme: 'file' }, codeLensProvider),
+    vscode.languages.registerCodeLensProvider({ language: 'typescript', scheme: 'file', pattern: '**/*.{spec,test}.ts' }, codeLensProvider),
+    vscode.languages.registerCodeLensProvider({ language: 'javascript', scheme: 'file', pattern: '**/*.{spec,test}.js' }, codeLensProvider),
     vscode.commands.registerCommand("pw.extension.runTest", async (location: { file: string, line: number }, project: { projectName: string, configFile: string }) => {
-      testModel.runTest(project.configFile, project.projectName, location);
+      testModel.runTest(project.configFile, project.projectName, location, false);
+    }),
+    vscode.commands.registerCommand("pw.extension.debugTest", async (location: { file: string, line: number }, project: { projectName: string, configFile: string }) => {
+      testModel.runTest(project.configFile, project.projectName, location, true);
     }),
     vscode.workspace.onDidSaveTextDocument(textEditor => {
       testModel.discardEntries(textEditor.uri.fsPath);

@@ -62,6 +62,12 @@ export class CodelensProvider implements vscode.CodeLensProvider {
           command: "pw.extension.runTest",
           arguments: [{ file: document.uri.fsPath, line: entry.line }, project]
         }));
+        codeLenses.push(new vscode.CodeLens(range, {
+          title: `Debug ${project.projectName}`,
+          tooltip: `Debug ${project.projectName}`,
+          command: "pw.extension.debugTest",
+          arguments: [{ file: document.uri.fsPath, line: entry.line }, project]
+        }));
       }
     }
     return codeLenses;
