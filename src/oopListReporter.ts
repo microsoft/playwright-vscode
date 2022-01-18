@@ -22,9 +22,14 @@ export type FileReport = {
   entries: { [key: string]: Entry };
 };
 
+export type Project = {
+  configFile: string,
+  projectName: string
+};
+
 export type Entry = {
   type: 'test' | 'suite';
-  projects: { configFile: string, projectName: string }[];
+  projects: Project[];
   line: number;
   column: number;
   text?: string;

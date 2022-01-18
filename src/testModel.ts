@@ -18,7 +18,7 @@ import { spawn } from 'child_process';
 import { PipeTransport } from './transport';
 import path from 'path';
 import { findInPath } from './pathUtils';
-import { Entry, FileReport } from './oopListReporter';
+import { Entry, FileReport, Project } from './oopListReporter';
 import vscode from 'vscode';
 
 export type Config = { workspaceFolder: string, configFile: string };
@@ -77,16 +77,17 @@ export class TestModel {
       this._files.get(file)!.entries = null;
   }
 
-  async runTest(configFile: string, projectName: string, location: { file: string; line: number; }, debug: boolean) {
+  async runTest(project: Project, location: { file: string; line?: number; }, debug: boolean) {
     const fileInfo = this._files.get(location.file);
     if (!fileInfo)
       return;
     for (const config of fileInfo.configs) {
-      if (config.configFile !== configFile)
+      if (config.configFile !== project.configFile)
         continue;
-      const args = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, location.file + ':' + location.line, '--project', projectName, '--timeout', 0];
+      const filter = location.line ? location.file + ':' + location.line : location.file;
+      const args = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, filter, '--project', project.projectName];
       if (debug)
-        args.push('--headed');
+        args.push('--headed', '--timeout', '0');
       vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
         name: 'Playwright Test',
@@ -99,6 +100,32 @@ export class TestModel {
         noDebug: !debug,
       });
     }
+  }
+
+  async runFile(file: string) {
+    await this.loadEntries(file);
+    const fileInfo = this._files.get(file);
+    if (!fileInfo)
+      return;
+    const projects = new Map<string, Project>();
+    for (const entry of fileInfo.entries || []) {
+      for (const project of entry.projects)
+        projects.set(project.configFile + ':' + project.projectName, project);
+    }
+    const projectArray = [...projects.values()];
+    if (!projectArray.length)
+      return;
+    if (projectArray.length === 1) {
+      await this.runTest(projectArray[0], { file }, false);
+      return;
+    }
+
+    const item = await vscode.window.showQuickPick([...projects.values()].map(p => p.projectName), {
+      title: 'Select Playwright project',
+    });
+    const project = projectArray.find(p => p.projectName === item);
+    if (project)
+      this.runTest(project!, { file }, false);
   }
 
   async query(config: Config, args: string[]): Promise<any> {

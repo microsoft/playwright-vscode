@@ -38,10 +38,10 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.languages.registerCodeLensProvider({ language: '*', scheme: 'file', pattern: '**/*.{spec,test}.[tj]s' }, codeLensProvider),
     vscode.commands.registerCommand("pw.extension.runTest", async (location: { file: string, line: number }, project: { projectName: string, configFile: string }) => {
-      testModel.runTest(project.configFile, project.projectName, location, false);
+      testModel.runTest(project, location, false);
     }),
     vscode.commands.registerCommand("pw.extension.debugTest", async (location: { file: string, line: number }, project: { projectName: string, configFile: string }) => {
-      testModel.runTest(project.configFile, project.projectName, location, true);
+      testModel.runTest(project, location, true);
     }),
     vscode.workspace.onDidSaveTextDocument(textEditor => {
       testModel.discardEntries(textEditor.uri.fsPath);
@@ -65,6 +65,11 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.window.onDidChangeTextEditorSelection(event => {
       highlightLocator(debugSessions, event.textEditor.document, event.selections[0].start).catch();
     }),
+    vscode.commands.registerCommand('pw.extension.runFile', () => {
+      const editor = vscode.window.activeTextEditor;
+      if (editor)
+        testModel.runFile(editor.document.uri.fsPath);
+    })
   );
 }
 
