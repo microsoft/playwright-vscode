@@ -16,6 +16,7 @@
 
 import { FullConfig, FullResult, Reporter, Suite, TestCase, TestError, TestResult } from './reporter';
 import { PipeTransport } from './transport';
+import fs from 'fs';
 
 export type Entry = {
   id: string;
@@ -33,12 +34,12 @@ class OopReporter implements Reporter {
   private _transport: PipeTransport;
 
   constructor() {
-    this._transport = new PipeTransport(process.stdout, process.stdin);
+    this._transport = new PipeTransport(fs.createWriteStream('', { fd: 4 }), fs.createReadStream('', { fd: 3 }));
     this._transport.onclose = () => process.exit(0);
   }
 
   printsToStdio() {
-    return true;
+    return false;
   }
 
   onBegin(config: FullConfig, rootSuite: Suite) {
@@ -96,7 +97,7 @@ class OopReporter implements Reporter {
     this._emit('onTestEnd', {
       testId: this._entryId(test),
       duration: result.duration,
-      error: result.error?.message,
+      error: result.error,
       ok: test.ok()
     });
   }

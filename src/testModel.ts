@@ -21,6 +21,10 @@ import vscode from 'vscode';
 import { Entry } from './oopReporter';
 import { findInPath } from './pathUtils';
 import { PipeTransport, ProtocolResponse } from './transport';
+import StackUtils from 'stack-utils';
+import { TestError } from './reporter';
+
+const stackUtils = new StackUtils();
 
 export type ListTestsReport = {
   projects: {
@@ -34,10 +38,6 @@ export type Config = {
   configFile: string;
 };
 
-type Reporter = {
-  onmessage(message: ProtocolResponse): void;
-};
-
 type FileData = {
   entries: Entry[] | null;
   configs: Config[];
@@ -49,6 +49,8 @@ export class TestModel {
   private _isDogFood = false;
   private _testController: vscode.TestController;
   private _runProfiles: vscode.TestRunProfile[] = [];
+  private _pathToNode: string | undefined;
+  private _terminalSink!: vscode.EventEmitter<string>;
 
   constructor() {
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
@@ -56,7 +58,15 @@ export class TestModel {
   }
 
   initialize(): vscode.Disposable[] {
+    this._terminalSink = new vscode.EventEmitter<string>();
+    const pty: vscode.Pseudoterminal = {
+      onDidWrite: this._terminalSink.event,
+      open: () => {},
+      close: () => {},
+    };
+    const terminal = vscode.window.createTerminal({ name: 'Playwright Test', pty });
     this._rebuildModel().catch(() => {});
+
     return [
       vscode.workspace.onDidChangeConfiguration((_) => {
         this._rebuildModel().catch(() => {});
@@ -67,7 +77,8 @@ export class TestModel {
       vscode.workspace.onDidSaveTextDocument(textEditor => {
         this._discardEntries(textEditor.uri.fsPath);
         this._updateActiveEditorItems();
-      }),  
+      }),
+      terminal,
     ];
   }
 
@@ -176,7 +187,7 @@ export class TestModel {
       const parent = this._getOrCreateTestItemForFileOrFolder(config.workspaceFolder, fsPath);
       if (!parent)
         continue;
-      await this._playwrightTest(config, [fsPath, '--list', '--reporter', path.join(__dirname, 'oopReporter.js')], message => {
+      await this._playwrightTest(null, config, [fsPath, '--list', '--reporter', path.join(__dirname, 'oopReporter.js')], (transport, message) => {
         if (message.method !== 'onBegin')
           return;
         const entries = message.params.entries as Entry[];
@@ -187,6 +198,7 @@ export class TestModel {
             parent.children.add(testItem);
           }
         }
+        transport.close();
       });
     }
   }
@@ -206,7 +218,12 @@ export class TestModel {
 
   private async _runTest(request: vscode.TestRunRequest, config: Config, projectName: string, location: string) {
     const testRun = this._testController.createTestRun(request);
-    await this._playwrightTest(config, [location, '--project', projectName, '--reporter', path.join(__dirname, 'oopReporter.js')], message => {
+    this._terminalSink.fire('\x1b[H\x1b[2J');
+    await this._playwrightTest(this._terminalSink, config, [location, '--project', projectName, '--reporter', path.join(__dirname, 'oopReporter.js') + ',line'], (transport, message) => {
+      if (message.method === 'onEnd') {
+        transport.close();
+        return;
+      }
       if (message.method === 'onBegin') {
         const entries = message.params.entries as Entry[];
         for (const entry of entries) {
@@ -235,12 +252,12 @@ export class TestModel {
           testRun.passed(testItem, message.params.duration);
           return;
         }
-        testRun.failed(testItem, new vscode.TestMessage(message.params.error), message.params.duration);
+        testRun.failed(testItem, testMessageForError(testItem, message.params.error), message.params.duration);
       }
     });
     testRun.end();
   }
-
+ 
   private async _debugTest(config: Config, projectName: string, location: string) {
     const args = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, location, '--project', projectName, '--headed', '--timeout', '0'];
     vscode.debug.startDebugging(undefined, {
@@ -255,21 +272,29 @@ export class TestModel {
     });
   }
 
-  private async _playwrightTest(config: Config, args: string[], onMessage: (message: ProtocolResponse) => void): Promise<void> {
+  private async _playwrightTest(terminal: vscode.EventEmitter<string> | null, config: Config, args: string[], onMessage: (transport: PipeTransport, message: ProtocolResponse) => void): Promise<PipeTransport> {
     const node = this._findNode();
     const allArgs = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, ...args];
     const childProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
-      stdio: 'pipe',
+      stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: { ...process.env }
     });
   
     const stdio = childProcess.stdio;
-    const transport = new PipeTransport(stdio[0]!, stdio[1]!);
-    transport.onmessage = onMessage;
+    stdio[1].on('data', data => {
+      if (terminal)
+        terminal.fire(data.toString().replace(/\n/g, '\r\n'));
+    });
+    stdio[2].on('data', data => {
+      if (terminal)
+        terminal.fire(data.toString().replace(/\n/g, '\r\n'));
+    });
+    const transport = new PipeTransport((stdio as any)[3]!, (stdio as any)[4]!);
+    transport.onmessage = message => onMessage(transport, message);
     return new Promise(f => {
       transport.onclose = () => {
-        f();
+        f(transport);
       };
     });
   }
@@ -303,9 +328,12 @@ export class TestModel {
   }
 
   private _findNode(): string {
+    if (this._pathToNode)
+      return this._pathToNode;
     const node = findInPath('node', process.env);
     if (!node)
       throw new Error('Unable to launch `node`, make sure it is in your PATH');
+    this._pathToNode = node;
     return node;
   }
 
@@ -325,4 +353,20 @@ export class TestModel {
     }
     return fileData;
   }
+}
+
+function testMessageForError(item: vscode.TestItem, error: TestError): vscode.TestMessage {
+  const lines = error.stack ? error.stack.split('\n').reverse() : [];
+  for (const line of lines) {
+    const frame = stackUtils.parseLine(line);
+    if (!frame || !frame.file || !frame.line || !frame.column)
+      continue;
+    if (frame.file === item.uri!.path) {
+      const message = new vscode.TestMessage(error.stack!);
+      const position = new vscode.Position(frame.line - 1, frame.column - 1);
+      message.location = new vscode.Location(item.uri!, position);
+      return message;
+    }
+  }
+  return new vscode.TestMessage(error.message! || error.value!);
 }
