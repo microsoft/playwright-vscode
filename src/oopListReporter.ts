@@ -22,17 +22,12 @@ export type FileReport = {
   entries: { [key: string]: Entry };
 };
 
-export type Project = {
-  configFile: string,
-  projectName: string
-};
-
 export type Entry = {
   type: 'test' | 'suite';
-  projects: Project[];
   line: number;
   column: number;
-  text?: string;
+  title: string;
+  titlePath: string[];
 };
 
 class OopListReporter implements Reporter {
@@ -67,13 +62,13 @@ class OopListReporter implements Reporter {
           if (!entry) {
             entry = {
               type: 'test',
+              title: test.title,
+              titlePath: test.titlePath().slice(3),
               line: test.location.line,
               column: test.location.column,
-              projects: [],
             };
             fileReport.entries[id] = entry;
           }
-          entry.projects.push({ projectName: project.title, configFile: '' });
         }
 
         const visit = (suite: Suite) => {
@@ -82,13 +77,13 @@ class OopListReporter implements Reporter {
           if (!entry) {
             entry = {
               type: 'suite',
+              title: suite.title,
+              titlePath: suite.titlePath().slice(3),
               line: suite.location!.line,
               column: suite.location!.column,
-              projects: [],
             };
             fileReport!.entries[id] = entry;
           }
-          entry.projects.push({ projectName: project.title, configFile: '' });
           suite.suites.map(visit);
         };
     

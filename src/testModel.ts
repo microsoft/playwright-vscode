@@ -14,124 +14,164 @@
  * limitations under the License.
  */
 
-import { spawn } from 'child_process';
-import { PipeTransport } from './transport';
+import { spawn, spawnSync } from 'child_process';
+import fs from 'fs';
 import path from 'path';
-import { findInPath } from './pathUtils';
-import { Entry, FileReport, Project } from './oopListReporter';
 import vscode from 'vscode';
+import { Entry, FileReport } from './oopListReporter';
+import { findInPath } from './pathUtils';
+import { PipeTransport } from './transport';
 
-export type Config = { workspaceFolder: string, configFile: string };
+export type ListTestsReport = {
+  projects: {
+    name: string;
+    files: string[];
+  }[];
+};
+
+export type Config = {
+  workspaceFolder: string;
+  configFile: string;
+};
+
+type FileData = {
+  entries: Entry[] | null;
+  configs: Config[];
+};
 
 export class TestModel {
-  private _configs: Config[] = [];
-  private _files = new Map<string, { entries: Entry[] | null, configs: Config[] }>();
+  private _files = new Map<string, FileData>();
   private _isDogFood = false;
+  private _testController: vscode.TestController;
+  private _editorsItem: vscode.TestItem | undefined;
+  private _runProfiles: vscode.TestRunProfile[] = [];
 
-  reset(isDogFood: boolean) {
-    this._configs = [];
-    this._files.clear();
-    this._isDogFood = isDogFood;
+  constructor() {
+    this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
   }
 
-  addConfig(workspaceFolder: string, configFile: string) {
-    this._configs.push({
-      workspaceFolder,
-      configFile,
-    });
+  initialize(): vscode.Disposable[] {
+    this._rebuildModel().catch(() => {});
+    return [
+      vscode.workspace.onDidChangeConfiguration((_) => {
+        this._rebuildModel().catch(() => {});
+      }),
+      vscode.window.onDidChangeVisibleTextEditors(() => {
+        this._updateActiveEditorItems();
+      }),
+      vscode.workspace.onDidSaveTextDocument(textEditor => {
+        this._discardEntries(textEditor.uri.fsPath);
+        this._updateActiveEditorItems();
+      }),  
+    ];
   }
 
-  async loadEntries(file: string): Promise<Entry[]> {
-    const fileInfo = this._files.get(file);
-    if (fileInfo && fileInfo.entries)
-      return fileInfo.entries;
-    const entries: { [key: string]: Entry } = {};
-    const nonEmptyConfigs = [];
-    for (const config of fileInfo?.configs || this._configs) {
-      const files: FileReport[] = await this.query(config, [file, '--list', '--reporter', path.join(__dirname, 'oopListReporter.js')]);
-      if (!files)
-        continue;
-      nonEmptyConfigs.push(config);
-      for (const file of files || []) {
-        for (const [id, entry] of Object.entries(file.entries)) {
-          let existingEntry = entries[id];
-          if (!existingEntry) {
-            existingEntry = entry;
-            entries[id] = existingEntry;
-          } else {
-            existingEntry.projects = [...existingEntry.projects, ...entry.projects];
-          }
-          for (const project of existingEntry.projects)
-            project.configFile = config.configFile;
-        }
+  private async _rebuildModel() {
+    let isDogFood = false;
+    try {
+      const packages = await vscode.workspace.findFiles('package.json');
+      if (packages.length === 1) {
+        const content = await fs.promises.readFile(packages[0].fsPath, 'utf-8');
+        if (JSON.parse(content).name === 'playwright-internal')
+          isDogFood = true;
       }
+    } catch {
     }
 
-    const entryArray = Object.values(entries);
-    this._files.set(file, { entries: entryArray, configs: nonEmptyConfigs });
-    return entryArray;
+    this._files.clear();
+    this._isDogFood = isDogFood;
+
+    const files = await vscode.workspace.findFiles('**/*playwright*.config.[tj]s', 'node_modules/**');
+
+    for (const profile of this._runProfiles)
+      profile.dispose();
+    for (const file of files)
+      await this._createRunProfiles(vscode.workspace.getWorkspaceFolder(file)!.uri.fsPath, file);
+
+    this._editorsItem = this._testController.createTestItem('active-editor', `\u3164Active editor`);
+    this._updateActiveEditorItems();
+    this._testController.items.replace([this._editorsItem]);
   }
 
-  discardEntries(file: string) {
+  private async _createRunProfiles(workspaceFolder: string, configUri: vscode.Uri) {
+    const config: Config = {
+      workspaceFolder,
+      configFile: configUri.fsPath,
+    };
+    const configName = path.basename(configUri.fsPath);
+    const folderName = path.basename(path.dirname(configUri.fsPath));
+
+    const report = await this._playwrightListTests(config);
+    for (const project of report.projects) {
+      const projectSuffix = project.name ? ` [${project.name}]` : '';
+      this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Run, async (request, token) => {
+        for (const testItem of request.include || []) {
+          const testInfo = (testItem as any)[testInfoSymbol] as { fsPath: string, entry: Entry };
+          await this._runTest(config, project.name, { file: testInfo.fsPath, line: testInfo.entry.line });
+        }
+      }, true));
+      this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Debug, async (request, token) => {
+        for (const testItem of request.include || []) {
+          const testInfo = (testItem as any)[testInfoSymbol] as { fsPath: string, entry: Entry };
+          await this._debugTest(config, project.name, { file: testInfo.fsPath, line: testInfo.entry.line });
+        }
+      }, true));
+      for (const file of project.files) {
+        const fileData = this._ensureFileData(file);
+        if (!fileData.configs.includes(config))
+          fileData.configs.push(config);
+      }
+    }
+  }
+
+  private async _loadEntries(file: string): Promise<Entry[]> {
+    const fileInfo = this._files.get(file);
+    if (!fileInfo)
+      return [];
+    if (fileInfo.entries)
+      return fileInfo.entries;
+    const entries: { [key: string]: Entry } = {};
+    for (const config of fileInfo.configs) {
+      const files: FileReport[] = await this._playwrightTest(config, [file, '--list', '--reporter', path.join(__dirname, 'oopListReporter.js')]);
+      if (!files)
+        continue;
+      for (const file of files || []) {
+        for (const [id, entry] of Object.entries(file.entries))
+          entries[id] = entry;
+      }
+    }
+    fileInfo.entries = Object.values(entries);
+    return fileInfo.entries;
+  }
+
+  private _discardEntries(file: string) {
     if (this._files.has(file))
       this._files.get(file)!.entries = null;
   }
 
-  async runTest(project: Project, location: { file: string; line?: number; }, debug: boolean) {
-    const fileInfo = this._files.get(location.file);
-    if (!fileInfo)
-      return;
-    for (const config of fileInfo.configs) {
-      if (config.configFile !== project.configFile)
-        continue;
-      const filter = location.line ? location.file + ':' + location.line : location.file;
-      const args = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, filter, '--project', project.projectName];
-      if (debug)
-        args.push('--headed', '--timeout', '0');
-      vscode.debug.startDebugging(undefined, {
-        type: 'pwa-node',
-        name: 'Playwright Test',
-        request: 'launch',
-        cwd: config.workspaceFolder,
-        env: { ...process.env, PW_OUT_OF_PROCESS: '1' },
-        args,
-        resolveSourceMapLocations: [],
-        outFiles: [],
-        noDebug: !debug,
-      });
-    }
-  }
-
-  async runFile(file: string) {
-    await this.loadEntries(file);
-    const fileInfo = this._files.get(file);
-    if (!fileInfo)
-      return;
-    const projects = new Map<string, Project>();
-    for (const entry of fileInfo.entries || []) {
-      for (const project of entry.projects)
-        projects.set(project.configFile + ':' + project.projectName, project);
-    }
-    const projectArray = [...projects.values()];
-    if (!projectArray.length)
-      return;
-    if (projectArray.length === 1) {
-      await this.runTest(projectArray[0], { file }, false);
-      return;
-    }
-
-    const item = await vscode.window.showQuickPick([...projects.values()].map(p => p.projectName), {
-      title: 'Select Playwright project',
+  private async _debugTest(config: Config, projectName: string, location: { file: string; line: number; }) {
+    const filter = location.file + ':' + location.line;
+    const args = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, filter, '--project', projectName, '--headed', '--timeout', '0'];
+    vscode.debug.startDebugging(undefined, {
+      type: 'pwa-node',
+      name: 'Playwright Test',
+      request: 'launch',
+      cwd: config.workspaceFolder,
+      env: { ...process.env, PW_OUT_OF_PROCESS: '1' },
+      args,
+      resolveSourceMapLocations: [],
+      outFiles: [],
     });
-    const project = projectArray.find(p => p.projectName === item);
-    if (project)
-      this.runTest(project!, { file }, false);
   }
 
-  async query(config: Config, args: string[]): Promise<any> {
-    const node = findInPath('node', process.env);
-    if (!node)
-      throw new Error('Unable to launch `node`, make sure it is in your PATH');
+  private async _runTest(config: Config, projectName: string, location: { file: string; line: number; }) {
+    const filter = location.file + ':' + location.line;
+    const args = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, filter, '--project', projectName];
+    await this._playwrightTest(config, [filter, '--project', projectName]);
+  }
+
+  private async _playwrightTest(config: Config, args: string[]): Promise<any> {
+    const node = this._findNode();
     const allArgs = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, ...args];
     const childProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
@@ -152,6 +192,25 @@ export class TestModel {
     });
   }
 
+  private async _playwrightListTests(config: Config): Promise<ListTestsReport> {
+    const node = this._findNode();
+    const allArgs = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'list-tests', '-c', config.configFile];
+    const childProcess = spawnSync(node, allArgs, {
+      cwd: config.workspaceFolder,
+      env: { ...process.env }
+    });
+    const output = childProcess.stdout.toString();
+    if (!output)
+      return { projects: [] };
+    try {
+      const report = JSON.parse(output);
+      return report as ListTestsReport;
+    } catch (e) {
+      console.error(e);
+    }
+    return { projects: [] };
+  }
+
   private _nodeModules(config: Config) {
     if (!this._isDogFood)
       return 'node_modules';
@@ -160,4 +219,49 @@ export class TestModel {
       return 'tests/playwright-test/stable-test-runner/node_modules';
     return 'packages';
   }
+
+  private _findNode(): string {
+    const node = findInPath('node', process.env);
+    if (!node)
+      throw new Error('Unable to launch `node`, make sure it is in your PATH');
+    return node;
+  }
+
+  private async _updateActiveEditorItems() {
+    if (!this._editorsItem)
+      return;
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      this._editorsItem.children.replace([]);
+      return;
+    }
+
+    const uri = editor.document.uri;
+    const fsPath = uri.fsPath;
+    const editorItem = this._testController.createTestItem(fsPath, path.basename(fsPath), uri);
+    editorItem.children.add(this._testController.createTestItem('loading', 'Loading\u2026'));
+    this._editorsItem.children.replace([editorItem]);
+
+    const entries = await this._loadEntries(fsPath);
+    const testItems: vscode.TestItem[] = [];
+    for (const entry of entries) {
+      const title = entry.titlePath.join(' › ');
+      const testItem = this._testController.createTestItem(`${fsPath}|${title}`, `${title}`, uri);
+      testItem.range = new vscode.Range(entry.line - 1, entry.column - 1, entry.line, 0);
+      testItems.push(testItem);
+      (testItem as any)[testInfoSymbol] = { fsPath, entry };
+    }
+    editorItem.children.replace(testItems);
+  }
+
+  private _ensureFileData(file: string): FileData {
+    let fileData = this._files.get(file);
+    if (!fileData) {
+      fileData = { entries: null, configs: [] };
+      this._files.set(file, fileData);
+    }
+    return fileData;
+  }
 }
+
+const testInfoSymbol = Symbol('testInfoSymbol');
