@@ -179,7 +179,7 @@ export class TestModel {
       }, true));
       this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Debug, async (request, token) => {
         for (const testItem of request.include || []) {
-          await this._debugTest(config, project.name, testItem.id);
+          await this._debugTest(config, project.name, testItem);
         }
       }, true));
       this._mapFilesToConfigs(config, project.files);
@@ -356,8 +356,12 @@ export class TestModel {
     testRun.end();
   }
  
-  private async _debugTest(config: Config, projectName: string, location: string) {
-    const args = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, location, '--project', projectName, '--headed', '--timeout', '0'];
+  private async _debugTest(config: Config, projectName: string, testItem: vscode.TestItem) {
+    const args = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, testItem.id, '--project', projectName, '--headed', '--timeout', '0'];
+    // Put a breakpoint on the next line.
+    const breakpointPosition = new vscode.Position(testItem.range!.start.line + 1, 0);
+    const breakpoint = new vscode.SourceBreakpoint(new vscode.Location(testItem.uri!, breakpointPosition));
+    vscode.debug.addBreakpoints([breakpoint]);
     vscode.debug.startDebugging(undefined, {
       type: 'pwa-node',
       name: 'Playwright Test',
