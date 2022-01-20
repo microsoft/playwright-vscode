@@ -26,8 +26,23 @@
       {
         "command": "pw.extension.runFile",
         "title": "Playwright: run all tests in file"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.refreshTests",
+        "icon": "$(refresh)",
+        "title": "Refresh Playwright Tests"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "pw.extension.refreshTests",
+          "when": "view == workbench.view.testing",
+          "group": "navigation@0"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run build",

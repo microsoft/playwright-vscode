@@ -60,16 +60,15 @@ export class TestModel {
   // Config files loaded after last rebuild.
   private _configFiles: vscode.Uri[] = [];
 
-  private _testController: vscode.TestController;
+  private _testController!: vscode.TestController;
   private _isDogFood = false;
   private _pathToNodeJS: string | undefined;
+  private _disposables: vscode.Disposable[];
 
   constructor() {
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
-  }
 
-  initialize(): vscode.Disposable[] {
     this._terminalSink = new vscode.EventEmitter<string>();
     const pty: vscode.Pseudoterminal = {
       onDidWrite: this._terminalSink.event,
@@ -79,7 +78,7 @@ export class TestModel {
     const terminal = vscode.window.createTerminal({ name: 'Playwright Test', pty });
     this._rebuildModel().catch(() => {});
 
-    return [
+    this._disposables = [
       vscode.workspace.onDidChangeConfiguration((_) => {
         this._rebuildModel().catch(() => {});
       }),
@@ -107,8 +106,16 @@ export class TestModel {
         for (const uri of event.files)
           this._createMissingFiles(uri.fsPath).catch(() => {});
       }),
+      vscode.commands.registerCommand('pw.extension.refreshTests', () => {
+        this._rebuildModel().catch(() => {});
+      }),
       terminal,
+      this._testController,
     ];
+  }
+
+  dispose() {
+    this._disposables.forEach(d => d.dispose());
   }
 
   private async _rebuildModel() {
@@ -127,7 +134,12 @@ export class TestModel {
     this._configsForFile.clear();
     this._entriesInFile.clear();
     this._isDogFood = isDogFood;
-    this._testController.items.replace([]);
+    this._testController.items.replace([
+      this._testController.createTestItem('loading', 'Loading\u2026')
+    ]);
+
+    // Give UI a chance to update.
+    await new Promise(f => setTimeout(f, 500));
 
     this._configFiles = await vscode.workspace.findFiles('**/*playwright*.config.[tj]s', 'node_modules/**');
 
@@ -351,7 +363,7 @@ export class TestModel {
       name: 'Playwright Test',
       request: 'launch',
       cwd: config.workspaceFolder,
-      env: { ...process.env, PW_OUT_OF_PROCESS: '1' },
+      env: { ...process.env, PW_OUT_OF_PROCESS: '1', PW_IGNORE_COMPILE_CACHE: '1' },
       args,
       resolveSourceMapLocations: [],
       outFiles: [],

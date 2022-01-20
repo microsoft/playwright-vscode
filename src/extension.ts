@@ -30,7 +30,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // const codeLensProvider = new CodelensProvider(testModel);
   context.subscriptions.push(
-    ...testModel.initialize(),
+    testModel,
     vscode.debug.onDidStartDebugSession(session => {
       if (session.type === 'node-terminal' || session.type === 'pwa-node')
         debugSessions.set(session.id, session);
