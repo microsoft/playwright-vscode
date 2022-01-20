@@ -38,19 +38,31 @@ export type Config = {
   configFile: string;
 };
 
-type FileData = {
-  entries: Entry[] | null;
-  configs: Config[];
-};
-
 export class TestModel {
-  private _files = new Map<string, FileData>();
+  // Each file can be included in several config files.
+  private _configsForFile = new Map<string, Config[]>();
+
+  // Entries that were loaded for given file using list reporter.
+  private _entriesInFile = new Map<string, vscode.TestItem[]>();
+
+  // Global test item map testItem.id => testItem.
   private _testItems = new Map<string, vscode.TestItem>();
-  private _isDogFood = false;
-  private _testController: vscode.TestController;
+
+  // Each run profile is a config + project pair.
   private _runProfiles: vscode.TestRunProfile[] = [];
-  private _pathToNode: string | undefined;
+
+  // We write into terminal using this event sink.
   private _terminalSink!: vscode.EventEmitter<string>;
+
+  // Top level test items for workspace folders.
+  private _workspaceTestItems: vscode.TestItem[] = [];
+
+  // Config files loaded after last rebuild.
+  private _configFiles: vscode.Uri[] = [];
+
+  private _testController: vscode.TestController;
+  private _isDogFood = false;
+  private _pathToNodeJS: string | undefined;
 
   constructor() {
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
@@ -71,12 +83,29 @@ export class TestModel {
       vscode.workspace.onDidChangeConfiguration((_) => {
         this._rebuildModel().catch(() => {});
       }),
+      vscode.workspace.onDidChangeWorkspaceFolders((_) => {
+        this._rebuildModel().catch(() => {});
+      }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         this._updateActiveEditorItems();
       }),
       vscode.workspace.onDidSaveTextDocument(textEditor => {
         this._discardEntries(textEditor.uri.fsPath);
         this._updateActiveEditorItems();
+      }),
+      vscode.workspace.onDidDeleteFiles(event => {
+        for (const uri of event.files)
+          this._onDidDeleteFile(uri.fsPath);
+      }),
+      vscode.workspace.onDidRenameFiles(event => {
+        for (const file of event.files) {
+          this._onDidDeleteFile(file.oldUri.fsPath);
+          this._createMissingFiles(file.newUri.fsPath).catch(() => {});
+        }
+      }),
+      vscode.workspace.onDidCreateFiles(event => {
+        for (const uri of event.files)
+          this._createMissingFiles(uri.fsPath).catch(() => {});
       }),
       terminal,
     ];
@@ -95,16 +124,22 @@ export class TestModel {
     }
 
     this._testItems.clear();
-    this._files.clear();
+    this._configsForFile.clear();
+    this._entriesInFile.clear();
     this._isDogFood = isDogFood;
     this._testController.items.replace([]);
 
-    const configFiles = await vscode.workspace.findFiles('**/*playwright*.config.[tj]s', 'node_modules/**');
+    this._configFiles = await vscode.workspace.findFiles('**/*playwright*.config.[tj]s', 'node_modules/**');
 
+    this._workspaceTestItems = (vscode.workspace.workspaceFolders || []).map(wf => {
+      const testItem = this._testController.createTestItem(wf.uri.fsPath, wf.name);
+      this._testItems.set(testItem.id, testItem);
+      return testItem;
+    });
     for (const profile of this._runProfiles)
       profile.dispose();
 
-    for (const configFileUri of configFiles) {
+    for (const configFileUri of this._configFiles) {
       const workspaceFolder = vscode.workspace.getWorkspaceFolder(configFileUri)!.uri.fsPath;
       const config: Config = {
         workspaceFolder,
@@ -112,9 +147,10 @@ export class TestModel {
       };
       const report = await this._playwrightListTests(config);
       await this._createRunProfiles(config, report);
-      await this._createTestItemsForFiles(config.workspaceFolder, report);
+      await this._createTestItemsForFiles(report);
     }
 
+    this._testController.items.replace(this._workspaceTestItems);
     await this._updateActiveEditorItems();
   }
 
@@ -134,18 +170,39 @@ export class TestModel {
           await this._debugTest(config, project.name, testItem.id);
         }
       }, true));
-      for (const file of project.files) {
-        const fileData = this._ensureFileData(file);
-        if (!fileData.configs.includes(config))
-          fileData.configs.push(config);
-      }
+      this._mapFilesToConfigs(config, project.files);
     }
   }
 
-  private async _createTestItemsForFiles(workspaceFolder: string, report: ListTestsReport) {
+  private async _createMissingFiles(fileOrFolder: string) {
+    for (const configFileUri of this._configFiles) {
+      const workspaceFolder = vscode.workspace.getWorkspaceFolder(configFileUri)!.uri.fsPath;
+      const config: Config = {
+        workspaceFolder,
+        configFile: configFileUri.fsPath,
+      };
+      const report = await this._playwrightListTests(config, fileOrFolder);
+      await this._createTestItemsForFiles(report);
+      for (const project of report.projects)
+        this._mapFilesToConfigs(config, project.files);
+    }
+  }
+
+  private async _mapFilesToConfigs(config: Config, files: string[]) {
+    for (const file of files) {
+      let configs = this._configsForFile.get(file);
+      if (!configs) {
+        configs = [];
+        this._configsForFile.set(file, configs);
+      }
+      configs.push(config);
+    }
+  }
+
+  private async _createTestItemsForFiles(report: ListTestsReport) {
     for (const project of report.projects) {
       for (const file of project.files) {
-        const item = this._getOrCreateTestItemForFileOrFolder(workspaceFolder, file);
+        const item = this._getOrCreateTestItemForFileOrFolder(file);
         if (item)
           item.canResolveChildren = true;
       }
@@ -154,40 +211,53 @@ export class TestModel {
 
   private async _resolveChildren(item: vscode.TestItem | undefined): Promise<void> {
     if (item)
-      await this._loadTestItemsForFile(item.id);
+      await this._ensureTestItemsInFile(item.id);
   }
 
-  private _getOrCreateTestItemForFileOrFolder(workspaceFolder: string, fsPath: string): vscode.TestItem | null {
+  private _getOrCreateTestItemForFileOrFolder(fsPath: string): vscode.TestItem | null {
     const result = this._testItems.get(fsPath);
     if (result)
       return result;
-    const relative = path.relative(workspaceFolder, fsPath);
-    if (relative.startsWith('..'))
-      return null;
+    for (const workspaceFolder of vscode.workspace.workspaceFolders || []) {
+      const workspacePath = workspaceFolder.uri.fsPath;
+      const relative = path.relative(workspaceFolder.uri.fsPath, fsPath);
+      if (relative.startsWith('..'))
+        continue;
+      return this._getOrCreateTestItemForFileOrFolderInWorkspace(workspacePath, fsPath); 
+    }
+    return null;
+  }
+
+  private _getOrCreateTestItemForFileOrFolderInWorkspace(workspacePath: string, fsPath: string): vscode.TestItem {
+    const result = this._testItems.get(fsPath);
+    if (result)
+      return result;
     const parentFile = path.dirname(fsPath);
     const testItem = this._testController.createTestItem(fsPath, path.basename(fsPath), vscode.Uri.file(fsPath));
     this._testItems.set(testItem.id, testItem);
-    if (parentFile === workspaceFolder) {
-      this._testController.items.add(testItem);
-    } else {
-      const parent = this._getOrCreateTestItemForFileOrFolder(workspaceFolder, path.dirname(fsPath))!;
-      parent.children.add(testItem);  
-    }
+    const parent = this._getOrCreateTestItemForFileOrFolderInWorkspace(workspacePath, parentFile);
+    parent.children.add(testItem);  
     return testItem;
   }
 
-  private async _loadTestItemsForFile(fsPath: string): Promise<void> {
-    const fileInfo = this._files.get(fsPath);
-    if (!fileInfo)
-      return;
-    if (fileInfo.entries)
+  private async _ensureTestItemsInFile(file: string): Promise<void> {
+    const entries = this._entriesInFile.get(file);
+    // Information is up-to-date - bail out.
+    if (entries)
       return;
 
-    for (const config of fileInfo.configs) {
-      const parent = this._getOrCreateTestItemForFileOrFolder(config.workspaceFolder, fsPath);
-      if (!parent)
-        continue;
-      await this._playwrightTest(null, config, [fsPath, '--list', '--reporter', path.join(__dirname, 'oopReporter.js')], (transport, message) => {
+    // Test outside workspace - bail out.
+    const parent = this._getOrCreateTestItemForFileOrFolder(file);
+    if (!parent)
+      return;
+
+    // Delete old test from map, we'll swap children array below.
+    parent.children.forEach(child => this._testItems.delete(child.id));
+
+    // Collect test items from all configs that include this file.
+    const testItems: vscode.TestItem[] = [];
+    for (const config of this._configsForFile.get(file) || []) {
+      await this._playwrightTest(null, config, [file, '--list', '--reporter', path.join(__dirname, 'oopReporter.js')], (transport, message) => {
         if (message.method !== 'onBegin')
           return;
         const entries = message.params.entries as Entry[];
@@ -195,12 +265,14 @@ export class TestModel {
           let testItem = this._testItems.get(entry.id);
           if (!testItem) {
             testItem = this._createTestItemForEntry(entry);
-            parent.children.add(testItem);
+            testItems.push(testItem);
           }
         }
         transport.close();
       });
     }
+    parent.children.replace(testItems);
+    this._entriesInFile.set(file, testItems);
   }
 
   private _createTestItemForEntry(entry: Entry): vscode.TestItem {
@@ -212,8 +284,22 @@ export class TestModel {
   }
 
   private _discardEntries(file: string) {
-    if (this._files.has(file))
-      this._files.get(file)!.entries = null;
+    this._entriesInFile.delete(file);
+  }
+
+  private _onDidDeleteFile(file: string) {
+    const testItem = this._testItems.get(file);
+    if (!testItem)
+      return;
+    // Discard cached entries.
+    this._discardEntries(file);
+
+    // Erase from map.
+    testItem.children.forEach(c => this._testItems.delete(c.id));
+    this._testItems.delete(file);
+
+    // Detach.
+    testItem.parent!.children.delete(testItem.id);
   }
 
   private async _runTest(request: vscode.TestRunRequest, config: Config, projectName: string, location: string) {
@@ -229,7 +315,7 @@ export class TestModel {
         for (const entry of entries) {
           let testItem = this._testItems.get(entry.id);
           if (!testItem) {
-            const parent = this._getOrCreateTestItemForFileOrFolder(config.workspaceFolder, entry.file);
+            const parent = this._getOrCreateTestItemForFileOrFolder(entry.file);
             if (parent) {
               testItem = this._createTestItemForEntry(entry);
               parent.children.add(testItem);
@@ -299,9 +385,11 @@ export class TestModel {
     });
   }
 
-  private async _playwrightListTests(config: Config): Promise<ListTestsReport> {
+  private async _playwrightListTests(config: Config, folder?: string): Promise<ListTestsReport> {
     const node = this._findNode();
     const allArgs = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'list-tests', '-c', config.configFile];
+    if (folder)
+      allArgs.push(folder);
     const childProcess = spawnSync(node, allArgs, {
       cwd: config.workspaceFolder,
       env: { ...process.env }
@@ -328,12 +416,12 @@ export class TestModel {
   }
 
   private _findNode(): string {
-    if (this._pathToNode)
-      return this._pathToNode;
+    if (this._pathToNodeJS)
+      return this._pathToNodeJS;
     const node = findInPath('node', process.env);
     if (!node)
       throw new Error('Unable to launch `node`, make sure it is in your PATH');
-    this._pathToNode = node;
+    this._pathToNodeJS = node;
     return node;
   }
 
@@ -342,16 +430,7 @@ export class TestModel {
     if (!editor)
       return;
     const fsPath = editor.document.uri.fsPath;
-    this._loadTestItemsForFile(fsPath);
-  }
-
-  private _ensureFileData(file: string): FileData {
-    let fileData = this._files.get(file);
-    if (!fileData) {
-      fileData = { entries: null, configs: [] };
-      this._files.set(file, fileData);
-    }
-    return fileData;
+    this._ensureTestItemsInFile(fsPath);
   }
 }
 
