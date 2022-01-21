@@ -32,6 +32,12 @@
         "command": "pw.extension.refreshTests",
         "icon": "$(refresh)",
         "title": "Refresh Playwright Tests"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.runFile",
+        "icon": "$(refresh)",
+        "title": "Run Playwright tests in file"
       }
     ],
     "menus": {

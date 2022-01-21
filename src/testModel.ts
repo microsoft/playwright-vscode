@@ -23,6 +23,7 @@ import { findInPath } from './pathUtils';
 import { PipeTransport, ProtocolResponse } from './transport';
 import StackUtils from 'stack-utils';
 import { TestError } from './reporter';
+import { createGuid } from './utils';
 
 const stackUtils = new StackUtils();
 
@@ -40,13 +41,13 @@ export type Config = {
 
 export class TestModel {
   // Each file can be included in several config files.
-  private _configsForFile = new Map<string, Config[]>();
+  private _configsForFile = new Map<string, Set<Config>>();
 
   // Entries that were loaded for given file using list reporter.
   private _entriesInFile = new Map<string, vscode.TestItem[]>();
 
-  // Global test item map testItem.id => testItem.
-  private _testItems = new Map<string, vscode.TestItem>();
+  // Global test item map.
+  private _testItems: TestItems;
 
   // Each run profile is a config + project pair.
   private _runProfiles: vscode.TestRunProfile[] = [];
@@ -68,6 +69,7 @@ export class TestModel {
   constructor() {
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
+    this._testItems = new TestItems(this._testController);
 
     this._terminalSink = new vscode.EventEmitter<string>();
     const pty: vscode.Pseudoterminal = {
@@ -109,6 +111,9 @@ export class TestModel {
       vscode.commands.registerCommand('pw.extension.refreshTests', () => {
         this._rebuildModel().catch(() => {});
       }),
+      vscode.commands.registerCommand('pw.extension.runFile', () => {
+        // TODO:
+      }),
       terminal,
       this._testController,
     ];
@@ -130,7 +135,7 @@ export class TestModel {
     } catch {
     }
 
-    this._testItems.clear();
+    this._testItems.newGeneration();
     this._configsForFile.clear();
     this._entriesInFile.clear();
     this._isDogFood = isDogFood;
@@ -143,11 +148,7 @@ export class TestModel {
 
     this._configFiles = await vscode.workspace.findFiles('**/*playwright*.config.[tj]s', 'node_modules/**');
 
-    this._workspaceTestItems = (vscode.workspace.workspaceFolders || []).map(wf => {
-      const testItem = this._testController.createTestItem(wf.uri.fsPath, wf.name);
-      this._testItems.set(testItem.id, testItem);
-      return testItem;
-    });
+    this._workspaceTestItems = (vscode.workspace.workspaceFolders || []).map(wf => this._testItems.createForLocation(wf.name, wf.uri));
     for (const profile of this._runProfiles)
       profile.dispose();
 
@@ -174,7 +175,8 @@ export class TestModel {
       const projectSuffix = project.name ? ` [${project.name}]` : '';
       this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Run, async (request, token) => {
         for (const testItem of request.include || []) {
-          await this._runTest(request, config, project.name, testItem.id);
+          const location = this._testItems.location(testItem);
+          await this._runTest(request, config, project.name, location!);
         }
       }, true));
       this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Debug, async (request, token) => {
@@ -204,10 +206,10 @@ export class TestModel {
     for (const file of files) {
       let configs = this._configsForFile.get(file);
       if (!configs) {
-        configs = [];
+        configs = new Set();
         this._configsForFile.set(file, configs);
       }
-      configs.push(config);
+      configs.add(config);
     }
   }
 
@@ -221,13 +223,13 @@ export class TestModel {
     }
   }
 
-  private async _resolveChildren(item: vscode.TestItem | undefined): Promise<void> {
-    if (item)
-      await this._ensureTestItemsInFile(item.id);
+  private async _resolveChildren(testItem: vscode.TestItem | undefined): Promise<void> {
+    if (testItem)
+      await this._ensureTestItemsInFile(testItem.uri!.fsPath);
   }
 
   private _getOrCreateTestItemForFileOrFolder(fsPath: string): vscode.TestItem | null {
-    const result = this._testItems.get(fsPath);
+    const result = this._testItems.getForLocation(fsPath);
     if (result)
       return result;
     for (const workspaceFolder of vscode.workspace.workspaceFolders || []) {
@@ -241,12 +243,11 @@ export class TestModel {
   }
 
   private _getOrCreateTestItemForFileOrFolderInWorkspace(workspacePath: string, fsPath: string): vscode.TestItem {
-    const result = this._testItems.get(fsPath);
+    const result = this._testItems.getForLocation(fsPath);
     if (result)
       return result;
     const parentFile = path.dirname(fsPath);
-    const testItem = this._testController.createTestItem(fsPath, path.basename(fsPath), vscode.Uri.file(fsPath));
-    this._testItems.set(testItem.id, testItem);
+    const testItem = this._testItems.createForLocation(path.basename(fsPath), vscode.Uri.file(fsPath));
     const parent = this._getOrCreateTestItemForFileOrFolderInWorkspace(workspacePath, parentFile);
     parent.children.add(testItem);  
     return testItem;
@@ -264,7 +265,7 @@ export class TestModel {
       return;
 
     // Delete old test from map, we'll swap children array below.
-    parent.children.forEach(child => this._testItems.delete(child.id));
+    parent.children.forEach(child => this._testItems.deleteForLocation(child.id));
 
     // Collect test items from all configs that include this file.
     const testItems: vscode.TestItem[] = [];
@@ -274,7 +275,7 @@ export class TestModel {
           return;
         const entries = message.params.entries as Entry[];
         for (const entry of entries) {
-          let testItem = this._testItems.get(entry.id);
+          let testItem = this._testItems.getForLocation(entry.id);
           if (!testItem) {
             testItem = this._createTestItemForEntry(entry);
             testItems.push(testItem);
@@ -289,9 +290,7 @@ export class TestModel {
 
   private _createTestItemForEntry(entry: Entry): vscode.TestItem {
     const title = entry.titlePath.join(' › ');
-    const testItem = this._testController.createTestItem(entry.id, title, vscode.Uri.file(entry.file));
-    testItem.range = new vscode.Range(entry.line - 1, entry.column - 1, entry.line, 0);
-    this._testItems.set(testItem.id, testItem);
+    const testItem = this._testItems.createForLocation(title, vscode.Uri.file(entry.file), entry.line);
     return testItem;
   }
 
@@ -300,15 +299,15 @@ export class TestModel {
   }
 
   private _onDidDeleteFile(file: string) {
-    const testItem = this._testItems.get(file);
+    const testItem = this._testItems.getForLocation(file);
     if (!testItem)
       return;
     // Discard cached entries.
     this._discardEntries(file);
 
     // Erase from map.
-    testItem.children.forEach(c => this._testItems.delete(c.id));
-    this._testItems.delete(file);
+    testItem.children.forEach(c => this._testItems.deleteForLocation(c.id));
+    this._testItems.deleteForLocation(file);
 
     // Detach.
     testItem.parent!.children.delete(testItem.id);
@@ -325,7 +324,7 @@ export class TestModel {
       if (message.method === 'onBegin') {
         const entries = message.params.entries as Entry[];
         for (const entry of entries) {
-          let testItem = this._testItems.get(entry.id);
+          let testItem = this._testItems.getForLocation(entry.id);
           if (!testItem) {
             const parent = this._getOrCreateTestItemForFileOrFolder(entry.file);
             if (parent) {
@@ -338,7 +337,7 @@ export class TestModel {
         }
         return;
       }
-      const testItem = this._testItems.get(message.params.testId);
+      const testItem = this._testItems.getForLocation(message.params.testId);
       if (!testItem)
         return;
       if (message.method === 'onTestBegin') {
@@ -357,7 +356,8 @@ export class TestModel {
   }
  
   private async _debugTest(config: Config, projectName: string, testItem: vscode.TestItem) {
-    const args = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, testItem.id, '--project', projectName, '--headed', '--timeout', '0'];
+    const location = this._testItems.location(testItem);
+    const args = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, location!, '--project', projectName, '--headed', '--timeout', '0'];
     // Put a breakpoint on the next line.
     const breakpointPosition = new vscode.Position(testItem.range!.start.line + 1, 0);
     const breakpoint = new vscode.SourceBreakpoint(new vscode.Location(testItem.uri!, breakpointPosition));
@@ -450,18 +450,67 @@ export class TestModel {
   }
 }
 
-function testMessageForError(item: vscode.TestItem, error: TestError): vscode.TestMessage {
+function testMessageForError(testItem: vscode.TestItem, error: TestError): vscode.TestMessage {
   const lines = error.stack ? error.stack.split('\n').reverse() : [];
   for (const line of lines) {
     const frame = stackUtils.parseLine(line);
     if (!frame || !frame.file || !frame.line || !frame.column)
       continue;
-    if (frame.file === item.uri!.path) {
+    if (frame.file === testItem.uri!.path) {
       const message = new vscode.TestMessage(error.stack!);
       const position = new vscode.Position(frame.line - 1, frame.column - 1);
-      message.location = new vscode.Location(item.uri!, position);
+      message.location = new vscode.Location(testItem.uri!, position);
       return message;
     }
   }
   return new vscode.TestMessage(error.message! || error.value!);
+}
+
+type TestItemData = {
+  location: string;
+};
+
+class TestItems {
+  // We don't want tests to persist state between sessions, so we are using unique test id prefixes.
+  private _testGeneration = '';
+
+  // Global test item map testItem.id => testItem.
+  private _testItems = new Map<string, { testItem: vscode.TestItem, data: TestItemData }>();
+
+  private _testController: vscode.TestController;
+
+  constructor(testController: vscode.TestController) {
+    this._testController = testController;
+  }
+
+  newGeneration() {
+    this._testItems.clear();
+    this._testGeneration = createGuid() + ':';
+  }
+
+  location(testItem: vscode.TestItem): string | undefined {
+    return this._testItems.get(testItem.id)?.data.location;
+  }
+
+  getForLocation(location: string): vscode.TestItem | undefined {
+    return this._testItems.get(this._id(location))?.testItem;
+  }
+
+  deleteForLocation(location: string) {
+    this._testItems.delete(this._id(location));
+  }
+
+  createForLocation(label: string, uri: vscode.Uri, line?: number): vscode.TestItem {
+    const hasLine = typeof line === 'number';
+    const location = hasLine ? uri.fsPath + ':' + line : uri.fsPath;
+    const testItem = this._testController.createTestItem(this._id(location), label, uri);
+    this._testItems.set(testItem.id, { testItem, data: { location: hasLine ? uri.fsPath + ':' + line : uri.fsPath } });
+    if (hasLine)
+      testItem.range = new vscode.Range(line - 1, 0, line, 0);
+    return testItem;
+  }
+
+  private _id(location: string): string {
+    return this._testGeneration + location;
+  }
 }

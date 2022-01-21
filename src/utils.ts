@@ -21,3 +21,7 @@ export function calculateSha1(buffer: Buffer | string): string {
   hash.update(buffer);
   return hash.digest('hex');
 }
+
+export function createGuid(): string {
+  return crypto.randomBytes(16).toString('hex');
+}
