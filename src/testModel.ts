@@ -166,7 +166,7 @@ export class TestModel {
       this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Run, async (request, token) => {
         for (const testItem of request.include || []) {
           const location = this._testTree.location(testItem);
-          await this._runTest(request, config, project.name, location!);
+          await this._runTest(request, config, project.name, location!, token);
         }
       }, true));
       this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Debug, async (request, token) => {
@@ -255,10 +255,12 @@ export class TestModel {
     });
   }
 
-  private async _runTest(request: vscode.TestRunRequest, config: Config, projectName: string, location: string) {
+  private async _runTest(request: vscode.TestRunRequest, config: Config, projectName: string, location: string, token: vscode.CancellationToken) {
     const testRun = this._testController.createTestRun(request);
     this._terminalSink.fire('\x1b[H\x1b[2J');
     await this._playwrightTest(this._terminalSink, config, [location, '--project', projectName, '--reporter', path.join(__dirname, 'oopReporter.js') + ',line'], (transport, message) => {
+      if (token.isCancellationRequested)
+        return;
       if (message.method === 'onEnd') {
         transport.close();
         return;
@@ -286,7 +288,7 @@ export class TestModel {
         }
         testRun.failed(testItem, testMessageForError(testItem, message.params.error), message.params.duration);
       }
-    });
+    }, token);
     testRun.end();
   }
  
@@ -325,7 +327,7 @@ export class TestModel {
     });
   }
 
-  private async _playwrightTest(terminal: vscode.EventEmitter<string> | null, config: Config, args: string[], onMessage: (transport: PipeTransport, message: ProtocolResponse) => void): Promise<PipeTransport> {
+  private async _playwrightTest(terminal: vscode.EventEmitter<string> | null, config: Config, args: string[], onMessage: (transport: PipeTransport, message: ProtocolResponse) => void, token?: vscode.CancellationToken): Promise<PipeTransport> {
     const node = this._findNode();
     const allArgs = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, ...args];
     const childProcess = spawn(node, allArgs, {
@@ -334,6 +336,12 @@ export class TestModel {
       env: { ...process.env }
     });
   
+    if (token) {
+      token.onCancellationRequested(() => {
+        childProcess.kill('SIGINT');
+      });
+    }
+
     const stdio = childProcess.stdio;
     stdio[1].on('data', data => {
       if (terminal)
