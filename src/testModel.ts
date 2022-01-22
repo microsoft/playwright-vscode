@@ -256,7 +256,12 @@ export class TestModel {
   }
 
   private async _runTest(request: vscode.TestRunRequest, config: Config, projectName: string, location: string, token: vscode.CancellationToken) {
-    const testRun = this._testController.createTestRun(request);
+    const testRun = this._testController.createTestRun({
+      ...request,
+      // Our suites are flat and vscode won't report on tests outside the test item.
+      include: undefined,
+      exclude: undefined,
+    });
     this._terminalSink.fire('\x1b[H\x1b[2J');
     await this._playwrightTest(this._terminalSink, config, [location, '--project', projectName, '--reporter', path.join(__dirname, 'oopReporter.js') + ',line'], (transport, message) => {
       if (token.isCancellationRequested)

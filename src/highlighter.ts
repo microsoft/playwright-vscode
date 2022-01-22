@@ -26,22 +26,28 @@ export type StackFrame = {
 
 const sessionsWithHighlight = new Set<vscode.DebugSession>();
 
-export async function highlightLocator(debugSessions: Map<string, vscode.DebugSession>, document: vscode.TextDocument, position: vscode.Position) {
+export async function highlightLocator(debugSessions: Map<string, vscode.DebugSession>, document: vscode.TextDocument, position: vscode.Position, token?: vscode.CancellationToken) {
   if (!debugSessions.size)
     return;
   const fsPath = document.uri.fsPath;
   for (const session of debugSessions.values()) {
+    if (token?.isCancellationRequested)
+      return;
     const stackFrames = await pausedStackFrames(session, undefined);
     if (!stackFrames)
       continue;
     for (const stackFrame of stackFrames) {
       if (!stackFrame.source || document.uri.fsPath !== stackFrame.source.path)
         continue;
+      if (token?.isCancellationRequested)
+        return;
       const vars = await scopeVariables(session, stackFrame);
       const text = document.getText();
       const locatorExpression = locatorForPosition(text, vars, fsPath, position);
       if (!locatorExpression)
         continue;
+      if (token?.isCancellationRequested)
+        return;
       if (await doHighlightLocator(session, stackFrame.id, locatorExpression))
         return;
     }

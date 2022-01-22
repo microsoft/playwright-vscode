@@ -42,7 +42,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
     vscode.languages.registerHoverProvider('typescript', {
       provideHover(document, position, token) {
-        highlightLocator(debugSessions, document, position).catch();
+        highlightLocator(debugSessions, document, position, token).catch();
         return null;
       }
     }),

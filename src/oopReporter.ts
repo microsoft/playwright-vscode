@@ -80,6 +80,7 @@ class OopReporter implements Reporter {
             entries.set(id, entry);
           }
         }
+        suite.suites.map(visit);
       };
 
       project.suites.map(visit);
