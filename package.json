@@ -17,27 +17,16 @@
     "Testing"
   ],
   "activationEvents": [
-    "workspaceContains:**/*playwright*.config.{ts,js}",
-    "onCommand:pw.extension.runFile"
+    "workspaceContains:**/*playwright*.config.{ts,js}"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "pw.extension.runFile",
-        "title": "Playwright: run all tests in file"
-      },
-      {
         "category": "Test",
         "command": "pw.extension.refreshTests",
         "icon": "$(refresh)",
         "title": "Refresh Playwright Tests"
-      },
-      {
-        "category": "Test",
-        "command": "pw.extension.runFile",
-        "icon": "$(refresh)",
-        "title": "Run Playwright tests in file"
       }
     ],
     "menus": {
