@@ -35,16 +35,10 @@ export class TestModel {
   // We write into terminal using this event sink.
   private _terminalSink!: vscode.EventEmitter<string>;
 
-  // Top level test items for workspace folders.
-  private _workspaceTestItems: vscode.TestItem[] = [];
-
-  // Config files loaded after last rebuild.
-  private _configFiles: vscode.Uri[] = [];
-
-  private _testController!: vscode.TestController;
+  private _testController: vscode.TestController;
   private _workspaceObserver: WorkspaceObserver;
-  private _disposables: vscode.Disposable[];
   private _playwrightTest: PlaywrightTest;
+  private _disposables: vscode.Disposable[];
 
   constructor() {
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
@@ -102,28 +96,26 @@ export class TestModel {
 
   private async _rebuildModel() {
     await this._playwrightTest.reconsiderDogFood();
-    this._testTree.newGeneration();
+    this._testTree.reset();
     this._workspaceObserver.reset();
-    this._testController.items.replace([
-      this._testController.createTestItem('loading', 'Loading\u2026')
-    ]);
+    for (const profile of this._runProfiles)
+      profile.dispose();
+    this._runProfiles = [];
 
     // Give UI a chance to update.
     await new Promise(f => setTimeout(f, 500));
 
-    this._configFiles = await vscode.workspace.findFiles('**/*playwright*.config.[tj]s', 'node_modules/**');
-
-    this._workspaceTestItems = (vscode.workspace.workspaceFolders || []).map(wf => this._testTree.createForLocation(wf.name, wf.uri));
-    for (const profile of this._runProfiles)
-      profile.dispose();
-
-    for (const configFileUri of this._configFiles) {
+    const configFiles = await vscode.workspace.findFiles('**/*playwright*.config.[tj]s', 'node_modules/**');
+    for (const configFileUri of configFiles) {
       const workspaceFolder = vscode.workspace.getWorkspaceFolder(configFileUri)!.uri.fsPath;
       const config: Config = {
         workspaceFolder,
         configFile: configFileUri.fsPath,
       };
+
       const report = await this._playwrightTest.listFiles(config);
+      if (!report)
+        continue;
       config.testDir = report.testDir;
       const configDir = path.dirname(config.configFile);
       this._workspaceObserver.addWatchFolder(config.testDir ? path.resolve(configDir, config.testDir) : configDir, config);
@@ -131,7 +123,7 @@ export class TestModel {
       await this._createTestItemsForFiles(config, report);
     }
 
-    this._testController.items.replace(this._workspaceTestItems);
+    this._testTree.finishedLoading();
     await this._updateActiveEditorItems();
   }
 
@@ -235,6 +227,11 @@ export class TestModel {
       include: undefined,
       exclude: undefined,
     });
+
+    // Provide immediate feedback on action target.
+    for (const testItem of request.include || [])
+      testRun.enqueued(testItem);
+
     this._terminalSink.fire('\x1b[H\x1b[2J');
     await this._playwrightTest.runTests(config, projectName, location, {
       onBegin: ({ entries }) => {

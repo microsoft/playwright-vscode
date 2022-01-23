@@ -62,7 +62,7 @@ export class PlaywrightTest {
     }  
   }
 
-  async listFiles(config: Config): Promise<ListFilesReport> {
+  async listFiles(config: Config): Promise<ListFilesReport | null> {
     const node = this._findNode();
     const allArgs = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'list-tests', '-c', config.configFile];
     const childProcess = spawnSync(node, allArgs, {
@@ -71,14 +71,14 @@ export class PlaywrightTest {
     });
     const output = childProcess.stdout.toString();
     if (!output)
-      return { projects: [] };
+      return null;
     try {
       const report = JSON.parse(output);
       return report as ListFilesReport;
     } catch (e) {
       console.error(e);
     }
-    return { projects: [] };
+    return null;
   }
 
   async runTests(config: Config, projectName: string, location: string, listener: TestListener, token?: vscode.CancellationToken) {

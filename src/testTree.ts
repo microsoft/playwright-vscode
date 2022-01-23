@@ -39,6 +39,9 @@ export class TestTree {
 
   private _testController: vscode.TestController;
 
+  // Top level test items for workspace folders.
+  private _workspaceTestItems: vscode.TestItem[] = [];
+
   // We are using coalescing update to replace lists of children at once.
   private _pendingChildren: Map<vscode.TestItem, vscode.TestItem[]> | undefined;
   private _coalescingCount = 0;
@@ -47,9 +50,17 @@ export class TestTree {
     this._testController = testController;
   }
 
-  newGeneration() {
+  reset() {
     this._testItems.clear();
     this._testGeneration = createGuid() + ':';
+    this._workspaceTestItems = (vscode.workspace.workspaceFolders || []).map(wf => this.createForLocation(wf.name, wf.uri));
+    this._testController.items.replace([
+      this._testController.createTestItem('loading', 'Loading\u2026')
+    ]);
+  }
+
+  finishedLoading() {
+    this._testController.items.replace(this._workspaceTestItems);
   }
 
   location(testItem: vscode.TestItem): string | undefined {
