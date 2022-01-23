@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { FullConfig, FullResult, Reporter, Suite, TestCase, TestError, TestResult } from './reporter';
+import { FullConfig, FullResult, Location, Reporter, Suite, TestCase, TestError, TestResult } from './reporter';
 import { PipeTransport } from './transport';
 import fs from 'fs';
 
@@ -26,6 +26,19 @@ export type Entry = {
   column: number;
   title: string;
   titlePath: string[];
+};
+
+export type TestBeginParams = {
+  testId: string;
+  title: string;
+  location: Location;
+};
+
+export type TestEndParams = {
+  testId: string;
+  duration: number;
+  error: TestError | undefined;
+  ok: boolean;
 };
 
 class OopReporter implements Reporter {
@@ -91,16 +104,18 @@ class OopReporter implements Reporter {
 
   onTestBegin?(test: TestCase, result: TestResult): void {
     const testId = this._entryId(test);
-    this._emit('onTestBegin', { testId, title: test.title, location: test.location });
+    const params: TestBeginParams = { testId, title: test.title, location: test.location };
+    this._emit('onTestBegin', params);
   }
 
   onTestEnd(test: TestCase, result: TestResult): void {
-    this._emit('onTestEnd', {
+    const params: TestEndParams = {
       testId: this._entryId(test),
       duration: result.duration,
       error: result.error,
       ok: test.ok()
-    });
+    };
+    this._emit('onTestEnd', params);
   }
 
   onError(error: TestError): void {
