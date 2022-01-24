@@ -116,7 +116,7 @@ export class PlaywrightTest {
     stdio[2].on('data', data => listener.onStdErr?.(data));
     const transport = new PipeTransport((stdio as any)[3]!, (stdio as any)[4]!);
     transport.onmessage = message => {
-      if (token?.isCancellationRequested)
+      if (token?.isCancellationRequested && message.method !== 'onEnd')
         return;
       switch (message.method) {
         case 'onBegin': {
@@ -136,9 +136,7 @@ export class PlaywrightTest {
       }
     };
     return new Promise(f => {
-      transport.onclose = () => {
-        f();
-      };
+      transport.onclose = f;
     });
   }
 
