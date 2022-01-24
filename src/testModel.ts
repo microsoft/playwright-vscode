@@ -96,7 +96,7 @@ export class TestModel {
 
   private async _rebuildModel() {
     await this._playwrightTest.reconsiderDogFood();
-    this._testTree.reset();
+    this._testTree.startedLoading();
     this._workspaceObserver.reset();
     for (const profile of this._runProfiles)
       profile.dispose();
@@ -105,6 +105,7 @@ export class TestModel {
     // Give UI a chance to update.
     await new Promise(f => setTimeout(f, 500));
 
+    const rootTreeItems: vscode.TestItem[] = [];
     const configFiles = await vscode.workspace.findFiles('**/*playwright*.config.[tj]s', 'node_modules/**');
     for (const configFileUri of configFiles) {
       const workspaceFolder = vscode.workspace.getWorkspaceFolder(configFileUri)!.uri.fsPath;
@@ -116,14 +117,17 @@ export class TestModel {
       const report = await this._playwrightTest.listFiles(config);
       if (!report)
         continue;
-      config.testDir = report.testDir;
       const configDir = path.dirname(config.configFile);
-      this._workspaceObserver.addWatchFolder(config.testDir ? path.resolve(configDir, config.testDir) : configDir, config);
+      config.testDir = report.testDir ? path.resolve(configDir, report.testDir) : configDir;
+      const rootName = path.basename(path.dirname(config.testDir)) + path.sep + path.basename(config.testDir);
+      const rootTreeItem = this._testTree.createForLocation(rootName, vscode.Uri.file(config.testDir))
+      rootTreeItems.push(rootTreeItem);
+      this._workspaceObserver.addWatchFolder(config.testDir, config);
       await this._createRunProfiles(config, report);
       await this._createTestItemsForFiles(config, report);
     }
 
-    this._testTree.finishedLoading();
+    this._testTree.finishedLoading(rootTreeItems);
     await this._updateActiveEditorItems();
   }
 

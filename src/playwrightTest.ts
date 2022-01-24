@@ -50,16 +50,16 @@ export class PlaywrightTest {
   }
 
   async reconsiderDogFood() {
-    let isDogFood = false;
+    this._isDogFood = false;
     try {
       const packages = await vscode.workspace.findFiles('package.json');
       if (packages.length === 1) {
         const content = await fs.promises.readFile(packages[0].fsPath, 'utf-8');
         if (JSON.parse(content).name === 'playwright-internal')
-          isDogFood = true;
+          this._isDogFood = true;
       }
     } catch {
-    }  
+    }
   }
 
   async listFiles(config: Config): Promise<ListFilesReport | null> {
