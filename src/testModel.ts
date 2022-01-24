@@ -168,9 +168,7 @@ export class TestModel {
   }
 
   private _createTestItemForEntry(entry: Entry): vscode.TestItem {
-    const title = entry.titlePath.join(' › ');
-    const testItem = this._testTree.createForLocation(title, vscode.Uri.file(entry.file), entry.line);
-    return testItem;
+    return this._testTree.createForLocation(entry.title, vscode.Uri.file(entry.file), entry.line);
   }
 
   private _onDidDeleteFile(file: string) {
@@ -220,17 +218,12 @@ export class TestModel {
   }
 
   private async _populateFileItems(config: Config, fileItems: vscode.TestItem[]) {
-    const entries = await this._playwrightTest.listTests(config, fileItems.map(i => i.uri!.fsPath));
-    this._updateTestTreeFromEntries(entries);
+    const files = await this._playwrightTest.listTests(config, fileItems.map(i => i.uri!.fsPath));
+    this._updateTestTreeFromEntries(files);
   }
 
   private async _runTest(request: vscode.TestRunRequest, config: Config, projectName: string, location: string, token: vscode.CancellationToken) {
-    const testRun = this._testController.createTestRun({
-      ...request,
-      // Our suites are flat and vscode won't report on tests outside the test item.
-      include: undefined,
-      exclude: undefined,
-    });
+    const testRun = this._testController.createTestRun(request);
 
     // Provide immediate feedback on action target.
     for (const testItem of request.include || [])
@@ -238,12 +231,11 @@ export class TestModel {
 
     this._terminalSink.fire('\x1b[H\x1b[2J');
     await this._playwrightTest.runTests(config, projectName, location, {
-      onBegin: ({ entries }) => {
-        this._updateTestTreeFromEntries(entries);
-        for (const entry of entries) {
-          const testItem = this._testTree.getForLocation(entry.id)!;
-          testRun.enqueued(testItem);
-        }
+      onBegin: ({ files }) => {
+        const items = new Set<vscode.TestItem>();
+        this._updateTestTreeFromEntries(files, items);
+        for (const item of items)
+          testRun.enqueued(item);
         return false;
       },
 
@@ -275,19 +267,26 @@ export class TestModel {
     testRun.end();
   }
  
-  private _updateTestTreeFromEntries(entries: Entry[]) {
-    for (const entry of entries) {
-      // Tolerate clashing configs that are adding dupe tests in common files.
-      if (this._testTree.getForLocation(entry.id))
-        continue;
+  private _updateTestTreeFromEntries(files: Entry[], collector?: Set<vscode.TestItem>) {
+    const map = (parentEntry: Entry, parentItem: vscode.TestItem) => {
+      for (const entry of parentEntry.children || []) {
+        // Tolerate clashing configs that are adding dupe tests in common files.
+        let testItem = this._testTree.getForLocation(entry.id);
+        if (!testItem) {
+          testItem = this._createTestItemForEntry(entry);
+          this._testTree.addChild(parentItem, testItem);
+        }
+        collector?.add(testItem);
+        map(entry, testItem);
+      }
+    };
 
-      const fileItem = this._testTree.getOrCreateForFileOrFolder(entry.file);
-
+    for (const fileEntry of files) {
+      const fileItem = this._testTree.getOrCreateForFileOrFolder(fileEntry.file);
       // Sometimes files are going to be outside of the workspace, ignore those.
       if (!fileItem)
         continue;
-
-      this._testTree.addChild(fileItem, this._createTestItemForEntry(entry));
+      map(fileEntry, fileItem);
     }
   }
 

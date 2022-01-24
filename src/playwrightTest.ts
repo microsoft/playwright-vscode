@@ -33,7 +33,7 @@ export type ListFilesReport = {
 };
 
 export interface TestListener {
-  onBegin?(params: { entries: Entry[] }): boolean;
+  onBegin?(params: { files: Entry[] }): boolean;
   onTestBegin?(params: TestBeginParams): void;
   onTestEnd?(params: TestEndParams): void;
   onError?(params: { error: TestError }): void;
@@ -89,7 +89,7 @@ export class PlaywrightTest {
     let result: Entry[] = [];
     await this._test(config, [...files, '--list'], {
       onBegin: params => {
-        result = params.entries as Entry[];
+        result = params.files as Entry[];
         return true;
       }
     });

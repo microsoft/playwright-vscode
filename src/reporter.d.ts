@@ -16,7 +16,9 @@
 
 export type TestStatus = 'passed' | 'failed' | 'timedOut' | 'skipped';
 export type FullConfig = {};
-export type FullProject = {};
+export type FullProject = {
+  name: string;
+};
 
 /**
  * Information about an error thrown during test execution.

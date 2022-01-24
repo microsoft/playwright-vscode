@@ -48,6 +48,7 @@ export class TestTree {
   }
 
   startedLoading() {
+    this._coalescingCount = 0;
     this._testItems.clear();
     this._testGeneration = createGuid() + ':';
     if (!vscode.workspace.workspaceFolders?.length)
@@ -89,18 +90,17 @@ export class TestTree {
     return this._testItems.get(this._id(location))?.testItem;
   }
 
-  deleteForLocation(location: string) {
-    this._testItems.delete(this._id(location));
-  }
-
   delete(testItem: vscode.TestItem) {
-    testItem.children.forEach(c => this._testItems.delete(c.id));
+    this.unbindChildren(testItem);
     this._testItems.delete(testItem.id);
     testItem.parent!.children.delete(testItem.id);
   }
 
   unbindChildren(fileItem: vscode.TestItem) {
-    fileItem.children.forEach(c => this._testItems.delete(c.id));
+    fileItem.children.forEach(c => {
+      this.unbindChildren(c);
+      this._testItems.delete(c.id);
+    });
   }
 
   createForLocation(label: string, uri: vscode.Uri, line?: number): vscode.TestItem {
