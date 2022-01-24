@@ -39,6 +39,7 @@ export class TestModel {
   private _workspaceObserver: WorkspaceObserver;
   private _playwrightTest: PlaywrightTest;
   private _disposables: vscode.Disposable[];
+  private _terminal: vscode.Terminal | undefined;
 
   constructor() {
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
@@ -47,12 +48,6 @@ export class TestModel {
     this._playwrightTest = new PlaywrightTest();
 
     this._terminalSink = new vscode.EventEmitter<string>();
-    const pty: vscode.Pseudoterminal = {
-      onDidWrite: this._terminalSink.event,
-      open: () => {},
-      close: () => {},
-    };
-    const terminal = vscode.window.createTerminal({ name: 'Playwright Test', pty });
     this._rebuildModel().catch(() => {});
 
     this._workspaceObserver = new WorkspaceObserver(change => {
@@ -84,7 +79,7 @@ export class TestModel {
       vscode.commands.registerCommand('pw.extension.refreshTests', () => {
         this._rebuildModel().catch(() => {});
       }),
-      terminal,
+      this._terminal || { dispose: () => {} },
       this._testController,
       this._workspaceObserver,
     ];
@@ -233,7 +228,17 @@ export class TestModel {
     for (const testItem of request.include || [])
       testRun.enqueued(testItem);
 
-    this._terminalSink.fire('\x1b[H\x1b[2J');
+    if (!this._terminal || !vscode.window.terminals.includes(this._terminal)) {
+      const pty: vscode.Pseudoterminal = {
+        onDidWrite: this._terminalSink.event,
+        open: () => {},
+        close: () => {},
+      };
+      this._terminal = vscode.window.createTerminal({ name: 'Playwright Test', pty });
+    } else {
+      this._terminalSink.fire('\x1b[H\x1b[2J');
+    }
+
     await this._playwrightTest.runTests(config, projectName, location, {
       onBegin: ({ files }) => {
         const items = new Set<vscode.TestItem>();
