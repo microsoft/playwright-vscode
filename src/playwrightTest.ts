@@ -81,8 +81,9 @@ export class PlaywrightTest {
     return null;
   }
 
-  async runTests(config: Config, projectName: string, location: string, listener: TestListener, token?: vscode.CancellationToken) {
-    await this._test(config, [location, '--project', projectName], listener, token);
+  async runTests(config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscode.CancellationToken) {
+    const args = location ? [location, '--project', projectName] : ['--project', projectName];
+    await this._test(config, args, listener, token);
   }
 
   async listTests(config: Config, files: string[]): Promise<Entry[]> {

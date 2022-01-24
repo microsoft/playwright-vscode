@@ -138,7 +138,11 @@ export class TestModel {
     for (const project of report.projects) {
       const projectSuffix = project.name ? ` [${project.name}]` : '';
       this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Run, async (request, token) => {
-        for (const testItem of request.include || []) {
+        if (!request.include) {
+          await this._runTest(request, config, project.name, null, token);
+          return;
+        }
+        for (const testItem of request.include) {
           const location = this._testTree.location(testItem);
           await this._runTest(request, config, project.name, location!, token);
         }
@@ -222,7 +226,7 @@ export class TestModel {
     this._updateTestTreeFromEntries(files);
   }
 
-  private async _runTest(request: vscode.TestRunRequest, config: Config, projectName: string, location: string, token: vscode.CancellationToken) {
+  private async _runTest(request: vscode.TestRunRequest, config: Config, projectName: string, location: string | null, token: vscode.CancellationToken) {
     const testRun = this._testController.createTestRun(request);
 
     // Provide immediate feedback on action target.
