@@ -32,14 +32,10 @@ export class TestModel {
   // Each run profile is a config + project pair.
   private _runProfiles: vscode.TestRunProfile[] = [];
 
-  // We write into terminal using this event sink.
-  private _terminalSink!: vscode.EventEmitter<string>;
-
   private _testController: vscode.TestController;
   private _workspaceObserver: WorkspaceObserver;
   private _playwrightTest: PlaywrightTest;
   private _disposables: vscode.Disposable[];
-  private _terminal: vscode.Terminal | undefined;
   private _testItemUnderDebug: vscode.TestItem | undefined;
 
   constructor() {
@@ -48,7 +44,6 @@ export class TestModel {
     this._testTree = new TestTree(this._testController);
     this._playwrightTest = new PlaywrightTest();
 
-    this._terminalSink = new vscode.EventEmitter<string>();
     this._rebuildModel().catch(() => {});
 
     this._workspaceObserver = new WorkspaceObserver(change => {
@@ -80,7 +75,6 @@ export class TestModel {
       vscode.commands.registerCommand('pw.extension.refreshTests', () => {
         this._rebuildModel().catch(() => {});
       }),
-      this._terminal || { dispose: () => {} },
       this._testController,
       this._workspaceObserver,
     ];
@@ -229,17 +223,7 @@ export class TestModel {
     // Provide immediate feedback on action target.
     for (const testItem of request.include || [])
       testRun.enqueued(testItem);
-
-    if (!this._terminal || !vscode.window.terminals.includes(this._terminal)) {
-      const pty: vscode.Pseudoterminal = {
-        onDidWrite: this._terminalSink.event,
-        open: () => {},
-        close: () => {},
-      };
-      this._terminal = vscode.window.createTerminal({ name: 'Playwright Test', pty });
-    } else {
-      this._terminalSink.fire('\x1b[H\x1b[2J');
-    }
+      testRun.appendOutput('\x1b[H\x1b[2J');
 
     await this._playwrightTest.runTests(config, projectName, location, {
       onBegin: ({ files }) => {
@@ -268,11 +252,11 @@ export class TestModel {
       },
 
       onStdOut: data => {
-        this._terminalSink.fire(data.toString().replace(/\n/g, '\r\n'));
+        testRun.appendOutput(data.toString().replace(/\n/g, '\r\n'));
       },
 
       onStdErr: data => {
-        this._terminalSink.fire(data.toString().replace(/\n/g, '\r\n'));
+        testRun.appendOutput(data.toString().replace(/\n/g, '\r\n'));
       },
     }, token);
     testRun.end();
