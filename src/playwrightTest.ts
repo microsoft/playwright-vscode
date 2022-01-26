@@ -142,16 +142,15 @@ export class PlaywrightTest {
   }
 
   async debugTest(config: Config, projectName: string, location: string) {
-    const args = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, location!, '--project', projectName, '--headed', '--timeout', '0'];
+    const args = ['test', '-c', config.configFile, location!, '--project', projectName, '--headed', '--timeout', '0'];
     vscode.debug.startDebugging(undefined, {
       type: 'pwa-node',
       name: 'Playwright Test',
       request: 'launch',
       cwd: config.workspaceFolder,
-      env: { ...process.env, PW_OUT_OF_PROCESS: '1', PW_IGNORE_COMPILE_CACHE: '1' },
+      env: { ...process.env, PW_OUT_OF_PROCESS: '1', PW_GENERATE_DEBUG_SOURCE: '1' },
+      program: `${this._nodeModules(config)}/playwright-core/lib/cli/cli`,
       args,
-      resolveSourceMapLocations: [],
-      outFiles: [],
     });
   }
 

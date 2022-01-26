@@ -40,6 +40,7 @@ export class TestModel {
   private _playwrightTest: PlaywrightTest;
   private _disposables: vscode.Disposable[];
   private _terminal: vscode.Terminal | undefined;
+  private _testItemUnderDebug: vscode.TestItem | undefined;
 
   constructor() {
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
@@ -144,6 +145,7 @@ export class TestModel {
       }, true));
       this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Debug, async (request, token) => {
         for (const testItem of request.include || []) {
+          this._testItemUnderDebug = testItem;
           await this._playwrightTest.debugTest(config, project.name, this._testTree.location(testItem)!);
         }
       }, true));
@@ -306,6 +308,20 @@ export class TestModel {
     const fsPath = editor.document.uri.fsPath;
     const fileItem = this._testTree.getForLocation(fsPath);
     this._populateFileItemIfNeeded(fileItem);
+  }
+
+  errorInDebugger(errorStack: string) {
+    const testRun = this._testController.createTestRun({
+      include: undefined,
+      exclude: undefined,
+      profile: undefined,
+    });
+    if (!this._testItemUnderDebug)
+      return;
+    testRun.started(this._testItemUnderDebug);
+    const testMessage = testMessageForError(this._testItemUnderDebug!, { stack: errorStack });
+    testRun.failed(this._testItemUnderDebug, testMessage);
+    testRun.end();
   }
 }
 

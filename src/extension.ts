@@ -49,5 +49,20 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.window.onDidChangeTextEditorSelection(event => {
       highlightLocator(debugSessions, event.textEditor.document, event.selections[0].start).catch();
     }),
+    vscode.debug.registerDebugAdapterTrackerFactory('*', {
+      createDebugAdapterTracker(session: vscode.DebugSession) {
+        return {
+          onDidSendMessage: async message => {
+            if (message.type === 'response' && message.command === 'variables') {
+              const errorVariable = message.body.variables.find((v: any) => v.name === 'playwrightError' && v.type === 'error');
+              if (errorVariable) {
+                const error = errorVariable.value;
+                testModel.errorInDebugger(error.replaceAll('\\n', '\n'));
+              }
+            }
+          }
+        };
+      }
+    }),
   );
 }
