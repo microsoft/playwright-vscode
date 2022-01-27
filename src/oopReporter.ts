@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { FullConfig, FullResult, Location, Reporter, Suite, TestCase, TestError, TestResult } from './reporter';
+import { FullConfig, FullResult, Location, Reporter, Suite, TestCase, TestError, TestResult, TestStep } from './reporter';
 import { PipeTransport } from './transport';
 import fs from 'fs';
 
@@ -41,13 +41,30 @@ export type TestEndParams = {
   ok: boolean;
 };
 
+export type StepBeginParams = {
+  testId: string;
+  stepId: string;
+  title: string;
+  location?: Location;
+};
+
+export type StepEndParams = {
+  testId: string;
+  stepId: string;
+  duration: number;
+  error: TestError | undefined;
+};
+
 class OopReporter implements Reporter {
   config!: FullConfig;
   suite!: Suite;
   private _transport: PipeTransport;
 
   constructor() {
-    this._transport = new PipeTransport(fs.createWriteStream('', { fd: 4 }), fs.createReadStream('', { fd: 3 }));
+    if (process.stdin.isTTY)
+      this._transport = new PipeTransport(fs.createWriteStream('', { fd: 2 }), fs.createReadStream('', { fd: 1 }));
+    else
+      this._transport = new PipeTransport(fs.createWriteStream('', { fd: 4 }), fs.createReadStream('', { fd: 3 }));
     this._transport.onclose = () => process.exit(0);
   }
 
@@ -127,6 +144,23 @@ class OopReporter implements Reporter {
     this._emit('onTestEnd', params);
   }
 
+  onStepBegin(test: TestCase, result: TestResult, step: TestStep) {
+    const testId = this._entryId(test);
+    const stepId = this._entryId(step);
+    const params: StepBeginParams = { testId, stepId, title: step.title, location: step.location };
+    this._emit('onStepBegin', params);
+  }
+
+  onStepEnd(test: TestCase, result: TestResult, step: TestStep) {
+    const params: StepEndParams = {
+      testId: this._entryId(test),
+      stepId: this._entryId(step),
+      duration: step.duration,
+      error: step.error,
+    };
+    this._emit('onStepEnd', params);
+  }
+
   onError(error: TestError): void {
     this._emit('onError', { error });
   }
@@ -135,7 +169,7 @@ class OopReporter implements Reporter {
     this._emit('onEnd', {});
   }
 
-  private _entryId(entry: TestCase | Suite): string {
+  private _entryId(entry: TestCase | Suite | TestStep): string {
     if (entry.location)
       return entry.location!.file + ':' + entry.location!.line;
     // Merge projects.

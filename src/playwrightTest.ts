@@ -18,7 +18,7 @@ import { spawn, spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import vscode from 'vscode';
-import { Entry, TestBeginParams, TestEndParams } from './oopReporter';
+import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import { TestError } from './reporter';
 import { Config } from './testTree';
 import { PipeTransport } from './transport';
@@ -36,6 +36,8 @@ export interface TestListener {
   onBegin?(params: { files: Entry[] }): boolean;
   onTestBegin?(params: TestBeginParams): void;
   onTestEnd?(params: TestEndParams): void;
+  onStepBegin?(params: StepBeginParams): void;
+  onStepEnd?(params: StepEndParams): void;
   onError?(params: { error: TestError }): void;
   onEnd?(): void;
   onStdOut?(data: Buffer | string): void;
@@ -128,6 +130,8 @@ export class PlaywrightTest {
         }
         case 'onTestBegin': listener.onTestBegin?.(message.params); break;
         case 'onTestEnd': listener.onTestEnd?.(message.params); break;
+        case 'onStepBegin': listener.onStepBegin?.(message.params); break;
+        case 'onStepEnd': listener.onStepEnd?.(message.params); break;
         case 'onError': listener.onError?.(message.params); break;
         case 'onEnd': {
           listener.onEnd?.();
@@ -148,7 +152,11 @@ export class PlaywrightTest {
       name: 'Playwright Test',
       request: 'launch',
       cwd: config.workspaceFolder,
-      env: { ...process.env, PW_OUT_OF_PROCESS: '1', PW_GENERATE_DEBUG_SOURCE: '1' },
+      env: {
+        ...process.env,
+        PW_OUT_OF_PROCESS_DRIVER: '1',
+        PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform')
+      },
       program: `${this._nodeModules(config)}/playwright-core/lib/cli/cli`,
       args,
     });

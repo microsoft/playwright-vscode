@@ -24,6 +24,7 @@ import { Config, TestTree } from './testTree';
 import { WorkspaceObserver } from './workspaceObserver';
 
 const stackUtils = new StackUtils();
+export type DebuggerLocation = { path: string, line: number, column: number };
 
 export class TestModel {
   // Global test item map.
@@ -37,6 +38,9 @@ export class TestModel {
   private _playwrightTest: PlaywrightTest;
   private _disposables: vscode.Disposable[];
   private _testItemUnderDebug: vscode.TestItem | undefined;
+
+  private _executionLineChanged = new vscode.EventEmitter<vscode.Location | null>();
+  readonly onExecutionLineChanged = this._executionLineChanged.event;
 
   constructor() {
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
@@ -96,8 +100,13 @@ export class TestModel {
     await new Promise(f => setTimeout(f, 500));
 
     const rootTreeItems: vscode.TestItem[] = [];
-    const configFiles = await vscode.workspace.findFiles('**/*playwright*.config.[tj]s', 'node_modules/**');
+    const configFiles = await vscode.workspace.findFiles('**/*playwright*.config.[tj]s');
     for (const configFileUri of configFiles) {
+      if (configFileUri.fsPath.includes('node_modules'))
+        continue;
+      // Dogfood support
+      if (configFileUri.fsPath.includes('test-results'))
+        continue;
       const workspaceFolder = vscode.workspace.getWorkspaceFolder(configFileUri)!.uri.fsPath;
       const config: Config = {
         workspaceFolder,
@@ -242,13 +251,26 @@ export class TestModel {
 
       onTestEnd: params => {
         const testItem = this._testTree.getForLocation(params.testId);
+        this._executionLineChanged.fire(null);
         if (!testItem)
           return;
         if (params.ok) {
           testRun.passed(testItem, params.duration);
           return;
         }
-        testRun.failed(testItem, testMessageForError(testItem, params.error!), params.duration);
+        testRun.failed(testItem, testMessageForTestError(testItem, params.error!), params.duration);
+      },
+
+      onStepBegin: params => {
+        if (!params.location)
+          return;
+        this._executionLineChanged.fire(
+            new vscode.Location(
+                vscode.Uri.file(params.location.file),
+                new vscode.Position(params.location.line - 1, params.location.column - 1)));
+      },
+
+      onStepEnd: params => {
       },
 
       onStdOut: data => {
@@ -294,33 +316,49 @@ export class TestModel {
     this._populateFileItemIfNeeded(fileItem);
   }
 
-  errorInDebugger(errorStack: string) {
+  errorInDebugger(errorStack: string, location: DebuggerLocation) {
+    if (!this._testItemUnderDebug)
+      return;
     const testRun = this._testController.createTestRun({
       include: undefined,
       exclude: undefined,
       profile: undefined,
     });
-    if (!this._testItemUnderDebug)
-      return;
     testRun.started(this._testItemUnderDebug);
-    const testMessage = testMessageForError(this._testItemUnderDebug!, { stack: errorStack });
+
+    const testMessage = new vscode.TestMessage(errorStack);
+    const position = new vscode.Position(location.line - 1, location.column - 1);
+    testMessage.location = new vscode.Location(vscode.Uri.file(location.path), position);
     testRun.failed(this._testItemUnderDebug, testMessage);
+    this._testItemUnderDebug = undefined;
+
     testRun.end();
   }
 }
 
-function testMessageForError(testItem: vscode.TestItem, error: TestError): vscode.TestMessage {
-  const lines = error.stack ? error.stack.split('\n').reverse() : [];
+function testMessageForTestError(testItem: vscode.TestItem, error: TestError): vscode.TestMessage {
+  const message = new vscode.TestMessage(error.stack || error.message || error.value!);
+  const location = parseLocationFromStack(testItem, error.stack);
+  if (location) {
+    const position = new vscode.Position(location.line - 1, location.column - 1);
+    message.location = new vscode.Location(vscode.Uri.file(location.path), position);
+  }
+  return message;
+}
+
+function parseLocationFromStack(testItem: vscode.TestItem, stack: string | undefined): DebuggerLocation | undefined {
+  const lines = stack?.split('\n') || [];
   for (const line of lines) {
     const frame = stackUtils.parseLine(line);
     if (!frame || !frame.file || !frame.line || !frame.column)
       continue;
-    if (frame.file === testItem.uri!.path) {
-      const message = new vscode.TestMessage(error.stack!);
-      const position = new vscode.Position(frame.line - 1, frame.column - 1);
-      message.location = new vscode.Location(testItem.uri!, position);
-      return message;
+
+    if (testItem.uri!.fsPath === frame.file) {
+      return {
+        path: frame.file,
+        line: frame.line,
+        column: frame.column,
+      };
     }
   }
-  return new vscode.TestMessage(error.message! || error.value!);
 }

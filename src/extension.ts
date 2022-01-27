@@ -17,7 +17,7 @@
 import { EventEmitter } from 'events';
 import vscode from 'vscode';
 import { discardHighlightCaches, hideHighlight, highlightLocator } from './highlighter';
-import { TestModel } from './testModel';
+import { DebuggerLocation, TestModel } from './testModel';
 
 export const testControllers: vscode.TestController[] = [];
 export const testControllerEvents = new EventEmitter();
@@ -25,12 +25,17 @@ export const testControllerEvents = new EventEmitter();
 const debugSessions = new Map<string, vscode.DebugSession>();
 
 export async function activate(context: vscode.ExtensionContext) {
+	const executionLineDecorationType = vscode.window.createTextEditorDecorationType({
+    isWholeLine: true,
+		backgroundColor: { id: 'editor.wordHighlightStrongBackground' },
+		borderColor: { id: 'editor.wordHighlightStrongBorder' },
+	});
+
   // When extension activates, list config files and register them in the model.
   const testModel = new TestModel();
 
   // const codeLensProvider = new CodelensProvider(testModel);
   context.subscriptions.push(
-    testModel,
     vscode.debug.onDidStartDebugSession(session => {
       if (session.type === 'node-terminal' || session.type === 'pwa-node')
         debugSessions.set(session.id, session);
@@ -51,18 +56,42 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
     vscode.debug.registerDebugAdapterTrackerFactory('*', {
       createDebugAdapterTracker(session: vscode.DebugSession) {
+        let lastCatchLocation: DebuggerLocation | undefined;
         return {
           onDidSendMessage: async message => {
+            if (message.type === 'response' && message.command === 'scopes') {
+              const catchBlock = message.body.scopes.find((scope: any) => scope.name === 'Catch Block');
+              if (catchBlock) {
+                lastCatchLocation = {
+                  path: catchBlock.source.path,
+                  line: catchBlock.line,
+                  column: catchBlock.column
+                };
+              }
+            }
+
             if (message.type === 'response' && message.command === 'variables') {
               const errorVariable = message.body.variables.find((v: any) => v.name === 'playwrightError' && v.type === 'error');
-              if (errorVariable) {
+              if (errorVariable && lastCatchLocation) {
                 const error = errorVariable.value;
-                testModel.errorInDebugger(error.replaceAll('\\n', '\n'));
+                testModel.errorInDebugger(error.replaceAll('\\n', '\n'), lastCatchLocation);
               }
             }
           }
         };
       }
     }),
+    testModel.onExecutionLineChanged(event => {
+      for (const editor of vscode.window.visibleTextEditors) {
+        if(!event) {
+          editor.setDecorations(executionLineDecorationType, []);
+        } else if (editor.document.uri.fsPath === event.uri.fsPath) {
+          const decorations: vscode.DecorationOptions[] = [];
+          decorations.push({ range: event.range });
+          editor.setDecorations(executionLineDecorationType, decorations);
+        }
+      }
+    }),
+    testModel
   );
 }

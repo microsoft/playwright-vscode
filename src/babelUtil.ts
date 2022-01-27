@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { types as t } from '@babel/core';
 import { parse, ParseResult } from '@babel/parser';
 import traverse from '@babel/traverse';
 import type { File, SourceLocation } from '@babel/types';
@@ -42,10 +43,10 @@ export function locatorForPosition(text: string, vars: { pages: string[], locato
       let pageSelectorCallee;
 
       // page.*(selector) will highlight `page.locator(selector)`
-      if (path.node.type === 'CallExpression' &&
-          path.node.callee.type === 'MemberExpression' &&
-          path.node.callee.object.type === 'Identifier' &&
-          path.node.callee.property.type === 'Identifier' &&
+      if (t.isCallExpression(path.node) &&
+          t.isMemberExpression(path.node.callee) &&
+          t.isIdentifier(path.node.callee.object) &&
+          t.isIdentifier(path.node.callee.property) &&
           (vars.pages.includes(path.node.callee.object.name) && pageMethods.includes(path.node.callee.property.name))) {
         expressionNode = path.node;
         pageSelectorNode = path.node.arguments[0];
@@ -53,25 +54,25 @@ export function locatorForPosition(text: string, vars: { pages: string[], locato
       }
 
       // locator.*() will highlight `locator`
-      if (path.node.type === 'Identifier' &&
+      if (t.isIdentifier(path.node) &&
           vars.locators.includes(path.node.name)) {
         expressionNode = path.node;
       }
 
       // Web-first assertions: expect(a).to*
-      if (path.node.type === 'MemberExpression' &&
-          path.node.property.type === 'Identifier' &&
+      if (t.isMemberExpression(path.node) &&
+          t.isIdentifier(path.node.property) &&
           matchers.includes(path.node.property.name) &&
-          path.node.object.type === 'CallExpression' &&
-          path.node.object.callee.type === 'Identifier' &&
+          t.isCallExpression(path.node.object) &&
+          t.isIdentifier(path.node.object.callee) &&
           path.node.object.callee.name === 'expect') {
         expressionNode = path.node.object.arguments[0];
       }
 
       // *.locator() call
-      if (path.node.type === 'CallExpression' &&
-          path.node.callee.type === 'MemberExpression' &&
-          path.node.callee.property.type === 'Identifier' &&
+      if (t.isCallExpression(path.node) &&
+          t.isMemberExpression(path.node.callee) &&
+          t.isIdentifier(path.node.callee.property) &&
           path.node.callee.property.name === 'locator') {
         expressionNode = path.node;
       }
