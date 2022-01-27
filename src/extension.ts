@@ -25,10 +25,21 @@ export const testControllerEvents = new EventEmitter();
 const debugSessions = new Map<string, vscode.DebugSession>();
 
 export async function activate(context: vscode.ExtensionContext) {
-	const executionLineDecorationType = vscode.window.createTextEditorDecorationType({
+	const activeStepDecorationType = vscode.window.createTextEditorDecorationType({
     isWholeLine: true,
 		backgroundColor: { id: 'editor.wordHighlightStrongBackground' },
 		borderColor: { id: 'editor.wordHighlightStrongBorder' },
+    after: {
+      color: { id: 'editorCodeLens.foreground' },
+      contentText: ' \u2014 ⌛waiting\u2026',
+    },
+	});
+
+	const completedStepDecorationType = vscode.window.createTextEditorDecorationType({
+    isWholeLine: true,
+    after: {
+      color: { id: 'editorCodeLens.foreground' },
+    },
 	});
 
   // When extension activates, list config files and register them in the model.
@@ -62,7 +73,7 @@ export async function activate(context: vscode.ExtensionContext) {
             if (message.type !== 'response' || !message.success)
               return;
             if (message.command === 'scopes') {
-              const catchBlock = message.body.scopes.find((scope: any) => scope.name === 'Catch Block' || scope.name === 'Local');
+              const catchBlock = message.body.scopes.find((scope: any) => scope.name === 'Catch Block');
               if (catchBlock) {
                 lastCatchLocation = {
                   path: catchBlock.source.path,
@@ -85,12 +96,29 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
     testModel.onExecutionLinesChanged(locations => {
       for (const editor of vscode.window.visibleTextEditors) {
-        const decorations: vscode.DecorationOptions[] = [];
-        for (const location of locations) {
-          if (location.uri.fsPath === editor.document.uri.fsPath)
-            decorations.push({ range: location.range })
+        const activeDecorations: vscode.DecorationOptions[] = [];
+        for (const { location } of locations.active) {
+          if (location.uri.fsPath === editor.document.uri.fsPath) {
+            activeDecorations.push({ range: location.range })
+          }
         }
-        editor.setDecorations(executionLineDecorationType, decorations);
+
+        const completedDecorations: vscode.DecorationOptions[] = [];
+        for (const { location, duration } of locations.completed) {
+          if (location.uri.fsPath === editor.document.uri.fsPath) {
+            completedDecorations.push({
+              range: location.range,
+              renderOptions: {
+                after: {
+                  contentText: ` \u2014 ${duration}ms`
+                }
+              }
+            })
+          }
+        }
+
+        editor.setDecorations(activeStepDecorationType, activeDecorations);
+        editor.setDecorations(completedStepDecorationType, completedDecorations);
       }
     }),
     testModel

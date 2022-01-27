@@ -26,6 +26,12 @@ import { WorkspaceObserver } from './workspaceObserver';
 const stackUtils = new StackUtils();
 export type DebuggerLocation = { path: string, line: number, column: number };
 
+type StepInfo = {
+  location: vscode.Location;
+  activeCount: number;
+  duration: number;
+};
+
 export class TestModel {
   // Global test item map.
   private _testTree: TestTree;
@@ -39,9 +45,10 @@ export class TestModel {
   private _disposables: vscode.Disposable[];
   private _testItemUnderDebug: vscode.TestItem | undefined;
 
-  private _executionLinesChanged = new vscode.EventEmitter<vscode.Location[]>();
+  private _executionLinesChanged = new vscode.EventEmitter<{ active: StepInfo[], completed: StepInfo[] }>();
   readonly onExecutionLinesChanged = this._executionLinesChanged.event;
-  private _stepsInProgress = new Map<string, { location: vscode.Location, count: number }>();
+  private _activeSteps = new Map<string, StepInfo>();
+  private _completedSteps = new Map<string, StepInfo>();
 
   constructor() {
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
@@ -236,9 +243,13 @@ export class TestModel {
       testRun.appendOutput('\x1b[H\x1b[2J');
 
     const fireExecutionLinesChanged = () => {
-      const locations = [...this._stepsInProgress.values()].map(s => s.location);
-      this._executionLinesChanged.fire(locations);
+      const active = [...this._activeSteps.values()];
+      const completed = [...this._completedSteps.values()];
+      this._executionLinesChanged.fire({ active, completed });
     };
+
+    this._completedSteps.clear();
+    fireExecutionLinesChanged();
 
     await this._playwrightTest.runTests(config, projectName, location, {
       onBegin: ({ files }) => {
@@ -256,8 +267,10 @@ export class TestModel {
       },
 
       onTestEnd: params => {
+        this._activeSteps.clear();
+        fireExecutionLinesChanged();
+
         const testItem = this._testTree.getForLocation(params.testId);
-        this._executionLinesChanged.fire([]);
         if (!testItem)
           return;
         if (params.ok) {
@@ -270,27 +283,30 @@ export class TestModel {
       onStepBegin: params => {
         if (!params.location)
           return;
-        let step = this._stepsInProgress.get(params.stepId);
+        let step = this._activeSteps.get(params.stepId);
         if (!step) {
           step = {
             location: new vscode.Location(
               vscode.Uri.file(params.location.file),
               new vscode.Position(params.location.line - 1, params.location.column - 1)),
-            count: 0
+            activeCount: 0,
+            duration: 0,
           };
-          this._stepsInProgress.set(params.stepId, step);
+          this._activeSteps.set(params.stepId, step);
         }
-        ++step.count;
+        ++step.activeCount;
         fireExecutionLinesChanged();
       },
 
       onStepEnd: params => {
         if (!params.stepId)
           return;
-        let step = this._stepsInProgress.get(params.stepId)!;
-        --step.count;
-        if (step.count === 0)
-          this._stepsInProgress.delete(params.stepId);
+        let step = this._activeSteps.get(params.stepId)!;
+        --step.activeCount;
+        step.duration = params.duration;
+        this._completedSteps.set(params.stepId, step);
+        if (step.activeCount === 0)
+          this._activeSteps.delete(params.stepId);
         fireExecutionLinesChanged();
       },
 
@@ -302,7 +318,8 @@ export class TestModel {
         testRun.appendOutput(data.toString().replace(/\n/g, '\r\n'));
       },
     }, token);
-    this._executionLinesChanged.fire([]);
+    this._activeSteps.clear();
+    fireExecutionLinesChanged();
     testRun.end();
   }
  
