@@ -24,35 +24,77 @@ export default declare(api => {
     name: 'playwright-debug-transform',
     visitor: {
       CallExpression(path) {
+        if (!t.isExpressionStatement(path.parentPath.node) && !t.isAwaitExpression(path.parentPath.node))
+          return;
         if (!t.isMemberExpression(path.node.callee))
           return;
         const matcher = path.node.callee;
-        if (!t.isIdentifier(matcher.property) || !matcher.property.name.startsWith('to'))
-          return;
         if (!t.isCallExpression(matcher.object) || !t.isIdentifier(matcher.object.callee) || matcher.object.callee.name !== 'expect')
           return;
-        let replacePath = path.parentPath;
-        if (t.isAwaitExpression(replacePath.node))
-          replacePath = replacePath.parentPath!;
-        const replaceNode = replacePath.node;
-        replacePath.replaceWith(t.tryStatement(
+        if (!t.isIdentifier(matcher.property) || !matcher.property.name.startsWith('to'))
+          return;
+        const isAsync = t.isAwaitExpression(path.parentPath.node);
+        if (isAsync) {
+
+          // For async, translate:
+          //   await expect(...).to*(...)
+          // into
+          //   await expect(...).to*(...).catch(playwrightError => { debugger; throw playwrightError; })
+          //
+          // Do this regardless if parent is the expression statement.
+          path.replaceWith(
+            t.callExpression(
+              t.memberExpression(
+                path.node,
+                t.identifier('catch')
+              ),
+              [
+                t.arrowFunctionExpression(
+                  [t.identifier('playwrightError')],
+                  t.blockStatement([
+                    t.debuggerStatement(),
+                    t.throwStatement(t.identifier('playwrightError'))
+                  ]))
+              ]
+            )
+          );
+          path.skip();
+        } else {
+
+          // For sync, translate
+          //   expect(...).to*(...)
+          // into
+          //   try {
+          //     expect(...).to*(...)
+          //   } catch (playwrightError) {}
+          //     debugger;
+          //     throw playwrightError;
+          //   }
+          //
+          // Only do this when expect is the whole expression statement.
+
+          const expressionStatement = path.parentPath.node as t.ExpressionStatement;
+          path.parentPath.replaceWith(t.tryStatement(
             t.blockStatement([
-              t.cloneNode(replaceNode as any)
+              expressionStatement
             ]),
             t.catchClause(
-                t.identifier('playwrightError'),
-                t.blockStatement([
-                  t.debuggerStatement(),
-                  t.throwStatement(t.identifier('playwrightError'))
-                ])
+              t.identifier('playwrightError'),
+              t.blockStatement([
+                t.debuggerStatement(),
+                t.throwStatement(t.identifier('playwrightError'))
+              ])
             )
-        ));
-        replacePath.skip();
-        replacePath.node.start = replaceNode.start;
-        replacePath.node.end = replaceNode.end;
-        replacePath.node.loc = replaceNode.loc;
-        replacePath.node.range = replaceNode.range;
+          ));
+
+          // We are swapping parent, so fix the source maps.
+          path.parentPath.skip();
+          path.parentPath.node.start = expressionStatement.start;
+          path.parentPath.node.end = expressionStatement.end;
+          path.parentPath.node.loc = expressionStatement.loc;
+          path.parentPath.node.range = expressionStatement.range;
+        }
       }
-    },
-  };
+    }
+  }
 });

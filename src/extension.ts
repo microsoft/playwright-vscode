@@ -59,8 +59,10 @@ export async function activate(context: vscode.ExtensionContext) {
         let lastCatchLocation: DebuggerLocation | undefined;
         return {
           onDidSendMessage: async message => {
-            if (message.type === 'response' && message.command === 'scopes') {
-              const catchBlock = message.body.scopes.find((scope: any) => scope.name === 'Catch Block');
+            if (message.type !== 'response' || !message.success)
+              return;
+            if (message.command === 'scopes') {
+              const catchBlock = message.body.scopes.find((scope: any) => scope.name === 'Catch Block' || scope.name === 'Local');
               if (catchBlock) {
                 lastCatchLocation = {
                   path: catchBlock.source.path,
@@ -70,7 +72,7 @@ export async function activate(context: vscode.ExtensionContext) {
               }
             }
 
-            if (message.type === 'response' && message.command === 'variables') {
+            if (message.command === 'variables') {
               const errorVariable = message.body.variables.find((v: any) => v.name === 'playwrightError' && v.type === 'error');
               if (errorVariable && lastCatchLocation) {
                 const error = errorVariable.value;

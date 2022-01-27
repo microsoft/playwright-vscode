@@ -19,6 +19,7 @@ import { parse, ParseResult } from '@babel/parser';
 import traverse from '@babel/traverse';
 import type { File, SourceLocation } from '@babel/types';
 import vscode from 'vscode';
+import { asyncMatchers, pageMethods } from './methodNames';
 
 const astCache = new Map<string, { text: string, ast: ParseResult<File> }>();
 
@@ -62,7 +63,7 @@ export function locatorForPosition(text: string, vars: { pages: string[], locato
       // Web-first assertions: expect(a).to*
       if (t.isMemberExpression(path.node) &&
           t.isIdentifier(path.node.property) &&
-          matchers.includes(path.node.property.name) &&
+          asyncMatchers.includes(path.node.property.name) &&
           t.isCallExpression(path.node.object) &&
           t.isIdentifier(path.node.object.callee) &&
           path.node.object.callee.name === 'expect') {
@@ -108,51 +109,3 @@ function babelLocationToVsCodeRange(location: SourceLocation): vscode.Range {
     new vscode.Position(location.start.line - 1, location.start.column - 1),
     new vscode.Position(location.end.line - 1, location.end.column - 1));
 }
-
-const matchers = [
-  'toBeChecked',
-  'toBeDisabled',
-  'toBeEditable',
-  'toBeEmpty',
-  'toBeEnabled',
-  'toBeFocused',
-  'toBeHidden',
-  'toContainText',
-  'toHaveAttribute',
-  'toHaveClass',
-  'toHaveCount',
-  'toHaveCSS',
-  'toHaveId',
-  'toHaveJSProperty',
-  'toHaveText',
-  'toHaveValue',
-  'toBeVisible',
-];
-
-const pageMethods = [
-  'check',
-  'click',
-  'dblclick',
-  'dragAndDrop',
-  'fill',
-  'focus',
-  'getAttribute',
-  'hover',
-  'innerHTML',
-  'innerText',
-  'inputValue',
-  'isChecked',
-  'isDisabled',
-  'isEditable',
-  'isEnabled',
-  'isHidden',
-  'isVisible',
-  'press',
-  'selectOption',
-  'setChecked',
-  'setInputFiles',
-  'tap',
-  'textContent',
-  'type',
-  'uncheck'
-];
