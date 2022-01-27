@@ -81,15 +81,14 @@ export async function activate(context: vscode.ExtensionContext) {
         };
       }
     }),
-    testModel.onExecutionLineChanged(event => {
+    testModel.onExecutionLinesChanged(locations => {
       for (const editor of vscode.window.visibleTextEditors) {
-        if(!event) {
-          editor.setDecorations(executionLineDecorationType, []);
-        } else if (editor.document.uri.fsPath === event.uri.fsPath) {
-          const decorations: vscode.DecorationOptions[] = [];
-          decorations.push({ range: event.range });
-          editor.setDecorations(executionLineDecorationType, decorations);
+        const decorations: vscode.DecorationOptions[] = [];
+        for (const location of locations) {
+          if (location.uri.fsPath === editor.document.uri.fsPath)
+            decorations.push({ range: location.range })
         }
+        editor.setDecorations(executionLineDecorationType, decorations);
       }
     }),
     testModel
