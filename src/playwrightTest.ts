@@ -126,7 +126,7 @@ export class PlaywrightTest {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
     const locationArg = location ? [location] : [];
-    const args = ['test', '-c', config.configFile, ...locationArg, '--project', projectName, '--reporter', path.join(__dirname, 'oopReporter.js'), '--headed', '--timeout', '0'];
+    const args = ['test', '-c', config.configFile, ...locationArg, '--project', projectName, '--reporter', path.join(__dirname, 'oopReporter.js'), '--headed', '--timeout', '0', '--workers', '1'];
     vscode.debug.startDebugging(undefined, {
       type: 'pwa-node',
       name: 'Playwright Test',
