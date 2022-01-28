@@ -23,7 +23,9 @@ import { TestError } from './reporter';
 import { Config, TestTree } from './testTree';
 import { WorkspaceObserver } from './workspaceObserver';
 
-const stackUtils = new StackUtils();
+const stackUtils = new StackUtils({
+  cwd: '/ensure_absolute_paths'
+});
 export type DebuggerLocation = { path: string, line: number, column: number };
 
 type StepInfo = {
