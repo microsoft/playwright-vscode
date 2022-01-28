@@ -108,7 +108,6 @@ export class PlaywrightTest {
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: { ...process.env }
     });
-  
     if (token) {
       token.onCancellationRequested(() => {
         childProcess.kill('SIGINT');

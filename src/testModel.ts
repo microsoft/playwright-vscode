@@ -207,13 +207,8 @@ export class TestModel {
     }
 
     // Request updated information for changed and created files.
-    this._testTree.beginCoalescingUpdate();
-    try {
-      for (const [config, fileItems] of loadedFilesByConfig)
-        await this._populateFileItems(config, fileItems);
-    } finally {
-      this._testTree.endCoalescingUpdate();
-    }
+    for (const [config, fileItems] of loadedFilesByConfig)
+      await this._populateFileItems(config, fileItems);
   }
 
   private async _populateFileItemIfNeeded(fileItem: vscode.TestItem | undefined): Promise<void> {
@@ -222,13 +217,8 @@ export class TestModel {
     this._testTree.setLoaded(fileItem, true);
     this._testTree.unbindChildren(fileItem);
 
-    this._testTree.beginCoalescingUpdate();
-    try {
-      for (const config of this._testTree.configs(fileItem))
-        await this._populateFileItems(config, [fileItem]);
-    } finally {
-      this._testTree.endCoalescingUpdate();
-    }
+    for (const config of this._testTree.configs(fileItem))
+      await this._populateFileItems(config, [fileItem]);
   }
 
   private async _populateFileItems(config: Config, fileItems: vscode.TestItem[]) {
@@ -326,13 +316,22 @@ export class TestModel {
   }
  
   private _updateTestTreeFromEntries(files: Entry[], collector?: Set<vscode.TestItem>) {
+    const lazyChildren = new Map<vscode.TestItem, vscode.TestItem[]>();
+
     const map = (parentEntry: Entry, parentItem: vscode.TestItem) => {
       for (const entry of parentEntry.children || []) {
         // Tolerate clashing configs that are adding dupe tests in common files.
         let testItem = this._testTree.getForLocation(entry.id);
         if (!testItem) {
           testItem = this._createTestItemForEntry(entry);
-          this._testTree.addChild(parentItem, testItem);
+
+          let children = lazyChildren.get(parentItem);
+          if (!children) {
+            children = [];
+            lazyChildren.set(parentItem, children);
+          }
+          children.push(testItem);
+
         }
         collector?.add(testItem);
         map(entry, testItem);
@@ -346,6 +345,9 @@ export class TestModel {
         continue;
       map(fileEntry, fileItem);
     }
+
+    for (const [fileItem, children] of lazyChildren)
+      fileItem.children.replace(children);
   }
 
   private async _updateActiveEditorItems() {

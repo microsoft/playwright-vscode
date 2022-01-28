@@ -39,16 +39,11 @@ export class TestTree {
 
   private _testController: vscode.TestController;
 
-  // We are using coalescing update to replace lists of children at once.
-  private _pendingChildren: Map<vscode.TestItem, vscode.TestItem[]> | undefined;
-  private _coalescingCount = 0;
-
   constructor(testController: vscode.TestController) {
     this._testController = testController;
   }
 
   startedLoading() {
-    this._coalescingCount = 0;
     this._testItems.clear();
     this._testGeneration = createGuid() + ':';
     if (!vscode.workspace.workspaceFolders?.length)
@@ -117,33 +112,6 @@ export class TestTree {
     if (hasLine)
       testItem.range = new vscode.Range(line - 1, 0, line, 0);
     return testItem;
-  }
-
-  beginCoalescingUpdate() {
-    if (++this._coalescingCount === 1)
-      this._pendingChildren = new Map<vscode.TestItem, vscode.TestItem[]>();
-  }
-
-  addChild(fileItem: vscode.TestItem, testItem: vscode.TestItem) {
-    if (!this._pendingChildren) {
-      fileItem.children.add(testItem);
-      return;
-    }
-
-    let children = this._pendingChildren.get(fileItem);
-    if (!children) {
-      children = [];
-      this._pendingChildren.set(fileItem, children);
-    }
-    children.push(testItem);
-  }
-
-  endCoalescingUpdate() {
-    if (--this._coalescingCount > 0)
-      return;
-    for (const [fileItem, children] of this._pendingChildren!)
-      fileItem.children.replace(children);
-    this._pendingChildren = undefined;
   }
 
   getOrCreateForFileOrFolder(file: string): vscode.TestItem | null {
