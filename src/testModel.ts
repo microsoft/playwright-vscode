@@ -49,6 +49,7 @@ export class TestModel {
   readonly onExecutionLinesChanged = this._executionLinesChanged.event;
   private _activeSteps = new Map<string, StepInfo>();
   private _completedSteps = new Map<string, StepInfo>();
+  private _testRun: vscode.TestRun | undefined;
 
   constructor() {
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
@@ -250,9 +251,14 @@ export class TestModel {
         const testItem = this._testTree.getForLocation(params.testId);
         if (testItem)
           testRun.started(testItem);
+        if (isDebug) {
+          // Debugging is always single-workers.
+          this._testItemUnderDebug = testItem;
+        }
       },
 
       onTestEnd: params => {
+        this._testItemUnderDebug = undefined;
         this._activeSteps.clear();
         this._fireExecutionLinesChanged();
 
@@ -305,16 +311,20 @@ export class TestModel {
       },
     };
 
-    if (isDebug)
+    this._testRun = testRun;
+    try {
+      if (isDebug)
       await this._playwrightTest.debugTests(config, projectName, location, testListener, token);
     else
       await this._playwrightTest.runTests(config, projectName, location, testListener, token);
-
-    this._activeSteps.clear();
-    this._fireExecutionLinesChanged();
-    testRun.end();
+    } finally {
+      this._activeSteps.clear();
+      this._fireExecutionLinesChanged();
+      testRun.end();
+      this._testRun = undefined;
+    }
   }
- 
+
   private _updateTestTreeFromEntries(files: Entry[], collector?: Set<vscode.TestItem>) {
     const lazyChildren = new Map<vscode.TestItem, vscode.TestItem[]>();
 
@@ -360,22 +370,13 @@ export class TestModel {
   }
 
   errorInDebugger(errorStack: string, location: DebuggerLocation) {
-    if (!this._testItemUnderDebug)
+    if (!this._testRun || !this._testItemUnderDebug)
       return;
-    const testRun = this._testController.createTestRun({
-      include: undefined,
-      exclude: undefined,
-      profile: undefined,
-    });
-    testRun.started(this._testItemUnderDebug);
-
     const testMessage = new vscode.TestMessage(errorStack);
     const position = new vscode.Position(location.line - 1, location.column - 1);
     testMessage.location = new vscode.Location(vscode.Uri.file(location.path), position);
-    testRun.failed(this._testItemUnderDebug, testMessage);
+    this._testRun.failed(this._testItemUnderDebug, testMessage);
     this._testItemUnderDebug = undefined;
-
-    testRun.end();
   }
 
   private _fireExecutionLinesChanged() {
