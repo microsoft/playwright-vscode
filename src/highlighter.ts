@@ -15,7 +15,7 @@
  */
 
 import vscode from 'vscode';
-import { discardBabelAstCache, locatorForPosition } from './babelUtil';
+import { discardBabelAstCache, locatorForSourcePosition } from './babelUtil';
 
 export type StackFrame = {
   id: string;
@@ -43,7 +43,10 @@ export async function highlightLocator(debugSessions: Map<string, vscode.DebugSe
         return;
       const vars = await scopeVariables(session, stackFrame);
       const text = document.getText();
-      const locatorExpression = locatorForPosition(text, vars, fsPath, position);
+      const locatorExpression = locatorForSourcePosition(text, vars, fsPath, {
+        line: position.line + 1,
+        column: position.character + 1
+      });
       if (!locatorExpression)
         continue;
       if (token?.isCancellationRequested)

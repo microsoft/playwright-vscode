@@ -18,7 +18,6 @@ import { types as t } from '@babel/core';
 import { parse, ParseResult } from '@babel/parser';
 import traverse from '@babel/traverse';
 import type { File, SourceLocation } from '@babel/types';
-import vscode from 'vscode';
 import { asyncMatchers, pageMethods } from './methodNames';
 
 const astCache = new Map<string, { text: string, ast: ParseResult<File> }>();
@@ -27,7 +26,12 @@ export function discardBabelAstCache() {
   astCache.clear();
 }
 
-export function locatorForPosition(text: string, vars: { pages: string[], locators: string[] }, fsPath: string, position: vscode.Position): string | undefined {
+export type SourcePosition = {
+  line: number;  // 1-based
+  column: number;  // 1-based
+};
+
+export function locatorForSourcePosition(text: string, vars: { pages: string[], locators: string[] }, fsPath: string, position: SourcePosition): string | undefined {
   const cached = astCache.get(fsPath);
   let ast = cached?.ast;
   if (!cached || cached.text !== text) {
@@ -78,11 +82,10 @@ export function locatorForPosition(text: string, vars: { pages: string[], locato
         expressionNode = path.node;
       }
 
-      if (!expressionNode)
+      if (!expressionNode || !expressionNode.loc)
         return;
-      const expressionRange = babelLocationToVsCodeRange(expressionNode.loc!);
-      const isRangeMatch = expressionRange.contains(position);
-      const isLineMatch = expressionRange.start.line === position.line;
+      const isRangeMatch = containsPosition(expressionNode.loc, position);
+      const isLineMatch = expressionNode.loc.start.line === position.line;
       if (isRangeMatch || isLineMatch) {
         let expression;
         if (pageSelectorNode)
@@ -104,8 +107,12 @@ export function locatorForPosition(text: string, vars: { pages: string[], locato
   return rangeMatch || lineMatch;
 }
 
-function babelLocationToVsCodeRange(location: SourceLocation): vscode.Range {
-  return new vscode.Range(
-    new vscode.Position(location.start.line - 1, location.start.column - 1),
-    new vscode.Position(location.end.line - 1, location.end.column - 1));
+function containsPosition(location: SourceLocation, position: SourcePosition): boolean {
+  if (position.line < location.start.line || position.line > location.end.line)
+    return false;
+  if (position.line === location.start.line && position.column < location.start.column)
+    return false;
+  if (position.line === location.end.line && position.column > location.end.column)
+    return false;
+  return true;
 }
