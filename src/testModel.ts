@@ -87,6 +87,12 @@ export class TestModel {
       vscode.commands.registerCommand('pw.extension.refreshTests', () => {
         this._rebuildModel().catch(() => {});
       }),
+      vscode.workspace.onDidChangeTextDocument(() => {
+        if (this._completedSteps.size) {
+          this._completedSteps.clear();
+          this._fireExecutionLinesChanged();
+        }
+      }),
       this._testController,
       this._workspaceObserver,
     ];
@@ -238,14 +244,8 @@ export class TestModel {
       testRun.enqueued(testItem);
       testRun.appendOutput('\x1b[H\x1b[2J');
 
-    const fireExecutionLinesChanged = () => {
-      const active = [...this._activeSteps.values()];
-      const completed = [...this._completedSteps.values()];
-      this._executionLinesChanged.fire({ active, completed });
-    };
-
     this._completedSteps.clear();
-    fireExecutionLinesChanged();
+    this._fireExecutionLinesChanged();
 
     const testListener: TestListener = {
       onBegin: ({ files }) => {
@@ -264,7 +264,7 @@ export class TestModel {
 
       onTestEnd: params => {
         this._activeSteps.clear();
-        fireExecutionLinesChanged();
+        this._fireExecutionLinesChanged();
 
         const testItem = this._testTree.getForLocation(params.testId);
         if (!testItem)
@@ -291,7 +291,7 @@ export class TestModel {
           this._activeSteps.set(params.stepId, step);
         }
         ++step.activeCount;
-        fireExecutionLinesChanged();
+        this._fireExecutionLinesChanged();
       },
 
       onStepEnd: params => {
@@ -303,7 +303,7 @@ export class TestModel {
         this._completedSteps.set(params.stepId, step);
         if (step.activeCount === 0)
           this._activeSteps.delete(params.stepId);
-        fireExecutionLinesChanged();
+          this._fireExecutionLinesChanged();
       },
 
       onStdOut: data => {
@@ -321,7 +321,7 @@ export class TestModel {
       await this._playwrightTest.runTests(config, projectName, location, testListener, token);
 
     this._activeSteps.clear();
-    fireExecutionLinesChanged();
+    this._fireExecutionLinesChanged();
     testRun.end();
   }
  
@@ -375,6 +375,12 @@ export class TestModel {
 
     testRun.end();
   }
+
+  private _fireExecutionLinesChanged() {
+    const active = [...this._activeSteps.values()];
+    const completed = [...this._completedSteps.values()];
+    this._executionLinesChanged.fire({ active, completed });
+  };
 }
 
 function testMessageForTestError(testItem: vscode.TestItem, error: TestError): vscode.TestMessage {
