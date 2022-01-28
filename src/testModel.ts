@@ -57,8 +57,6 @@ export class TestModel {
     this._testTree = new TestTree(this._testController);
     this._playwrightTest = new PlaywrightTest();
 
-    this._rebuildModel().catch(() => {});
-
     this._workspaceObserver = new WorkspaceObserver(change => {
       for (const deleted of new Set(change.deleted))
         this._onDidDeleteFile(deleted.uri.fsPath);
@@ -75,10 +73,9 @@ export class TestModel {
       this._onDidChangeFiles(filesByConfig);
     });
 
+    this._rebuildModel().catch(() => {});
+
     this._disposables = [
-      vscode.workspace.onDidChangeConfiguration((_) => {
-        this._rebuildModel().catch(() => {});
-      }),
       vscode.workspace.onDidChangeWorkspaceFolders((_) => {
         this._rebuildModel().catch(() => {});
       }),
