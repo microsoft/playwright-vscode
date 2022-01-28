@@ -15,9 +15,8 @@
  */
 
 import { spawn, spawnSync } from 'child_process';
-import fs from 'fs';
 import path from 'path';
-import vscode, { CancellationError } from 'vscode';
+import vscode from 'vscode';
 import { DebugServer } from './debugServer';
 import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import { TestError } from './reporter';
@@ -46,28 +45,40 @@ export interface TestListener {
 }
 
 export class PlaywrightTest {
-  private _isDogFood = false;
   private _pathToNodeJS: string | undefined;
 
   constructor() {
   }
 
-  async reconsiderDogFood() {
-    this._isDogFood = false;
-    try {
-      const packages = await vscode.workspace.findFiles('package.json');
-      if (packages.length === 1) {
-        const content = await fs.promises.readFile(packages[0].fsPath, 'utf-8');
-        if (JSON.parse(content).name === 'playwright-internal')
-          this._isDogFood = true;
+  getPlaywrightInfo(workspaceFolder: string, configFilePath: string): { version: number, cli: string } | null {
+    const node = this._findNode();
+    const childProcess = spawnSync(node, [
+        '-e',
+        'try { const index = require.resolve("playwright-core"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ index, version})); } catch { console.log("undefined"); }',
+      ],
+      {
+        cwd: workspaceFolder,
+        env: { ...process.env }
       }
+    );
+    const output = childProcess.stdout.toString();
+    try {
+      const { index, version } = JSON.parse(output);
+      let cli = path.resolve(index, '..', 'lib', 'cli', 'cli');
+
+      // Dogfood for 'ttest'
+      if (cli.includes('packages/playwright-core') && configFilePath.includes('playwright-test'))
+        cli = path.resolve(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules');
+
+      return { cli, version: parseFloat(version) };
     } catch {
     }
+    return null;
   }
 
   async listFiles(config: Config): Promise<ListFilesReport | null> {
     const node = this._findNode();
-    const allArgs = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'list-tests', '-c', config.configFile];
+    const allArgs = [config.cli, 'list-tests', '-c', config.configFile];
     const childProcess = spawnSync(node, allArgs, {
       cwd: config.workspaceFolder,
       env: { ...process.env }
@@ -102,7 +113,7 @@ export class PlaywrightTest {
 
   private async _test(config: Config, args: string[], listener: TestListener, token?: vscode.CancellationToken): Promise<void> {
     const node = this._findNode();
-    const allArgs = [`${this._nodeModules(config)}/playwright-core/lib/cli/cli`, 'test', '-c', config.configFile, ...args, '--reporter', path.join(__dirname, 'oopReporter.js')];
+    const allArgs = [config.cli, 'test', '-c', config.configFile, ...args, '--reporter', path.join(__dirname, 'oopReporter.js')];
     const childProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
@@ -137,7 +148,7 @@ export class PlaywrightTest {
         PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
         PW_TEST_REPORTER_WS_ENDPOINT: wsEndpoint,        
       },
-      program: `${this._nodeModules(config)}/playwright-core/lib/cli/cli`,
+      program: config.cli,
       args,
     });
     const transport = await debugServer.transport();
@@ -177,15 +188,6 @@ export class PlaywrightTest {
     return new Promise<void>(f => {
       transport.onclose = f;
     });
-  }
-
-  private _nodeModules(config: Config) {
-    if (!this._isDogFood)
-      return 'node_modules';
-
-    if (config.configFile.includes('playwright-test'))
-      return 'tests/playwright-test/stable-test-runner/node_modules';
-    return 'packages';
   }
 
   private _findNode(): string {

@@ -104,7 +104,6 @@ export class TestModel {
   }
 
   private async _rebuildModel() {
-    await this._playwrightTest.reconsiderDogFood();
     this._testTree.startedLoading();
     this._workspaceObserver.reset();
     for (const profile of this._runProfiles)
@@ -114,18 +113,32 @@ export class TestModel {
     // Give UI a chance to update.
     await new Promise(f => setTimeout(f, 500));
 
+    // Check Playwright version.
     const rootTreeItems: vscode.TestItem[] = [];
     const configFiles = await vscode.workspace.findFiles('**/*playwright*.config.[tj]s');
     for (const configFileUri of configFiles) {
-      if (configFileUri.fsPath.includes('node_modules'))
+      const configFilePath = configFileUri.fsPath;
+      if (configFilePath.includes('node_modules'))
         continue;
       // Dogfood support
-      if (configFileUri.fsPath.includes('test-results'))
+      if (configFilePath.includes('test-results'))
         continue;
       const workspaceFolder = vscode.workspace.getWorkspaceFolder(configFileUri)!.uri.fsPath;
+      const playwrightInfo = this._playwrightTest.getPlaywrightInfo(workspaceFolder, configFilePath);
+      if (!playwrightInfo) {
+        vscode.window.showWarningMessage('Please install Playwright Test via running `npm i @playwright/test`');
+        continue;
+      }
+
+      if (playwrightInfo.version < 1.19) {
+        vscode.window.showWarningMessage('Playwright Test v1.19 or newer is required');
+        continue;
+      }
+
       const config: Config = {
         workspaceFolder,
         configFile: configFileUri.fsPath,
+        cli: playwrightInfo.cli,
       };
 
       const report = await this._playwrightTest.listFiles(config);
