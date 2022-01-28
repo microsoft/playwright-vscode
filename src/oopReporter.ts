@@ -15,7 +15,7 @@
  */
 
 import { FullConfig, FullResult, Location, Reporter, Suite, TestCase, TestError, TestResult, TestStep } from './reporter';
-import { PipeTransport } from './transport';
+import { ConnectionTransport, PipeTransport, WebSocketTransport } from './transport';
 import fs from 'fs';
 
 export type Entry = {
@@ -58,14 +58,16 @@ export type StepEndParams = {
 class OopReporter implements Reporter {
   config!: FullConfig;
   suite!: Suite;
-  private _transport: PipeTransport;
+  private _transport: Promise<ConnectionTransport>;
 
   constructor() {
-    if (process.stdin.isTTY)
-      this._transport = new PipeTransport(fs.createWriteStream('', { fd: 2 }), fs.createReadStream('', { fd: 1 }));
+    if (process.env.PW_TEST_REPORTER_WS_ENDPOINT) {
+      this._transport = WebSocketTransport.connect(process.env.PW_TEST_REPORTER_WS_ENDPOINT);
+    } else if (process.stdin.isTTY)
+      this._transport = Promise.resolve(new PipeTransport(fs.createWriteStream('', { fd: 2 }), fs.createReadStream('', { fd: 1 })));
     else
-      this._transport = new PipeTransport(fs.createWriteStream('', { fd: 4 }), fs.createReadStream('', { fd: 3 }));
-    this._transport.onclose = () => process.exit(0);
+      this._transport = Promise.resolve(new PipeTransport(fs.createWriteStream('', { fd: 4 }), fs.createReadStream('', { fd: 3 })));
+    this._transport.then(t => { t.onclose = () => process.exit(0)});
   }
 
   printsToStdio() {
@@ -177,7 +179,7 @@ class OopReporter implements Reporter {
   }
 
   private _emit(method: string, params: Object) {
-    this._transport.send({ id: 0, method, params });
+    this._transport.then(t => t.send({ id: 0, method, params }));
   }
 }
 

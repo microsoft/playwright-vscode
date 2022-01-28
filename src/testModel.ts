@@ -18,7 +18,7 @@ import path from 'path';
 import StackUtils from 'stack-utils';
 import vscode from 'vscode';
 import { Entry } from './oopReporter';
-import { ListFilesReport, PlaywrightTest } from './playwrightTest';
+import { ListFilesReport, PlaywrightTest, TestListener } from './playwrightTest';
 import { TestError } from './reporter';
 import { Config, TestTree } from './testTree';
 import { WorkspaceObserver } from './workspaceObserver';
@@ -144,22 +144,18 @@ export class TestModel {
 
     for (const project of report.projects) {
       const projectSuffix = project.name ? ` [${project.name}]` : '';
-      this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Run, async (request, token) => {
+      const handler = async (isDebug: boolean, request: vscode.TestRunRequest, token: vscode.CancellationToken) => {
         if (!request.include) {
-          await this._runTest(request, config, project.name, null, token);
+          await this._runTest(isDebug, request, config, project.name, null, token);
           return;
         }
         for (const testItem of request.include) {
           const location = this._testTree.location(testItem);
-          await this._runTest(request, config, project.name, location!, token);
+          await this._runTest(isDebug, request, config, project.name, location!, token);
         }
-      }, true));
-      this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Debug, async (request, token) => {
-        for (const testItem of request.include || []) {
-          this._testItemUnderDebug = testItem;
-          await this._playwrightTest.debugTest(config, project.name, this._testTree.location(testItem)!);
-        }
-      }, true));
+      };
+      this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Run, handler.bind(null, false), true));
+      this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Debug, handler.bind(null, true), true));
     }
   }
 
@@ -234,7 +230,7 @@ export class TestModel {
     this._updateTestTreeFromEntries(files);
   }
 
-  private async _runTest(request: vscode.TestRunRequest, config: Config, projectName: string, location: string | null, token: vscode.CancellationToken) {
+  private async _runTest(isDebug: boolean, request: vscode.TestRunRequest, config: Config, projectName: string, location: string | null, token: vscode.CancellationToken) {
     const testRun = this._testController.createTestRun(request);
 
     // Provide immediate feedback on action target.
@@ -251,7 +247,7 @@ export class TestModel {
     this._completedSteps.clear();
     fireExecutionLinesChanged();
 
-    await this._playwrightTest.runTests(config, projectName, location, {
+    const testListener: TestListener = {
       onBegin: ({ files }) => {
         const items = new Set<vscode.TestItem>();
         this._updateTestTreeFromEntries(files, items);
@@ -317,7 +313,13 @@ export class TestModel {
       onStdErr: data => {
         testRun.appendOutput(data.toString().replace(/\n/g, '\r\n'));
       },
-    }, token);
+    };
+
+    if (isDebug)
+      await this._playwrightTest.debugTests(config, projectName, location, testListener, token);
+    else
+      await this._playwrightTest.runTests(config, projectName, location, testListener, token);
+
     this._activeSteps.clear();
     fireExecutionLinesChanged();
     testRun.end();

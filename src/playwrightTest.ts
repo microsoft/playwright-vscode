@@ -17,11 +17,12 @@
 import { spawn, spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import vscode from 'vscode';
+import vscode, { CancellationError } from 'vscode';
+import { DebugServer } from './debugServer';
 import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import { TestError } from './reporter';
 import { Config } from './testTree';
-import { PipeTransport } from './transport';
+import { ConnectionTransport, PipeTransport } from './transport';
 import { findInPath } from './utils';
 
 export type ListFilesReport = {
@@ -84,8 +85,8 @@ export class PlaywrightTest {
   }
 
   async runTests(config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscode.CancellationToken) {
-    const args = location ? [location, '--project', projectName] : ['--project', projectName];
-    await this._test(config, args, listener, token);
+    const locationArg = location ? [location] : [];
+    await this._test(config, [...locationArg,  '--project', projectName], listener, token);
   }
 
   async listTests(config: Config, files: string[]): Promise<Entry[]> {
@@ -118,6 +119,36 @@ export class PlaywrightTest {
     stdio[1].on('data', data => listener.onStdOut?.(data));
     stdio[2].on('data', data => listener.onStdErr?.(data));
     const transport = new PipeTransport((stdio as any)[3]!, (stdio as any)[4]!);
+    await this._wireTestListener(transport, listener, token);
+  }
+
+  async debugTests(config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscode.CancellationToken) {
+    const debugServer = new DebugServer();
+    const wsEndpoint = await debugServer.listen();
+    const locationArg = location ? [location] : [];
+    const args = ['test', '-c', config.configFile, ...locationArg, '--project', projectName, '--reporter', path.join(__dirname, 'oopReporter.js'), '--headed', '--timeout', '0'];
+    vscode.debug.startDebugging(undefined, {
+      type: 'pwa-node',
+      name: 'Playwright Test',
+      request: 'launch',
+      cwd: config.workspaceFolder,
+      env: {
+        ...process.env,
+        PW_OUT_OF_PROCESS_DRIVER: '1',
+        PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
+        PW_TEST_REPORTER_WS_ENDPOINT: wsEndpoint,        
+      },
+      program: `${this._nodeModules(config)}/playwright-core/lib/cli/cli`,
+      args,
+    });
+    const transport = await debugServer.transport();
+    await this._wireTestListener(transport, listener, token);
+  }
+
+  private _wireTestListener(transport: ConnectionTransport, listener: TestListener, token?: vscode.CancellationToken) {
+    token?.onCancellationRequested(() => {
+      transport.close();
+    });
     transport.onmessage = message => {
       if (token?.isCancellationRequested && message.method !== 'onEnd')
         return;
@@ -140,25 +171,8 @@ export class PlaywrightTest {
         }
       }
     };
-    return new Promise(f => {
+    return new Promise<void>(f => {
       transport.onclose = f;
-    });
-  }
-
-  async debugTest(config: Config, projectName: string, location: string) {
-    const args = ['test', '-c', config.configFile, location!, '--project', projectName, '--headed', '--timeout', '0'];
-    vscode.debug.startDebugging(undefined, {
-      type: 'pwa-node',
-      name: 'Playwright Test',
-      request: 'launch',
-      cwd: config.workspaceFolder,
-      env: {
-        ...process.env,
-        PW_OUT_OF_PROCESS_DRIVER: '1',
-        PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform')
-      },
-      program: `${this._nodeModules(config)}/playwright-core/lib/cli/cli`,
-      args,
     });
   }
 

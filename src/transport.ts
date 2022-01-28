@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
- export type ProtocolRequest = {
+import WebSocket from 'ws';
+
+export type ProtocolRequest = {
   id: number;
   method: string;
   params: any;
@@ -85,5 +87,66 @@ export class PipeTransport implements ConnectionTransport {
       end = buffer.indexOf('\0', start);
     }
     this._pendingMessage = buffer.toString(undefined, start);
+  }
+}
+
+export class WebSocketTransport implements ConnectionTransport {
+  private _ws: WebSocket;
+
+  onmessage?: (message: ProtocolResponse) => void;
+  onclose?: () => void;
+  readonly wsEndpoint: string;
+
+  static async connect(url: string): Promise<WebSocketTransport> {
+    const transport = new WebSocketTransport(url);
+    await new Promise<WebSocketTransport>((fulfill, reject) => {
+      transport._ws.addEventListener('open', async () => {
+        fulfill(transport);
+      });
+      transport._ws.addEventListener('error', event => {
+        reject(new Error('WebSocket error: ' + event.message));
+        transport._ws.close();
+      });
+    });
+    return transport;
+  }
+
+  constructor(url: string) {
+    this.wsEndpoint = url;
+    this._ws = new WebSocket(url, [], {
+      perMessageDeflate: false,
+      maxPayload: 256 * 1024 * 1024, // 256Mb,
+      handshakeTimeout: 30000,
+    });
+
+    this._ws.addEventListener('message', event => {
+      try {
+        if (this.onmessage)
+          this.onmessage.call(null, JSON.parse(event.data.toString()));
+      } catch (e) {
+        this._ws.close();
+      }
+    });
+
+    this._ws.addEventListener('close', event => {
+      if (this.onclose)
+        this.onclose.call(null);
+    });
+    // Prevent Error: read ECONNRESET.
+    this._ws.addEventListener('error', () => {});
+  }
+
+  send(message: ProtocolRequest) {
+    this._ws.send(JSON.stringify(message));
+  }
+
+  close() {
+    this._ws.close();
+  }
+
+  async closeAndWait() {
+    const promise = new Promise(f => this._ws.once('close', f));
+    this.close();
+    await promise; // Make sure to await the actual disconnect.
   }
 }
