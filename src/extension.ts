@@ -15,16 +15,17 @@
  */
 
 import { EventEmitter } from 'events';
-import vscode from 'vscode';
+import { vscode } from './embedder';
+import * as vscodeTypes from './vscodeTypes';
 import { discardHighlightCaches, hideHighlight, highlightLocator } from './highlighter';
 import { DebuggerLocation, TestModel } from './testModel';
 
-export const testControllers: vscode.TestController[] = [];
+export const testControllers: vscodeTypes.TestController[] = [];
 export const testControllerEvents = new EventEmitter();
 
-const debugSessions = new Map<string, vscode.DebugSession>();
+const debugSessions = new Map<string, vscodeTypes.DebugSession>();
 
-export async function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscodeTypes.ExtensionContext) {
 	const activeStepDecorationType = vscode.window.createTextEditorDecorationType({
     isWholeLine: true,
 		backgroundColor: { id: 'editor.wordHighlightStrongBackground' },
@@ -66,7 +67,7 @@ export async function activate(context: vscode.ExtensionContext) {
       highlightLocator(debugSessions, event.textEditor.document, event.selections[0].start).catch();
     }),
     vscode.debug.registerDebugAdapterTrackerFactory('*', {
-      createDebugAdapterTracker(session: vscode.DebugSession) {
+      createDebugAdapterTracker(session: vscodeTypes.DebugSession) {
         let lastCatchLocation: DebuggerLocation | undefined;
         return {
           onDidSendMessage: async message => {
@@ -96,14 +97,14 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
     testModel.onExecutionLinesChanged(locations => {
       for (const editor of vscode.window.visibleTextEditors) {
-        const activeDecorations: vscode.DecorationOptions[] = [];
+        const activeDecorations: vscodeTypes.DecorationOptions[] = [];
         for (const { location } of locations.active) {
           if (location.uri.fsPath === editor.document.uri.fsPath) {
             activeDecorations.push({ range: location.range })
           }
         }
 
-        const completedDecorations: vscode.DecorationOptions[] = [];
+        const completedDecorations: vscodeTypes.DecorationOptions[] = [];
         for (const { location, duration } of locations.completed) {
           if (location.uri.fsPath === editor.document.uri.fsPath) {
             completedDecorations.push({

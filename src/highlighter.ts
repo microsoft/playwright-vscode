@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import vscode from 'vscode';
+import * as vscodeTypes from './vscodeTypes';
 import { discardBabelAstCache, locatorForSourcePosition } from './babelUtil';
 
 export type StackFrame = {
@@ -24,9 +24,9 @@ export type StackFrame = {
   source: { path: string };
 };
 
-const sessionsWithHighlight = new Set<vscode.DebugSession>();
+const sessionsWithHighlight = new Set<vscodeTypes.DebugSession>();
 
-export async function highlightLocator(debugSessions: Map<string, vscode.DebugSession>, document: vscode.TextDocument, position: vscode.Position, token?: vscode.CancellationToken) {
+export async function highlightLocator(debugSessions: Map<string, vscodeTypes.DebugSession>, document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken) {
   if (!debugSessions.size)
     return;
   const fsPath = document.uri.fsPath;
@@ -58,7 +58,7 @@ export async function highlightLocator(debugSessions: Map<string, vscode.DebugSe
   await hideHighlight();
 }
 
-async function pausedStackFrames(session: vscode.DebugSession, threadId: number | undefined): Promise<StackFrame[] | undefined> {
+async function pausedStackFrames(session: vscodeTypes.DebugSession, threadId: number | undefined): Promise<StackFrame[] | undefined> {
   const { threads } = await session.customRequest('threads').then(result => result, () => ({ threads: [] }));
   for (const thread of threads) {
     if (threadId !== undefined && thread.id !== threadId)
@@ -72,7 +72,7 @@ async function pausedStackFrames(session: vscode.DebugSession, threadId: number 
   }
 }
 
-async function scopeVariables(session: vscode.DebugSession, stackFrame: StackFrame): Promise<{
+async function scopeVariables(session: vscodeTypes.DebugSession, stackFrame: StackFrame): Promise<{
   pages: string[],
   locators: string[],
 }> {
@@ -96,7 +96,7 @@ async function scopeVariables(session: vscode.DebugSession, stackFrame: StackFra
   return { pages, locators };
 }
 
-async function doHighlightLocator(session: vscode.DebugSession, frameId: string, locatorExpression: string) {
+async function doHighlightLocator(session: vscodeTypes.DebugSession, frameId: string, locatorExpression: string) {
   const expression = `(${locatorExpression})._highlight()`;
   sessionsWithHighlight.add(session);
   const result = await session.customRequest('evaluate', {

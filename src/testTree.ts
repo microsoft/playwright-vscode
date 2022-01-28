@@ -15,7 +15,8 @@
  */
 
 import path from 'path';
-import vscode from 'vscode';
+import { vscode } from './embedder';
+import * as vscodeTypes from './vscodeTypes';
 import { createGuid } from './utils';
 
 export type Config = {
@@ -36,11 +37,11 @@ export class TestTree {
   private _testGeneration = '';
 
   // Global test item map testItem.id => testItem.
-  private _testItems = new Map<string, { testItem: vscode.TestItem, data: TestItemData }>();
+  private _testItems = new Map<string, { testItem: vscodeTypes.TestItem, data: TestItemData }>();
 
-  private _testController: vscode.TestController;
+  private _testController: vscodeTypes.TestController;
 
-  constructor(testController: vscode.TestController) {
+  constructor(testController: vscodeTypes.TestController) {
     this._testController = testController;
   }
 
@@ -54,52 +55,52 @@ export class TestTree {
     ]);
   }
 
-  finishedLoading(rootItems: vscode.TestItem[]) {
+  finishedLoading(rootItems: vscodeTypes.TestItem[]) {
     this._testController.items.replace(rootItems);
   }
 
-  location(testItem: vscode.TestItem): string | undefined {
+  location(testItem: vscodeTypes.TestItem): string | undefined {
     return this._testItems.get(testItem.id)?.data.location;
   }
 
-  attributeToConfig(fileItem: vscode.TestItem, config: Config) {
+  attributeToConfig(fileItem: vscodeTypes.TestItem, config: Config) {
     const data = this._testItems.get(fileItem.id)!.data;
     if (!data.configs)
       data.configs = new Set();
     data.configs.add(config);
   }
 
-  configs(fileItem: vscode.TestItem): Config[] {
+  configs(fileItem: vscodeTypes.TestItem): Config[] {
     const configs = this._testItems.get(fileItem.id)!.data.configs;
     return configs ? [...configs] : [];
   }
 
-  isLoaded(fileItem: vscode.TestItem): boolean {
+  isLoaded(fileItem: vscodeTypes.TestItem): boolean {
     return this._testItems.get(fileItem.id)!.data.isLoaded || false;
   }
 
-  setLoaded(testItem: vscode.TestItem, loaded: boolean) {
+  setLoaded(testItem: vscodeTypes.TestItem, loaded: boolean) {
     this._testItems.get(testItem.id)!.data.isLoaded = loaded;
   }
 
-  getForLocation(location: string): vscode.TestItem | undefined {
+  getForLocation(location: string): vscodeTypes.TestItem | undefined {
     return this._testItems.get(this._id(location))?.testItem;
   }
 
-  delete(testItem: vscode.TestItem) {
+  delete(testItem: vscodeTypes.TestItem) {
     this.unbindChildren(testItem);
     this._testItems.delete(testItem.id);
     testItem.parent!.children.delete(testItem.id);
   }
 
-  unbindChildren(fileItem: vscode.TestItem) {
+  unbindChildren(fileItem: vscodeTypes.TestItem) {
     fileItem.children.forEach(c => {
       this.unbindChildren(c);
       this._testItems.delete(c.id);
     });
   }
 
-  createForLocation(label: string, uri: vscode.Uri, line?: number): vscode.TestItem {
+  createForLocation(label: string, uri: vscodeTypes.Uri, line?: number): vscodeTypes.TestItem {
     const hasLine = typeof line === 'number';
     const location = hasLine ? uri.fsPath + ':' + line : uri.fsPath;
     const testItem = this._testController.createTestItem(this._id(location), label, uri);
@@ -115,7 +116,7 @@ export class TestTree {
     return testItem;
   }
 
-  getOrCreateForFileOrFolder(file: string): vscode.TestItem | null {
+  getOrCreateForFileOrFolder(file: string): vscodeTypes.TestItem | null {
     const result = this.getForLocation(file);
     if (result)
       return result;
@@ -129,7 +130,7 @@ export class TestTree {
     return null;
   }
 
-  private _getOrCreateTestItemForFileOrFolderInWorkspace(workspacePath: string, fsPath: string): vscode.TestItem {
+  private _getOrCreateTestItemForFileOrFolderInWorkspace(workspacePath: string, fsPath: string): vscodeTypes.TestItem {
     const result = this.getForLocation(fsPath);
     if (result)
       return result;

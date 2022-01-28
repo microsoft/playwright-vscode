@@ -16,7 +16,8 @@
 
 import path from 'path';
 import StackUtils from 'stack-utils';
-import vscode from 'vscode';
+import { vscode } from './embedder';
+import * as vscodeTypes from './vscodeTypes';
 import { Entry } from './oopReporter';
 import { ListFilesReport, PlaywrightTest, TestListener } from './playwrightTest';
 import { TestError } from './reporter';
@@ -29,7 +30,7 @@ const stackUtils = new StackUtils({
 export type DebuggerLocation = { path: string, line: number, column: number };
 
 type StepInfo = {
-  location: vscode.Location;
+  location: vscodeTypes.Location;
   activeCount: number;
   duration: number;
 };
@@ -39,19 +40,19 @@ export class TestModel {
   private _testTree: TestTree;
 
   // Each run profile is a config + project pair.
-  private _runProfiles: vscode.TestRunProfile[] = [];
+  private _runProfiles: vscodeTypes.TestRunProfile[] = [];
 
-  private _testController: vscode.TestController;
+  private _testController: vscodeTypes.TestController;
   private _workspaceObserver: WorkspaceObserver;
   private _playwrightTest: PlaywrightTest;
-  private _disposables: vscode.Disposable[];
-  private _testItemUnderDebug: vscode.TestItem | undefined;
+  private _disposables: vscodeTypes.Disposable[];
+  private _testItemUnderDebug: vscodeTypes.TestItem | undefined;
 
   private _executionLinesChanged = new vscode.EventEmitter<{ active: StepInfo[], completed: StepInfo[] }>();
   readonly onExecutionLinesChanged = this._executionLinesChanged.event;
   private _activeSteps = new Map<string, StepInfo>();
   private _completedSteps = new Map<string, StepInfo>();
-  private _testRun: vscode.TestRun | undefined;
+  private _testRun: vscodeTypes.TestRun | undefined;
 
   constructor() {
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
@@ -113,7 +114,7 @@ export class TestModel {
     await new Promise(f => setTimeout(f, 500));
 
     // Check Playwright version.
-    const rootTreeItems: vscode.TestItem[] = [];
+    const rootTreeItems: vscodeTypes.TestItem[] = [];
     const configFiles = await vscode.workspace.findFiles('**/*playwright*.config.[tj]s');
     for (const configFileUri of configFiles) {
       const configFilePath = configFileUri.fsPath;
@@ -163,7 +164,7 @@ export class TestModel {
 
     for (const project of report.projects) {
       const projectSuffix = project.name ? ` [${project.name}]` : '';
-      const handler = async (isDebug: boolean, request: vscode.TestRunRequest, token: vscode.CancellationToken) => {
+      const handler = async (isDebug: boolean, request: vscodeTypes.TestRunRequest, token: vscodeTypes.CancellationToken) => {
         if (!request.include) {
           await this._runTest(isDebug, request, config, project.name, null, token);
           return;
@@ -190,11 +191,11 @@ export class TestModel {
     }
   }
 
-  private async _resolveChildren(fileItem: vscode.TestItem | undefined): Promise<void> {
+  private async _resolveChildren(fileItem: vscodeTypes.TestItem | undefined): Promise<void> {
     await this._populateFileItemIfNeeded(fileItem);
   }
 
-  private _createTestItemForEntry(entry: Entry): vscode.TestItem {
+  private _createTestItemForEntry(entry: Entry): vscodeTypes.TestItem {
     return this._testTree.createForLocation(entry.title, vscode.Uri.file(entry.file), entry.line);
   }
 
@@ -205,11 +206,11 @@ export class TestModel {
   }
 
   private async _onDidChangeFiles(configs: Map<Config, Set<string>>) {
-    const loadedFilesByConfig = new Map<Config, vscode.TestItem[]>();
+    const loadedFilesByConfig = new Map<Config, vscodeTypes.TestItem[]>();
 
     // Ensure all test items are created for all created and changed files.
     for (const [config, files] of configs) {
-      const testItems = [...files].map(file => this._testTree.getOrCreateForFileOrFolder(file)) as vscode.TestItem[];
+      const testItems = [...files].map(file => this._testTree.getOrCreateForFileOrFolder(file)) as vscodeTypes.TestItem[];
       // Erase all loaded test items in loaded files.
       const loadedFileItems = testItems.filter(testItem => this._testTree.isLoaded(testItem));
       for (const fileItem of loadedFileItems) {
@@ -224,7 +225,7 @@ export class TestModel {
       await this._populateFileItems(config, fileItems);
   }
 
-  private async _populateFileItemIfNeeded(fileItem: vscode.TestItem | undefined): Promise<void> {
+  private async _populateFileItemIfNeeded(fileItem: vscodeTypes.TestItem | undefined): Promise<void> {
     if (!fileItem || this._testTree.isLoaded(fileItem))
       return;
     this._testTree.setLoaded(fileItem, true);
@@ -234,12 +235,12 @@ export class TestModel {
       await this._populateFileItems(config, [fileItem]);
   }
 
-  private async _populateFileItems(config: Config, fileItems: vscode.TestItem[]) {
+  private async _populateFileItems(config: Config, fileItems: vscodeTypes.TestItem[]) {
     const files = await this._playwrightTest.listTests(config, fileItems.map(i => i.uri!.fsPath));
     this._updateTestTreeFromEntries(files);
   }
 
-  private async _runTest(isDebug: boolean, request: vscode.TestRunRequest, config: Config, projectName: string, location: string | null, token: vscode.CancellationToken) {
+  private async _runTest(isDebug: boolean, request: vscodeTypes.TestRunRequest, config: Config, projectName: string, location: string | null, token: vscodeTypes.CancellationToken) {
     const testRun = this._testController.createTestRun(request);
 
     // Provide immediate feedback on action target.
@@ -252,7 +253,7 @@ export class TestModel {
 
     const testListener: TestListener = {
       onBegin: ({ files }) => {
-        const items = new Set<vscode.TestItem>();
+        const items = new Set<vscodeTypes.TestItem>();
         this._updateTestTreeFromEntries(files, items);
         for (const item of items)
           testRun.enqueued(item);
@@ -337,10 +338,10 @@ export class TestModel {
     }
   }
 
-  private _updateTestTreeFromEntries(files: Entry[], collector?: Set<vscode.TestItem>) {
-    const lazyChildren = new Map<vscode.TestItem, vscode.TestItem[]>();
+  private _updateTestTreeFromEntries(files: Entry[], collector?: Set<vscodeTypes.TestItem>) {
+    const lazyChildren = new Map<vscodeTypes.TestItem, vscodeTypes.TestItem[]>();
 
-    const map = (parentEntry: Entry, parentItem: vscode.TestItem) => {
+    const map = (parentEntry: Entry, parentItem: vscodeTypes.TestItem) => {
       for (const entry of parentEntry.children || []) {
         // Tolerate clashing configs that are adding dupe tests in common files.
         let testItem = this._testTree.getForLocation(entry.id);
@@ -398,7 +399,7 @@ export class TestModel {
   };
 }
 
-function testMessageForTestError(testItem: vscode.TestItem, error: TestError): vscode.TestMessage {
+function testMessageForTestError(testItem: vscodeTypes.TestItem, error: TestError): vscodeTypes.TestMessage {
   const message = new vscode.TestMessage(error.stack || error.message || error.value!);
   const location = parseLocationFromStack(testItem, error.stack);
   if (location) {
@@ -408,7 +409,7 @@ function testMessageForTestError(testItem: vscode.TestItem, error: TestError): v
   return message;
 }
 
-function parseLocationFromStack(testItem: vscode.TestItem, stack: string | undefined): DebuggerLocation | undefined {
+function parseLocationFromStack(testItem: vscodeTypes.TestItem, stack: string | undefined): DebuggerLocation | undefined {
   const lines = stack?.split('\n') || [];
   for (const line of lines) {
     const frame = stackUtils.parseLine(line);

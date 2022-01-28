@@ -16,13 +16,14 @@
 
 import { spawn, spawnSync } from 'child_process';
 import path from 'path';
-import vscode from 'vscode';
 import { DebugServer } from './debugServer';
+import { vscode } from './embedder';
 import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import { TestError } from './reporter';
 import { Config } from './testTree';
 import { ConnectionTransport, PipeTransport } from './transport';
 import { findInPath } from './utils';
+import * as vscodeTypes from './vscodeTypes';
 
 export type ListFilesReport = {
   testDir?: string;
@@ -95,7 +96,7 @@ export class PlaywrightTest {
     return null;
   }
 
-  async runTests(config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscode.CancellationToken) {
+  async runTests(config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
     const locationArg = location ? [location] : [];
     await this._test(config, [...locationArg,  '--project', projectName], listener, token);
   }
@@ -111,7 +112,7 @@ export class PlaywrightTest {
     return result;
   }
 
-  private async _test(config: Config, args: string[], listener: TestListener, token?: vscode.CancellationToken): Promise<void> {
+  private async _test(config: Config, args: string[], listener: TestListener, token?: vscodeTypes.CancellationToken): Promise<void> {
     const node = this._findNode();
     const allArgs = [config.cli, 'test', '-c', config.configFile, ...args, '--reporter', path.join(__dirname, 'oopReporter.js')];
     const childProcess = spawn(node, allArgs, {
@@ -132,7 +133,7 @@ export class PlaywrightTest {
     await this._wireTestListener(transport, listener, token);
   }
 
-  async debugTests(config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscode.CancellationToken) {
+  async debugTests(config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
     const locationArg = location ? [location] : [];
@@ -155,7 +156,7 @@ export class PlaywrightTest {
     await this._wireTestListener(transport, listener, token);
   }
 
-  private _wireTestListener(transport: ConnectionTransport, listener: TestListener, token?: vscode.CancellationToken) {
+  private _wireTestListener(transport: ConnectionTransport, listener: TestListener, token?: vscodeTypes.CancellationToken) {
     token?.onCancellationRequested(() => {
       transport.close();
     });

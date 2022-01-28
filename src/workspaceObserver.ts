@@ -15,16 +15,17 @@
  */
 
 import path from 'path';
-import vscode from 'vscode';
+import { vscode } from './embedder';
+import * as vscodeTypes from './vscodeTypes';
 
 type WorkspaceChange = {
-  created: { uri: vscode.Uri, watcher: any }[];
-  changed: { uri: vscode.Uri, watcher: any }[];
-  deleted: { uri: vscode.Uri, watcher: any }[];
+  created: { uri: vscodeTypes.Uri, watcher: any }[];
+  changed: { uri: vscodeTypes.Uri, watcher: any }[];
+  deleted: { uri: vscodeTypes.Uri, watcher: any }[];
 };
 
 export class WorkspaceObserver {
-  private _fileSystemWatchers: vscode.FileSystemWatcher[] = [];
+  private _fileSystemWatchers: vscodeTypes.FileSystemWatcher[] = [];
   private _handler: (change: WorkspaceChange) => void;
   private _pendingChange: WorkspaceChange | undefined;
   private _timeout: NodeJS.Timeout | undefined;
