@@ -95,7 +95,7 @@ export class PlaywrightTest {
       onBegin: params => {
         result = params.files as Entry[];
         return true;
-      }
+      },
     });
     return result;
   }
@@ -162,7 +162,11 @@ export class PlaywrightTest {
         case 'onTestEnd': listener.onTestEnd?.(message.params); break;
         case 'onStepBegin': listener.onStepBegin?.(message.params); break;
         case 'onStepEnd': listener.onStepEnd?.(message.params); break;
-        case 'onError': listener.onError?.(message.params); break;
+        case 'onError': {
+          listener.onError?.(message.params);
+          transport.close();
+          break;
+        }
         case 'onEnd': {
           listener.onEnd?.();
           transport.close();

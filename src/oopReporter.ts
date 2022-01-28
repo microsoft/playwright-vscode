@@ -164,6 +164,7 @@ class OopReporter implements Reporter {
   }
 
   onError(error: TestError): void {
+    console.log('LOOK MA');
     this._emit('onError', { error });
   }
 
