@@ -128,9 +128,9 @@ export class TestModel {
       if (configFilePath.includes('node_modules'))
         continue;
       // Dogfood support
-      if (configFilePath.includes(path.join('playwright', 'test-results')))
-        continue;
       const workspaceFolder = this._vscode.workspace.getWorkspaceFolder(configFileUri)!.uri.fsPath;
+      if (configFilePath.includes('test-results') && !workspaceFolder.includes('test-results'))
+        continue;
       const playwrightInfo = this._playwrightTest.getPlaywrightInfo(workspaceFolder, configFilePath);
       if (!playwrightInfo) {
         this._vscode.window.showWarningMessage('Please install Playwright Test via running `npm i @playwright/test`');
