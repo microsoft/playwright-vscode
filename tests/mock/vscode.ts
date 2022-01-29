@@ -20,6 +20,7 @@ import path from 'path';
 import { EventEmitter } from './events';
 
 class Uri {
+  scheme = 'file';
   fsPath!: string;
 
   static file(fsPath: string): Uri {
@@ -56,9 +57,33 @@ class WorkspaceFolder {
   name: string;
   uri: Uri;
 
-  constructor(name: string, uri: Uri) {
+  constructor(readonly vscode: VSCode, name: string, uri: Uri) {
     this.name = name;
     this.uri = uri;
+  }
+
+  async addFile(file: string, content: string, isNewWorkspace?: boolean) {
+    const fsPath = path.join(this.uri.fsPath, file);
+    await fs.promises.mkdir(path.dirname(fsPath), { recursive: true });
+    await fs.promises.writeFile(fsPath, content);
+    if (!isNewWorkspace) {
+      for (const watchers of this.vscode.fsWatchers)
+        watchers.didCreate.fire(Uri.file(fsPath));
+    }
+  }
+
+  async removeFile(file: string) {
+    const fsPath = path.join(this.uri.fsPath, file);
+    await fs.promises.unlink(fsPath);
+    for (const watchers of this.vscode.fsWatchers)
+      watchers.didDelete.fire(Uri.file(fsPath));
+  }
+
+  async changeFile(file: string, content: string) {
+    const fsPath = path.join(this.uri.fsPath, file);
+    await fs.promises.writeFile(fsPath, content);
+    for (const watchers of this.vscode.fsWatchers)
+      watchers.didChange.fire(Uri.file(fsPath));
   }
 }
 
@@ -79,21 +104,32 @@ class TestItem {
   }
 
   add(item: TestItem) {
+    this._innerAdd(item);
+    this.testController.didChangeTestItem.fire(this);
+  }
+
+  private _innerAdd(item: TestItem) {
     this.map.set(item.id, item);
     item.parent = this;
     this.testController.allTestItems.set(item.id, item);
   }
 
   delete(id: string) {
+    this._innerDelete(id);
+    this.testController.didChangeTestItem.fire(this);
+  }
+
+  private _innerDelete(id: string) {
     this.map.delete(id);
     this.testController.allTestItems.delete(id);
   }
 
   replace(items: TestItem[]) {
     for (const itemId of this.map.keys())
-      this.delete(itemId);
+      this._innerDelete(itemId);
     for (const item of items)
-      this.add(item);
+      this._innerAdd(item);
+    this.testController.didChangeTestItem.fire(this);
   }
 
   forEach(visitor: (item: TestItem) => void) {
@@ -129,6 +165,9 @@ class TestController {
   readonly runProfiles: TestRunProfile[] = [];
   readonly allTestItems = new Map<string, TestItem>();
 
+  readonly didChangeTestItem = new EventEmitter<TestItem>();
+  readonly onDidChangeTestItem = this.didChangeTestItem.event;
+
   resolveHandler: (item: TestItem | null) => Promise<void>;
 
   constructor(id: string, label: string) {
@@ -152,8 +191,8 @@ class TestController {
   renderTestTree() {
     const result: string[] = [''];
     for (const item of this.items.map.values())
-      item.innerToString('    ', result);
-    result.push('  ');
+      item.innerToString('      ', result);
+    result.push('    ');
     return result.join('\n');
   }
 
@@ -168,12 +207,12 @@ class TestController {
 }
 
 class FileSystemWatcher {
-  private _onDidCreate = new EventEmitter();
-  private _onDidChange = new EventEmitter();
-  private _onDidDelete = new EventEmitter();
-  readonly onDidCreate = this._onDidCreate.event;
-  readonly onDidChange = this._onDidChange.event;
-  readonly onDidDelete = this._onDidDelete.event;
+  readonly didCreate = new EventEmitter<Uri>();
+  readonly didChange = new EventEmitter<Uri>();
+  readonly didDelete = new EventEmitter<Uri>();
+  readonly onDidCreate = this.didCreate.event;
+  readonly onDidChange = this.didChange.event;
+  readonly onDidDelete = this.didDelete.event;
 }
 
 export enum TestRunProfileKind {
@@ -210,6 +249,7 @@ export class VSCode {
   readonly onDidChangeWorkspaceFolders = this._didChangeWorkspaceFolders.event;
   readonly onDidChangeTextDocument = this._didChangeTextDocument.event;
   readonly testControllers: TestController[] = [];
+  readonly fsWatchers: FileSystemWatcher[] = [];
 
   constructor() {
     this.commands.registerCommand = () => {};
@@ -227,7 +267,11 @@ export class VSCode {
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
     this.workspace.onDidChangeTextDocument = this.onDidChangeTextDocument;
-    this.workspace.createFileSystemWatcher = () => { return new FileSystemWatcher(); };
+    this.workspace.createFileSystemWatcher = () => {
+      const watcher = new FileSystemWatcher();
+      this.fsWatchers.push(watcher);
+      return watcher;
+    };
     this.workspace.workspaceFolders = [];
 
     this.workspace.findFiles = async pattern => {
@@ -258,15 +302,15 @@ export class VSCode {
     return testController;
   }
 
-  async addWorkspace(name: string, rootFolder: string, files: { [key: string]: string }) {
-    const workspaceFolder = new WorkspaceFolder(name, Uri.file(rootFolder));
+  async addWorkspaceFolder(rootFolder: string, files?: { [key: string]: string }): Promise<WorkspaceFolder> {
+    const workspaceFolder = new WorkspaceFolder(this, path.basename(rootFolder), Uri.file(rootFolder));
     this.workspace.workspaceFolders.push(workspaceFolder);
     await fs.promises.mkdir(rootFolder, { recursive: true });
-    for (const [fsPath, content] of Object.entries(files)) {
-      const fullPath = path.join(rootFolder, fsPath);
-      await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
-      await fs.promises.writeFile(fullPath, content);
+    if (files) {
+      for (const [fsPath, content] of Object.entries(files))
+        await workspaceFolder.addFile(fsPath, content, true);
     }
     this._didChangeWorkspaceFolders.fire(undefined);
+    return workspaceFolder;
   }
 }

@@ -21,7 +21,7 @@ jobs:
     - run: npm ci
     - run: npm run lint
     - run: npm run build
-    - run: npm run test
+    - run: npm run test -- --workers=1
     - run: npx vsce package
     - uses: actions/upload-artifact@v2
       if: matrix.os == 'ubuntu-latest'

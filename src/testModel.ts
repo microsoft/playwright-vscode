@@ -128,10 +128,11 @@ export class TestModel {
       if (configFilePath.includes('node_modules'))
         continue;
       // Dogfood support
-      const workspaceFolder = this._vscode.workspace.getWorkspaceFolder(configFileUri)!.uri.fsPath;
-      if (configFilePath.includes('test-results') && !workspaceFolder.includes('test-results'))
+      const workspaceFolder = this._vscode.workspace.getWorkspaceFolder(configFileUri)!;
+      const workspaceFolderPath = workspaceFolder.uri.fsPath;
+      if (configFilePath.includes('test-results') && !workspaceFolderPath.includes('test-results'))
         continue;
-      const playwrightInfo = this._playwrightTest.getPlaywrightInfo(workspaceFolder, configFilePath);
+      const playwrightInfo = this._playwrightTest.getPlaywrightInfo(workspaceFolderPath, configFilePath);
       if (!playwrightInfo) {
         this._vscode.window.showWarningMessage('Please install Playwright Test via running `npm i @playwright/test`');
         continue;
@@ -143,7 +144,7 @@ export class TestModel {
       }
 
       const config: Config = {
-        workspaceFolder,
+        workspaceFolder: workspaceFolderPath,
         configFile: configFileUri.fsPath,
         cli: playwrightInfo.cli,
       };
@@ -153,7 +154,7 @@ export class TestModel {
         continue;
       const configDir = path.dirname(config.configFile);
       config.testDir = report.testDir ? path.resolve(configDir, report.testDir) : configDir;
-      const rootName = path.basename(path.dirname(config.testDir)) + path.sep + path.basename(config.testDir);
+      const rootName = path.relative(workspaceFolderPath, config.testDir) || workspaceFolder.name;
       const rootTreeItem = this._testTree.createForLocation(rootName, this._vscode.Uri.file(config.testDir));
       rootTreeItems.push(rootTreeItem);
       this._workspaceObserver.addWatchFolder(config.testDir, config);
