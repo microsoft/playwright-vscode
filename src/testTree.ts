@@ -127,7 +127,7 @@ export class TestTree {
       const relative = path.relative(workspaceFolder.uri.fsPath, file);
       if (relative.startsWith('..'))
         continue;
-      return this._getOrCreateTestItemForFileOrFolderInWorkspace(workspacePath, file); 
+      return this._getOrCreateTestItemForFileOrFolderInWorkspace(workspacePath, file);
     }
     return null;
   }
@@ -139,7 +139,7 @@ export class TestTree {
     const parentFile = path.dirname(fsPath);
     const testItem = this.createForLocation(path.basename(fsPath), this._vscode.Uri.file(fsPath));
     const parent = this._getOrCreateTestItemForFileOrFolderInWorkspace(workspacePath, parentFile);
-    parent.children.add(testItem);  
+    parent.children.add(testItem);
     return testItem;
   }
 

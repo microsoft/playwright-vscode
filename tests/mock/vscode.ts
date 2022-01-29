@@ -153,7 +153,7 @@ export class VSCode {
   Position = Position;
   Range = Range;
   Uri = Uri;
-  TestRunProfileKind = TestRunProfileKind
+  TestRunProfileKind = TestRunProfileKind;
   commands: any = {};
   debug: any = {};
   languages: any = {};
@@ -192,10 +192,10 @@ export class VSCode {
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
     this.workspace.onDidChangeTextDocument = this.onDidChangeTextDocument;
-    this.workspace.createFileSystemWatcher = () => { return new FileSystemWatcher() };
+    this.workspace.createFileSystemWatcher = () => { return new FileSystemWatcher(); };
     this.workspace.workspaceFolders = [];
 
-    this.workspace.findFiles = async (pattern) => {
+    this.workspace.findFiles = async pattern => {
       const uris: Uri[] = [];
       for (const workspaceFolder of this.workspace.workspaceFolders) {
         await new Promise<void>(f => {
@@ -203,7 +203,7 @@ export class VSCode {
           glob(pattern, { cwd }, (err, files) => {
             uris.push(...files.map(f => Uri.file(path.join(cwd, f))));
             f();
-          });  
+          });
         });
       }
       return uris;

@@ -60,9 +60,9 @@ export function locatorForSourcePosition(text: string, vars: { pages: string[], 
 
       // locator.*() will highlight `locator`
       if (t.isIdentifier(path.node) &&
-          vars.locators.includes(path.node.name)) {
+          vars.locators.includes(path.node.name))
         expressionNode = path.node;
-      }
+
 
       // Web-first assertions: expect(a).to*
       if (t.isMemberExpression(path.node) &&
@@ -70,17 +70,17 @@ export function locatorForSourcePosition(text: string, vars: { pages: string[], 
           asyncMatchers.includes(path.node.property.name) &&
           t.isCallExpression(path.node.object) &&
           t.isIdentifier(path.node.object.callee) &&
-          path.node.object.callee.name === 'expect') {
+          path.node.object.callee.name === 'expect')
         expressionNode = path.node.object.arguments[0];
-      }
+
 
       // *.locator() call
       if (t.isCallExpression(path.node) &&
           t.isMemberExpression(path.node.callee) &&
           t.isIdentifier(path.node.callee.property) &&
-          path.node.callee.property.name === 'locator') {
+          path.node.callee.property.name === 'locator')
         expressionNode = path.node;
-      }
+
 
       if (!expressionNode || !expressionNode.loc)
         return;

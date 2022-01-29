@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
- export namespace Disposable {
+export namespace Disposable {
   export function disposeAll(disposables: Disposable[]): void {
     for (const disposable of disposables.splice(0))
       disposable();
@@ -54,11 +54,11 @@ export class EventEmitter<T> {
     if (!this._deliveryQueue)
       this._deliveryQueue = [];
     for (const listener of this._listeners)
-      this._deliveryQueue.push({listener, event});
+      this._deliveryQueue.push({ listener, event });
     if (!dispatch)
       return;
     for (let index = 0; index < this._deliveryQueue.length; index++) {
-      const {listener, event} = this._deliveryQueue[index];
+      const { listener, event } = this._deliveryQueue[index];
       listener.call(null, event);
     }
     this._deliveryQueue = undefined;

@@ -35,16 +35,16 @@ export default declare(api => {
         if (isAwaitExpression && !t.isCallExpression(expression.argument))
           return;
         path.replaceWith(t.tryStatement(
-          t.blockStatement([
-            path.node
-          ]),
-          t.catchClause(
-            t.identifier('playwrightError'),
             t.blockStatement([
-              t.debuggerStatement(),
-              t.throwStatement(t.identifier('playwrightError'))
-            ])
-          )
+              path.node
+            ]),
+            t.catchClause(
+                t.identifier('playwrightError'),
+                t.blockStatement([
+                  t.debuggerStatement(),
+                  t.throwStatement(t.identifier('playwrightError'))
+                ])
+            )
         ));
 
         // Patch source map.
@@ -54,5 +54,5 @@ export default declare(api => {
         path.node.range = expression.range;
       }
     }
-  }
+  };
 });

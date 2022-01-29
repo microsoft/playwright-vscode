@@ -81,7 +81,7 @@ export class TestModel {
     });
 
     this._disposables = [
-      vscode.workspace.onDidChangeWorkspaceFolders((_) => {
+      vscode.workspace.onDidChangeWorkspaceFolders(_ => {
         this._rebuildModel(true);
       }),
       vscode.window.onDidChangeActiveTextEditor(() => {
@@ -154,7 +154,7 @@ export class TestModel {
       const configDir = path.dirname(config.configFile);
       config.testDir = report.testDir ? path.resolve(configDir, report.testDir) : configDir;
       const rootName = path.basename(path.dirname(config.testDir)) + path.sep + path.basename(config.testDir);
-      const rootTreeItem = this._testTree.createForLocation(rootName, this._vscode.Uri.file(config.testDir))
+      const rootTreeItem = this._testTree.createForLocation(rootName, this._vscode.Uri.file(config.testDir));
       rootTreeItems.push(rootTreeItem);
       this._workspaceObserver.addWatchFolder(config.testDir, config);
       await this._createRunProfiles(config, report);
@@ -253,7 +253,7 @@ export class TestModel {
     // Provide immediate feedback on action target.
     for (const testItem of request.include || [])
       testRun.enqueued(testItem);
-      testRun.appendOutput('\x1b[H\x1b[2J');
+    testRun.appendOutput('\x1b[H\x1b[2J');
 
     this._completedSteps.clear();
     this._fireExecutionLinesChanged();
@@ -299,8 +299,8 @@ export class TestModel {
         if (!step) {
           step = {
             location: new this._vscode.Location(
-              this._vscode.Uri.file(params.location.file),
-              new this._vscode.Position(params.location.line - 1, params.location.column - 1)),
+                this._vscode.Uri.file(params.location.file),
+                new this._vscode.Position(params.location.line - 1, params.location.column - 1)),
             activeCount: 0,
             duration: 0,
           };
@@ -313,13 +313,13 @@ export class TestModel {
       onStepEnd: params => {
         if (!params.stepId)
           return;
-        let step = this._activeSteps.get(params.stepId)!;
+        const step = this._activeSteps.get(params.stepId)!;
         --step.activeCount;
         step.duration = params.duration;
         this._completedSteps.set(params.stepId, step);
         if (step.activeCount === 0)
           this._activeSteps.delete(params.stepId);
-          this._fireExecutionLinesChanged();
+        this._fireExecutionLinesChanged();
       },
 
       onStdOut: data => {
@@ -334,9 +334,9 @@ export class TestModel {
     this._testRun = testRun;
     try {
       if (isDebug)
-      await this._playwrightTest.debugTests(this._vscode, config, projectName, location, testListener, token);
-    else
-      await this._playwrightTest.runTests(config, projectName, location, testListener, token);
+        await this._playwrightTest.debugTests(this._vscode, config, projectName, location, testListener, token);
+      else
+        await this._playwrightTest.runTests(config, projectName, location, testListener, token);
     } finally {
       this._activeSteps.clear();
       this._fireExecutionLinesChanged();
@@ -413,7 +413,7 @@ export class TestModel {
       message.location = new this._vscode.Location(this._vscode.Uri.file(location.path), position);
     }
     return message;
-  }  
+  }
 }
 
 function parseLocationFromStack(testItem: vscodeTypes.TestItem, stack: string | undefined): DebuggerLocation | undefined {

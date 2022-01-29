@@ -18,7 +18,7 @@ import { spawnSync } from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
- 
+
 export function calculateSha1(buffer: Buffer | string): string {
   const hash = crypto.createHash('sha1');
   hash.update(buffer);
@@ -40,26 +40,26 @@ export function findInPath(program: string, env: NodeJS.ProcessEnv): string | un
 
   try {
     if (fs.existsSync(locator)) {
-      const located = spawnSync(locator, [program], { env });     
+      const located = spawnSync(locator, [program], { env });
       const lines = located.stdout.toString().split(/\r?\n/);
 
       if (process.platform === 'win32') {
         // return the first path that has a executable extension
         const executableExtensions = String(env['PATHEXT'] || '.exe')
-          .toUpperCase()
-          .split(';');
+            .toUpperCase()
+            .split(';');
 
         for (const candidate of lines) {
           const ext = path.extname(candidate).toUpperCase();
-          if (ext && executableExtensions.includes(ext)) {
+          if (ext && executableExtensions.includes(ext))
             return candidate;
-          }
+
         }
       } else {
         // return the first path
-        if (lines.length > 0) {
+        if (lines.length > 0)
           return lines[0];
-        }
+
       }
       return undefined;
     } else {

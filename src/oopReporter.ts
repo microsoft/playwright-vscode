@@ -61,13 +61,13 @@ class OopReporter implements Reporter {
   private _transport: Promise<ConnectionTransport>;
 
   constructor() {
-    if (process.env.PW_TEST_REPORTER_WS_ENDPOINT) {
+    if (process.env.PW_TEST_REPORTER_WS_ENDPOINT)
       this._transport = WebSocketTransport.connect(process.env.PW_TEST_REPORTER_WS_ENDPOINT);
-    } else if (process.stdin.isTTY)
+    else if (process.stdin.isTTY)
       this._transport = Promise.resolve(new PipeTransport(fs.createWriteStream('', { fd: 2 }), fs.createReadStream('', { fd: 1 })));
     else
       this._transport = Promise.resolve(new PipeTransport(fs.createWriteStream('', { fd: 4 }), fs.createReadStream('', { fd: 3 })));
-    this._transport.then(t => { t.onclose = () => process.exit(0)});
+    this._transport.then(t => { t.onclose = () => process.exit(0);});
   }
 
   printsToStdio() {
@@ -90,7 +90,7 @@ class OopReporter implements Reporter {
           else if (child.location.line === 0)
             type = 'file';
           else
-            type = 'suite'
+            type = 'suite';
           entry = {
             id,
             type,
@@ -124,7 +124,7 @@ class OopReporter implements Reporter {
           collection.push(entry);
         }
       }
-    }
+    };
 
     visit(rootSuite, []);
     this._emit('onBegin', { files });

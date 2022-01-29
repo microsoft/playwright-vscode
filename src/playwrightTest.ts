@@ -53,13 +53,13 @@ export class PlaywrightTest {
   getPlaywrightInfo(workspaceFolder: string, configFilePath: string): { version: number, cli: string } | null {
     const node = this._findNode();
     const childProcess = spawnSync(node, [
-        '-e',
-        'try { const index = require.resolve("playwright-core"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ index, version})); } catch { console.log("undefined"); }',
-      ],
-      {
-        cwd: workspaceFolder,
-        env: { ...process.env }
-      }
+      '-e',
+      'try { const index = require.resolve("playwright-core"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ index, version})); } catch { console.log("undefined"); }',
+    ],
+    {
+      cwd: workspaceFolder,
+      env: { ...process.env }
+    }
     );
     const output = childProcess.stdout.toString();
     try {
@@ -146,7 +146,7 @@ export class PlaywrightTest {
         ...process.env,
         PW_OUT_OF_PROCESS_DRIVER: '1',
         PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
-        PW_TEST_REPORTER_WS_ENDPOINT: wsEndpoint,        
+        PW_TEST_REPORTER_WS_ENDPOINT: wsEndpoint,
       },
       program: config.cli,
       args,

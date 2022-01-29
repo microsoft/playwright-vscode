@@ -56,7 +56,7 @@ export class DebugServer {
     const socket = await this._clientSocketPromise;
 
     const transport: ConnectionTransport = {
-      send: function (message): void {
+      send: function(message): void {
         if (socket.readyState !== ws.CLOSING)
           socket.send(JSON.stringify(message));
       },
