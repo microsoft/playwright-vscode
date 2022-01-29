@@ -204,6 +204,6 @@ export class PlaywrightTest {
 function temporaryPatchPathForWindows(location: string): string {
   // TODO: fix upstream.
   if (process.platform === 'win32')
-    return location.replaceAll('\\', '\\\\');
+    return location.replace(/\\/g, '\\\\');
   return location;
 }
