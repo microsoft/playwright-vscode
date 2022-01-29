@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { FullConfig, FullResult, Location, Reporter, Suite, TestCase, TestError, TestResult, TestStep } from './reporter';
+import type { FullConfig, FullResult, Location, Reporter, Suite, TestCase, TestError, TestResult, TestStep } from './reporter';
 import { ConnectionTransport, PipeTransport, WebSocketTransport } from './transport';
 import fs from 'fs';
 
@@ -164,7 +164,6 @@ class OopReporter implements Reporter {
   }
 
   onError(error: TestError): void {
-    console.log('LOOK MA');
     this._emit('onError', { error });
   }
 

@@ -16,12 +16,11 @@
 
 import path from 'path';
 import StackUtils from 'stack-utils';
-import { vscode } from './embedder';
-import * as vscodeTypes from './vscodeTypes';
 import { Entry } from './oopReporter';
 import { ListFilesReport, PlaywrightTest, TestListener } from './playwrightTest';
-import { TestError } from './reporter';
+import type { TestError } from './reporter';
 import { Config, TestTree } from './testTree';
+import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceObserver } from './workspaceObserver';
 
 const stackUtils = new StackUtils({
@@ -36,6 +35,8 @@ type StepInfo = {
 };
 
 export class TestModel {
+  private _vscode: vscodeTypes.VSCode;
+
   // Global test item map.
   private _testTree: TestTree;
 
@@ -48,19 +49,22 @@ export class TestModel {
   private _disposables: vscodeTypes.Disposable[];
   private _testItemUnderDebug: vscodeTypes.TestItem | undefined;
 
-  private _executionLinesChanged = new vscode.EventEmitter<{ active: StepInfo[], completed: StepInfo[] }>();
-  readonly onExecutionLinesChanged = this._executionLinesChanged.event;
+  private _executionLinesChanged: vscodeTypes.EventEmitter<{ active: StepInfo[], completed: StepInfo[] }>;
+  readonly onExecutionLinesChanged: vscodeTypes.Event<{ active: StepInfo[], completed: StepInfo[] }>;
   private _activeSteps = new Map<string, StepInfo>();
   private _completedSteps = new Map<string, StepInfo>();
   private _testRun: vscodeTypes.TestRun | undefined;
 
-  constructor() {
+  constructor(vscode: vscodeTypes.VSCode) {
+    this._vscode = vscode;
+    this._executionLinesChanged = new vscode.EventEmitter<{ active: StepInfo[], completed: StepInfo[] }>();
+    this.onExecutionLinesChanged = this._executionLinesChanged.event;
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
-    this._testTree = new TestTree(this._testController);
+    this._testTree = new TestTree(vscode, this._testController);
     this._playwrightTest = new PlaywrightTest();
 
-    this._workspaceObserver = new WorkspaceObserver(change => {
+    this._workspaceObserver = new WorkspaceObserver(this._vscode, change => {
       for (const deleted of new Set(change.deleted))
         this._onDidDeleteFile(deleted.uri.fsPath);
 
@@ -76,17 +80,15 @@ export class TestModel {
       this._onDidChangeFiles(filesByConfig);
     });
 
-    this._rebuildModel().catch(() => {});
-
     this._disposables = [
       vscode.workspace.onDidChangeWorkspaceFolders((_) => {
-        this._rebuildModel().catch(() => {});
+        this._rebuildModel(true);
       }),
       vscode.window.onDidChangeActiveTextEditor(() => {
         this._updateActiveEditorItems();
       }),
       vscode.commands.registerCommand('pw.extension.refreshTests', () => {
-        this._rebuildModel().catch(() => {});
+        this._rebuildModel(true);
       }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
@@ -99,11 +101,15 @@ export class TestModel {
     ];
   }
 
+  async init() {
+    await this._rebuildModel(false);
+  }
+
   dispose() {
     this._disposables.forEach(d => d.dispose());
   }
 
-  private async _rebuildModel() {
+  private async _rebuildModel(refresh: boolean) {
     this._testTree.startedLoading();
     this._workspaceObserver.reset();
     for (const profile of this._runProfiles)
@@ -111,27 +117,28 @@ export class TestModel {
     this._runProfiles = [];
 
     // Give UI a chance to update.
-    await new Promise(f => setTimeout(f, 500));
+    if (refresh)
+      await new Promise(f => setTimeout(f, 200));
 
     // Check Playwright version.
     const rootTreeItems: vscodeTypes.TestItem[] = [];
-    const configFiles = await vscode.workspace.findFiles('**/*playwright*.config.[tj]s');
+    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.[tj]s');
     for (const configFileUri of configFiles) {
       const configFilePath = configFileUri.fsPath;
       if (configFilePath.includes('node_modules'))
         continue;
       // Dogfood support
-      if (configFilePath.includes('test-results'))
+      if (configFilePath.includes(path.join('playwright', 'test-results')))
         continue;
-      const workspaceFolder = vscode.workspace.getWorkspaceFolder(configFileUri)!.uri.fsPath;
+      const workspaceFolder = this._vscode.workspace.getWorkspaceFolder(configFileUri)!.uri.fsPath;
       const playwrightInfo = this._playwrightTest.getPlaywrightInfo(workspaceFolder, configFilePath);
       if (!playwrightInfo) {
-        vscode.window.showWarningMessage('Please install Playwright Test via running `npm i @playwright/test`');
+        this._vscode.window.showWarningMessage('Please install Playwright Test via running `npm i @playwright/test`');
         continue;
       }
 
       if (playwrightInfo.version < 1.19) {
-        vscode.window.showWarningMessage('Playwright Test v1.19 or newer is required');
+        this._vscode.window.showWarningMessage('Playwright Test v1.19 or newer is required');
         continue;
       }
 
@@ -147,7 +154,7 @@ export class TestModel {
       const configDir = path.dirname(config.configFile);
       config.testDir = report.testDir ? path.resolve(configDir, report.testDir) : configDir;
       const rootName = path.basename(path.dirname(config.testDir)) + path.sep + path.basename(config.testDir);
-      const rootTreeItem = this._testTree.createForLocation(rootName, vscode.Uri.file(config.testDir))
+      const rootTreeItem = this._testTree.createForLocation(rootName, this._vscode.Uri.file(config.testDir))
       rootTreeItems.push(rootTreeItem);
       this._workspaceObserver.addWatchFolder(config.testDir, config);
       await this._createRunProfiles(config, report);
@@ -174,8 +181,8 @@ export class TestModel {
           await this._runTest(isDebug, request, config, project.name, location!, token);
         }
       };
-      this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Run, handler.bind(null, false), true));
-      this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, vscode.TestRunProfileKind.Debug, handler.bind(null, true), true));
+      this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, this._vscode.TestRunProfileKind.Run, handler.bind(null, false), true));
+      this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, this._vscode.TestRunProfileKind.Debug, handler.bind(null, true), true));
     }
   }
 
@@ -196,7 +203,7 @@ export class TestModel {
   }
 
   private _createTestItemForEntry(entry: Entry): vscodeTypes.TestItem {
-    return this._testTree.createForLocation(entry.title, vscode.Uri.file(entry.file), entry.line);
+    return this._testTree.createForLocation(entry.title, this._vscode.Uri.file(entry.file), entry.line);
   }
 
   private _onDidDeleteFile(file: string) {
@@ -282,7 +289,7 @@ export class TestModel {
           testRun.passed(testItem, params.duration);
           return;
         }
-        testRun.failed(testItem, testMessageForTestError(testItem, params.error!), params.duration);
+        testRun.failed(testItem, this._testMessageForTestError(testItem, params.error!), params.duration);
       },
 
       onStepBegin: params => {
@@ -291,9 +298,9 @@ export class TestModel {
         let step = this._activeSteps.get(params.stepId);
         if (!step) {
           step = {
-            location: new vscode.Location(
-              vscode.Uri.file(params.location.file),
-              new vscode.Position(params.location.line - 1, params.location.column - 1)),
+            location: new this._vscode.Location(
+              this._vscode.Uri.file(params.location.file),
+              new this._vscode.Position(params.location.line - 1, params.location.column - 1)),
             activeCount: 0,
             duration: 0,
           };
@@ -327,7 +334,7 @@ export class TestModel {
     this._testRun = testRun;
     try {
       if (isDebug)
-      await this._playwrightTest.debugTests(config, projectName, location, testListener, token);
+      await this._playwrightTest.debugTests(this._vscode, config, projectName, location, testListener, token);
     else
       await this._playwrightTest.runTests(config, projectName, location, testListener, token);
     } finally {
@@ -374,7 +381,7 @@ export class TestModel {
   }
 
   private async _updateActiveEditorItems() {
-    const editor = vscode.window.activeTextEditor;
+    const editor = this._vscode.window.activeTextEditor;
     if (!editor)
       return;
     const fsPath = editor.document.uri.fsPath;
@@ -385,9 +392,9 @@ export class TestModel {
   errorInDebugger(errorStack: string, location: DebuggerLocation) {
     if (!this._testRun || !this._testItemUnderDebug)
       return;
-    const testMessage = new vscode.TestMessage(errorStack);
-    const position = new vscode.Position(location.line - 1, location.column - 1);
-    testMessage.location = new vscode.Location(vscode.Uri.file(location.path), position);
+    const testMessage = new this._vscode.TestMessage(errorStack);
+    const position = new this._vscode.Position(location.line - 1, location.column - 1);
+    testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.path), position);
     this._testRun.failed(this._testItemUnderDebug, testMessage);
     this._testItemUnderDebug = undefined;
   }
@@ -396,17 +403,17 @@ export class TestModel {
     const active = [...this._activeSteps.values()];
     const completed = [...this._completedSteps.values()];
     this._executionLinesChanged.fire({ active, completed });
-  };
-}
-
-function testMessageForTestError(testItem: vscodeTypes.TestItem, error: TestError): vscodeTypes.TestMessage {
-  const message = new vscode.TestMessage(error.stack || error.message || error.value!);
-  const location = parseLocationFromStack(testItem, error.stack);
-  if (location) {
-    const position = new vscode.Position(location.line - 1, location.column - 1);
-    message.location = new vscode.Location(vscode.Uri.file(location.path), position);
   }
-  return message;
+
+  private _testMessageForTestError(testItem: vscodeTypes.TestItem, error: TestError): vscodeTypes.TestMessage {
+    const message = new this._vscode.TestMessage(error.stack || error.message || error.value!);
+    const location = parseLocationFromStack(testItem, error.stack);
+    if (location) {
+      const position = new this._vscode.Position(location.line - 1, location.column - 1);
+      message.location = new this._vscode.Location(this._vscode.Uri.file(location.path), position);
+    }
+    return message;
+  }  
 }
 
 function parseLocationFromStack(testItem: vscodeTypes.TestItem, stack: string | undefined): DebuggerLocation | undefined {

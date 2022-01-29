@@ -7,3 +7,5 @@ yarn.lock
 /vscode.proposed.d.ts
 /example/package-lock.json
 .DS_Store
+test-results/
+playwright-report/

@@ -15,7 +15,6 @@
  */
 
 import path from 'path';
-import { vscode } from './embedder';
 import * as vscodeTypes from './vscodeTypes';
 
 type WorkspaceChange = {
@@ -25,17 +24,19 @@ type WorkspaceChange = {
 };
 
 export class WorkspaceObserver {
+  private _vscode: vscodeTypes.VSCode;
   private _fileSystemWatchers: vscodeTypes.FileSystemWatcher[] = [];
   private _handler: (change: WorkspaceChange) => void;
   private _pendingChange: WorkspaceChange | undefined;
   private _timeout: NodeJS.Timeout | undefined;
 
-  constructor(handler: (change: WorkspaceChange) => void) {
+  constructor(vscode: vscodeTypes.VSCode, handler: (change: WorkspaceChange) => void) {
+    this._vscode = vscode;
     this._handler = handler;
   }
 
   addWatchFolder(folder: string, watcher: any) {
-    const fileSystemWatcher = vscode.workspace.createFileSystemWatcher(folder + path.sep + '**');
+    const fileSystemWatcher = this._vscode.workspace.createFileSystemWatcher(folder + path.sep + '**');
     fileSystemWatcher.onDidCreate(uri => {
       if (uri.scheme === 'file')
         this._change().created.push({ uri, watcher });

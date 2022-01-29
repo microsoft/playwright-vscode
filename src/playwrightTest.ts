@@ -17,9 +17,8 @@
 import { spawn, spawnSync } from 'child_process';
 import path from 'path';
 import { DebugServer } from './debugServer';
-import { vscode } from './embedder';
 import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
-import { TestError } from './reporter';
+import type { TestError } from './reporter';
 import { Config } from './testTree';
 import { ConnectionTransport, PipeTransport } from './transport';
 import { findInPath } from './utils';
@@ -114,7 +113,7 @@ export class PlaywrightTest {
 
   private async _test(config: Config, args: string[], listener: TestListener, token?: vscodeTypes.CancellationToken): Promise<void> {
     const node = this._findNode();
-    const allArgs = [config.cli, 'test', '-c', config.configFile, ...args, '--reporter', path.join(__dirname, 'oopReporter.js')];
+    const allArgs = [config.cli, 'test', '-c', config.configFile, ...args, '--reporter', 'line,' + path.join(__dirname, 'oopReporter.js')];
     const childProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
@@ -133,11 +132,11 @@ export class PlaywrightTest {
     await this._wireTestListener(transport, listener, token);
   }
 
-  async debugTests(config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
+  async debugTests(vscode: vscodeTypes.VSCode, config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
     const locationArg = location ? [location] : [];
-    const args = ['test', '-c', config.configFile, ...locationArg, '--project', projectName, '--reporter', path.join(__dirname, 'oopReporter.js'), '--headed', '--timeout', '0', '--workers', '1'];
+    const args = ['test', '-c', config.configFile, ...locationArg, '--project', projectName, '--reporter', 'line,' + path.join(__dirname, 'oopReporter.js'), '--headed', '--timeout', '0', '--workers', '1'];
     vscode.debug.startDebugging(undefined, {
       type: 'pwa-node',
       name: 'Playwright Test',

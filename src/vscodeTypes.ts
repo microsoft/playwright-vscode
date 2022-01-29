@@ -19,6 +19,8 @@ export type {
   DebugSession,
   DecorationOptions,
   Disposable,
+  Event,
+  EventEmitter,
   ExtensionContext,
   FileSystemWatcher,
   Location,
@@ -32,3 +34,5 @@ export type {
   TestController,
   Uri,
 } from 'vscode';
+
+export type VSCode = typeof import('vscode');

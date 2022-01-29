@@ -1,13 +1,14 @@
 {
-	"compilerOptions": {
-		"module": "commonjs",
-		"target": "ES2021",
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2021",
     "lib": ["esnext"],
-		"outDir": "out",
-		"sourceMap": true,
-		"strict": true,
-		"rootDir": "src",
-    "esModuleInterop": true,
-	},
-	"exclude": ["node_modules", ".vscode-test", "example", "test"]
+    "outDir": "out",
+    "sourceMap": true,
+    "strict": true,
+    "rootDir": "src",
+    "esModuleInterop": true
+  },
+  "include": ["src", "vscode.d.ts"],
+  "exclude": ["node_modules"]
 }

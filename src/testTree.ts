@@ -15,7 +15,6 @@
  */
 
 import path from 'path';
-import { vscode } from './embedder';
 import * as vscodeTypes from './vscodeTypes';
 import { createGuid } from './utils';
 
@@ -33,6 +32,8 @@ type TestItemData = {
 };
 
 export class TestTree {
+  private _vscode: vscodeTypes.VSCode;
+
   // We don't want tests to persist state between sessions, so we are using unique test id prefixes.
   private _testGeneration = '';
 
@@ -41,14 +42,15 @@ export class TestTree {
 
   private _testController: vscodeTypes.TestController;
 
-  constructor(testController: vscodeTypes.TestController) {
+  constructor(vscode: vscodeTypes.VSCode, testController: vscodeTypes.TestController) {
+    this._vscode = vscode;
     this._testController = testController;
   }
 
   startedLoading() {
     this._testItems.clear();
     this._testGeneration = createGuid() + ':';
-    if (!vscode.workspace.workspaceFolders?.length)
+    if (!this._vscode.workspace.workspaceFolders?.length)
       return;
     this._testController.items.replace([
       this._testController.createTestItem('loading', 'Loading\u2026')
@@ -112,7 +114,7 @@ export class TestTree {
       }
     });
     if (hasLine)
-      testItem.range = new vscode.Range(line - 1, 0, line, 0);
+      testItem.range = new this._vscode.Range(line - 1, 0, line, 0);
     return testItem;
   }
 
@@ -120,7 +122,7 @@ export class TestTree {
     const result = this.getForLocation(file);
     if (result)
       return result;
-    for (const workspaceFolder of vscode.workspace.workspaceFolders || []) {
+    for (const workspaceFolder of this._vscode.workspace.workspaceFolders || []) {
       const workspacePath = workspaceFolder.uri.fsPath;
       const relative = path.relative(workspaceFolder.uri.fsPath, file);
       if (relative.startsWith('..'))
@@ -135,7 +137,7 @@ export class TestTree {
     if (result)
       return result;
     const parentFile = path.dirname(fsPath);
-    const testItem = this.createForLocation(path.basename(fsPath), vscode.Uri.file(fsPath));
+    const testItem = this.createForLocation(path.basename(fsPath), this._vscode.Uri.file(fsPath));
     const parent = this._getOrCreateTestItemForFileOrFolderInWorkspace(workspacePath, parentFile);
     parent.children.add(testItem);  
     return testItem;
