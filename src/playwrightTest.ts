@@ -96,13 +96,13 @@ export class PlaywrightTest {
   }
 
   async runTests(config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
-    const locationArg = location ? [location] : [];
+    const locationArg = location ? [temporaryPatchPathForWindows(location)] : [];
     await this._test(config, [...locationArg,  '--project', projectName], listener, token);
   }
 
   async listTests(config: Config, files: string[]): Promise<Entry[]> {
     let result: Entry[] = [];
-    await this._test(config, [...files, '--list'], {
+    await this._test(config, [...files.map(temporaryPatchPathForWindows), '--list'], {
       onBegin: params => {
         result = params.files as Entry[];
         return true;
@@ -135,7 +135,7 @@ export class PlaywrightTest {
   async debugTests(vscode: vscodeTypes.VSCode, config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
-    const locationArg = location ? [location] : [];
+    const locationArg = location ? [temporaryPatchPathForWindows(location)] : [];
     const args = ['test', '-c', config.configFile, ...locationArg, '--project', projectName, '--reporter', 'line,' + path.join(__dirname, 'oopReporter.js'), '--headed', '--timeout', '0', '--workers', '1'];
     vscode.debug.startDebugging(undefined, {
       type: 'pwa-node',
@@ -199,4 +199,11 @@ export class PlaywrightTest {
     this._pathToNodeJS = node;
     return node;
   }
+}
+
+function temporaryPatchPathForWindows(location: string): string {
+  // TODO: fix upstream.
+  if (process.platform === 'win32')
+    return location.replaceAll('\\', '\\\\');
+  return location;
 }
