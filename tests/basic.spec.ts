@@ -15,7 +15,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import path from 'path/posix';
+import path from 'path';
 import { Extension } from '../out/extension';
 import { VSCode } from './mock/vscode';
 
