@@ -19,7 +19,7 @@ import path from 'path';
 import { Extension } from '../out/extension';
 import { VSCode } from './mock/vscode';
 
-async function activateInWorkspace(rootDir: string, files: { [key: string]: string }) {
+async function activate(rootDir: string, files: { [key: string]: string }) {
   const vscode = new VSCode();
   await vscode.addWorkspace('workspace', rootDir, files);
   const extension = new Extension(vscode);
@@ -29,11 +29,11 @@ async function activateInWorkspace(rootDir: string, files: { [key: string]: stri
 }
 
 test('should activate', async ({}, testInfo) => {
-  await activateInWorkspace(testInfo.outputDir, {});
+  await activate(testInfo.outputDir, {});
 });
 
 test('should create run & debug profiles', async ({}, testInfo) => {
-  const { vscode, testController } = await activateInWorkspace(testInfo.outputDir, {
+  const { vscode, testController } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = {}`
   });
   expect(vscode.testControllers).toHaveLength(1);
@@ -51,7 +51,7 @@ test('should create run & debug profiles', async ({}, testInfo) => {
 });
 
 test('should create run & debug profile per project', async ({}, testInfo) => {
-  const { testController } = await activateInWorkspace(testInfo.outputDir, {
+  const { testController } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = {
       projects: [
         {
@@ -88,23 +88,21 @@ test('should create run & debug profile per project', async ({}, testInfo) => {
 });
 
 test('should list files', async ({}, testInfo) => {
-  const { testController } = await activateInWorkspace(testInfo.outputDir, {
+  const { testController } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = {}`,
     'test.spec.ts': `
       import { test } from '@playwright/test';
       test('one', async () => {});
     `,
   });
-  expect(testController.items.items).toHaveLength(1);
-  const root = testController.items.items[0];
-  expect(root.label).toBe('test-results' + path.sep + 'basic-should-list-files');
-  const fileItems = root.children.items;
-  expect(fileItems).toHaveLength(1);
-  expect(fileItems[0].label).toBe('test.spec.ts');
+  expect(testController.renderTestTree()).toBe(`
+    - test-results/basic-should-list-files
+      - test.spec.ts
+  `);
 });
 
 test('should list only test files', async ({}, testInfo) => {
-  const { testController } = await activateInWorkspace(testInfo.outputDir, {
+  const { testController } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = {}`,
     'model.ts': `
       export const a = 1;
@@ -114,27 +112,48 @@ test('should list only test files', async ({}, testInfo) => {
       test('one', async () => {});
     `,
   });
-  expect(testController.items.items).toHaveLength(1);
-  const root = testController.items.items[0];
-  expect(root.label).toBe('test-results' + path.sep + 'basic-should-list-only-test-files');
-  const fileItems = root.children.items;
-  expect(fileItems).toHaveLength(1);
-  expect(fileItems[0].label).toBe('test.spec.ts');
+  expect(testController.renderTestTree()).toBe(`
+    - test-results/basic-should-list-only-test-files
+      - test.spec.ts
+  `);
+});
+
+test('should list folders', async ({}, testInfo) => {
+  const { testController } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = {}`,
+    'foo/test-a.spec.ts': ``,
+    'foo/test-b.spec.ts': ``,
+    'bar/test-a.spec.ts': ``,
+    'a/b/c/d/test-c.spec.ts': ``,
+  });
+  expect(testController.renderTestTree()).toBe(`
+    - test-results/basic-should-list-folders
+      - a
+        - b
+          - c
+            - d
+              - test-c.spec.ts
+      - bar
+        - test-a.spec.ts
+      - foo
+        - test-a.spec.ts
+        - test-b.spec.ts
+  `);
 });
 
 test('should list tests', async ({}, testInfo) => {
-  const { testController } = await activateInWorkspace(testInfo.outputDir, {
+  const { testController } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = {}`,
     'test.spec.ts': `
       import { test } from '@playwright/test';
       test('one', async () => {});
     `,
   });
-  const root = testController.items.items[0];
-  const fileItem = root.children.items[0];
-  expect(fileItem.label).toBe('test.spec.ts');
-  await fileItem.resolveChildren();
-  const tests = fileItem.children.items;
-  expect(tests).toHaveLength(1);
-  expect(tests[0].label).toBe('one');
+
+  await testController.expandTestItem(/test.spec.ts/);
+  expect(testController.renderTestTree()).toBe(`
+    - test-results/basic-should-list-tests
+      - test.spec.ts
+        - one
+  `);
 });

@@ -63,7 +63,9 @@ class WorkspaceFolder {
 }
 
 class TestItem {
-  readonly children = new TestCollection();
+  readonly children = this;
+  readonly map = new Map<string, TestItem>();
+  parent: TestItem | undefined;
 
   constructor(
       readonly testController: TestController,
@@ -72,28 +74,42 @@ class TestItem {
       readonly uri?: Uri) {
   }
 
-  async resolveChildren() {
-    await this.testController.resolveHandler(this);
+  async expand() {
+    await this.testController.resolveHandler?.(this);
   }
-}
-
-class TestCollection {
-  items: TestItem[] = [];
 
   add(item: TestItem) {
-    this.items.push(item);
+    this.map.set(item.id, item);
+    item.parent = this;
+    this.testController.allTestItems.set(item.id, item);
   }
 
   delete(id: string) {
-    this.items = this.items.filter(i => i.id !== id);
+    this.map.delete(id);
+    this.testController.allTestItems.delete(id);
   }
 
   replace(items: TestItem[]) {
-    this.items = items;
+    for (const itemId of this.map.keys())
+      this.delete(itemId);
+    for (const item of items)
+      this.add(item);
   }
 
   forEach(visitor: (item: TestItem) => void) {
-    this.items.forEach(visitor);
+    this.map.forEach(visitor);
+  }
+
+  toString(): string {
+    const result: string[] = [];
+    this.innerToString('', result);
+    return result.join('\n');
+  }
+
+  innerToString(indent: string, result: string[]) {
+    result.push(`${indent}- ${this.label}`);
+    for (const id of [...this.children.map.keys()].sort())
+      this.children.map.get(id).innerToString(indent + '  ', result);
   }
 }
 
@@ -109,12 +125,14 @@ class CancellationToken {
 }
 
 class TestController {
-  readonly items: TestCollection;
+  readonly items: TestItem;
   readonly runProfiles: TestRunProfile[] = [];
+  readonly allTestItems = new Map<string, TestItem>();
+
   resolveHandler: (item: TestItem | null) => Promise<void>;
 
-  constructor(private id: string, private label: string) {
-    this.items = new TestCollection();
+  constructor(id: string, label: string) {
+    this.items = new TestItem(this, id, label);
   }
 
   createTestItem(id: string, label: string, uri?: Uri): TestItem {
@@ -129,6 +147,23 @@ class TestController {
     };
     this.runProfiles.push(profile);
     return profile;
+  }
+
+  renderTestTree() {
+    const result: string[] = [''];
+    for (const item of this.items.map.values())
+      item.innerToString('    ', result);
+    result.push('  ');
+    return result.join('\n');
+  }
+
+  async expandTestItem(label: RegExp) {
+    for (const testItem of this.allTestItems.values()) {
+      if (label.exec(testItem.label)) {
+        await testItem.expand();
+        break;
+      }
+    }
   }
 }
 
@@ -227,8 +262,11 @@ export class VSCode {
     const workspaceFolder = new WorkspaceFolder(name, Uri.file(rootFolder));
     this.workspace.workspaceFolders.push(workspaceFolder);
     await fs.promises.mkdir(rootFolder, { recursive: true });
-    for (const [fsPath, content] of Object.entries(files))
-      await fs.promises.writeFile(path.join(rootFolder, fsPath), content);
+    for (const [fsPath, content] of Object.entries(files)) {
+      const fullPath = path.join(rootFolder, fsPath);
+      await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
+      await fs.promises.writeFile(fullPath, content);
+    }
     this._didChangeWorkspaceFolders.fire(undefined);
   }
 }
