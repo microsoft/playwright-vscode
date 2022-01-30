@@ -182,8 +182,9 @@ export class TestModel {
           await this._runTest(isDebug, request, config, project.name, location!, token);
         }
       };
-      this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, this._vscode.TestRunProfileKind.Run, handler.bind(null, false), true));
-      this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, this._vscode.TestRunProfileKind.Debug, handler.bind(null, true), true));
+      const isDefault = project === report.projects[0];
+      this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, this._vscode.TestRunProfileKind.Run, handler.bind(null, false), isDefault));
+      this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, this._vscode.TestRunProfileKind.Debug, handler.bind(null, true), isDefault));
     }
   }
 
@@ -387,7 +388,7 @@ export class TestModel {
       return;
     const fsPath = editor.document.uri.fsPath;
     const fileItem = this._testTree.getForLocation(fsPath);
-    this._populateFileItemIfNeeded(fileItem);
+    await this._populateFileItemIfNeeded(fileItem);
   }
 
   errorInDebugger(errorStack: string, location: DebuggerLocation) {

@@ -109,7 +109,6 @@ export class Extension {
             for (const { location } of locations.active) {
               if (location.uri.fsPath === editor.document.uri.fsPath)
                 activeDecorations.push({ range: location.range });
-
             }
 
             const completedDecorations: vscodeTypes.DecorationOptions[] = [];

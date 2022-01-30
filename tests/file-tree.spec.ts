@@ -15,67 +15,22 @@
  */
 
 import { expect, test } from '@playwright/test';
-import path from 'path';
 import { activate } from './utils';
 
 test.describe.parallel('file tree', () => {
-  test('should activate', async ({}, testInfo) => {
-    await activate(testInfo.outputDir, {});
-  });
 
-  test('should create run & debug profiles', async ({}, testInfo) => {
-    const { vscode, testController } = await activate(testInfo.outputPath('workspace'), {
-      'playwright.config.js': `module.exports = {}`
+  test('should list files', async ({}, testInfo) => {
+    const { testController } = await activate(testInfo.outputDir, {
+      'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+      'tests/test.spec.ts': `
+        import { test } from '@playwright/test';
+        test('one', async () => {});
+      `,
     });
-    expect(vscode.testControllers).toHaveLength(1);
-    expect(testController.runProfiles).toHaveLength(2);
-    expect(testController.runProfiles[0]).toEqual({
-      isDefault: true,
-      kind: 1,
-      label: 'workspace' + path.sep + 'playwright.config.js',
-    });
-    expect(testController.runProfiles[1]).toEqual({
-      isDefault: true,
-      kind: 2,
-      label: 'workspace' + path.sep + 'playwright.config.js',
-    });
-  });
-
-  test('should create run & debug profile per project', async ({}, testInfo) => {
-    const { testController } = await activate(testInfo.outputPath('workspace'), {
-      'playwright.config.js': `module.exports = {
-        projects: [
-          {
-            name: 'projectA'
-          },
-          {
-            name: 'projectB'
-          },
-        ]
-      }`
-    });
-    const profileTitle = 'workspace' + path.sep + 'playwright.config.js';
-    expect(testController.runProfiles).toHaveLength(4);
-    expect(testController.runProfiles[0]).toEqual({
-      isDefault: true,
-      kind: 1,
-      label: profileTitle + ' [projectA]',
-    });
-    expect(testController.runProfiles[1]).toEqual({
-      isDefault: true,
-      kind: 2,
-      label: profileTitle + ' [projectA]',
-    });
-    expect(testController.runProfiles[2]).toEqual({
-      isDefault: true,
-      kind: 1,
-      label: profileTitle + ' [projectB]',
-    });
-    expect(testController.runProfiles[3]).toEqual({
-      isDefault: true,
-      kind: 2,
-      label: profileTitle + ' [projectB]',
-    });
+    expect(testController.renderTestTree()).toBe(`
+      - tests
+        - test.spec.ts
+    `);
   });
 
   test('should use workspace name if no testDir', async ({}, testInfo) => {
@@ -88,20 +43,6 @@ test.describe.parallel('file tree', () => {
     });
     expect(testController.renderTestTree()).toBe(`
       - myWorkspace
-        - test.spec.ts
-    `);
-  });
-
-  test('should list files', async ({}, testInfo) => {
-    const { testController } = await activate(testInfo.outputDir, {
-      'playwright.config.js': `module.exports = { testDir: 'tests' }`,
-      'tests/test.spec.ts': `
-        import { test } from '@playwright/test';
-        test('one', async () => {});
-      `,
-    });
-    expect(testController.renderTestTree()).toBe(`
-      - tests
         - test.spec.ts
     `);
   });

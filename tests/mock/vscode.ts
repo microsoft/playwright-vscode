@@ -32,6 +32,10 @@ class Uri {
 
 class Position {
   constructor(readonly line: number, readonly character: number) {}
+
+  toString() {
+    return `${this.line}:${this.character}`;
+  }
 }
 
 class Location {
@@ -50,6 +54,21 @@ class Range {
   constructor(startLine: number, startCharacter: number, endLine: number, endCharacter: number) {
     this.start = new Position(startLine, startCharacter);
     this.end = new Position(endLine, endCharacter);
+  }
+
+  toString() {
+    return `[${this.start.toString()} - ${this.start.toString()}]`;
+  }
+}
+
+class CancellationToken {
+  isCancellationRequested: boolean;
+  readonly didCancel = new EventEmitter<void>();
+  onCancellationRequested = this.didCancel.event;
+
+  cancel() {
+    this.isCancellationRequested = true;
+    this.didCancel.fire();
   }
 }
 
@@ -90,6 +109,7 @@ class WorkspaceFolder {
 class TestItem {
   readonly children = this;
   readonly map = new Map<string, TestItem>();
+  range: Range | undefined;
   parent: TestItem | undefined;
 
   constructor(
@@ -143,21 +163,126 @@ class TestItem {
   }
 
   innerToString(indent: string, result: string[]) {
-    result.push(`${indent}- ${this.label}`);
+    result.push(`${indent}- ${this.treeTitle()}`);
     for (const id of [...this.children.map.keys()].sort())
       this.children.map.get(id).innerToString(indent + '  ', result);
   }
+
+  treeTitle(): string {
+    let location = '';
+    if (this.range)
+      location = ` [${this.range.start.toString()}]`;
+    return `${this.label}${location}`;
+  }
 }
 
-type TestRunProfile = {
-  label: string;
-  kind: TestRunProfileKind;
-  isDefault?: boolean;
-};
+class TestRunProfile {
+  constructor(
+    readonly label: string,
+    readonly kind: TestRunProfileKind,
+    readonly runHandler: (request: TestRunRequest, token: CancellationToken) => Promise<void>,
+    readonly isDefault?: boolean) {
+  }
 
-type TestRunRequest = {};
+  async run(include?: TestItem[], exclude?: TestItem[]) {
+    const request = new TestRunRequest(include, exclude, this);
+    await this.runHandler(request, new CancellationToken());
+  }
+}
 
-class CancellationToken {
+class TestRunRequest {
+  constructor(readonly include?: TestItem[], readonly exclude?: TestItem[], readonly profile?: TestRunProfile) {}
+}
+
+export class TestMessage {
+  constructor(
+    readonly message: string,
+    readonly expectedOutput?: string,
+    readonly actualOutput?: string,
+    readonly location?: Location) {}
+
+  render(indent: string, result: string[]) {
+    if (this.location)
+      result.push(`${indent}${path.basename(this.location.uri.fsPath)}:${this.location.range.toString()}`);
+    const message = stripAscii(this.message);
+    for (const line of message.split('\n')) {
+      if (this.location && line.includes(this.location.uri.fsPath))
+        break;
+      result.push(indent + line);
+    }
+  }
+}
+
+type LogEntry = { status: string, duration?: number, message?: TestMessage };
+
+class TestRun {
+  private _didChange = new EventEmitter<void>();
+  readonly onDidChange = this._didChange.event;
+  readonly _didEnd = new EventEmitter<void>();
+  readonly onDidEnd = this._didEnd.event;
+  readonly entries = new Map<TestItem, LogEntry[]>();
+
+  constructor(
+    readonly request: TestRunRequest,
+    readonly name?: string,
+    readonly persist?: boolean) {
+  }
+
+  enqueued(test: TestItem) {
+    this._log(test, { status: 'enqueued' });
+  }
+
+  started(test: TestItem) {
+    this._log(test, { status: 'started' });
+  }
+
+  skipped(test: TestItem) {
+    this._log(test, { status: 'skipped' });
+  }
+
+  failed(test: TestItem, message: TestMessage, duration?: number) {
+    this._log(test, { status: 'failed', duration, message });
+  }
+
+  errored(test: TestItem, message: TestMessage, duration?: number) {
+    this._log(test, { status: 'errored', duration, message });
+  }
+
+  passed(test: TestItem, duration?: number) {
+    this._log(test, { status: 'passed', duration });
+  }
+
+  private _log(test: TestItem, entry: LogEntry) {
+    let entries = this.entries.get(test);
+    if (!entries) {
+      entries = [];
+      this.entries.set(test, []);
+    }
+    entries.push(entry);
+    this._didChange.fire();
+  }
+
+  appendOutput(output: string, location?: Location, test?: TestItem) {
+  }
+
+  end() {
+    this._didEnd.fire();
+  }
+
+  renderLog(options: { messages?: boolean } = {}): string {
+    const indent = '    ';
+    const result: string[] = [''];
+    for (const [test, entries] of this.entries) {
+      result.push(`  ${test.treeTitle()}`);
+      for (const entry of entries) {
+        result.push(`    ${entry.status}`);
+        if (options.messages && entry.message)
+          entry.message.render('      ', result);
+      }
+    }
+    result.push('');
+    return result.join(`\n${indent}`);
+  }
 }
 
 class TestController {
@@ -168,9 +293,12 @@ class TestController {
   readonly didChangeTestItem = new EventEmitter<TestItem>();
   readonly onDidChangeTestItem = this.didChangeTestItem.event;
 
+  private _didCreateTestRun = new EventEmitter<TestRun>();
+  readonly onDidCreateTestRun = this._didCreateTestRun.event;
+
   resolveHandler: (item: TestItem | null) => Promise<void>;
 
-  constructor(id: string, label: string) {
+  constructor(readonly vscode: VSCode, id: string, label: string) {
     this.items = new TestItem(this, id, label);
   }
 
@@ -179,13 +307,15 @@ class TestController {
   }
 
   createRunProfile(label: string, kind: TestRunProfileKind, runHandler: (request: TestRunRequest, token: CancellationToken) => Promise<void>, isDefault?: boolean): TestRunProfile {
-    const profile = {
-      label,
-      kind,
-      isDefault
-    };
+    const profile = new TestRunProfile(label, kind, runHandler, isDefault);
     this.runProfiles.push(profile);
     return profile;
+  }
+
+  createTestRun(request: TestRunRequest, name?: string, persist?: boolean): TestRun {
+    const testRun = new TestRun(request, name, persist);
+    this._didCreateTestRun.fire(testRun);
+    return testRun;
   }
 
   renderTestTree() {
@@ -197,12 +327,61 @@ class TestController {
   }
 
   async expandTestItem(label: RegExp) {
+    await this.findTestItem(label).expand();
+  }
+
+  findTestItem(label: RegExp): TestItem | undefined {
     for (const testItem of this.allTestItems.values()) {
-      if (label.exec(testItem.label)) {
-        await testItem.expand();
-        break;
+      if (label.exec(testItem.label))
+        return testItem;
+    }
+  }
+
+  async run(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {
+    const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Run);
+    const [testRun] = await Promise.all([
+      new Promise<TestRun>(f => this.onDidCreateTestRun(f)),
+      profile.run(include, exclude),
+    ]);
+    return testRun;
+  }
+}
+
+type Decoration = { type?: number, range: Range, renderOptions?: any };
+
+class TextEditor {
+  readonly document: { uri: Uri; };
+  private _log: string[] = [];
+  private _state = new Map<number, Decoration[]>();
+
+  constructor(uri: Uri) {
+    this.document = { uri };
+  }
+
+  setDecorations(type: number, decorations: Decoration[]) {
+    this._state.set(type, decorations);
+
+    const lines: string[] = [];
+    for (const [type, decorations] of this._state) {
+      for (const decoration of decorations) {
+        let options = decoration.renderOptions ? ' ' + JSON.stringify(decoration.renderOptions) : '';
+        options = options.replace(/\d+ms/g, 'Xms');
+        lines.push(`${decoration.range.toString()}: decorator #${type}${options}`);
       }
     }
+    const state = lines.sort().join('\n');
+    if (this._log[this._log.length - 1] !== state)
+      this._log.push(state);
+  }
+
+  renderDecorations(indent: string): string {
+    const result = [''];
+    for (const state of this._log) {
+      result.push('  --------------------------------------------------------------');
+      result.push(...state.split('\n').map(s => '  ' + s));
+    }
+    result.push('');
+    return result.join(`\n${indent}`);
   }
 }
 
@@ -226,8 +405,9 @@ export class VSCode {
   Location = Location;
   Position = Position;
   Range = Range;
-  Uri = Uri;
+  TestMessage = TestMessage;
   TestRunProfileKind = TestRunProfileKind;
+  Uri = Uri;
   commands: any = {};
   debug: any = {};
   languages: any = {};
@@ -260,10 +440,12 @@ export class VSCode {
     this.languages.registerHoverProvider = () => {};
     this.tests.createTestController = this._createTestController.bind(this);
 
+    let lastDecorationTypeId = 0;
     this.window.onDidChangeActiveTextEditor = this.onDidChangeActiveTextEditor;
     this.window.onDidChangeTextEditorSelection = this.onDidChangeTextEditorSelection;
-    this.window.createTextEditorDecorationType = () => ({});
+    this.window.createTextEditorDecorationType = () => ++lastDecorationTypeId;
     this.window.showWarningMessage = () => {};
+    this.window.visibleTextEditors = [];
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
     this.workspace.onDidChangeTextDocument = this.onDidChangeTextDocument;
@@ -297,7 +479,7 @@ export class VSCode {
   }
 
   private _createTestController(id: string, label: string): TestController {
-    const testController = new TestController(id, label);
+    const testController = new TestController(this, id, label);
     this.testControllers.push(testController);
     return testController;
   }
@@ -313,4 +495,23 @@ export class VSCode {
     this._didChangeWorkspaceFolders.fire(undefined);
     return workspaceFolder;
   }
+
+  async openEditors(glob: string) {
+    const uris = await this.workspace.findFiles(glob);
+    this.window.activeTextEditor = undefined;
+    this.window.visibleTextEditors = [];
+    for (const uri of uris) {
+      const editor = new TextEditor(uri);
+      if (!this.window.activeTextEditor)
+        this.window.activeTextEditor = editor;
+      this.window.visibleTextEditors.push(editor);
+      break;
+    }
+    this._didChangeActiveTextEditor.fire(this.window.activeTextEditor);
+  }
+}
+
+const asciiRegex = new RegExp('[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))', 'g');
+export function stripAscii(str: string): string {
+  return str.replace(asciiRegex, '');
 }
