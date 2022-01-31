@@ -424,7 +424,7 @@ function parseLocationFromStack(testItem: vscodeTypes.TestItem, stack: string | 
     const frame = stackUtils.parseLine(line);
     if (!frame || !frame.file || !frame.line || !frame.column)
       continue;
-
+    frame.file = frame.file.replace(/\//g, path.sep);
     if (testItem.uri!.fsPath === frame.file) {
       return {
         path: frame.file,
