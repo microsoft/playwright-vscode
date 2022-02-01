@@ -122,4 +122,75 @@ test.describe.parallel('test tree', () => {
           - two [3:0]
     `);
   });
+
+  test('should forget tests after error before first test', async ({}, testInfo) => {
+    const { testController, workspaceFolder } = await activate(testInfo.outputDir, {
+      'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+      'tests/test.spec.ts': `
+        import { test } from '@playwright/test';
+        test('one', async () => {});
+        test('two', async () => {});
+      `,
+    });
+
+    await testController.expandTestItem(/test.spec.ts/);
+
+    expect(testController.renderTestTree()).toBe(`
+      - tests
+        - test.spec.ts
+          - one [2:0]
+          - two [3:0]
+    `);
+
+    await Promise.all([
+      new Promise(f => testController.onDidChangeTestItem(f)),
+      workspaceFolder.changeFile('tests/test.spec.ts', `
+        import { test } from '@playwright/test';
+        throw new Error('Uncaught');
+        test('one', async () => {});
+        test('two', async () => {});
+      `)
+    ]);
+
+    expect(testController.renderTestTree()).toBe(`
+      - tests
+        - test.spec.ts
+    `);
+  });
+
+  test('should regain tests after error is fixed', async ({}, testInfo) => {
+    const { testController, workspaceFolder } = await activate(testInfo.outputDir, {
+      'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+      'tests/test.spec.ts': `
+        import { test } from '@playwright/test';
+        throw new Error('Uncaught');
+        test('one', async () => {});
+        test('two', async () => {});
+      `,
+    });
+
+    await testController.expandTestItem(/test.spec.ts/);
+
+    expect(testController.renderTestTree()).toBe(`
+      - tests
+        - test.spec.ts
+    `);
+
+    await Promise.all([
+      new Promise(f => testController.onDidChangeTestItem(f)),
+      workspaceFolder.changeFile('tests/test.spec.ts', `
+        import { test } from '@playwright/test';
+        test('one', async () => {});
+        test('two', async () => {});
+      `)
+    ]);
+
+    expect(testController.renderTestTree()).toBe(`
+      - tests
+        - test.spec.ts
+          - one [2:0]
+          - two [3:0]
+    `);
+  });
+
 });

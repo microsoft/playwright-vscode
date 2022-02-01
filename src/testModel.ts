@@ -268,7 +268,7 @@ export class TestModel {
 
   private async _populateFileItems(config: Config, fileItems: vscodeTypes.TestItem[]) {
     const files = await this._playwrightTest.listTests(config, fileItems.map(i => i.uri!.fsPath));
-    this._updateTestTreeFromEntries(files);
+    this._updateTestTreeFromEntries(fileItems, files);
   }
 
   private async _runTest(isDebug: boolean, request: vscodeTypes.TestRunRequest, config: Config, projectName: string, location: string | null, token: vscodeTypes.CancellationToken) {
@@ -285,7 +285,7 @@ export class TestModel {
     const testListener: TestListener = {
       onBegin: ({ files }) => {
         const items = new Set<vscodeTypes.TestItem>();
-        this._updateTestTreeFromEntries(files, items);
+        this._updateTestTreeFromEntries([], files, items);
         for (const item of items)
           testRun.enqueued(item);
         return false;
@@ -369,8 +369,10 @@ export class TestModel {
     }
   }
 
-  private _updateTestTreeFromEntries(files: Entry[], collector?: Set<vscodeTypes.TestItem>) {
+  private _updateTestTreeFromEntries(fileItems: vscodeTypes.TestItem[], files: Entry[], collector?: Set<vscodeTypes.TestItem>) {
     const lazyChildren = new Map<vscodeTypes.TestItem, vscodeTypes.TestItem[]>();
+    for (const fileItem of fileItems)
+      lazyChildren.set(fileItem, []);
 
     const map = (parentEntry: Entry, parentItem: vscodeTypes.TestItem) => {
       for (const entry of parentEntry.children || []) {
