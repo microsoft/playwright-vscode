@@ -7,17 +7,23 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-    name: Run tests on ${{ matrix.os }}
+    name: Run tests on ${{ matrix.os }}, Node ${{ matrix.node-version }}
     strategy:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
+        node-version: [ 16 ]
+      include:
+      - os: ubuntu-latest
+        node-version: 12
+      - os: ubuntu-latest
+        node-version: 14
     steps:
     - uses: actions/checkout@v2
     - name: Use Node.js
       uses: actions/setup-node@v2
       with:
-        node-version: 14.x
+        node-version: ${{ matrix.node-version }}
     - run: npm ci
     - run: npm run lint
     - run: npm run build
