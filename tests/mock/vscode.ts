@@ -206,7 +206,7 @@ export class TestMessage {
       result.push(`${indent}${path.basename(this.location.uri.fsPath)}:${this.location.range.toString()}`);
     const message = stripAscii(this.message);
     for (const line of message.split('\n')) {
-      if (this.location && line.includes(this.location.uri.fsPath))
+      if (this.location && line.includes('    at'))
         break;
       result.push(indent + line);
     }

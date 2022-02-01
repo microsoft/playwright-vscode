@@ -21,7 +21,7 @@ import { ListFilesReport, PlaywrightTest, TestListener } from './playwrightTest'
 import type { TestError } from './reporter';
 import { Config, TestTree } from './testTree';
 import * as vscodeTypes from './vscodeTypes';
-import { WorkspaceObserver } from './workspaceObserver';
+import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -64,27 +64,7 @@ export class TestModel {
     this._testTree = new TestTree(vscode, this._testController);
     this._playwrightTest = new PlaywrightTest();
 
-    this._workspaceObserver = new WorkspaceObserver(this._vscode, async change => {
-      for (const deleted of new Set(change.deleted))
-        this._onDidDeleteFile(deleted.uri.fsPath);
-
-      const configsWithCreatedFiles = new Set<Config>();
-      for (const entry of change.created)
-        configsWithCreatedFiles.add(entry.watcher);
-      await this._onDidCreateFiles(configsWithCreatedFiles);
-
-      const changedByConfig = new Map<Config, Set<string>>();
-      for (const entry of change.changed) {
-        let files = changedByConfig.get(entry.watcher);
-        if (!files) {
-          files = new Set();
-          changedByConfig.set(entry.watcher, files);
-        }
-        files.add(entry.uri.fsPath);
-      }
-      await this._onDidChangeFiles(changedByConfig);
-    });
-
+    this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
     this._disposables = [
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
         this._rebuildModel(true);
@@ -128,6 +108,8 @@ export class TestModel {
     // Check Playwright version.
     const rootTreeItems: vscodeTypes.TestItem[] = [];
     const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.[tj]s');
+
+    const testDirs = new Set<string>();
     for (const configFileUri of configFiles) {
       const configFilePath = configFileUri.fsPath;
       if (configFilePath.includes('node_modules'))
@@ -157,14 +139,20 @@ export class TestModel {
       const report = await this._playwrightTest.listFiles(config);
       if (!report)
         continue;
-      const configDir = path.dirname(config.configFile);
-      const testDir = report.testDir ? path.resolve(configDir, report.testDir) : configDir;
-      const rootName = path.relative(workspaceFolderPath, testDir) || workspaceFolder.name;
-      const rootTreeItem = this._testTree.createForLocation(rootName, this._vscode.Uri.file(testDir));
-      rootTreeItems.push(rootTreeItem);
-      this._workspaceObserver.addWatchFolder(testDir, config);
+
       await this._createRunProfiles(config, report);
-      await this._createTestItemsForFiles(config, report);
+
+      for (const project of report.projects) {
+        const testDir = project.testDir;
+        if (!testDirs.has(testDir)) {
+          testDirs.add(testDir);
+          const rootName = path.relative(workspaceFolder.uri.fsPath, testDir) || workspaceFolder.name;
+          const rootTreeItem = this._testTree.createForLocation(rootName, this._vscode.Uri.file(testDir));
+          rootTreeItems.push(rootTreeItem);
+        }
+        await this._createTestItemsForFiles(config, report);
+        this._workspaceObserver.addWatchFolder(testDir, config);
+      }
     }
 
     this._testTree.finishedLoading(rootTreeItems);
@@ -211,6 +199,27 @@ export class TestModel {
 
   private _createTestItemForEntry(entry: Entry): vscodeTypes.TestItem {
     return this._testTree.createForLocation(entry.title, this._vscode.Uri.file(entry.file), entry.line);
+  }
+
+  private async _workspaceChanged(change: WorkspaceChange) {
+    for (const entry of change.deleted)
+      this._onDidDeleteFile(entry.uri.fsPath);
+
+    const configsWithCreatedFiles = new Set<Config>();
+    for (const entry of change.created)
+      configsWithCreatedFiles.add(entry.watcher);
+    await this._onDidCreateFiles(configsWithCreatedFiles);
+
+    const changedByConfig = new Map<Config, Set<string>>();
+    for (const entry of change.changed) {
+      let files = changedByConfig.get(entry.watcher);
+      if (!files) {
+        files = new Set();
+        changedByConfig.set(entry.watcher, files);
+      }
+      files.add(entry.uri.fsPath);
+    }
+    await this._onDidChangeFiles(changedByConfig);
   }
 
   private _onDidDeleteFile(file: string) {

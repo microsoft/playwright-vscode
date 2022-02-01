@@ -17,7 +17,7 @@
 import path from 'path';
 import * as vscodeTypes from './vscodeTypes';
 
-type WorkspaceChange = {
+export type WorkspaceChange = {
   created: { uri: vscodeTypes.Uri, watcher: any }[];
   changed: { uri: vscodeTypes.Uri, watcher: any }[];
   deleted: { uri: vscodeTypes.Uri, watcher: any }[];

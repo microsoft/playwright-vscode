@@ -25,8 +25,8 @@ import { findInPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
 export type ListFilesReport = {
-  testDir?: string;
   projects: {
+    testDir: string;
     name: string;
     files: string[];
   }[];
@@ -78,7 +78,7 @@ export class PlaywrightTest {
 
   async listFiles(config: Config): Promise<ListFilesReport | null> {
     const node = this._findNode();
-    const allArgs = [config.cli, 'list-tests', '-c', config.configFile];
+    const allArgs = [config.cli, 'list-files', '-c', config.configFile];
     const childProcess = spawnSync(node, allArgs, {
       cwd: config.workspaceFolder,
       env: { ...process.env }
@@ -96,13 +96,13 @@ export class PlaywrightTest {
   }
 
   async runTests(config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
-    const locationArg = location ? [temporaryPatchPathForWindows(location)] : [];
+    const locationArg = location ? [location] : [];
     await this._test(config, [...locationArg,  '--project', projectName], listener, token);
   }
 
   async listTests(config: Config, files: string[]): Promise<Entry[]> {
     let result: Entry[] = [];
-    await this._test(config, [...files.map(temporaryPatchPathForWindows), '--list'], {
+    await this._test(config, [...files, '--list'], {
       onBegin: params => {
         result = params.files as Entry[];
         return true;
@@ -141,7 +141,7 @@ export class PlaywrightTest {
   async debugTests(vscode: vscodeTypes.VSCode, config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
-    const locationArg = location ? [temporaryPatchPathForWindows(location)] : [];
+    const locationArg = location ? [location] : [];
     const args = ['test',
       '-c', config.configFile,
       ...locationArg,
@@ -215,11 +215,4 @@ export class PlaywrightTest {
     this._pathToNodeJS = node;
     return node;
   }
-}
-
-function temporaryPatchPathForWindows(location: string): string {
-  // TODO: fix upstream.
-  if (process.platform === 'win32')
-    return location.replace(/\\/g, '\\\\');
-  return location;
 }
