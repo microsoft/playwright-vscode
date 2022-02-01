@@ -30,7 +30,7 @@ jobs:
     - run: npm run test -- --workers=1
     - run: npx vsce package
     - uses: actions/upload-artifact@v2
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-latest' && matrix.node-version == '16'
       with:
         name: vsc-extension
         path: "*.vsix"
