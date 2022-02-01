@@ -167,8 +167,10 @@ class OopReporter implements Reporter {
     this._emit('onError', { error });
   }
 
-  onEnd(result: FullResult): void | Promise<void> {
-    this._emit('onEnd', {});
+  async onEnd(result: FullResult) {
+    await this._emit('onEnd', {});
+    // Transport will close and this process will exit.
+    await new Promise(() => {});
   }
 
   private _entryId(entry: TestCase | Suite | TestStep): string {
@@ -178,8 +180,8 @@ class OopReporter implements Reporter {
     return '';
   }
 
-  private _emit(method: string, params: Object) {
-    this._transport.then(t => t.send({ id: 0, method, params }));
+  private async _emit(method: string, params: Object) {
+    await this._transport.then(t => t.send({ id: 0, method, params }));
   }
 }
 

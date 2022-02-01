@@ -33,7 +33,7 @@ export type ListFilesReport = {
 };
 
 export interface TestListener {
-  onBegin?(params: { files: Entry[] }): boolean;
+  onBegin?(params: { files: Entry[] }): void;
   onTestBegin?(params: TestBeginParams): void;
   onTestEnd?(params: TestEndParams): void;
   onStepBegin?(params: StepBeginParams): void;
@@ -68,7 +68,7 @@ export class PlaywrightTest {
 
       // Dogfood for 'ttest'
       if (cli.includes('packages/playwright-core') && configFilePath.includes('playwright-test'))
-        cli = path.resolve(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules');
+        cli = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/playwright-core/lib/cli/cli');
 
       return { cli, version: parseFloat(version) };
     } catch {
@@ -179,21 +179,12 @@ export class PlaywrightTest {
       if (token?.isCancellationRequested && message.method !== 'onEnd')
         return;
       switch (message.method) {
-        case 'onBegin': {
-          const terminate = !!listener.onBegin?.(message.params);
-          if (terminate)
-            transport.close();
-          break;
-        }
+        case 'onBegin': listener.onBegin?.(message.params); break;
         case 'onTestBegin': listener.onTestBegin?.(message.params); break;
         case 'onTestEnd': listener.onTestEnd?.(message.params); break;
         case 'onStepBegin': listener.onStepBegin?.(message.params); break;
         case 'onStepEnd': listener.onStepEnd?.(message.params); break;
-        case 'onError': {
-          listener.onError?.(message.params);
-          transport.close();
-          break;
-        }
+        case 'onError': listener.onError?.(message.params); break;
         case 'onEnd': {
           listener.onEnd?.();
           transport.close();
