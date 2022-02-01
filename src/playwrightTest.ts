@@ -113,7 +113,13 @@ export class PlaywrightTest {
 
   private async _test(config: Config, args: string[], listener: TestListener, token?: vscodeTypes.CancellationToken): Promise<void> {
     const node = this._findNode();
-    const allArgs = [config.cli, 'test', '-c', config.configFile, ...args, '--reporter', 'line,' + path.join(__dirname, 'oopReporter.js')];
+    const allArgs = [config.cli, 'test',
+      '-c', config.configFile,
+      ...args,
+      '--repeat-each', '1',
+      '--reporter', 'line,' + path.join(__dirname, 'oopReporter.js'),
+      '--retries', '0',
+    ];
     const childProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
@@ -136,7 +142,17 @@ export class PlaywrightTest {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
     const locationArg = location ? [temporaryPatchPathForWindows(location)] : [];
-    const args = ['test', '-c', config.configFile, ...locationArg, '--project', projectName, '--reporter', 'line,' + path.join(__dirname, 'oopReporter.js'), '--headed', '--timeout', '0', '--workers', '1'];
+    const args = ['test',
+      '-c', config.configFile,
+      ...locationArg,
+      '--headed',
+      '--project', projectName,
+      '--repeat-each', '1',
+      '--reporter', 'line,' + path.join(__dirname, 'oopReporter.js'),
+      '--retries', '0',
+      '--timeout', '0',
+      '--workers', '1'
+    ];
     vscode.debug.startDebugging(undefined, {
       type: 'pwa-node',
       name: 'Playwright Test',

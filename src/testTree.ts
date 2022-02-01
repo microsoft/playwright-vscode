@@ -21,7 +21,6 @@ import { createGuid } from './utils';
 export type Config = {
   workspaceFolder: string;
   configFile: string;
-  testDir?: string;
   cli: string;
 };
 

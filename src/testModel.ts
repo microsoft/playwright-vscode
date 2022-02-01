@@ -64,20 +64,25 @@ export class TestModel {
     this._testTree = new TestTree(vscode, this._testController);
     this._playwrightTest = new PlaywrightTest();
 
-    this._workspaceObserver = new WorkspaceObserver(this._vscode, change => {
+    this._workspaceObserver = new WorkspaceObserver(this._vscode, async change => {
       for (const deleted of new Set(change.deleted))
         this._onDidDeleteFile(deleted.uri.fsPath);
 
-      const filesByConfig = new Map<Config, Set<string>>();
-      for (const entry of [...change.changed, ...change.created]) {
-        let files = filesByConfig.get(entry.watcher);
+      const configsWithCreatedFiles = new Set<Config>();
+      for (const entry of change.created)
+        configsWithCreatedFiles.add(entry.watcher);
+      await this._onDidCreateFiles(configsWithCreatedFiles);
+
+      const changedByConfig = new Map<Config, Set<string>>();
+      for (const entry of change.changed) {
+        let files = changedByConfig.get(entry.watcher);
         if (!files) {
           files = new Set();
-          filesByConfig.set(entry.watcher, files);
+          changedByConfig.set(entry.watcher, files);
         }
         files.add(entry.uri.fsPath);
       }
-      this._onDidChangeFiles(filesByConfig);
+      await this._onDidChangeFiles(changedByConfig);
     });
 
     this._disposables = [
@@ -153,11 +158,11 @@ export class TestModel {
       if (!report)
         continue;
       const configDir = path.dirname(config.configFile);
-      config.testDir = report.testDir ? path.resolve(configDir, report.testDir) : configDir;
-      const rootName = path.relative(workspaceFolderPath, config.testDir) || workspaceFolder.name;
-      const rootTreeItem = this._testTree.createForLocation(rootName, this._vscode.Uri.file(config.testDir));
+      const testDir = report.testDir ? path.resolve(configDir, report.testDir) : configDir;
+      const rootName = path.relative(workspaceFolderPath, testDir) || workspaceFolder.name;
+      const rootTreeItem = this._testTree.createForLocation(rootName, this._vscode.Uri.file(testDir));
       rootTreeItems.push(rootTreeItem);
-      this._workspaceObserver.addWatchFolder(config.testDir, config);
+      this._workspaceObserver.addWatchFolder(testDir, config);
       await this._createRunProfiles(config, report);
       await this._createTestItemsForFiles(config, report);
     }
@@ -214,12 +219,20 @@ export class TestModel {
       this._testTree.delete(testItem);
   }
 
+  private async _onDidCreateFiles(configs: Set<Config>) {
+    for (const config of configs) {
+      const report = await this._playwrightTest.listFiles(config);
+      if (report)
+        await this._createTestItemsForFiles(config, report);
+    }
+  }
+
   private async _onDidChangeFiles(configs: Map<Config, Set<string>>) {
     const loadedFilesByConfig = new Map<Config, vscodeTypes.TestItem[]>();
 
     // Ensure all test items are created for all created and changed files.
     for (const [config, files] of configs) {
-      const testItems = [...files].map(file => this._testTree.getOrCreateForFileOrFolder(file)) as vscodeTypes.TestItem[];
+      const testItems = [...files].map(file => this._testTree.getForLocation(file)).filter(Boolean) as vscodeTypes.TestItem[];
       // Erase all loaded test items in loaded files.
       const loadedFileItems = testItems.filter(testItem => this._testTree.isLoaded(testItem));
       for (const fileItem of loadedFileItems) {

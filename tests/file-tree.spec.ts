@@ -110,6 +110,30 @@ test.describe.parallel('file tree', () => {
     `);
   });
 
+  test('should not pick non-test files', async ({}, testInfo) => {
+    const { workspaceFolder, testController } = await activate(testInfo.outputDir, {
+      'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+      'tests/test-1.spec.ts': ``
+    });
+
+    expect(testController.renderTestTree()).toBe(`
+      - tests
+        - test-1.spec.ts
+    `);
+
+    await Promise.all([
+      new Promise(f => testController.onDidChangeTestItem(f)),
+      workspaceFolder.addFile('tests/model.ts', ''),
+      workspaceFolder.addFile('tests/test-2.spec.ts', ''),
+    ]);
+
+    expect(testController.renderTestTree()).toBe(`
+      - tests
+        - test-1.spec.ts
+        - test-2.spec.ts
+    `);
+  });
+
   test('should pick first file', async ({}, testInfo) => {
     test.fixme(true, 'Upstream issue, playwright list-tests should work even when testDir does not exist');
     const { workspaceFolder, testController } = await activate(testInfo.outputDir, {
