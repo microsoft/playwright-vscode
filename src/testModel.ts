@@ -251,10 +251,8 @@ export class TestModel {
       const testItems = [...files].map(file => this._testTree.getForLocation(file)).filter(Boolean) as vscodeTypes.TestItem[];
       // Erase all loaded test items in loaded files.
       const loadedFileItems = testItems.filter(testItem => this._testTree.isLoaded(testItem));
-      for (const fileItem of loadedFileItems) {
+      for (const fileItem of loadedFileItems)
         this._testTree.setLoaded(fileItem, true);
-        this._testTree.unbindChildren(fileItem);
-      }
       loadedFilesByConfig.set(config, loadedFileItems);
     }
 
@@ -267,7 +265,6 @@ export class TestModel {
     if (!fileItem || this._testTree.isLoaded(fileItem))
       return;
     this._testTree.setLoaded(fileItem, true);
-    this._testTree.unbindChildren(fileItem);
 
     for (const config of this._testTree.configs(fileItem))
       await this._populateFileItems(config, [fileItem]);
@@ -378,12 +375,15 @@ export class TestModel {
 
   private _updateTestTreeFromEntries(fileItems: vscodeTypes.TestItem[], files: Entry[], collector?: Set<vscodeTypes.TestItem>) {
     const lazyChildren = new Map<vscodeTypes.TestItem, vscodeTypes.TestItem[]>();
-    for (const fileItem of fileItems)
+    for (const fileItem of fileItems) {
+      this._testTree.unbindChildren(fileItem);
       lazyChildren.set(fileItem, []);
+    }
 
     const map = (parentEntry: Entry, parentItem: vscodeTypes.TestItem) => {
       for (const entry of parentEntry.children || []) {
         // Tolerate clashing configs that are adding dupe tests in common files.
+        // TODO: we should no longer hit it.
         let testItem = this._testTree.getForLocation(entry.id);
         if (!testItem) {
           testItem = this._createTestItemForEntry(entry);
