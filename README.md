@@ -34,7 +34,7 @@ Right click and start breakpoint debugging. Set a breakpoint, hover over a value
 
 ![step_explore](https://user-images.githubusercontent.com/883973/152095220-b68a2a3c-8395-4252-9be8-5c6adf35eddf.gif)
 
-### Seelctors playground
+### Selctors playground
 
 You can edit text to fine-tune selectors while on a breakint. A selector playgroung on every line of your test script!
 
