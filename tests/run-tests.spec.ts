@@ -148,4 +148,34 @@ test.describe.parallel('run tests', () => {
     await runPromise;
   });
 
+  test('should run describe', async ({}, testInfo) => {
+    const { testController } = await activate(testInfo.outputDir, {
+      'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+      'tests/test.spec.ts': `
+        import { test } from '@playwright/test';
+        test.describe('describe', () => {
+          test('one', async () => {});
+          test('two', async () => {});
+        });
+      `,
+    });
+
+    await testController.expandTestItems(/test.spec.ts/);
+    const testItems = testController.findTestItems(/describe/);
+    expect(testItems.length).toBe(1);
+    const testRun = await testController.run(testItems);
+
+    // Test was discovered, hence we should see immediate enqueue.
+    expect(testRun.renderLog()).toBe(`
+      describe [2:0]
+        enqueued
+      one [3:0]
+        started
+        passed
+      two [4:0]
+        started
+        passed
+    `);
+  });
+
 });
