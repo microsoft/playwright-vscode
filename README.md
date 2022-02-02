@@ -1,4 +1,4 @@
-# [Playwright Test] for Visual Studio Code
+# Playwright Test for Visual Studio Code (alpha)
 
 [![GitHub Actions](https://github.com/microsoft/playwright-vscode/actions/workflows/ci.yml/badge.svg?event=push)](https://github.com/microsoft/playwright-vscode/actions)
 [![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/ms-playwright.playwright)](https://marketplace.visualstudio.com/items?itemName=ms-playwright.playwright)
