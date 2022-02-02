@@ -20,6 +20,7 @@ import { Entry } from './oopReporter';
 import { ListFilesReport, PlaywrightTest, TestListener } from './playwrightTest';
 import type { TestError } from './reporter';
 import { Config, TestTree } from './testTree';
+import { stripAnsi } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 
@@ -424,7 +425,7 @@ export class TestModel {
   errorInDebugger(errorStack: string, location: DebuggerLocation) {
     if (!this._testRun || !this._testItemUnderDebug)
       return;
-    const testMessage = new this._vscode.TestMessage(errorStack);
+    const testMessage = new this._vscode.TestMessage(stripAnsi(errorStack));
     const position = new this._vscode.Position(location.line - 1, location.column - 1);
     testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.path), position);
     this._testRun.failed(this._testItemUnderDebug, testMessage);
@@ -438,7 +439,8 @@ export class TestModel {
   }
 
   private _testMessageForTestError(testItem: vscodeTypes.TestItem, error: TestError): vscodeTypes.TestMessage {
-    const message = new this._vscode.TestMessage(error.stack || error.message || error.value!);
+    const sanitized = stripAnsi(error.stack || error.message || error.value!);
+    const message = new this._vscode.TestMessage(sanitized);
     const location = parseLocationFromStack(testItem, error.stack);
     if (location) {
       const position = new this._vscode.Position(location.line - 1, location.column - 1);
