@@ -202,4 +202,26 @@ test.describe.parallel('file tree', () => {
     await new Promise(f => setTimeout(f, 2000));
     expect(changed).toBeFalsy();
   });
+
+  test('should support multiple configs', async ({}, testInfo) => {
+    const { testController } = await activate(testInfo.outputDir, {
+      'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
+      'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
+      'tests1/test.spec.ts': `
+        import { test } from '@playwright/test';
+        test('one', async () => {});
+      `,
+      'tests2/test.spec.ts': `
+        import { test } from '@playwright/test';
+        test(two', async () => {});
+      `,
+    });
+    expect(testController.renderTestTree()).toBe(`
+      - tests1
+        - test.spec.ts
+      - tests2
+        - test.spec.ts
+    `);
+  });
+
 });

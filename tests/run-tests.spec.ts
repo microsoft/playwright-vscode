@@ -15,6 +15,7 @@
  */
 
 import { expect, test } from '@playwright/test';
+import { TestRun } from './mock/vscode';
 import { activate } from './utils';
 
 test.describe.parallel('run tests', () => {
@@ -52,9 +53,9 @@ test.describe.parallel('run tests', () => {
       `,
     });
 
-    await testController.expandTestItem(/test.spec/);
-    const testItem = testController.findTestItem(/pass/);
-    const testRun = await testController.run([testItem]);
+    await testController.expandTestItems(/test.spec/);
+    const testItems = testController.findTestItems(/pass/);
+    const testRun = await testController.run(testItems);
 
     // Test was discovered, hence we should see immediate enqueue.
     expect(testRun.renderLog()).toBe(`
@@ -76,9 +77,9 @@ test.describe.parallel('run tests', () => {
       `,
     });
 
-    await testController.expandTestItem(/test.spec/);
-    const testItem = testController.findTestItem(/fail/);
-    const testRun = await testController.run([testItem]);
+    await testController.expandTestItems(/test.spec/);
+    const testItems = testController.findTestItems(/fail/);
+    const testRun = await testController.run(testItems);
 
     // Test was discovered, hence we should see immediate enqueue.
     expect(testRun.renderLog({ messages: true })).toBe(`
@@ -92,6 +93,59 @@ test.describe.parallel('run tests', () => {
           Expected: 2
           Received: 1
     `);
+  });
+
+  test('should only create test run if item belongs to context', async ({}, testInfo) => {
+    const { vscode, testController } = await activate(testInfo.outputDir, {
+      'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
+      'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
+      'tests1/test1.spec.ts': `
+        import { test } from '@playwright/test';
+        test('one', async () => {});
+      `,
+      'tests2/test2.spec.ts': `
+        import { test } from '@playwright/test';
+        test('two', async () => {});
+      `,
+    });
+
+    const profiles = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
+    let testRuns: TestRun[] = [];
+    testController.onDidCreateTestRun(run => testRuns.push(run));
+
+    {
+      testRuns = [];
+      const items = testController.findTestItems(/test1.spec/);
+      await Promise.all(profiles.map(p => p.run(items)));
+      expect(testRuns).toHaveLength(1);
+      expect(testRuns[0].request.profile).toBe(profiles[0]);
+    }
+
+    {
+      testRuns = [];
+      const items = testController.findTestItems(/test2.spec/);
+      await Promise.all(profiles.map(p => p.run(items)));
+      expect(testRuns).toHaveLength(1);
+      expect(testRuns[0].request.profile).toBe(profiles[1]);
+    }
+  });
+
+  test('should stop', async ({}, testInfo) => {
+    const { vscode, testController } = await activate(testInfo.outputDir, {
+      'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+      'tests/test.spec.ts': `
+        import { test } from '@playwright/test';
+        test('one', async () => { await new Promise(() => {})});
+      `,
+    });
+
+    const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run);
+    const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
+    const runPromise = profile.run();
+    const testRun = await testRunPromise;
+    await new Promise(f => setTimeout(f, 1000));
+    testRun.request.token.cancel();
+    await runPromise;
   });
 
 });

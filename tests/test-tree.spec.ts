@@ -28,7 +28,7 @@ test.describe.parallel('test tree', () => {
       `,
     });
 
-    await testController.expandTestItem(/test.spec.ts/);
+    await testController.expandTestItems(/test.spec.ts/);
     expect(testController.renderTestTree()).toBe(`
       - tests
         - test.spec.ts
@@ -77,7 +77,7 @@ test.describe.parallel('test tree', () => {
       `,
     });
 
-    await testController.expandTestItem(/test.spec.ts/);
+    await testController.expandTestItems(/test.spec.ts/);
     expect(testController.renderTestTree()).toBe(`
       - tests
         - test.spec.ts
@@ -104,7 +104,7 @@ test.describe.parallel('test tree', () => {
       `,
     });
 
-    await testController.expandTestItem(/test.spec.ts/);
+    await testController.expandTestItems(/test.spec.ts/);
 
     await Promise.all([
       new Promise(f => testController.onDidChangeTestItem(f)),
@@ -133,7 +133,7 @@ test.describe.parallel('test tree', () => {
       `,
     });
 
-    await testController.expandTestItem(/test.spec.ts/);
+    await testController.expandTestItems(/test.spec.ts/);
 
     expect(testController.renderTestTree()).toBe(`
       - tests
@@ -169,7 +169,7 @@ test.describe.parallel('test tree', () => {
       `,
     });
 
-    await testController.expandTestItem(/test.spec.ts/);
+    await testController.expandTestItems(/test.spec.ts/);
 
     expect(testController.renderTestTree()).toBe(`
       - tests
@@ -190,6 +190,32 @@ test.describe.parallel('test tree', () => {
         - test.spec.ts
           - one [2:0]
           - two [3:0]
+    `);
+  });
+
+  test('should support multiple configs', async ({}, testInfo) => {
+    const { testController } = await activate(testInfo.outputDir, {
+      'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
+      'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
+      'tests1/test.spec.ts': `
+        import { test } from '@playwright/test';
+        test('one', async () => {});
+      `,
+      'tests2/test.spec.ts': `
+        import { test } from '@playwright/test';
+        test('two', async () => {});
+      `,
+    });
+
+    await testController.expandTestItems(/test.spec/);
+
+    expect(testController.renderTestTree()).toBe(`
+      - tests1
+        - test.spec.ts
+          - one [2:0]
+      - tests2
+        - test.spec.ts
+          - two [2:0]
     `);
   });
 

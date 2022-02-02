@@ -186,12 +186,17 @@ class TestRunProfile {
 
   async run(include?: TestItem[], exclude?: TestItem[]) {
     const request = new TestRunRequest(include, exclude, this);
-    await this.runHandler(request, new CancellationToken());
+    await this.runHandler(request, request.token);
   }
 }
 
 class TestRunRequest {
-  constructor(readonly include?: TestItem[], readonly exclude?: TestItem[], readonly profile?: TestRunProfile) {}
+  readonly token = new CancellationToken();
+
+  constructor(
+    readonly include?: TestItem[],
+    readonly exclude?: TestItem[],
+    readonly profile?: TestRunProfile) {}
 }
 
 export class TestMessage {
@@ -215,7 +220,7 @@ export class TestMessage {
 
 type LogEntry = { status: string, duration?: number, message?: TestMessage };
 
-class TestRun {
+export class TestRun {
   private _didChange = new EventEmitter<void>();
   readonly onDidChange = this._didChange.event;
   readonly _didEnd = new EventEmitter<void>();
@@ -326,15 +331,12 @@ class TestController {
     return result.join('\n');
   }
 
-  async expandTestItem(label: RegExp) {
-    await this.findTestItem(label).expand();
+  async expandTestItems(label: RegExp) {
+    await Promise.all(this.findTestItems(label).map(t => t.expand()));
   }
 
-  findTestItem(label: RegExp): TestItem | undefined {
-    for (const testItem of this.allTestItems.values()) {
-      if (label.exec(testItem.label))
-        return testItem;
-    }
+  findTestItems(label: RegExp): TestItem[] {
+    return [...this.allTestItems.values()].filter(t => label.exec(t.label));
   }
 
   async run(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {

@@ -71,8 +71,9 @@ export class TestTree {
     data.configs.add(config);
   }
 
-  configs(fileItem: vscodeTypes.TestItem): Config[] {
-    const configs = this._testItems.get(fileItem.id)!.data.configs;
+  configs(testItem: vscodeTypes.TestItem): Config[] {
+    const fileItem = this.getForLocation(testItem.uri!.fsPath);
+    const configs = this._testItems.get(fileItem!.id)!.data.configs;
     return configs ? [...configs] : [];
   }
 

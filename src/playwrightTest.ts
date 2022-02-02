@@ -95,8 +95,8 @@ export class PlaywrightTest {
     return null;
   }
 
-  async runTests(config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
-    const locationArg = location ? [location] : [];
+  async runTests(config: Config, projectName: string, locations: string[] | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
+    const locationArg = locations ? locations : [];
     await this._test(config, [...locationArg,  '--project', projectName], listener, token);
   }
 
@@ -138,10 +138,10 @@ export class PlaywrightTest {
     await this._wireTestListener(transport, listener, token);
   }
 
-  async debugTests(vscode: vscodeTypes.VSCode, config: Config, projectName: string, location: string | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
+  async debugTests(vscode: vscodeTypes.VSCode, config: Config, projectName: string, locations: string[] | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
-    const locationArg = location ? [location] : [];
+    const locationArg = locations ? locations : [];
     const args = ['test',
       '-c', config.configFile,
       ...locationArg,

@@ -170,10 +170,16 @@ export class TestModel {
           await this._runTest(isDebug, request, config, project.name, null, token);
           return;
         }
+
+        // Only run config if there are test items belonging to it.
+        const locations: string[] = [];
         for (const testItem of request.include) {
-          const location = this._testTree.location(testItem);
-          await this._runTest(isDebug, request, config, project.name, location!, token);
+          if (this._testTree.configs(testItem).includes(config))
+            locations.push(this._testTree.location(testItem)!);
         }
+
+        if (locations.length)
+          await this._runTest(isDebug, request, config, project.name, locations, token);
       };
       const isDefault = project === report.projects[0];
       this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, this._vscode.TestRunProfileKind.Run, handler.bind(null, false), isDefault));
@@ -271,7 +277,7 @@ export class TestModel {
     this._updateTestTreeFromEntries(fileItems, files);
   }
 
-  private async _runTest(isDebug: boolean, request: vscodeTypes.TestRunRequest, config: Config, projectName: string, location: string | null, token: vscodeTypes.CancellationToken) {
+  private async _runTest(isDebug: boolean, request: vscodeTypes.TestRunRequest, config: Config, projectName: string, locations: string[] | null, token: vscodeTypes.CancellationToken) {
     const testRun = this._testController.createTestRun(request);
 
     // Provide immediate feedback on action target.
@@ -358,9 +364,9 @@ export class TestModel {
     this._testRun = testRun;
     try {
       if (isDebug)
-        await this._playwrightTest.debugTests(this._vscode, config, projectName, location, testListener, token);
+        await this._playwrightTest.debugTests(this._vscode, config, projectName, locations, testListener, token);
       else
-        await this._playwrightTest.runTests(config, projectName, location, testListener, token);
+        await this._playwrightTest.runTests(config, projectName, locations, testListener, token);
     } finally {
       this._activeSteps.clear();
       this._fireExecutionLinesChanged();
