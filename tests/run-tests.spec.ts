@@ -178,4 +178,59 @@ test.describe.parallel('run tests', () => {
     `);
   });
 
+  test('should run file', async ({}, testInfo) => {
+    const { testController } = await activate(testInfo.outputDir, {
+      'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+      'tests/test.spec.ts': `
+        import { test } from '@playwright/test';
+        test('one', async () => {});
+        test('two', async () => {});
+      `,
+    });
+
+    const testItems = testController.findTestItems(/test.spec.ts/);
+    expect(testItems.length).toBe(1);
+    const testRun = await testController.run(testItems);
+
+    // Test was discovered, hence we should see immediate enqueue.
+    expect(testRun.renderLog()).toBe(`
+      test.spec.ts
+      one [2:0]
+        started
+        passed
+      two [3:0]
+        started
+        passed
+    `);
+  });
+
+  test('should run folder', async ({}, testInfo) => {
+    const { testController } = await activate(testInfo.outputDir, {
+      'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+      'tests/folder/test1.spec.ts': `
+        import { test } from '@playwright/test';
+        test('one', async () => {});
+      `,
+      'tests/folder/test2.spec.ts': `
+        import { test } from '@playwright/test';
+        test('two', async () => {});
+      `,
+    });
+
+    const testItems = testController.findTestItems(/folder/);
+    expect(testItems.length).toBe(1);
+    const testRun = await testController.run(testItems);
+
+    // Test was discovered, hence we should see immediate enqueue.
+    expect(testRun.renderLog()).toBe(`
+      folder
+      one [2:0]
+        started
+        passed
+      two [2:0]
+        started
+        passed
+    `);
+  });
+
 });

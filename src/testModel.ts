@@ -135,6 +135,7 @@ export class TestModel {
         workspaceFolder: workspaceFolderPath,
         configFile: configFileUri.fsPath,
         cli: playwrightInfo.cli,
+        projects: new Map()
       };
 
       const report = await this._playwrightTest.listFiles(config);
@@ -145,6 +146,7 @@ export class TestModel {
 
       for (const project of report.projects) {
         const testDir = project.testDir;
+        config.projects.set(project.name, { testDir });
         if (!testDirs.has(testDir)) {
           testDirs.add(testDir);
           const rootName = path.relative(workspaceFolder.uri.fsPath, testDir) || workspaceFolder.name;
@@ -175,8 +177,9 @@ export class TestModel {
         // Only run config if there are test items belonging to it.
         const locations: string[] = [];
         for (const testItem of request.include) {
-          if (this._testTree.configs(testItem).includes(config))
-            locations.push(this._testTree.location(testItem)!);
+          const location = this._testTree.location(testItem);
+          if (location && location.startsWith(project.testDir))
+            locations.push(location);
         }
 
         if (locations.length)

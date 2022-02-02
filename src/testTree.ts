@@ -22,6 +22,7 @@ export type Config = {
   workspaceFolder: string;
   configFile: string;
   cli: string;
+  projects: Map<string, { testDir: string }>;
 };
 
 type TestItemData = {
