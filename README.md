@@ -10,7 +10,7 @@ This extension integrates [Playwright Test] with Visual Studio Code by using the
 
 ## Requirements
 
-- [Playwright Test] version 1.19+
+- [Playwright Test](https://playwright.dev) version 1.19+
 
 ## Usage
 
