@@ -47,7 +47,12 @@
     "download-api": "vscode-dts dev",
     "postdownload-api": "vscode-dts main",
     "postinstall": "npm run download-api && npm run build",
-    "test": "playwright test"
+    "test": "playwright test",
+    "package": "vsce package",
+    "code": "code --uninstall-extension ms-playwright.playwright && code --install-extension playwright-0.0.9.vsix",
+    "uncode": "code --uninstall-extension ms-playwright.playwright",
+    "code-insiders": "code-insiders --uninstall-extension ms-playwright.playwright && code-insiders --install-extension playwright-0.0.9.vsix",
+    "uncode-insiders": "code-insiders --uninstall-extension ms-playwright.playwright"
   },
   "devDependencies": {
     "@playwright/test": "^1.19.0-alpha-1643749494000",
