@@ -123,7 +123,10 @@ export class PlaywrightTest {
     const childProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
-      env: { ...process.env }
+      env: {
+        FORCE_COLORS: '1',
+        ...process.env
+      }
     });
     if (token) {
       token.onCancellationRequested(() => {
@@ -160,6 +163,7 @@ export class PlaywrightTest {
       cwd: config.workspaceFolder,
       env: {
         ...process.env,
+        FORCE_COLORS: '1',
         PW_OUT_OF_PROCESS_DRIVER: '1',
         PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
         PW_TEST_REPORTER_WS_ENDPOINT: wsEndpoint,
