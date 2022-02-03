@@ -55,7 +55,7 @@
     "uncode-insiders": "code-insiders --uninstall-extension ms-playwright.playwright"
   },
   "devDependencies": {
-    "@playwright/test": "^1.19.0-alpha-1643749494000",
+    "@playwright/test": "^1.19.0-alpha-feb-4-2022",
     "@types/babel__core": "^7.1.18",
     "@types/babel__helper-plugin-utils": "^7.10.0",
     "@types/babel__traverse": "^7.14.2",

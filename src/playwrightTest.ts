@@ -117,15 +117,16 @@ export class PlaywrightTest {
       '-c', config.configFile,
       ...args,
       '--repeat-each', '1',
-      '--reporter', 'line,' + path.join(__dirname, 'oopReporter.js'),
       '--retries', '0',
     ];
     const childProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
+        ...process.env,
         FORCE_COLORS: '1',
-        ...process.env
+        PW_TEST_REPORTER: require.resolve('./oopReporter'),
+        PW_TEST_HTML_REPORT_OPEN: 'never',
       }
     });
     if (token) {
@@ -151,7 +152,6 @@ export class PlaywrightTest {
       '--headed',
       '--project', projectName,
       '--repeat-each', '1',
-      '--reporter', 'line,' + path.join(__dirname, 'oopReporter.js'),
       '--retries', '0',
       '--timeout', '0',
       '--workers', '1'
@@ -166,7 +166,9 @@ export class PlaywrightTest {
         FORCE_COLORS: '1',
         PW_OUT_OF_PROCESS_DRIVER: '1',
         PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
+        PW_TEST_REPORTER: require.resolve('./oopReporter'),
         PW_TEST_REPORTER_WS_ENDPOINT: wsEndpoint,
+        PW_TEST_HTML_REPORT_OPEN: 'never',
       },
       program: config.cli,
       args,

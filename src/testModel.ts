@@ -345,6 +345,8 @@ export class TestModel {
         if (!params.stepId)
           return;
         const step = this._activeSteps.get(params.stepId)!;
+        if (!step)
+          return;
         --step.activeCount;
         step.duration = params.duration;
         this._completedSteps.set(params.stepId, step);
