@@ -18,9 +18,9 @@ import path from 'path';
 import * as vscodeTypes from './vscodeTypes';
 
 export type WorkspaceChange = {
-  created: { uri: vscodeTypes.Uri, watcher: any }[];
-  changed: { uri: vscodeTypes.Uri, watcher: any }[];
-  deleted: { uri: vscodeTypes.Uri, watcher: any }[];
+  created: Set<string>;
+  changed: Set<string>;
+  deleted: Set<string>;
 };
 
 export class WorkspaceObserver {
@@ -35,19 +35,19 @@ export class WorkspaceObserver {
     this._handler = handler;
   }
 
-  addWatchFolder(folder: string, watcher: any) {
+  addWatchFolder(folder: string) {
     const fileSystemWatcher = this._vscode.workspace.createFileSystemWatcher(folder + path.sep + '**');
     fileSystemWatcher.onDidCreate(uri => {
       if (uri.scheme === 'file')
-        this._change().created.push({ uri, watcher });
+        this._change().created.add(uri.fsPath);
     });
     fileSystemWatcher.onDidChange(uri => {
       if (uri.scheme === 'file')
-        this._change().changed.push({ uri, watcher });
+        this._change().changed.add(uri.fsPath);
     });
     fileSystemWatcher.onDidDelete(uri => {
       if (uri.scheme === 'file')
-        this._change().deleted.push({ uri, watcher });
+        this._change().deleted.add(uri.fsPath);
     });
     this._fileSystemWatchers.push(fileSystemWatcher);
   }
@@ -55,9 +55,9 @@ export class WorkspaceObserver {
   private _change(): WorkspaceChange {
     if (!this._pendingChange) {
       this._pendingChange = {
-        created: [],
-        changed: [],
-        deleted: []
+        created: new Set(),
+        changed: new Set(),
+        deleted: new Set()
       };
     }
     if (this._timeout)

@@ -111,6 +111,7 @@ class TestItem {
   readonly map = new Map<string, TestItem>();
   range: Range | undefined;
   parent: TestItem | undefined;
+  canResolveChildren = false;
 
   constructor(
       readonly testController: TestController,
@@ -120,7 +121,8 @@ class TestItem {
   }
 
   async expand() {
-    await this.testController.resolveHandler?.(this);
+    if (this.canResolveChildren)
+      await this.testController.resolveHandler(this);
   }
 
   add(item: TestItem) {
@@ -275,7 +277,7 @@ export class TestRun {
   }
 
   renderLog(options: { messages?: boolean } = {}): string {
-    const indent = '    ';
+    const indent = '  ';
     const result: string[] = [''];
     for (const [test, entries] of this.entries) {
       result.push(`  ${test.treeTitle()}`);
@@ -326,8 +328,8 @@ class TestController {
   renderTestTree() {
     const result: string[] = [''];
     for (const item of this.items.map.values())
-      item.innerToString('      ', result);
-    result.push('    ');
+      item.innerToString('    ', result);
+    result.push('  ');
     return result.join('\n');
   }
 
@@ -420,6 +422,7 @@ export class VSCode {
   private _didStartDebugSession = new EventEmitter();
   private _didTerminateDebugSession = new EventEmitter();
   private _didChangeActiveTextEditor = new EventEmitter();
+  private _didChangeVisibleTextEditors = new EventEmitter();
   private _didChangeTextEditorSelection = new EventEmitter();
   private _didChangeWorkspaceFolders = new EventEmitter();
   private _didChangeTextDocument = new EventEmitter();
@@ -428,6 +431,7 @@ export class VSCode {
   readonly onDidTerminateDebugSession = this._didTerminateDebugSession.event;
   readonly onDidChangeActiveTextEditor = this._didChangeActiveTextEditor.event;
   readonly onDidChangeTextEditorSelection = this._didChangeTextEditorSelection.event;
+  readonly onDidChangeVisibleTextEditors = this._didChangeVisibleTextEditors.event;
   readonly onDidChangeWorkspaceFolders = this._didChangeWorkspaceFolders.event;
   readonly onDidChangeTextDocument = this._didChangeTextDocument.event;
   readonly testControllers: TestController[] = [];
@@ -445,6 +449,7 @@ export class VSCode {
     let lastDecorationTypeId = 0;
     this.window.onDidChangeActiveTextEditor = this.onDidChangeActiveTextEditor;
     this.window.onDidChangeTextEditorSelection = this.onDidChangeTextEditorSelection;
+    this.window.onDidChangeVisibleTextEditors = this.onDidChangeVisibleTextEditors;
     this.window.createTextEditorDecorationType = () => ++lastDecorationTypeId;
     this.window.showWarningMessage = () => {};
     this.window.visibleTextEditors = [];
@@ -507,8 +512,8 @@ export class VSCode {
       if (!this.window.activeTextEditor)
         this.window.activeTextEditor = editor;
       this.window.visibleTextEditors.push(editor);
-      break;
     }
+    this._didChangeVisibleTextEditors.fire(this.window.visibleTextEditors);
     this._didChangeActiveTextEditor.fire(this.window.activeTextEditor);
   }
 }

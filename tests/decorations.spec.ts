@@ -17,54 +17,52 @@
 import { expect, test } from '@playwright/test';
 import { activate } from './utils';
 
-test.describe.parallel('run tests', () => {
+test.describe.configure({ mode: 'parallel' });
 
-  test('should highlight steps while running', async ({}, testInfo) => {
-    const { vscode, testController } = await activate(testInfo.outputDir, {
-      'playwright.config.js': `module.exports = { testDir: 'tests' }`,
-      'tests/test.spec.ts': `
-        import { test, expect } from '@playwright/test';
-        test('pass', async () => {
-          expect(1).toBe(1);
-          expect(2).toBe(2);
-          expect(3).toBe(3);
-        });
-      `,
-    });
-
-    await vscode.openEditors('**/test.spec.ts');
-    await new Promise(f => testController.onDidChangeTestItem(f));
-
-    await testController.run();
-    expect(vscode.window.activeTextEditor.renderDecorations('    ')).toBe(`
-      --------------------------------------------------------------
-      
-      --------------------------------------------------------------
-      [3:20 - 3:20]: decorator #1
-      --------------------------------------------------------------
-      
-      --------------------------------------------------------------
-      [3:20 - 3:20]: decorator #2 {"after":{"contentText":" — Xms"}}
-      --------------------------------------------------------------
-      [3:20 - 3:20]: decorator #2 {"after":{"contentText":" — Xms"}}
-      [4:20 - 4:20]: decorator #1
-      --------------------------------------------------------------
-      [3:20 - 3:20]: decorator #2 {"after":{"contentText":" — Xms"}}
-      --------------------------------------------------------------
-      [3:20 - 3:20]: decorator #2 {"after":{"contentText":" — Xms"}}
-      [4:20 - 4:20]: decorator #2 {"after":{"contentText":" — Xms"}}
-      --------------------------------------------------------------
-      [3:20 - 3:20]: decorator #2 {"after":{"contentText":" — Xms"}}
-      [4:20 - 4:20]: decorator #2 {"after":{"contentText":" — Xms"}}
-      [5:20 - 5:20]: decorator #1
-      --------------------------------------------------------------
-      [3:20 - 3:20]: decorator #2 {"after":{"contentText":" — Xms"}}
-      [4:20 - 4:20]: decorator #2 {"after":{"contentText":" — Xms"}}
-      --------------------------------------------------------------
-      [3:20 - 3:20]: decorator #2 {"after":{"contentText":" — Xms"}}
-      [4:20 - 4:20]: decorator #2 {"after":{"contentText":" — Xms"}}
-      [5:20 - 5:20]: decorator #2 {"after":{"contentText":" — Xms"}}
-    `);
+test('should highlight steps while running', async ({}, testInfo) => {
+  const { vscode, testController } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test, expect } from '@playwright/test';
+      test('pass', async () => {
+        expect(1).toBe(1);
+        expect(2).toBe(2);
+        expect(3).toBe(3);
+      });
+    `,
   });
 
+  await vscode.openEditors('**/test.spec.ts');
+  await new Promise(f => testController.onDidChangeTestItem(f));
+
+  await testController.run();
+  expect(vscode.window.activeTextEditor.renderDecorations('  ')).toBe(`
+    --------------------------------------------------------------
+    
+    --------------------------------------------------------------
+    [3:18 - 3:18]: decorator #1
+    --------------------------------------------------------------
+    
+    --------------------------------------------------------------
+    [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    --------------------------------------------------------------
+    [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    [4:18 - 4:18]: decorator #1
+    --------------------------------------------------------------
+    [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    --------------------------------------------------------------
+    [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    [4:18 - 4:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    --------------------------------------------------------------
+    [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    [4:18 - 4:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    [5:18 - 5:18]: decorator #1
+    --------------------------------------------------------------
+    [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    [4:18 - 4:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    --------------------------------------------------------------
+    [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    [4:18 - 4:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    [5:18 - 5:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+  `);
 });

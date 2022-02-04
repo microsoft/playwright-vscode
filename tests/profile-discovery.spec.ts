@@ -18,56 +18,55 @@ import { expect, test } from '@playwright/test';
 import path from 'path';
 import { activate } from './utils';
 
-test.describe.parallel('profile-discovery', () => {
+test.describe.configure({ mode: 'parallel' });
 
-  test('should activate', async ({}, testInfo) => {
-    await activate(testInfo.outputDir, {});
+test('should activate', async ({}, testInfo) => {
+  await activate(testInfo.outputDir, {});
+});
+
+test('should create run & debug profiles', async ({}, testInfo) => {
+  const { vscode, testController } = await activate(testInfo.outputPath('workspace'), {
+    'playwright.config.js': `module.exports = {}`
+  });
+  expect(vscode.testControllers).toHaveLength(1);
+
+  const runProfiles = testController.runProfiles;
+  const profileTitle = 'workspace' + path.sep + 'playwright.config.js';
+  expect(runProfiles).toHaveLength(2);
+
+  expect(runProfiles[0].label).toBe(profileTitle);
+  expect(runProfiles[0].kind).toBe(vscode.TestRunProfileKind.Run);
+  expect(runProfiles[0].isDefault).toBeTruthy();
+
+  expect(runProfiles[1].label).toBe(profileTitle);
+  expect(runProfiles[1].kind).toBe(vscode.TestRunProfileKind.Debug);
+  expect(runProfiles[1].isDefault).toBeTruthy();
+});
+
+test('should create run & debug profile per project', async ({}, testInfo) => {
+  const { testController, vscode } = await activate(testInfo.outputPath('workspace'), {
+    'playwright.config.js': `module.exports = {
+      projects: [{ name: 'projectA' }, { name: 'projectB' }]
+    }`
   });
 
-  test('should create run & debug profiles', async ({}, testInfo) => {
-    const { vscode, testController } = await activate(testInfo.outputPath('workspace'), {
-      'playwright.config.js': `module.exports = {}`
-    });
-    expect(vscode.testControllers).toHaveLength(1);
+  const runProfiles = testController.runProfiles;
+  const profileTitle = 'workspace' + path.sep + 'playwright.config.js';
+  expect(runProfiles).toHaveLength(4);
 
-    const runProfiles = testController.runProfiles;
-    const profileTitle = 'workspace' + path.sep + 'playwright.config.js';
-    expect(runProfiles).toHaveLength(2);
+  expect(runProfiles[0].label).toBe(profileTitle + ' [projectA]');
+  expect(runProfiles[0].kind).toBe(vscode.TestRunProfileKind.Run);
+  expect(runProfiles[0].isDefault).toBeTruthy();
 
-    expect(runProfiles[0].label).toBe(profileTitle);
-    expect(runProfiles[0].kind).toBe(vscode.TestRunProfileKind.Run);
-    expect(runProfiles[0].isDefault).toBeTruthy();
+  expect(runProfiles[1].label).toBe(profileTitle + ' [projectA]');
+  expect(runProfiles[1].kind).toBe(vscode.TestRunProfileKind.Debug);
+  expect(runProfiles[1].isDefault).toBeTruthy();
 
-    expect(runProfiles[1].label).toBe(profileTitle);
-    expect(runProfiles[1].kind).toBe(vscode.TestRunProfileKind.Debug);
-    expect(runProfiles[1].isDefault).toBeTruthy();
-  });
+  expect(runProfiles[2].label).toBe(profileTitle + ' [projectB]');
+  expect(runProfiles[2].kind).toBe(vscode.TestRunProfileKind.Run);
+  expect(runProfiles[2].isDefault).toBeFalsy();
 
-  test('should create run & debug profile per project', async ({}, testInfo) => {
-    const { testController, vscode } = await activate(testInfo.outputPath('workspace'), {
-      'playwright.config.js': `module.exports = {
-        projects: [{ name: 'projectA' }, { name: 'projectB' }]
-      }`
-    });
-
-    const runProfiles = testController.runProfiles;
-    const profileTitle = 'workspace' + path.sep + 'playwright.config.js';
-    expect(runProfiles).toHaveLength(4);
-
-    expect(runProfiles[0].label).toBe(profileTitle + ' [projectA]');
-    expect(runProfiles[0].kind).toBe(vscode.TestRunProfileKind.Run);
-    expect(runProfiles[0].isDefault).toBeTruthy();
-
-    expect(runProfiles[1].label).toBe(profileTitle + ' [projectA]');
-    expect(runProfiles[1].kind).toBe(vscode.TestRunProfileKind.Debug);
-    expect(runProfiles[1].isDefault).toBeTruthy();
-
-    expect(runProfiles[2].label).toBe(profileTitle + ' [projectB]');
-    expect(runProfiles[2].kind).toBe(vscode.TestRunProfileKind.Run);
-    expect(runProfiles[2].isDefault).toBeFalsy();
-
-    expect(runProfiles[3].label).toBe(profileTitle + ' [projectB]');
-    expect(runProfiles[3].kind).toBe(vscode.TestRunProfileKind.Debug);
-    expect(runProfiles[3].isDefault).toBeFalsy();
-  });
+  expect(runProfiles[3].label).toBe(profileTitle + ' [projectB]');
+  expect(runProfiles[3].kind).toBe(vscode.TestRunProfileKind.Debug);
+  expect(runProfiles[3].isDefault).toBeFalsy();
 });

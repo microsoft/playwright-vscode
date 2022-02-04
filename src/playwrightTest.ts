@@ -19,21 +19,28 @@ import path from 'path';
 import { DebugServer } from './debugServer';
 import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import type { TestError } from './reporter';
-import { Config } from './testTree';
 import { ConnectionTransport, PipeTransport } from './transport';
 import { findInPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
-export type ListFilesReport = {
-  projects: {
-    testDir: string;
-    name: string;
-    files: string[];
-  }[];
+export type TestConfig = {
+  workspaceFolder: string;
+  configFile: string;
+  cli: string;
+};
+
+export type ProjectListFilesReport = {
+  testDir: string;
+  name: string;
+  files: string[];
+};
+
+export type ConfigListFilesReport = {
+  projects: ProjectListFilesReport[];
 };
 
 export interface TestListener {
-  onBegin?(params: { files: Entry[] }): void;
+  onBegin?(params: { projects: Entry[] }): void;
   onTestBegin?(params: TestBeginParams): void;
   onTestEnd?(params: TestEndParams): void;
   onStepBegin?(params: StepBeginParams): void;
@@ -44,11 +51,10 @@ export interface TestListener {
   onStdErr?(data: Buffer | string): void;
 }
 
-export class PlaywrightTest {
+class PlaywrightTest {
   private _pathToNodeJS: string | undefined;
 
-  constructor() {
-  }
+  constructor() {}
 
   getPlaywrightInfo(workspaceFolder: string, configFilePath: string): { version: number, cli: string } | null {
     const node = this._findNode();
@@ -76,7 +82,7 @@ export class PlaywrightTest {
     return null;
   }
 
-  async listFiles(config: Config): Promise<ListFilesReport | null> {
+  listFiles(config: TestConfig): ConfigListFilesReport | null {
     const node = this._findNode();
     const allArgs = [config.cli, 'list-files', '-c', config.configFile];
     const childProcess = spawnSync(node, allArgs, {
@@ -87,34 +93,34 @@ export class PlaywrightTest {
     if (!output)
       return null;
     try {
-      const report = JSON.parse(output);
-      return report as ListFilesReport;
+      return JSON.parse(output) as ConfigListFilesReport;
     } catch (e) {
       console.error(e);
+      return null;
     }
-    return null;
   }
 
-  async runTests(config: Config, projectName: string, locations: string[] | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
+  async runTests(config: TestConfig, projectName: string, locations: string[] | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
     const locationArg = locations ? locations : [];
-    await this._test(config, [...locationArg,  '--project', projectName], listener, token);
+    await this._test(config, locationArg,  ['--project', projectName], listener, token);
   }
 
-  async listTests(config: Config, files: string[]): Promise<Entry[]> {
+  async listTests(config: TestConfig, files: string[]): Promise<Entry[]> {
     let result: Entry[] = [];
-    await this._test(config, [...files, '--list'], {
+    await this._test(config, files, ['--list'], {
       onBegin: params => {
-        result = params.files as Entry[];
+        result = params.projects as Entry[];
         return true;
       },
     });
     return result;
   }
 
-  private async _test(config: Config, args: string[], listener: TestListener, token?: vscodeTypes.CancellationToken): Promise<void> {
+  private async _test(config: TestConfig, files: string[], args: string[], listener: TestListener, token?: vscodeTypes.CancellationToken): Promise<void> {
     const node = this._findNode();
     const allArgs = [config.cli, 'test',
       '-c', config.configFile,
+      ...files,
       ...args,
       '--repeat-each', '1',
       '--retries', '0',
@@ -142,7 +148,7 @@ export class PlaywrightTest {
     await this._wireTestListener(transport, listener, token);
   }
 
-  async debugTests(vscode: vscodeTypes.VSCode, config: Config, projectName: string, locations: string[] | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
+  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectName: string, locations: string[] | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
     const locationArg = locations ? locations : [];
@@ -213,3 +219,5 @@ export class PlaywrightTest {
     return node;
   }
 }
+
+export const playwrightTest = new PlaywrightTest();
