@@ -33,7 +33,7 @@ test.describe.parallel('file tree', () => {
     `);
   });
 
-  test('should use workspace name if no testDir', async ({}, testInfo) => {
+  test('should list files top level if no testDir', async ({}, testInfo) => {
     const { testController } = await activate(testInfo.outputPath('myWorkspace'), {
       'playwright.config.js': `{}`,
       'test.spec.ts': `
@@ -42,8 +42,7 @@ test.describe.parallel('file tree', () => {
       `,
     });
     expect(testController.renderTestTree()).toBe(`
-      - myWorkspace
-        - test.spec.ts
+      - test.spec.ts
     `);
   });
 

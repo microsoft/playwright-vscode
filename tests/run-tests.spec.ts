@@ -95,7 +95,7 @@ test.describe.parallel('run tests', () => {
     `);
   });
 
-  test('should only create test run if item belongs to context', async ({}, testInfo) => {
+  test('should only create test run if file belongs to context', async ({}, testInfo) => {
     const { vscode, testController } = await activate(testInfo.outputDir, {
       'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
       'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
@@ -128,6 +128,53 @@ test.describe.parallel('run tests', () => {
       expect(testRuns).toHaveLength(1);
       expect(testRuns[0].request.profile).toBe(profiles[1]);
     }
+  });
+
+  test('should only create test run if folder belongs to context', async ({}, testInfo) => {
+    const { vscode, testController } = await activate(testInfo.outputDir, {
+      'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
+      'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
+      'tests1/foo1/bar1/test1.spec.ts': `
+        import { test } from '@playwright/test';
+        test('one', async () => {});
+      `,
+      'tests2/foo2/bar2/test2.spec.ts': `
+        import { test } from '@playwright/test';
+        test('two', async () => {});
+      `,
+    });
+
+    const profiles = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
+    const testRuns: TestRun[] = [];
+    testController.onDidCreateTestRun(run => testRuns.push(run));
+    const items = testController.findTestItems(/foo1/);
+    await Promise.all(profiles.map(p => p.run(items)));
+    expect(testRuns).toHaveLength(1);
+    expect(testRuns[0].request.profile).toBe(profiles[0]);
+  });
+
+  test('should only create test run if test belongs to context', async ({}, testInfo) => {
+    const { vscode, testController } = await activate(testInfo.outputDir, {
+      'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
+      'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
+      'tests1/foo1/bar1/test1.spec.ts': `
+        import { test } from '@playwright/test';
+        test('one', async () => {});
+      `,
+      'tests2/foo2/bar2/test2.spec.ts': `
+        import { test } from '@playwright/test';
+        test('two', async () => {});
+      `,
+    });
+
+    await testController.expandTestItems(/test2.spec.ts/);
+    const profiles = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
+    const testRuns: TestRun[] = [];
+    testController.onDidCreateTestRun(run => testRuns.push(run));
+    const items = testController.findTestItems(/two/);
+    await Promise.all(profiles.map(p => p.run(items)));
+    expect(testRuns).toHaveLength(1);
+    expect(testRuns[0].request.profile).toBe(profiles[1]);
   });
 
   test('should stop', async ({}, testInfo) => {

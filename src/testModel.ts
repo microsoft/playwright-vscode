@@ -96,21 +96,15 @@ export class TestModel {
   }
 
   private async _rebuildModel(refresh: boolean) {
+    this._playwrightTest.reset();
     this._testTree.startedLoading();
     this._workspaceObserver.reset();
     for (const profile of this._runProfiles)
       profile.dispose();
     this._runProfiles = [];
 
-    // Give UI a chance to update.
-    if (refresh)
-      await new Promise(f => setTimeout(f, 200));
+    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mjs}');
 
-    // Check Playwright version.
-    const rootTreeItems: vscodeTypes.TestItem[] = [];
-    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.[tj]s');
-
-    const testDirs = new Set<string>();
     for (const configFileUri of configFiles) {
       const configFilePath = configFileUri.fsPath;
       if (configFilePath.includes('node_modules'))
@@ -135,7 +129,6 @@ export class TestModel {
         workspaceFolder: workspaceFolderPath,
         configFile: configFileUri.fsPath,
         cli: playwrightInfo.cli,
-        projects: new Map()
       };
 
       const report = await this._playwrightTest.listFiles(config);
@@ -143,22 +136,11 @@ export class TestModel {
         continue;
 
       await this._createRunProfiles(config, report);
-
-      for (const project of report.projects) {
-        const testDir = project.testDir;
-        config.projects.set(project.name, { testDir });
-        if (!testDirs.has(testDir)) {
-          testDirs.add(testDir);
-          const rootName = path.relative(workspaceFolder.uri.fsPath, testDir) || workspaceFolder.name;
-          const rootTreeItem = this._testTree.createForLocation(rootName, this._vscode.Uri.file(testDir));
-          rootTreeItems.push(rootTreeItem);
-        }
-        await this._createTestItemsForFiles(config, report);
-        this._workspaceObserver.addWatchFolder(testDir, config);
-      }
+      await this._createTestItemsForFiles(config, report);
+      for (const project of report.projects)
+        this._workspaceObserver.addWatchFolder(project.testDir, config);
     }
 
-    this._testTree.finishedLoading(rootTreeItems);
     await this._updateActiveEditorItems();
   }
 
@@ -174,11 +156,12 @@ export class TestModel {
           return;
         }
 
-        // Only run config if there are test items belonging to it.
         const locations: string[] = [];
         for (const testItem of request.include) {
+          if (!this._testTree.belongsToProject(testItem, config, project.name))
+            continue;
           const location = this._testTree.location(testItem);
-          if (location && location.startsWith(project.testDir))
+          if (location)
             locations.push(location);
         }
 
@@ -198,7 +181,7 @@ export class TestModel {
         if (!item)
           continue;
         item.canResolveChildren = true;
-        this._testTree.attributeToConfig(item, config);
+        this._testTree.attributeToProject(item, config, project.name);
       }
     }
   }

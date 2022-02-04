@@ -21,7 +21,7 @@ import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams }
 import type { TestError } from './reporter';
 import { Config } from './testTree';
 import { ConnectionTransport, PipeTransport } from './transport';
-import { findInPath } from './utils';
+import { findInPath, resolveSourceMap } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
 export type ListFilesReport = {
@@ -46,6 +46,8 @@ export interface TestListener {
 
 export class PlaywrightTest {
   private _pathToNodeJS: string | undefined;
+  private _fileToSources: Map<string, string[]> = new Map();
+  private _sourceToFile: Map<string, string> = new Map();
 
   constructor() {
   }
@@ -76,6 +78,11 @@ export class PlaywrightTest {
     return null;
   }
 
+  reset() {
+    this._fileToSources.clear();
+    this._sourceToFile.clear();
+  }
+
   async listFiles(config: Config): Promise<ListFilesReport | null> {
     const node = this._findNode();
     const allArgs = [config.cli, 'list-files', '-c', config.configFile];
@@ -87,8 +94,14 @@ export class PlaywrightTest {
     if (!output)
       return null;
     try {
-      const report = JSON.parse(output);
-      return report as ListFilesReport;
+      const report = JSON.parse(output) as ListFilesReport;
+      for (const project of report.projects) {
+        const files: string[] = [];
+        for (const file of project.files)
+          files.push(...await resolveSourceMap(file, this._fileToSources, this._sourceToFile));
+        project.files = files;
+      }
+      return report;
     } catch (e) {
       console.error(e);
     }
@@ -97,12 +110,36 @@ export class PlaywrightTest {
 
   async runTests(config: Config, projectName: string, locations: string[] | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
     const locationArg = locations ? locations : [];
-    await this._test(config, [...locationArg,  '--project', projectName], listener, token);
+    await this._test(config, locationArg,  ['--project', projectName], listener, token);
+  }
+
+  private _mapSourcesToFiles(sources: string[]): string[] {
+    const result: string[] = [];
+
+    // When we see
+    //   src/foo.ts in the source,
+    // we want to pass
+    //   out/bundle.js:0 src/foo.ts
+    // When we see
+    //   src/foo.ts:14 in the source,
+    // we want to pass
+    //   out/bundle.js:0 src/foo.ts:14
+    // It looks wrong, but it actually achieves the right result.
+
+    for (const source of sources) {
+      const match = source.match(/^(.*)([:]\d+)$/);
+      const sourceFile = match ? match[1] : source;
+      const bundleFile = this._sourceToFile.get(sourceFile);
+      if (bundleFile)
+        result.push(bundleFile + ':0');
+      result.push(source);
+    }
+    return result;
   }
 
   async listTests(config: Config, files: string[]): Promise<Entry[]> {
     let result: Entry[] = [];
-    await this._test(config, [...files, '--list'], {
+    await this._test(config, files, ['--list'], {
       onBegin: params => {
         result = params.files as Entry[];
         return true;
@@ -111,10 +148,11 @@ export class PlaywrightTest {
     return result;
   }
 
-  private async _test(config: Config, args: string[], listener: TestListener, token?: vscodeTypes.CancellationToken): Promise<void> {
+  private async _test(config: Config, files: string[], args: string[], listener: TestListener, token?: vscodeTypes.CancellationToken): Promise<void> {
     const node = this._findNode();
     const allArgs = [config.cli, 'test',
       '-c', config.configFile,
+      ...this._mapSourcesToFiles(files),
       ...args,
       '--repeat-each', '1',
       '--retries', '0',
@@ -148,7 +186,7 @@ export class PlaywrightTest {
     const locationArg = locations ? locations : [];
     const args = ['test',
       '-c', config.configFile,
-      ...locationArg,
+      ...this._mapSourcesToFiles(locationArg),
       '--headed',
       '--project', projectName,
       '--repeat-each', '1',

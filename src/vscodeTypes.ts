@@ -26,6 +26,7 @@ export type {
   Location,
   Position,
   TestItem,
+  TestItemCollection,
   TestMessage,
   TestRun,
   TestRunProfile,
