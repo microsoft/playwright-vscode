@@ -215,20 +215,6 @@ export class TestModel {
     this._didUpdate.fire();
   }
 
-  testEntries(project: TestProject): Entry[] {
-    const entries = new Map<string, Entry>();
-    const visitEntry = (entry: Entry) => {
-      if (entry.type === 'test')
-        entries.set(entry.location.file + ':' + entry.location.line + ':' + entry.title, entry);
-      (entry.children || []).forEach(visitEntry);
-    };
-    for (const file of project.files.values()) {
-      if (file.entries)
-        file.entries.forEach(visitEntry);
-    }
-    return [...entries.values()];
-  }
-
   private _recalculateAllFiles() {
     this.allFiles.clear();
     for (const project of this.projects.values()) {
