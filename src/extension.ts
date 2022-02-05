@@ -17,7 +17,7 @@
 import path from 'path';
 import StackUtils from 'stack-utils';
 import { discardHighlightCaches, hideHighlight, highlightLocator } from './highlighter';
-import { playwrightTest, TestListener } from './playwrightTest';
+import { PlaywrightTest, TestListener } from './playwrightTest';
 import type { TestError } from './reporter';
 import { TestModel, TestProject } from './testModel';
 import { TestTree } from './testTree';
@@ -62,6 +62,7 @@ export class Extension {
   private _models: TestModel[] = [];
   private _activeStepDecorationType: vscodeTypes.TextEditorDecorationType;
   private _completedStepDecorationType: vscodeTypes.TextEditorDecorationType;
+  private _playwrightTest: PlaywrightTest;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -82,6 +83,7 @@ export class Extension {
       },
     });
 
+    this._playwrightTest = new PlaywrightTest();
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testTree = new TestTree(vscode, this._testController);
@@ -181,7 +183,7 @@ export class Extension {
       const workspaceFolderPath = workspaceFolder.uri.fsPath;
       if (configFilePath.includes('test-results') && !workspaceFolderPath.includes('test-results'))
         continue;
-      const playwrightInfo = playwrightTest.getPlaywrightInfo(workspaceFolderPath, configFilePath);
+      const playwrightInfo = this._playwrightTest.getPlaywrightInfo(workspaceFolderPath, configFilePath);
       if (!playwrightInfo) {
         this._vscode.window.showWarningMessage('Please install Playwright Test via running `npm i @playwright/test`');
         continue;
@@ -192,7 +194,7 @@ export class Extension {
         continue;
       }
 
-      const model = new TestModel(this._vscode, workspaceFolderPath, configFileUri.fsPath, playwrightInfo.cli);
+      const model = new TestModel(this._vscode, this._playwrightTest, workspaceFolderPath, configFileUri.fsPath, playwrightInfo.cli);
       this._models.push(model);
       this._testTree.addModel(model);
       model.listFiles();
@@ -332,9 +334,9 @@ export class Extension {
     this._testRun = testRun;
     try {
       if (isDebug)
-        await playwrightTest.debugTests(this._vscode, project.model.config, project.name, locations, testListener, token);
+        await this._playwrightTest.debugTests(this._vscode, project.model.config, project.name, locations, testListener, token);
       else
-        await playwrightTest.runTests(project.model.config, project.name, locations, testListener, token);
+        await this._playwrightTest.runTests(project.model.config, project.name, locations, testListener, token);
     } finally {
       this._activeSteps.clear();
       this._executionLinesChanged();
@@ -401,6 +403,10 @@ export class Extension {
       message.location = new this._vscode.Location(this._vscode.Uri.file(location.path), position);
     }
     return message;
+  }
+
+  playwrightTestLog(): string[] {
+    return this._playwrightTest.testLog();
   }
 }
 

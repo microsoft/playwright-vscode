@@ -25,7 +25,7 @@ test('should activate', async ({}, testInfo) => {
 });
 
 test('should create run & debug profiles', async ({}, testInfo) => {
-  const { vscode, testController } = await activate(testInfo.outputPath('workspace'), {
+  const { vscode, testController, renderExecLog } = await activate(testInfo.outputPath('workspace'), {
     'playwright.config.js': `module.exports = {}`
   });
   expect(vscode.testControllers).toHaveLength(1);
@@ -41,10 +41,14 @@ test('should create run & debug profiles', async ({}, testInfo) => {
   expect(runProfiles[1].label).toBe(profileTitle);
   expect(runProfiles[1].kind).toBe(vscode.TestRunProfileKind.Debug);
   expect(runProfiles[1].isDefault).toBeTruthy();
+
+  expect(renderExecLog('  ')).toBe(`
+    playwright list-files -c playwright.config.js
+  `);
 });
 
 test('should create run & debug profile per project', async ({}, testInfo) => {
-  const { testController, vscode } = await activate(testInfo.outputPath('workspace'), {
+  const { testController, vscode, renderExecLog } = await activate(testInfo.outputPath('workspace'), {
     'playwright.config.js': `module.exports = {
       projects: [{ name: 'projectA' }, { name: 'projectB' }]
     }`
@@ -69,4 +73,8 @@ test('should create run & debug profile per project', async ({}, testInfo) => {
   expect(runProfiles[3].label).toBe(profileTitle + ' [projectB]');
   expect(runProfiles[3].kind).toBe(vscode.TestRunProfileKind.Debug);
   expect(runProfiles[3].isDefault).toBeFalsy();
+
+  expect(renderExecLog('  ')).toBe(`
+    playwright list-files -c playwright.config.js
+  `);
 });

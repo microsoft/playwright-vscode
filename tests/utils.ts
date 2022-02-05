@@ -27,6 +27,9 @@ export async function activate(rootDir: string, files: { [key: string]: string }
     vscode,
     extension,
     testController: vscode.testControllers[0],
-    workspaceFolder
+    workspaceFolder,
+    renderExecLog: (indent: string) => {
+      return ['', ...extension.playwrightTestLog()].join(`\n  ${indent}`) + `\n${indent}`.replace(/\\\\/, '/');
+    },
   };
 }

@@ -21,7 +21,7 @@ import { activate } from './utils';
 test.describe.configure({ mode: 'parallel' });
 
 test('should run all tests', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
+  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test-1.spec.ts': `
       import { test } from '@playwright/test';
@@ -42,10 +42,15 @@ test('should run all tests', async ({}, testInfo) => {
       started
       failed
   `);
+
+  expect(renderExecLog('  ')).toBe(`
+    playwright list-files -c playwright.config.js
+    playwright -c playwright.config.js
+  `);
 });
 
 test('should run one test', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
+  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -63,6 +68,106 @@ test('should run one test', async ({}, testInfo) => {
       enqueued
       started
       passed
+  `);
+
+  expect(renderExecLog('  ')).toBe(`
+    playwright list-files -c playwright.config.js
+    playwright -c playwright.config.js --list tests/test.spec.ts
+    playwright -c playwright.config.js tests/test.spec.ts:3
+  `);
+});
+
+test('should run describe', async ({}, testInfo) => {
+  const { testController } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test.describe('describe', () => {
+        test('one', async () => {});
+        test('two', async () => {});
+      });
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec.ts/);
+  const testItems = testController.findTestItems(/describe/);
+  expect(testItems.length).toBe(1);
+  const testRun = await testController.run(testItems);
+
+  // Test was discovered, hence we should see immediate enqueue.
+  expect(testRun.renderLog()).toBe(`
+    describe [2:0]
+    one [3:0]
+      started
+      passed
+    two [4:0]
+      started
+      passed
+  `);
+});
+
+test('should run file', async ({}, testInfo) => {
+  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+      test('two', async () => {});
+    `,
+  });
+
+  const testItems = testController.findTestItems(/test.spec.ts/);
+  expect(testItems.length).toBe(1);
+  const testRun = await testController.run(testItems);
+
+  // Test was discovered, hence we should see immediate enqueue.
+  expect(testRun.renderLog()).toBe(`
+    test.spec.ts
+    one [2:0]
+      started
+      passed
+    two [3:0]
+      started
+      passed
+  `);
+
+  expect(renderExecLog('  ')).toBe(`
+    playwright list-files -c playwright.config.js
+    playwright -c playwright.config.js tests/test.spec.ts
+  `);
+});
+
+test('should run folder', async ({}, testInfo) => {
+  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/folder/test1.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+    'tests/folder/test2.spec.ts': `
+      import { test } from '@playwright/test';
+      test('two', async () => {});
+    `,
+  });
+
+  const testItems = testController.findTestItems(/folder/);
+  expect(testItems.length).toBe(1);
+  const testRun = await testController.run(testItems);
+
+  // Test was discovered, hence we should see immediate enqueue.
+  expect(testRun.renderLog()).toBe(`
+    folder
+    one [2:0]
+      started
+      passed
+    two [2:0]
+      started
+      passed
+  `);
+
+  expect(renderExecLog('  ')).toBe(`
+    playwright list-files -c playwright.config.js
+    playwright -c playwright.config.js tests/folder
   `);
 });
 
@@ -96,7 +201,7 @@ test('should show error message', async ({}, testInfo) => {
 });
 
 test('should only create test run if file belongs to context', async ({}, testInfo) => {
-  const { vscode, testController } = await activate(testInfo.outputDir, {
+  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
     'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests1/test1.spec.ts': `
@@ -128,10 +233,17 @@ test('should only create test run if file belongs to context', async ({}, testIn
     expect(testRuns).toHaveLength(1);
     expect(testRuns[0].request.profile).toBe(profiles[1]);
   }
+
+  expect(renderExecLog('  ')).toBe(`
+    playwright list-files -c tests1/playwright.config.js
+    playwright list-files -c tests2/playwright.config.js
+    playwright -c tests1/playwright.config.js tests1/test1.spec.ts
+    playwright -c tests2/playwright.config.js tests2/test2.spec.ts
+  `);
 });
 
 test('should only create test run if folder belongs to context', async ({}, testInfo) => {
-  const { vscode, testController } = await activate(testInfo.outputDir, {
+  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
     'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests1/foo1/bar1/test1.spec.ts': `
@@ -151,10 +263,16 @@ test('should only create test run if folder belongs to context', async ({}, test
   await Promise.all(profiles.map(p => p.run(items)));
   expect(testRuns).toHaveLength(1);
   expect(testRuns[0].request.profile).toBe(profiles[0]);
+
+  expect(renderExecLog('  ')).toBe(`
+    playwright list-files -c tests1/playwright.config.js
+    playwright list-files -c tests2/playwright.config.js
+    playwright -c tests1/playwright.config.js tests1/foo1
+  `);
 });
 
 test('should only create test run if test belongs to context', async ({}, testInfo) => {
-  const { vscode, testController } = await activate(testInfo.outputDir, {
+  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
     'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests1/foo1/bar1/test1.spec.ts': `
@@ -175,6 +293,13 @@ test('should only create test run if test belongs to context', async ({}, testIn
   await Promise.all(profiles.map(p => p.run(items)));
   expect(testRuns).toHaveLength(1);
   expect(testRuns[0].request.profile).toBe(profiles[1]);
+
+  expect(renderExecLog('  ')).toBe(`
+    playwright list-files -c tests1/playwright.config.js
+    playwright list-files -c tests2/playwright.config.js
+    playwright -c tests2/playwright.config.js --list tests2/foo2/bar2/test2.spec.ts
+    playwright -c tests2/playwright.config.js tests2/foo2/bar2/test2.spec.ts:3
+  `);
 });
 
 test('should stop', async ({}, testInfo) => {
@@ -193,90 +318,6 @@ test('should stop', async ({}, testInfo) => {
   await new Promise(f => setTimeout(f, 1000));
   testRun.request.token.cancel();
   await runPromise;
-});
-
-test('should run describe', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
-    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
-    'tests/test.spec.ts': `
-      import { test } from '@playwright/test';
-      test.describe('describe', () => {
-        test('one', async () => {});
-        test('two', async () => {});
-      });
-    `,
-  });
-
-  await testController.expandTestItems(/test.spec.ts/);
-  const testItems = testController.findTestItems(/describe/);
-  expect(testItems.length).toBe(1);
-  const testRun = await testController.run(testItems);
-
-  // Test was discovered, hence we should see immediate enqueue.
-  expect(testRun.renderLog()).toBe(`
-    describe [2:0]
-    one [3:0]
-      started
-      passed
-    two [4:0]
-      started
-      passed
-  `);
-});
-
-test('should run file', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
-    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
-    'tests/test.spec.ts': `
-      import { test } from '@playwright/test';
-      test('one', async () => {});
-      test('two', async () => {});
-    `,
-  });
-
-  const testItems = testController.findTestItems(/test.spec.ts/);
-  expect(testItems.length).toBe(1);
-  const testRun = await testController.run(testItems);
-
-  // Test was discovered, hence we should see immediate enqueue.
-  expect(testRun.renderLog()).toBe(`
-    test.spec.ts
-    one [2:0]
-      started
-      passed
-    two [3:0]
-      started
-      passed
-  `);
-});
-
-test('should run folder', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
-    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
-    'tests/folder/test1.spec.ts': `
-      import { test } from '@playwright/test';
-      test('one', async () => {});
-    `,
-    'tests/folder/test2.spec.ts': `
-      import { test } from '@playwright/test';
-      test('two', async () => {});
-    `,
-  });
-
-  const testItems = testController.findTestItems(/folder/);
-  expect(testItems.length).toBe(1);
-  const testRun = await testController.run(testItems);
-
-  // Test was discovered, hence we should see immediate enqueue.
-  expect(testRun.renderLog()).toBe(`
-    folder
-    one [2:0]
-      started
-      passed
-    two [2:0]
-      started
-      passed
-  `);
 });
 
 test('should not remove other tests when running focused test', async ({}, testInfo) => {

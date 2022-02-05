@@ -15,7 +15,7 @@
  */
 
 import { Entry } from './oopReporter';
-import { playwrightTest, ProjectListFilesReport, TestConfig } from './playwrightTest';
+import { PlaywrightTest, ProjectListFilesReport, TestConfig } from './playwrightTest';
 import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
 
@@ -39,8 +39,10 @@ export class TestModel {
   private _didUpdate: vscodeTypes.EventEmitter<void>;
   readonly onUpdated: vscodeTypes.Event<void>;
   readonly allFiles = new Set<string>();
+  private _playwrightTest: PlaywrightTest;
 
-  constructor(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFile: string, cli: string) {
+  constructor(vscode: vscodeTypes.VSCode, playwrightTest: PlaywrightTest, workspaceFolder: string, configFile: string, cli: string) {
+    this._playwrightTest = playwrightTest;
     this.config = { workspaceFolder, configFile, cli };
     this._didUpdate = new vscode.EventEmitter();
     this.onUpdated = this._didUpdate.event;
@@ -52,7 +54,7 @@ export class TestModel {
   }
 
   private _innerListFiles() {
-    const report = playwrightTest.listFiles(this.config);
+    const report = this._playwrightTest.listFiles(this.config);
     if (!report)
       return;
 
@@ -160,7 +162,7 @@ export class TestModel {
     const filesToLoad = files.filter(f => this.allFiles.has(f));
     if (!filesToLoad.length)
       return;
-    const projectEntries = await playwrightTest.listTests(this.config, filesToLoad);
+    const projectEntries = await this._playwrightTest.listTests(this.config, filesToLoad);
     this.updateProjects(projectEntries, filesToLoad);
   }
 

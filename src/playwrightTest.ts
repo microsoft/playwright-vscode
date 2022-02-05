@@ -51,8 +51,9 @@ export interface TestListener {
   onStdErr?(data: Buffer | string): void;
 }
 
-class PlaywrightTest {
+export class PlaywrightTest {
   private _pathToNodeJS: string | undefined;
+  private _testLog: string[] = [];
 
   constructor() {}
 
@@ -84,7 +85,9 @@ class PlaywrightTest {
 
   listFiles(config: TestConfig): ConfigListFilesReport | null {
     const node = this._findNode();
-    const allArgs = [config.cli, 'list-files', '-c', config.configFile];
+    const configFile = path.relative(config.workspaceFolder, config.configFile);
+    const allArgs = [config.cli, 'list-files', '-c', configFile];
+    this._testLog.push(`playwright list-files -c ${configFile}`);
     const childProcess = spawnSync(node, allArgs, {
       cwd: config.workspaceFolder,
       env: { ...process.env }
@@ -102,7 +105,8 @@ class PlaywrightTest {
 
   async runTests(config: TestConfig, projectName: string, locations: string[] | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
     const locationArg = locations ? locations : [];
-    await this._test(config, locationArg,  ['--project', projectName], listener, token);
+    const projectArg = projectName ? ['--project', projectName] : [];
+    await this._test(config, locationArg,  projectArg, listener, token);
   }
 
   async listTests(config: TestConfig, files: string[]): Promise<Entry[]> {
@@ -116,12 +120,15 @@ class PlaywrightTest {
     return result;
   }
 
-  private async _test(config: TestConfig, files: string[], args: string[], listener: TestListener, token?: vscodeTypes.CancellationToken): Promise<void> {
+  private async _test(config: TestConfig, locations: string[], args: string[], listener: TestListener, token?: vscodeTypes.CancellationToken): Promise<void> {
     const node = this._findNode();
+    locations = locations.map(f => path.relative(config.workspaceFolder, f));
+    const configFile = path.relative(config.workspaceFolder, config.configFile);
+    this._testLog.push(`playwright -c ${configFile}${args.length ? ' ' + args.join(' ') : ''}${locations.length ? ' ' + locations.join(' ') : ''}`);
     const allArgs = [config.cli, 'test',
-      '-c', config.configFile,
-      ...files,
+      '-c', configFile,
       ...args,
+      ...locations,
       '--repeat-each', '1',
       '--retries', '0',
     ];
@@ -151,7 +158,7 @@ class PlaywrightTest {
   async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectName: string, locations: string[] | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
-    const locationArg = locations ? locations : [];
+    const locationArg = (locations ? locations : []).map(f => path.relative(config.workspaceFolder, f));
     const args = ['test',
       '-c', config.configFile,
       ...locationArg,
@@ -209,6 +216,10 @@ class PlaywrightTest {
     });
   }
 
+  testLog(): string[] {
+    return this._testLog.slice();
+  }
+
   private _findNode(): string {
     if (this._pathToNodeJS)
       return this._pathToNodeJS;
@@ -219,5 +230,3 @@ class PlaywrightTest {
     return node;
   }
 }
-
-export const playwrightTest = new PlaywrightTest();

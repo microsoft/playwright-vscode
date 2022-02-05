@@ -20,7 +20,7 @@ import { activate } from './utils';
 test.describe.configure({ mode: 'parallel' });
 
 test('should highlight steps while running', async ({}, testInfo) => {
-  const { vscode, testController } = await activate(testInfo.outputDir, {
+  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test, expect } from '@playwright/test';
@@ -64,5 +64,11 @@ test('should highlight steps while running', async ({}, testInfo) => {
     [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
     [4:18 - 4:18]: decorator #2 {"after":{"contentText":" — Xms"}}
     [5:18 - 5:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+  `);
+
+  expect(renderExecLog('  ')).toBe(`
+    playwright list-files -c playwright.config.js
+    playwright -c playwright.config.js --list tests/test.spec.ts
+    playwright -c playwright.config.js
   `);
 });
