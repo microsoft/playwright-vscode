@@ -258,15 +258,15 @@ export class Extension {
     const testListener: TestListener = {
       onBegin: ({ projects }) => {
         project.model.updateFromRunningProject(project, projects);
-        for (const location of project.model.testLocations(project)) {
-          const testItem = this._testTree.testItemForLocation(location);
+        for (const entry of project.model.testEntries(project)) {
+          const testItem = this._testTree.testItemForLocation(entry.location, entry.title);
           if (testItem)
             testRun.enqueued(testItem);
         }
       },
 
       onTestBegin: params => {
-        const testItem = this._testTree.testItemForLocation(params.location);
+        const testItem = this._testTree.testItemForLocation(params.location, params.title);
         if (testItem)
           testRun.started(testItem);
         if (isDebug) {
@@ -280,7 +280,7 @@ export class Extension {
         this._activeSteps.clear();
         this._executionLinesChanged();
 
-        const testItem = this._testTree.testItemForLocation(params.location);
+        const testItem = this._testTree.testItemForLocation(params.location, params.title);
         if (!testItem)
           return;
         if (params.ok) {

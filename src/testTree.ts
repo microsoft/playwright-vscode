@@ -151,7 +151,7 @@ export class TestTree {
     return testItem;
   }
 
-  testItemForLocation(location: Location): vscodeTypes.TestItem | undefined {
+  testItemForLocation(location: Location, title: string): vscodeTypes.TestItem | undefined {
     const fileItem = this._fileItems.get(location.file);
     if (!fileItem)
       return;
@@ -159,7 +159,7 @@ export class TestTree {
     const visitItem = (testItem: vscodeTypes.TestItem) => {
       if (result)
         return;
-      if (testItem.range?.start.line === location.line - 1) {
+      if (testItem.label === title && testItem.range?.start.line === location.line - 1) {
         result = testItem;
         return;
       }

@@ -18,7 +18,6 @@ import { Entry } from './oopReporter';
 import { playwrightTest, ProjectListFilesReport, TestConfig } from './playwrightTest';
 import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
-import { Location } from './reporter';
 
 export type TestFile = {
   project: TestProject;
@@ -214,18 +213,18 @@ export class TestModel {
     this._didUpdate.fire();
   }
 
-  testLocations(project: TestProject): Location[] {
-    const locations = new Map<string, Location>();
+  testEntries(project: TestProject): Entry[] {
+    const entries = new Map<string, Entry>();
     const visitEntry = (entry: Entry) => {
       if (entry.type === 'test')
-        locations.set(entry.location.file + ':' + entry.location.line, entry.location);
+        entries.set(entry.location.file + ':' + entry.location.line + ':' + entry.title, entry);
       (entry.children || []).forEach(visitEntry);
     };
     for (const file of project.files.values()) {
       if (file.entries)
         file.entries.forEach(visitEntry);
     }
-    return [...locations.values()];
+    return [...entries.values()];
   }
 
   private _recalculateAllFiles() {

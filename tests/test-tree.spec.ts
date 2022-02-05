@@ -285,3 +285,23 @@ test('should support multiple configs', async ({}, testInfo) => {
         - two [2:0]
   `);
 });
+
+test('should list parametrized tests', async ({}, testInfo) => {
+  const { testController } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      for (const name of ['one', 'two', 'three'])
+        test(name, async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec.ts/);
+  expect(testController.renderTestTree()).toBe(`
+    - tests
+      - test.spec.ts
+        - one [3:0]
+        - three [3:0]
+        - two [3:0]
+  `);
+});

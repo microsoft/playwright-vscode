@@ -31,6 +31,7 @@ export type TestBeginParams = {
 };
 
 export type TestEndParams = {
+  title: string;
   location: Location;
   duration: number;
   error: TestError | undefined;
@@ -111,6 +112,7 @@ class OopReporter implements Reporter {
 
   onTestEnd(test: TestCase, result: TestResult): void {
     const params: TestEndParams = {
+      title: test.title,
       location: test.location,
       duration: result.duration,
       error: result.error,

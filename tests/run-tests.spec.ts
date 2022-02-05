@@ -302,3 +302,35 @@ test('should not remove other tests when running focused test', async ({}, testI
         - three [4:0]
   `);
 });
+
+test('should run parametrized tests', async ({}, testInfo) => {
+  const { testController } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      for (const name of ['test-one', 'test-two', 'test-three'])
+        test(name, async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/test-/);
+  expect(testItems.length).toBe(3);
+  const testRun = await testController.run(testItems);
+
+  // Test was discovered, hence we should see immediate enqueue.
+  expect(testRun.renderLog()).toBe(`
+    test-one [3:0]
+      enqueued
+      started
+      passed
+    test-two [3:0]
+      enqueued
+      started
+      passed
+    test-three [3:0]
+      enqueued
+      started
+      passed
+  `);
+});
