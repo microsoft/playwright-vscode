@@ -45,7 +45,7 @@ test('should run all tests', async ({}, testInfo) => {
 
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c playwright.config.js
-    playwright -c playwright.config.js
+    playwright test -c playwright.config.js
   `);
 });
 
@@ -72,8 +72,8 @@ test('should run one test', async ({}, testInfo) => {
 
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c playwright.config.js
-    playwright -c playwright.config.js --list tests/test.spec.ts
-    playwright -c playwright.config.js tests/test.spec.ts:3
+    playwright test -c playwright.config.js --list tests/test.spec.ts
+    playwright test -c playwright.config.js tests/test.spec.ts:3
   `);
 });
 
@@ -133,7 +133,7 @@ test('should run file', async ({}, testInfo) => {
 
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c playwright.config.js
-    playwright -c playwright.config.js tests/test.spec.ts
+    playwright test -c playwright.config.js tests/test.spec.ts
   `);
 });
 
@@ -167,7 +167,7 @@ test('should run folder', async ({}, testInfo) => {
 
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c playwright.config.js
-    playwright -c playwright.config.js tests/folder
+    playwright test -c playwright.config.js tests/folder
   `);
 });
 
@@ -237,8 +237,8 @@ test('should only create test run if file belongs to context', async ({}, testIn
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c tests1/playwright.config.js
     playwright list-files -c tests2/playwright.config.js
-    playwright -c tests1/playwright.config.js tests1/test1.spec.ts
-    playwright -c tests2/playwright.config.js tests2/test2.spec.ts
+    playwright test -c tests1/playwright.config.js tests1/test1.spec.ts
+    playwright test -c tests2/playwright.config.js tests2/test2.spec.ts
   `);
 });
 
@@ -267,7 +267,7 @@ test('should only create test run if folder belongs to context', async ({}, test
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c tests1/playwright.config.js
     playwright list-files -c tests2/playwright.config.js
-    playwright -c tests1/playwright.config.js tests1/foo1
+    playwright test -c tests1/playwright.config.js tests1/foo1
   `);
 });
 
@@ -297,8 +297,8 @@ test('should only create test run if test belongs to context', async ({}, testIn
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c tests1/playwright.config.js
     playwright list-files -c tests2/playwright.config.js
-    playwright -c tests2/playwright.config.js --list tests2/foo2/bar2/test2.spec.ts
-    playwright -c tests2/playwright.config.js tests2/foo2/bar2/test2.spec.ts:3
+    playwright test -c tests2/playwright.config.js --list tests2/foo2/bar2/test2.spec.ts
+    playwright test -c tests2/playwright.config.js tests2/foo2/bar2/test2.spec.ts:3
   `);
 });
 

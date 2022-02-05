@@ -36,7 +36,7 @@ test('should list tests on expand', async ({}, testInfo) => {
 
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c playwright.config.js
-    playwright -c playwright.config.js --list tests/test.spec.ts
+    playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 });
 
@@ -66,7 +66,7 @@ test('should list tests for visible editors', async ({}, testInfo) => {
 
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c playwright.config.js
-    playwright -c playwright.config.js --list tests/test1.spec.ts tests/test2.spec.ts
+    playwright test -c playwright.config.js --list tests/test1.spec.ts tests/test2.spec.ts
   `);
 });
 
@@ -123,7 +123,7 @@ test('should discover new tests', async ({}, testInfo) => {
 
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c playwright.config.js
-    playwright -c playwright.config.js --list tests/test.spec.ts
+    playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 
   await Promise.all([
@@ -144,8 +144,8 @@ test('should discover new tests', async ({}, testInfo) => {
 
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c playwright.config.js
-    playwright -c playwright.config.js --list tests/test.spec.ts
-    playwright -c playwright.config.js --list tests/test.spec.ts
+    playwright test -c playwright.config.js --list tests/test.spec.ts
+    playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 });
 
@@ -162,7 +162,7 @@ test('should discover new test at existing location', async ({}, testInfo) => {
 
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c playwright.config.js
-    playwright -c playwright.config.js --list tests/test.spec.ts
+    playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 
   await Promise.all([
@@ -181,8 +181,8 @@ test('should discover new test at existing location', async ({}, testInfo) => {
 
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c playwright.config.js
-    playwright -c playwright.config.js --list tests/test.spec.ts
-    playwright -c playwright.config.js --list tests/test.spec.ts
+    playwright test -c playwright.config.js --list tests/test.spec.ts
+    playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 });
 
@@ -200,7 +200,7 @@ test('should remove deleted tests', async ({}, testInfo) => {
 
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c playwright.config.js
-    playwright -c playwright.config.js --list tests/test.spec.ts
+    playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 
   expect(testController.renderTestTree()).toBe(`
@@ -226,8 +226,8 @@ test('should remove deleted tests', async ({}, testInfo) => {
 
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c playwright.config.js
-    playwright -c playwright.config.js --list tests/test.spec.ts
-    playwright -c playwright.config.js --list tests/test.spec.ts
+    playwright test -c playwright.config.js --list tests/test.spec.ts
+    playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 });
 
@@ -282,7 +282,7 @@ test('should regain tests after error is fixed', async ({}, testInfo) => {
 
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c playwright.config.js
-    playwright -c playwright.config.js --list tests/test.spec.ts
+    playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 
   expect(testController.renderTestTree()).toBe(`
@@ -308,8 +308,8 @@ test('should regain tests after error is fixed', async ({}, testInfo) => {
 
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c playwright.config.js
-    playwright -c playwright.config.js --list tests/test.spec.ts
-    playwright -c playwright.config.js --list tests/test.spec.ts
+    playwright test -c playwright.config.js --list tests/test.spec.ts
+    playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 });
 
@@ -341,8 +341,8 @@ test('should support multiple configs', async ({}, testInfo) => {
   expect(renderExecLog('  ')).toBe(`
     playwright list-files -c tests1/playwright.config.js
     playwright list-files -c tests2/playwright.config.js
-    playwright -c tests1/playwright.config.js --list tests1/test.spec.ts
-    playwright -c tests2/playwright.config.js --list tests2/test.spec.ts
+    playwright test -c tests1/playwright.config.js --list tests1/test.spec.ts
+    playwright test -c tests2/playwright.config.js --list tests2/test.spec.ts
   `);
 });
 

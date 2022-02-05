@@ -87,7 +87,7 @@ export class PlaywrightTest {
     const node = this._findNode();
     const configFile = path.relative(config.workspaceFolder, config.configFile);
     const allArgs = [config.cli, 'list-files', '-c', configFile];
-    this._testLog.push(`playwright list-files -c ${configFile}`);
+    this._log(`playwright list-files -c ${configFile}`);
     const childProcess = spawnSync(node, allArgs, {
       cwd: config.workspaceFolder,
       env: { ...process.env }
@@ -124,7 +124,7 @@ export class PlaywrightTest {
     const node = this._findNode();
     locations = locations.map(f => path.relative(config.workspaceFolder, f));
     const configFile = path.relative(config.workspaceFolder, config.configFile);
-    this._testLog.push(`playwright -c ${configFile}${args.length ? ' ' + args.join(' ') : ''}${locations.length ? ' ' + locations.join(' ') : ''}`);
+    this._log(`playwright test -c ${configFile}${args.length ? ' ' + args.join(' ') : ''}${locations.length ? ' ' + locations.join(' ') : ''}`);
     const allArgs = [config.cli, 'test',
       '-c', configFile,
       ...args,
@@ -214,6 +214,11 @@ export class PlaywrightTest {
     return new Promise<void>(f => {
       transport.onclose = f;
     });
+  }
+
+  private _log(line: string) {
+    console.log(line);
+    this._testLog.push(line);
   }
 
   testLog(): string[] {

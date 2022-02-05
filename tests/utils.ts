@@ -29,7 +29,7 @@ export async function activate(rootDir: string, files: { [key: string]: string }
     testController: vscode.testControllers[0],
     workspaceFolder,
     renderExecLog: (indent: string) => {
-      return ['', ...extension.playwrightTestLog()].join(`\n  ${indent}`) + `\n${indent}`.replace(/\\\\/, '/');
+      return (['', ...extension.playwrightTestLog()].join(`\n  ${indent}`) + `\n${indent}`).replace(/\\\\/g, '/');
     },
   };
 }
