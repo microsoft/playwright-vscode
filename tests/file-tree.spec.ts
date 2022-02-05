@@ -32,7 +32,7 @@ test('should list files', async ({}, testInfo) => {
       - test.spec.ts
   `);
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.js
   `);
 });
 
@@ -48,7 +48,7 @@ test('should list files top level if no testDir', async ({}, testInfo) => {
     - test.spec.ts
   `);
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.js
   `);
 });
 
@@ -91,7 +91,7 @@ test('should list folders', async ({}, testInfo) => {
         - test-b.spec.ts
   `);
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.js
   `);
 });
 
@@ -107,7 +107,7 @@ test('should pick new files', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.js
   `);
 
   await Promise.all([
@@ -122,8 +122,8 @@ test('should pick new files', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.js
   `);
 });
 
@@ -152,7 +152,7 @@ test('should not pick non-test files', async ({}, testInfo) => {
 });
 
 test('should pick first file', async ({}, testInfo) => {
-  test.fixme(true, 'Upstream issue, playwright list-tests should work even when testDir does not exist');
+  test.fixme(true, 'Upstream issue, > playwright list-tests should work even when testDir does not exist');
   const { workspaceFolder, testController } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
   });
@@ -187,7 +187,7 @@ test('should remove deleted files', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.js
   `);
 
   await Promise.all([
@@ -202,7 +202,7 @@ test('should remove deleted files', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.js
   `);
 });
 
@@ -249,7 +249,87 @@ test('should support multiple configs', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c tests1/playwright.config.js
-    playwright list-files -c tests2/playwright.config.js
+    tests1> playwright list-files -c playwright.config.js
+    tests2> playwright list-files -c playwright.config.js
   `);
 });
+
+test('should support multiple projects', async ({}, testInfo) => {
+  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = {
+      testDir: './tests',
+      projects: [
+        { name: 'project 1' },
+        { name: 'project 2' },
+      ]
+    }`,
+    'tests/test1.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+    'tests/test2.spec.ts': `
+      import { test } from '@playwright/test';
+      test(two', async () => {});
+    `,
+  });
+  expect(testController.renderTestTree()).toBe(`
+    - tests
+      - test1.spec.ts
+      - test2.spec.ts
+  `);
+
+  expect(renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+  `);
+});
+
+test('should support multiple projects with filter', async ({}, testInfo) => {
+  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = {
+      testDir: './tests',
+      projects: [
+        { name: 'project 1', testMatch: /test1.spec/ },
+        { name: 'project 2', testMatch: /test2.spec/ },
+      ]
+    }`,
+    'tests/test1.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+    'tests/test2.spec.ts': `
+      import { test } from '@playwright/test';
+      test(two', async () => {});
+    `,
+    'tests/test3.spec.ts': `
+      import { test } from '@playwright/test';
+      test(three', async () => {});
+    `,
+  });
+  expect(testController.renderTestTree()).toBe(`
+    - tests
+      - test1.spec.ts
+      - test2.spec.ts
+  `);
+
+  expect(renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+  `);
+});
+
+test('should list files in relative folder', async ({}, testInfo) => {
+  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'foo/bar/playwright.config.js': `module.exports = { testDir: '../../tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+  expect(testController.renderTestTree()).toBe(`
+    - tests
+      - test.spec.ts
+  `);
+  expect(renderExecLog('  ')).toBe(`
+    foo/bar> playwright list-files -c playwright.config.js
+  `);
+});
+

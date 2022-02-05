@@ -43,7 +43,7 @@ test('should create run & debug profiles', async ({}, testInfo) => {
   expect(runProfiles[1].isDefault).toBeTruthy();
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.js
   `);
 });
 
@@ -75,6 +75,6 @@ test('should create run & debug profile per project', async ({}, testInfo) => {
   expect(runProfiles[3].isDefault).toBeFalsy();
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.js
   `);
 });

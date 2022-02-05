@@ -44,8 +44,8 @@ test('should run all tests', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js
   `);
 });
 
@@ -71,9 +71,9 @@ test('should run one test', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js --list tests/test.spec.ts
-    playwright test -c playwright.config.js tests/test.spec.ts:3
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js tests/test.spec.ts:3
   `);
 });
 
@@ -132,8 +132,8 @@ test('should run file', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js tests/test.spec.ts
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js tests/test.spec.ts
   `);
 });
 
@@ -166,8 +166,8 @@ test('should run folder', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js tests/folder
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js tests/folder
   `);
 });
 
@@ -235,10 +235,10 @@ test('should only create test run if file belongs to context', async ({}, testIn
   }
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c tests1/playwright.config.js
-    playwright list-files -c tests2/playwright.config.js
-    playwright test -c tests1/playwright.config.js tests1/test1.spec.ts
-    playwright test -c tests2/playwright.config.js tests2/test2.spec.ts
+    tests1> playwright list-files -c playwright.config.js
+    tests2> playwright list-files -c playwright.config.js
+    tests1> playwright test -c playwright.config.js test1.spec.ts
+    tests2> playwright test -c playwright.config.js test2.spec.ts
   `);
 });
 
@@ -265,9 +265,9 @@ test('should only create test run if folder belongs to context', async ({}, test
   expect(testRuns[0].request.profile).toBe(profiles[0]);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c tests1/playwright.config.js
-    playwright list-files -c tests2/playwright.config.js
-    playwright test -c tests1/playwright.config.js tests1/foo1
+    tests1> playwright list-files -c playwright.config.js
+    tests2> playwright list-files -c playwright.config.js
+    tests1> playwright test -c playwright.config.js foo1
   `);
 });
 
@@ -295,10 +295,10 @@ test('should only create test run if test belongs to context', async ({}, testIn
   expect(testRuns[0].request.profile).toBe(profiles[1]);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c tests1/playwright.config.js
-    playwright list-files -c tests2/playwright.config.js
-    playwright test -c tests2/playwright.config.js --list tests2/foo2/bar2/test2.spec.ts
-    playwright test -c tests2/playwright.config.js tests2/foo2/bar2/test2.spec.ts:3
+    tests1> playwright list-files -c playwright.config.js
+    tests2> playwright list-files -c playwright.config.js
+    tests2> playwright test -c playwright.config.js --list foo2/bar2/test2.spec.ts
+    tests2> playwright test -c playwright.config.js foo2/bar2/test2.spec.ts:3
   `);
 });
 
@@ -373,5 +373,63 @@ test('should run parametrized tests', async ({}, testInfo) => {
       enqueued
       started
       passed
+  `);
+});
+
+test('should list tests in relative folder', async ({}, testInfo) => {
+  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'foo/bar/playwright.config.js': `module.exports = { testDir: '../../tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+
+  expect(renderExecLog('  ')).toBe(`
+    foo/bar> playwright list-files -c playwright.config.js
+    foo/bar> playwright test -c playwright.config.js --list ../../tests/test.spec.ts
+  `);
+
+  expect(testController.renderTestTree()).toBe(`
+    - tests
+      - test.spec.ts
+        - one [2:0]
+  `);
+});
+
+test('should specify project', async ({}, testInfo) => {
+  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = {
+      projects: [
+        { testDir: './tests1', name: 'project 1' },
+        { testDir: './tests2', name: 'project 2' },
+      ]
+    }`,
+    'tests1/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+    'tests2/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test(two', async () => {});
+    `,
+  });
+
+  const testItems = testController.findTestItems(/test.spec/);
+  expect(testItems.length).toBe(2);
+  const testRun = await testController.run(testItems);
+  expect(testRun.renderLog()).toBe(`
+    test.spec.ts
+    test.spec.ts
+    one [2:0]
+      started
+      passed
+  `);
+
+  expect(renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --project=project 1 tests1/test.spec.ts
   `);
 });

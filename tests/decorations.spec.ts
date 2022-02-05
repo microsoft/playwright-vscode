@@ -67,8 +67,8 @@ test('should highlight steps while running', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js --list tests/test.spec.ts
-    playwright test -c playwright.config.js
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js
   `);
 });

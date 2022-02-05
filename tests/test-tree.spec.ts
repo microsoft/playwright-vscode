@@ -35,8 +35,8 @@ test('should list tests on expand', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 });
 
@@ -65,8 +65,8 @@ test('should list tests for visible editors', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js --list tests/test1.spec.ts tests/test2.spec.ts
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test1.spec.ts tests/test2.spec.ts
   `);
 });
 
@@ -122,8 +122,8 @@ test('should discover new tests', async ({}, testInfo) => {
   await testController.expandTestItems(/test.spec.ts/);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 
   await Promise.all([
@@ -143,9 +143,9 @@ test('should discover new tests', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js --list tests/test.spec.ts
-    playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 });
 
@@ -161,8 +161,8 @@ test('should discover new test at existing location', async ({}, testInfo) => {
   await testController.expandTestItems(/test.spec.ts/);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 
   await Promise.all([
@@ -180,9 +180,9 @@ test('should discover new test at existing location', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js --list tests/test.spec.ts
-    playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 });
 
@@ -199,8 +199,8 @@ test('should remove deleted tests', async ({}, testInfo) => {
   await testController.expandTestItems(/test.spec.ts/);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 
   expect(testController.renderTestTree()).toBe(`
@@ -225,9 +225,9 @@ test('should remove deleted tests', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js --list tests/test.spec.ts
-    playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 });
 
@@ -281,8 +281,8 @@ test('should regain tests after error is fixed', async ({}, testInfo) => {
   await testController.expandTestItems(/test.spec.ts/);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 
   expect(testController.renderTestTree()).toBe(`
@@ -307,9 +307,9 @@ test('should regain tests after error is fixed', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c playwright.config.js
-    playwright test -c playwright.config.js --list tests/test.spec.ts
-    playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 });
 
@@ -339,10 +339,44 @@ test('should support multiple configs', async ({}, testInfo) => {
   `);
 
   expect(renderExecLog('  ')).toBe(`
-    playwright list-files -c tests1/playwright.config.js
-    playwright list-files -c tests2/playwright.config.js
-    playwright test -c tests1/playwright.config.js --list tests1/test.spec.ts
-    playwright test -c tests2/playwright.config.js --list tests2/test.spec.ts
+    tests1> playwright list-files -c playwright.config.js
+    tests2> playwright list-files -c playwright.config.js
+    tests1> playwright test -c playwright.config.js --list test.spec.ts
+    tests2> playwright test -c playwright.config.js --list test.spec.ts
+  `);
+});
+
+test('should support multiple projects', async ({}, testInfo) => {
+  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = {
+      testDir: './tests',
+      projects: [
+        { name: 'project 1', testMatch: /test1.spec/ },
+        { name: 'project 2', testMatch: /test2.spec/ },
+      ]
+    }`,
+    'tests/test1.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+    'tests/test2.spec.ts': `
+      import { test } from '@playwright/test';
+      test(two', async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/test1.spec/);
+
+  expect(testController.renderTestTree()).toBe(`
+    - tests
+      - test1.spec.ts
+        - one [2:0]
+      - test2.spec.ts
+  `);
+
+  expect(renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test1.spec.ts
   `);
 });
 

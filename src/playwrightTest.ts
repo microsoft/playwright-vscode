@@ -59,12 +59,13 @@ export class PlaywrightTest {
 
   getPlaywrightInfo(workspaceFolder: string, configFilePath: string): { version: number, cli: string } | null {
     const node = this._findNode();
+    const configFolder = path.dirname(configFilePath);
     const childProcess = spawnSync(node, [
       '-e',
       'try { const index = require.resolve("playwright-core"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ index, version})); } catch { console.log("undefined"); }',
     ],
     {
-      cwd: workspaceFolder,
+      cwd: configFolder,
       env: { ...process.env }
     }
     );
@@ -85,11 +86,15 @@ export class PlaywrightTest {
 
   listFiles(config: TestConfig): ConfigListFilesReport | null {
     const node = this._findNode();
-    const configFile = path.relative(config.workspaceFolder, config.configFile);
+    const configFolder = path.dirname(config.configFile);
+    const configFile = path.basename(config.configFile);
     const allArgs = [config.cli, 'list-files', '-c', configFile];
-    this._log(`playwright list-files -c ${configFile}`);
+    {
+      // For tests.
+      this._log(`${path.relative(config.workspaceFolder, configFolder)}> playwright list-files -c ${configFile}`);
+    }
     const childProcess = spawnSync(node, allArgs, {
-      cwd: config.workspaceFolder,
+      cwd: configFolder,
       env: { ...process.env }
     });
     const output = childProcess.stdout.toString();
@@ -105,7 +110,7 @@ export class PlaywrightTest {
 
   async runTests(config: TestConfig, projectName: string, locations: string[] | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
     const locationArg = locations ? locations : [];
-    const projectArg = projectName ? ['--project', projectName] : [];
+    const projectArg = projectName ? [`--project=${projectName}`] : [];
     await this._test(config, locationArg,  projectArg, listener, token);
   }
 
@@ -122,9 +127,13 @@ export class PlaywrightTest {
 
   private async _test(config: TestConfig, locations: string[], args: string[], listener: TestListener, token?: vscodeTypes.CancellationToken): Promise<void> {
     const node = this._findNode();
-    locations = locations.map(f => path.relative(config.workspaceFolder, f));
-    const configFile = path.relative(config.workspaceFolder, config.configFile);
-    this._log(`playwright test -c ${configFile}${args.length ? ' ' + args.join(' ') : ''}${locations.length ? ' ' + locations.join(' ') : ''}`);
+    const configFolder = path.dirname(config.configFile);
+    const configFile = path.basename(config.configFile);
+    {
+      // For tests.
+      const relativeLocations = locations.map(f => path.relative(configFolder, f));
+      this._log(`${path.relative(config.workspaceFolder, configFolder)}> playwright test -c ${configFile}${args.length ? ' ' + args.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
+    }
     const allArgs = [config.cli, 'test',
       '-c', configFile,
       ...args,
@@ -133,7 +142,7 @@ export class PlaywrightTest {
       '--retries', '0',
     ];
     const childProcess = spawn(node, allArgs, {
-      cwd: config.workspaceFolder,
+      cwd: configFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
@@ -158,12 +167,14 @@ export class PlaywrightTest {
   async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectName: string, locations: string[] | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
-    const locationArg = (locations ? locations : []).map(f => path.relative(config.workspaceFolder, f));
+    const configFolder = path.dirname(config.configFile);
+    const configFile = path.basename(config.configFile);
+    const locationArg = (locations ? locations : []).map(f => path.relative(configFolder, f));
     const args = ['test',
-      '-c', config.configFile,
+      '-c', configFile,
       ...locationArg,
       '--headed',
-      '--project', projectName,
+      `--project=${projectName}`,
       '--repeat-each', '1',
       '--retries', '0',
       '--timeout', '0',
@@ -173,7 +184,7 @@ export class PlaywrightTest {
       type: 'pwa-node',
       name: 'Playwright Test',
       request: 'launch',
-      cwd: config.workspaceFolder,
+      cwd: configFolder,
       env: {
         ...process.env,
         FORCE_COLORS: '1',
@@ -217,7 +228,6 @@ export class PlaywrightTest {
   }
 
   private _log(line: string) {
-    console.log(line);
     this._testLog.push(line);
   }
 
