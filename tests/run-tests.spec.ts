@@ -35,12 +35,14 @@ test('should run all tests', async ({}, testInfo) => {
 
   const testRun = await testController.run();
   expect(testRun.renderLog()).toBe(`
-    should pass [2:0]
-      started
-      passed
     should fail [2:0]
+      enqueued
       started
       failed
+    should pass [2:0]
+      enqueued
+      started
+      passed
   `);
 
   expect(renderExecLog('  ')).toBe(`
@@ -96,11 +98,12 @@ test('should run describe', async ({}, testInfo) => {
 
   // Test was discovered, hence we should see immediate enqueue.
   expect(testRun.renderLog()).toBe(`
-    describe [2:0]
     one [3:0]
+      enqueued
       started
       passed
     two [4:0]
+      enqueued
       started
       passed
   `);
@@ -122,11 +125,12 @@ test('should run file', async ({}, testInfo) => {
 
   // Test was discovered, hence we should see immediate enqueue.
   expect(testRun.renderLog()).toBe(`
-    test.spec.ts
     one [2:0]
+      enqueued
       started
       passed
     two [3:0]
+      enqueued
       started
       passed
   `);
@@ -156,11 +160,12 @@ test('should run folder', async ({}, testInfo) => {
 
   // Test was discovered, hence we should see immediate enqueue.
   expect(testRun.renderLog()).toBe(`
-    folder
     one [2:0]
+      enqueued
       started
       passed
     two [2:0]
+      enqueued
       started
       passed
   `);
@@ -344,8 +349,8 @@ test('should not remove other tests when running focused test', async ({}, testI
   `);
 });
 
-test('should run parametrized tests', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
+test('should run all parametrized tests', async ({}, testInfo) => {
+  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -365,14 +370,87 @@ test('should run parametrized tests', async ({}, testInfo) => {
       enqueued
       started
       passed
-    test-two [3:0]
-      enqueued
-      started
-      passed
     test-three [3:0]
       enqueued
       started
       passed
+    test-two [3:0]
+      enqueued
+      started
+      passed
+  `);
+
+  expect(renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js tests/test.spec.ts:4
+  `);
+});
+
+test('should run one parametrized test', async ({}, testInfo) => {
+  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      for (const name of ['test one', 'test two', 'test three'])
+        test(name, async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/test two/);
+  expect(testItems.length).toBe(1);
+  const testRun = await testController.run(testItems);
+
+  // Test was discovered, hence we should see immediate enqueue.
+  expect(testRun.renderLog()).toBe(`
+    test two [3:0]
+      enqueued
+      started
+      passed
+  `);
+
+  expect(renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --grep=test two tests/test.spec.ts:4
+  `);
+});
+
+test('should run one parametrized groups', async ({}, testInfo) => {
+  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      for (const name of ['group one', 'group two', 'group three'])
+        test.describe(name, () => {
+          test('test one in ' + name, async () => {});
+          test('test two in ' + name, async () => {});
+        });
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/^group three$/);
+  expect(testItems.length).toBe(1);
+  const testRun = await testController.run(testItems);
+
+  // Test was discovered, hence we should see immediate enqueue.
+  expect(testRun.renderLog()).toBe(`
+    test one in group three [4:0]
+      enqueued
+      started
+      passed
+    test two in group three [5:0]
+      enqueued
+      started
+      passed
+  `);
+
+  expect(renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --grep=group three tests/test.spec.ts:4
   `);
 });
 
@@ -421,9 +499,8 @@ test('should specify project', async ({}, testInfo) => {
   expect(testItems.length).toBe(2);
   const testRun = await testController.run(testItems);
   expect(testRun.renderLog()).toBe(`
-    test.spec.ts
-    test.spec.ts
     one [2:0]
+      enqueued
       started
       passed
   `);

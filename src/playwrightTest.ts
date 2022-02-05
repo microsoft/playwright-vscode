@@ -108,10 +108,12 @@ export class PlaywrightTest {
     }
   }
 
-  async runTests(config: TestConfig, projectName: string, locations: string[] | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
+  async runTests(config: TestConfig, projectName: string, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
     const locationArg = locations ? locations : [];
-    const projectArg = projectName ? [`--project=${projectName}`] : [];
-    await this._test(config, locationArg,  projectArg, listener, token);
+    const args = projectName ? [`--project=${projectName}`] : [];
+    if (parametrizedTestTitle)
+      args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
+    await this._test(config, locationArg,  args, listener, token);
   }
 
   async listTests(config: TestConfig, files: string[]): Promise<Entry[]> {
@@ -164,7 +166,7 @@ export class PlaywrightTest {
     await this._wireTestListener(transport, listener, token);
   }
 
-  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectName: string, locations: string[] | null, listener: TestListener, token?: vscodeTypes.CancellationToken) {
+  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectName: string, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
     const configFolder = path.dirname(config.configFile);
@@ -180,6 +182,8 @@ export class PlaywrightTest {
       '--timeout', '0',
       '--workers', '1'
     ];
+    if (parametrizedTestTitle)
+      args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
     vscode.debug.startDebugging(undefined, {
       type: 'pwa-node',
       name: 'Playwright Test',
@@ -244,4 +248,8 @@ export class PlaywrightTest {
     this._pathToNodeJS = node;
     return node;
   }
+}
+
+function escapeRegex(text: string) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

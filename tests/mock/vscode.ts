@@ -263,7 +263,7 @@ export class TestRun {
     let entries = this.entries.get(test);
     if (!entries) {
       entries = [];
-      this.entries.set(test, []);
+      this.entries.set(test, entries);
     }
     entries.push(entry);
     this._didChange.fire();
@@ -279,7 +279,10 @@ export class TestRun {
   renderLog(options: { messages?: boolean } = {}): string {
     const indent = '  ';
     const result: string[] = [''];
-    for (const [test, entries] of this.entries) {
+    const tests = [...this.entries.keys()];
+    tests.sort((a, b) => a.label.localeCompare(b.label));
+    for (const test of tests) {
+      const entries = this.entries.get(test);
       result.push(`  ${test.treeTitle()}`);
       for (const entry of entries) {
         result.push(`    ${entry.status}`);

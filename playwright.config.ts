@@ -19,6 +19,6 @@ const config: PlaywrightTestConfig = {
   testDir: './tests',
   forbidOnly: !!process.env.CI,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? 'list' : 'html',
+  reporter: 'line',
 };
 export default config;

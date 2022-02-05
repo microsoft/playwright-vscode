@@ -17,6 +17,7 @@
 import path from 'path';
 import StackUtils from 'stack-utils';
 import { discardHighlightCaches, hideHighlight, highlightLocator } from './highlighter';
+import { Entry } from './oopReporter';
 import { PlaywrightTest, TestListener } from './playwrightTest';
 import type { TestError } from './reporter';
 import { TestModel, TestProject } from './testModel';
@@ -211,19 +212,35 @@ export class Extension {
   private async _createRunProfile(project: TestProject) {
     const handler = async (isDebug: boolean, request: vscodeTypes.TestRunRequest, token: vscodeTypes.CancellationToken) => {
       if (!request.include) {
-        await this._runTest(isDebug, request, project, null, token);
+        await this._runTest(isDebug, request, project, null, undefined, token);
         return;
       }
 
-      const locations: string[] = [];
-      for (const item of request.include) {
-        if (item.uri!.fsPath.startsWith(project.testDir)) {
-          const line = item.range ? ':' + (item.range.start.line + 1) : '';
-          locations.push(item.uri!.fsPath + line);
+      let parametrizedTestTitle: string | undefined;
+      // When we are given one item, check if it is parametrized (more than 1 item on that line).
+      // If it is parametrized, use label when running test.
+      if (request.include.length === 1) {
+        const test = request.include[0];
+        if (test.uri && test.range) {
+          let testsAtLocation = 0;
+          test.parent?.children.forEach(t => {
+            if (t.uri?.fsPath === test.uri?.fsPath && t.range?.start.line === test.range?.start.line)
+              ++testsAtLocation;
+          });
+          if (testsAtLocation > 1)
+            parametrizedTestTitle = test.label;
         }
       }
-      if (locations.length)
-        await this._runTest(isDebug, request, project, locations, token);
+
+      const locations = new Set<string>();
+      for (const item of request.include) {
+        if (!item.uri!.fsPath.startsWith(project.testDir))
+          continue;
+        const line = item.range ? ':' + (item.range.start.line + 1) : '';
+        locations.add(item.uri!.fsPath + line);
+      }
+      if (locations.size)
+        await this._runTest(isDebug, request, project, [...locations], parametrizedTestTitle, token);
     };
 
     const configName = path.basename(project.model.config.configFile);
@@ -246,12 +263,9 @@ export class Extension {
       model.workspaceChanged(change);
   }
 
-  private async _runTest(isDebug: boolean, request: vscodeTypes.TestRunRequest, project: TestProject, locations: string[] | null, token: vscodeTypes.CancellationToken) {
+  private async _runTest(isDebug: boolean, request: vscodeTypes.TestRunRequest, project: TestProject, locations: string[] | null, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     const testRun = this._testController.createTestRun(request);
 
-    // Provide immediate feedback on action target.
-    for (const testItem of request.include || [])
-      testRun.enqueued(testItem);
     testRun.appendOutput('\x1b[H\x1b[2J');
 
     this._completedSteps.clear();
@@ -260,11 +274,15 @@ export class Extension {
     const testListener: TestListener = {
       onBegin: ({ projects }) => {
         project.model.updateFromRunningProject(project, projects);
-        for (const entry of project.model.testEntries(project)) {
-          const testItem = this._testTree.testItemForLocation(entry.location, entry.title);
-          if (testItem)
-            testRun.enqueued(testItem);
-        }
+        const visit = (entry: Entry) => {
+          if (entry.type === 'test') {
+            const testItem = this._testTree.testItemForLocation(entry.location, entry.title);
+            if (testItem)
+              testRun.enqueued(testItem);
+          }
+          (entry.children || []).forEach(visit);
+        };
+        projects.forEach(visit);
       },
 
       onTestBegin: params => {
@@ -334,9 +352,9 @@ export class Extension {
     this._testRun = testRun;
     try {
       if (isDebug)
-        await this._playwrightTest.debugTests(this._vscode, project.model.config, project.name, locations, testListener, token);
+        await this._playwrightTest.debugTests(this._vscode, project.model.config, project.name, locations, testListener, parametrizedTestTitle, token);
       else
-        await this._playwrightTest.runTests(project.model.config, project.name, locations, testListener, token);
+        await this._playwrightTest.runTests(project.model.config, project.name, locations, testListener, parametrizedTestTitle, token);
     } finally {
       this._activeSteps.clear();
       this._executionLinesChanged();
