@@ -204,11 +204,15 @@ export class TestModel {
     this._didUpdate.fire();
   }
 
-  updateFromRunningProject(project: TestProject, projects: Entry[]) {
-    const projectEntry = projects.find(p => p.title === project.name);
-    if (!projectEntry)
-      return;
+  updateFromRunningProjects(projectEntries: Entry[]) {
+    for (const projectEntry of projectEntries) {
+      const project = this.projects.get(projectEntry.title);
+      if (project)
+        this._updateFromRunningProject(project, projectEntry);
+    }
+  }
 
+  private _updateFromRunningProject(project: TestProject, projectEntry: Entry) {
     const reportedFiles = new Set<string>();
     for (const fileEntry of projectEntry.children || []) {
       reportedFiles.add(fileEntry.location.file);

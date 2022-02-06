@@ -54,8 +54,11 @@ export interface TestListener {
 export class PlaywrightTest {
   private _pathToNodeJS: string | undefined;
   private _testLog: string[] = [];
+  private _isUnderTest: boolean;
 
-  constructor() {}
+  constructor(isUnderTest: boolean) {
+    this._isUnderTest = isUnderTest;
+  }
 
   getPlaywrightInfo(workspaceFolder: string, configFilePath: string): { version: number, cli: string } | null {
     const node = this._findNode();
@@ -108,9 +111,9 @@ export class PlaywrightTest {
     }
   }
 
-  async runTests(config: TestConfig, projectName: string, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async runTests(config: TestConfig, projectNames: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
     const locationArg = locations ? locations : [];
-    const args = projectName ? [`--project=${projectName}`] : [];
+    const args = projectNames.filter(Boolean).map(p => `--project=${p}`);
     if (parametrizedTestTitle)
       args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
     await this._test(config, locationArg,  args, listener, token);
@@ -148,6 +151,8 @@ export class PlaywrightTest {
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
+        // Don't debug tests that we run in tests.
+        NODE_OPTIONS: this._isUnderTest ? undefined : process.env.NODE_OPTIONS,
         FORCE_COLORS: '1',
         PW_TEST_REPORTER: require.resolve('./oopReporter'),
         PW_TEST_HTML_REPORT_OPEN: 'never',
@@ -166,7 +171,7 @@ export class PlaywrightTest {
     await this._wireTestListener(transport, listener, token);
   }
 
-  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectName: string, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
     const configFolder = path.dirname(config.configFile);
@@ -176,7 +181,7 @@ export class PlaywrightTest {
       '-c', configFile,
       ...locationArg,
       '--headed',
-      `--project=${projectName}`,
+      ...projectNames.filter(Boolean).map(p => `--project=${p}`),
       '--repeat-each', '1',
       '--retries', '0',
       '--timeout', '0',

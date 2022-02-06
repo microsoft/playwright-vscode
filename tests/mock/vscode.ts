@@ -408,6 +408,7 @@ export enum TestRunProfileKind {
 }
 
 export class VSCode {
+  isUnderTest = true;
   EventEmitter = EventEmitter;
   Location = Location;
   Position = Position;

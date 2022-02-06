@@ -55,22 +55,22 @@ test('should create run & debug profile per project', async ({}, testInfo) => {
   });
 
   const runProfiles = testController.runProfiles;
-  const profileTitle = 'workspace' + path.sep + 'playwright.config.js';
+  const configPath = 'workspace' + path.sep + 'playwright.config.js';
   expect(runProfiles).toHaveLength(4);
 
-  expect(runProfiles[0].label).toBe(profileTitle + ' [projectA]');
+  expect(runProfiles[0].label).toBe('projectA — ' + configPath);
   expect(runProfiles[0].kind).toBe(vscode.TestRunProfileKind.Run);
   expect(runProfiles[0].isDefault).toBeTruthy();
 
-  expect(runProfiles[1].label).toBe(profileTitle + ' [projectA]');
+  expect(runProfiles[1].label).toBe('projectA — ' + configPath);
   expect(runProfiles[1].kind).toBe(vscode.TestRunProfileKind.Debug);
   expect(runProfiles[1].isDefault).toBeTruthy();
 
-  expect(runProfiles[2].label).toBe(profileTitle + ' [projectB]');
+  expect(runProfiles[2].label).toBe('projectB — ' + configPath);
   expect(runProfiles[2].kind).toBe(vscode.TestRunProfileKind.Run);
   expect(runProfiles[2].isDefault).toBeFalsy();
 
-  expect(runProfiles[3].label).toBe(profileTitle + ' [projectB]');
+  expect(runProfiles[3].label).toBe('projectB — ' + configPath);
   expect(runProfiles[3].kind).toBe(vscode.TestRunProfileKind.Debug);
   expect(runProfiles[3].isDefault).toBeFalsy();
 

@@ -64,6 +64,7 @@ export class Extension {
   private _activeStepDecorationType: vscodeTypes.TextEditorDecorationType;
   private _completedStepDecorationType: vscodeTypes.TextEditorDecorationType;
   private _playwrightTest: PlaywrightTest;
+  private _projectsScheduledToRun: TestProject[] | undefined;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -84,7 +85,7 @@ export class Extension {
       },
     });
 
-    this._playwrightTest = new PlaywrightTest();
+    this._playwrightTest = new PlaywrightTest(!!(this._vscode as any).isUnderTest);
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testTree = new TestTree(vscode, this._testController);
@@ -210,45 +211,99 @@ export class Extension {
   }
 
   private async _createRunProfile(project: TestProject) {
-    const handler = async (isDebug: boolean, request: vscodeTypes.TestRunRequest, token: vscodeTypes.CancellationToken) => {
-      if (!request.include) {
-        await this._runTest(isDebug, request, project, null, undefined, token);
-        return;
-      }
-
-      let parametrizedTestTitle: string | undefined;
-      // When we are given one item, check if it is parametrized (more than 1 item on that line).
-      // If it is parametrized, use label when running test.
-      if (request.include.length === 1) {
-        const test = request.include[0];
-        if (test.uri && test.range) {
-          let testsAtLocation = 0;
-          test.parent?.children.forEach(t => {
-            if (t.uri?.fsPath === test.uri?.fsPath && t.range?.start.line === test.range?.start.line)
-              ++testsAtLocation;
-          });
-          if (testsAtLocation > 1)
-            parametrizedTestTitle = test.label;
-        }
-      }
-
-      const locations = new Set<string>();
-      for (const item of request.include) {
-        if (!item.uri!.fsPath.startsWith(project.testDir))
-          continue;
-        const line = item.range ? ':' + (item.range.start.line + 1) : '';
-        locations.add(item.uri!.fsPath + line);
-      }
-      if (locations.size)
-        await this._runTest(isDebug, request, project, [...locations], parametrizedTestTitle, token);
-    };
-
     const configName = path.basename(project.model.config.configFile);
     const folderName = path.basename(path.dirname(project.model.config.configFile));
-    const projectSuffix = project.name ? ` [${project.name}]` : '';
+    const projectPrefix = project.name ? `${project.name} — ` : '';
 
-    this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, this._vscode.TestRunProfileKind.Run, handler.bind(null, false), project.isFirst));
-    this._runProfiles.push(this._testController.createRunProfile(`${folderName}${path.sep}${configName}${projectSuffix}`, this._vscode.TestRunProfileKind.Debug, handler.bind(null, true), project.isFirst));
+    this._runProfiles.push(this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, project, false), project.isFirst));
+    this._runProfiles.push(this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, project, true), project.isFirst));
+  }
+
+  private async _scheduleTestRunRequest(project: TestProject, isDebug: boolean, request: vscodeTypes.TestRunRequest, token: vscodeTypes.CancellationToken) {
+    // Never run tests concurrently.
+    if (this._testRun)
+      return;
+
+    // VSCode will issue several test run requests (one per enabled run profile). Sometimes
+    // these profiles belong to the same config and we only want to run tests once per config.
+    // So we collect all requests and sort them out in the microtask.
+    if (!this._projectsScheduledToRun) {
+      this._projectsScheduledToRun = [];
+      this._projectsScheduledToRun.push(project);
+      await Promise.resolve().then(async () => {
+        const collector = this._projectsScheduledToRun!;
+        this._projectsScheduledToRun = undefined;
+        await this._runMatchingTests(collector, isDebug, request, token);
+      });
+    } else {
+      // Subsequent requests will return right away.
+      this._projectsScheduledToRun.push(project);
+    }
+  }
+
+  private async _runMatchingTests(collector: TestProject[], isDebug: boolean, request: vscodeTypes.TestRunRequest, token: vscodeTypes.CancellationToken) {
+    this._completedSteps.clear();
+    this._executionLinesChanged();
+    this._testRun = this._testController.createTestRun(request);
+
+    // Run tests with different configs sequentially, group by config.
+    const projectsToRunByModel = new Map<TestModel, TestProject[]>();
+    for (const project of collector) {
+      const projects = projectsToRunByModel.get(project.model) || [];
+      projects.push(project);
+      projectsToRunByModel.set(project.model, projects);
+    }
+
+    try {
+      for (const [model, projectsToRun] of projectsToRunByModel) {
+        const { projects, locations, parametrizedTestTitle } = this._narrowDownProjectsAndLocations(projectsToRun, request.include);
+        // Run if:
+        //   !locations => run all tests
+        //   locations.length => has matching items in project.
+        if (locations && !locations.length)
+          continue;
+        await this._runTest(this._testRun, model, isDebug, projects, locations, parametrizedTestTitle, token);
+      }
+    } finally {
+      this._activeSteps.clear();
+      this._executionLinesChanged();
+      this._testRun.end();
+      this._testRun = undefined;
+    }
+  }
+
+  private _narrowDownProjectsAndLocations(projects: TestProject[], items: readonly vscodeTypes.TestItem[] | undefined): { projects: TestProject[], locations: string[] | null, parametrizedTestTitle: string | undefined } {
+    if (!items)
+      return { projects, locations: null, parametrizedTestTitle: undefined };
+
+    let parametrizedTestTitle: string | undefined;
+    // When we are given one item, check if it is parametrized (more than 1 item on that line).
+    // If it is parametrized, use label when running test.
+    if (items.length === 1) {
+      const test = items[0];
+      if (test.uri && test.range) {
+        let testsAtLocation = 0;
+        test.parent?.children.forEach(t => {
+          if (t.uri?.fsPath === test.uri?.fsPath && t.range?.start.line === test.range?.start.line)
+            ++testsAtLocation;
+        });
+        if (testsAtLocation > 1)
+          parametrizedTestTitle = test.label;
+      }
+    }
+
+    // Only pick projects that have tests matching test run request.
+    const locations = new Set<string>();
+    const projectsWithFiles: TestProject[] = [];
+    for (const item of items) {
+      const projectsWithFile = projects.filter(project => item.uri!.fsPath.startsWith(project.testDir));
+      if (!projectsWithFile.length)
+        continue;
+      const line = item.range ? ':' + (item.range.start.line + 1) : '';
+      locations.add(item.uri!.fsPath + line);
+      projectsWithFiles.push(...projectsWithFile);
+    }
+    return { projects: projectsWithFiles, locations: [...locations], parametrizedTestTitle };
   }
 
   private async _resolveChildren(fileItem: vscodeTypes.TestItem | undefined): Promise<void> {
@@ -263,19 +318,10 @@ export class Extension {
       model.workspaceChanged(change);
   }
 
-  private async _runTest(isDebug: boolean, request: vscodeTypes.TestRunRequest, project: TestProject, locations: string[] | null, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
-    if (this._testRun)
-      return;
-
-    const testRun = this._testController.createTestRun(request);
-    testRun.appendOutput('\x1b[H\x1b[2J');
-
-    this._completedSteps.clear();
-    this._executionLinesChanged();
-
+  private async _runTest(testRun: vscodeTypes.TestRun, model: TestModel, isDebug: boolean, projects: TestProject[], locations: string[] | null, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     const testListener: TestListener = {
       onBegin: ({ projects }) => {
-        project.model.updateFromRunningProject(project, projects);
+        model.updateFromRunningProjects(projects);
         const visit = (entry: Entry) => {
           if (entry.type === 'test') {
             const testItem = this._testTree.testItemForLocation(entry.location, entry.title);
@@ -351,18 +397,10 @@ export class Extension {
       },
     };
 
-    this._testRun = testRun;
-    try {
-      if (isDebug)
-        await this._playwrightTest.debugTests(this._vscode, project.model.config, project.name, locations, testListener, parametrizedTestTitle, token);
-      else
-        await this._playwrightTest.runTests(project.model.config, project.name, locations, testListener, parametrizedTestTitle, token);
-    } finally {
-      this._activeSteps.clear();
-      this._executionLinesChanged();
-      testRun.end();
-      this._testRun = undefined;
-    }
+    if (isDebug)
+      await this._playwrightTest.debugTests(this._vscode, model.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, token);
+    else
+      await this._playwrightTest.runTests(model.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, token);
   }
 
   private async _updateVisibleEditorItems() {

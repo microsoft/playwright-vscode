@@ -228,15 +228,19 @@ test('should only create test run if file belongs to context', async ({}, testIn
     const items = testController.findTestItems(/test1.spec/);
     await Promise.all(profiles.map(p => p.run(items)));
     expect(testRuns).toHaveLength(1);
-    expect(testRuns[0].request.profile).toBe(profiles[0]);
   }
+
+  expect(renderExecLog('  ')).toBe(`
+    tests1> playwright list-files -c playwright.config.js
+    tests2> playwright list-files -c playwright.config.js
+    tests1> playwright test -c playwright.config.js test1.spec.ts
+  `);
 
   {
     testRuns = [];
     const items = testController.findTestItems(/test2.spec/);
     await Promise.all(profiles.map(p => p.run(items)));
     expect(testRuns).toHaveLength(1);
-    expect(testRuns[0].request.profile).toBe(profiles[1]);
   }
 
   expect(renderExecLog('  ')).toBe(`
@@ -297,13 +301,71 @@ test('should only create test run if test belongs to context', async ({}, testIn
   const items = testController.findTestItems(/two/);
   await Promise.all(profiles.map(p => p.run(items)));
   expect(testRuns).toHaveLength(1);
-  expect(testRuns[0].request.profile).toBe(profiles[1]);
 
   expect(renderExecLog('  ')).toBe(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
     tests2> playwright test -c playwright.config.js --list foo2/bar2/test2.spec.ts
     tests2> playwright test -c playwright.config.js foo2/bar2/test2.spec.ts:3
+  `);
+});
+
+test('should run all projects at once', async ({}, testInfo) => {
+  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = {
+      testDir: './tests',
+      projects: [
+        { name: 'projectOne' },
+        { name: 'projectTwo' },
+      ]
+    }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  const profiles = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
+  await Promise.all(profiles.map(p => p.run()));
+
+  expect(renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --project=projectOne --project=projectTwo
+  `);
+});
+
+test('should group projects by config', async ({}, testInfo) => {
+  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'tests1/playwright.config.js': `module.exports = {
+      projects: [
+        { name: 'projectOne' },
+        { name: 'projectTwo' },
+      ]
+    }`,
+    'tests2/playwright.config.js': `module.exports = {
+      projects: [
+        { name: 'projectOne' },
+        { name: 'projectTwo' },
+      ]
+    }`,
+    'tests1/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+    'tests2/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  const profiles = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
+  await Promise.all(profiles.map(p => p.run()));
+
+  expect(renderExecLog('  ')).toBe(`
+    tests1> playwright list-files -c playwright.config.js
+    tests2> playwright list-files -c playwright.config.js
+    tests1> playwright test -c playwright.config.js --project=projectOne --project=projectTwo
+    tests2> playwright test -c playwright.config.js --project=projectOne --project=projectTwo
   `);
 });
 
