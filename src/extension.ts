@@ -264,8 +264,10 @@ export class Extension {
   }
 
   private async _runTest(isDebug: boolean, request: vscodeTypes.TestRunRequest, project: TestProject, locations: string[] | null, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
-    const testRun = this._testController.createTestRun(request);
+    if (this._testRun)
+      return;
 
+    const testRun = this._testController.createTestRun(request);
     testRun.appendOutput('\x1b[H\x1b[2J');
 
     this._completedSteps.clear();

@@ -78,20 +78,26 @@ export class TestTree {
       if (!this._belongsToWorkspace(file))
         continue;
       const fileItem = this.getOrCreateFileItem(file);
-
+      const signature: string[] = [];
       let entries: Entry[] | undefined;
       for (const model of this._models) {
         for (const testProject of model.projects.values()) {
           const testFile = testProject.files.get(file);
-          if (!testFile || !testFile.entries)
+          if (!testFile || !testFile.entries())
             continue;
+          signature.push(testProject.testDir + ':' + testProject.name + ':' + testFile.revision());
           entries = entries || [];
-          if (testFile.entries)
-            entries.push(...testFile.entries);
+          if (testFile.entries())
+            entries.push(...testFile.entries()!);
         }
       }
-      if (entries)
-        this._updateTestItems(fileItem.children, entries);
+      if (entries) {
+        const signatureText = signature.join('|');
+        if ((fileItem as any)[signatureSymbol] !== signatureText) {
+          (fileItem as any)[signatureSymbol] = signatureText;
+          this._updateTestItems(fileItem.children, entries);
+        }
+      }
     }
 
     for (const [location, fileItem] of this._fileItems) {
@@ -201,3 +207,5 @@ export class TestTree {
     return this._testGeneration + location;
   }
 }
+
+const signatureSymbol = Symbol('signatureSymbol');

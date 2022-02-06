@@ -510,3 +510,24 @@ test('should specify project', async ({}, testInfo) => {
     > playwright test -c playwright.config.js --project=project 1 tests1/test.spec.ts
   `);
 });
+
+test('should run tests concurrently', async ({}, testInfo) => {
+  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test-1.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => {});
+    `,
+  });
+
+  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run);
+  const runs = [];
+  testController.onDidCreateTestRun(run => runs.push(run));
+  await Promise.all([profile.run(), profile.run(), profile.run()]);
+  expect(runs).toHaveLength(1);
+
+  expect(renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js
+  `);
+});

@@ -19,11 +19,30 @@ import { PlaywrightTest, ProjectListFilesReport, TestConfig } from './playwright
 import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
 
-export type TestFile = {
-  project: TestProject;
-  file: string;
-  entries: Entry[] | undefined;
-};
+export class TestFile {
+  readonly project: TestProject;
+  readonly file: string;
+  private _entries: Entry[] | undefined;
+  private _revision = 0;
+
+  constructor(project: TestProject, file: string) {
+    this.project = project;
+    this.file = file;
+  }
+
+  entries(): Entry[] | undefined {
+    return this._entries;
+  }
+
+  setEntries(entries: Entry[]) {
+    ++this._revision;
+    this._entries = entries;
+  }
+
+  revision(): number {
+    return this._revision;
+  }
+}
 
 export type TestProject = {
   name: string;
@@ -102,11 +121,7 @@ export class TestModel {
   }
 
   private _createFile(project: TestProject, file: string): TestFile {
-    const testFile: TestFile = {
-      project,
-      file,
-      entries: undefined,
-    };
+    const testFile = new TestFile(project, file);
     project.files.set(file, testFile);
     return testFile;
   }
@@ -146,7 +161,7 @@ export class TestModel {
       for (const project of this.projects.values()) {
         for (const file of change.changed) {
           const testFile = project.files.get(file);
-          if (!testFile || !testFile.entries)
+          if (!testFile || !testFile.entries())
             continue;
           filesToLoad.add(file);
         }
@@ -163,10 +178,10 @@ export class TestModel {
     if (!filesToLoad.length)
       return;
     const projectEntries = await this._playwrightTest.listTests(this.config, filesToLoad);
-    this.updateProjects(projectEntries, filesToLoad);
+    this._updateProjects(projectEntries, filesToLoad);
   }
 
-  updateProjects(projectEntries: Entry[], requestedFiles: string[]) {
+  private _updateProjects(projectEntries: Entry[], requestedFiles: string[]) {
     for (const projectEntry of projectEntries) {
       const project = this.projects.get(projectEntry.title);
       if (!project)
@@ -177,13 +192,13 @@ export class TestModel {
         const file = project.files.get(fileEntry.location.file);
         if (!file)
           continue;
-        file.entries = fileEntry.children || [];
+        file.setEntries(fileEntry.children || []);
       }
       // We requested update for those, but got no entries.
       for (const file of filesToDelete) {
         const testFile = project.files.get(file);
         if (testFile)
-          testFile.entries = [];
+          testFile.setEntries([]);
       }
     }
     this._didUpdate.fire();
@@ -204,8 +219,8 @@ export class TestModel {
         file = this._createFile(project, fileEntry.location.file);
       // Only update if not yet discovered, we might be running focused
       // test that lacks other tests.
-      if (!file.entries)
-        file.entries = fileEntry.children;
+      if (!file.entries())
+        file.setEntries(fileEntry.children);
     }
 
     for (const [file] of project.files) {
