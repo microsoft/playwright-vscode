@@ -593,3 +593,52 @@ test('should run tests concurrently', async ({}, testInfo) => {
     > playwright test -c playwright.config.js
   `);
 });
+
+test('should report project-specific failures', async ({}, testInfo) => {
+  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = {
+      testDir: 'tests',
+      projects: [
+        { 'name': 'projectA' },
+        { 'name': 'projectB' },
+        { 'name': 'projectC' },
+      ]
+    }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async ({}, testInfo) => {
+        throw new Error(testInfo.project.name);
+      });
+    `,
+  });
+
+  const profile = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
+  const [testRun] = await Promise.all([
+    new Promise<TestRun>(f => testController.onDidCreateTestRun(f)),
+    ...profile.map(p => p.run()),
+  ]);
+
+  expect(renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --project=projectA --project=projectB --project=projectC
+  `);
+
+  expect(testRun.renderLog({ messages: true })).toBe(`
+    should pass [2:0]
+      enqueued
+      enqueued
+      enqueued
+      started
+      failed
+        test.spec.ts:[3:14 - 3:14]
+        Error: projectA
+      started
+      failed
+        test.spec.ts:[3:14 - 3:14]
+        Error: projectB
+      started
+      failed
+        test.spec.ts:[3:14 - 3:14]
+        Error: projectC
+  `);
+});

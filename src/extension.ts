@@ -262,7 +262,7 @@ export class Extension {
         //   locations.length => has matching items in project.
         if (locations && !locations.length)
           continue;
-        await this._runTest(this._testRun, model, isDebug, projects, locations, parametrizedTestTitle, token);
+        await this._runTest(this._testRun, new Set(), model, isDebug, projects, locations, parametrizedTestTitle, token);
       }
     } finally {
       this._activeSteps.clear();
@@ -318,7 +318,15 @@ export class Extension {
       model.workspaceChanged(change);
   }
 
-  private async _runTest(testRun: vscodeTypes.TestRun, model: TestModel, isDebug: boolean, projects: TestProject[], locations: string[] | null, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
+  private async _runTest(
+    testRun: vscodeTypes.TestRun,
+    testFailures: Set<vscodeTypes.TestItem>,
+    model: TestModel,
+    isDebug: boolean,
+    projects: TestProject[],
+    locations: string[] | null,
+    parametrizedTestTitle: string | undefined,
+    token: vscodeTypes.CancellationToken) {
     const testListener: TestListener = {
       onBegin: ({ projects }) => {
         model.updateFromRunningProjects(projects);
@@ -352,9 +360,11 @@ export class Extension {
         if (!testItem)
           return;
         if (params.ok) {
-          testRun.passed(testItem, params.duration);
+          if (!testFailures.has(testItem))
+            testRun.passed(testItem, params.duration);
           return;
         }
+        testFailures.add(testItem);
         testRun.failed(testItem, this._testMessageForTestError(testItem, params.error!), params.duration);
       },
 

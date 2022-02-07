@@ -146,6 +146,8 @@ export class PlaywrightTest {
       '--repeat-each', '1',
       '--retries', '0',
     ];
+    if (this._isUnderTest)
+      allArgs.push('--workers', '1');
     const childProcess = spawn(node, allArgs, {
       cwd: configFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
