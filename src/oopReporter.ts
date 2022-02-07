@@ -69,7 +69,6 @@ class OopReporter implements Reporter {
   }
 
   onBegin(config: FullConfig, rootSuite: Suite) {
-    console.log(rootSuite.suites[0]);
     const visit = (suite: Suite, collection: Entry[]) => {
       // Don't produce entries for file suits.
       for (const child of suite.suites) {
