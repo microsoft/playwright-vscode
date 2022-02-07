@@ -15,6 +15,7 @@
  */
 
 import { expect, test } from '@playwright/test';
+import fs from 'fs';
 import { TestRun } from './mock/vscode';
 import { activate } from './utils';
 
@@ -385,6 +386,36 @@ test('should stop', async ({}, testInfo) => {
   await new Promise(f => setTimeout(f, 1000));
   testRun.request.token.cancel();
   await runPromise;
+});
+
+test('should tear down on stop', async ({}, testInfo) => {
+  const globalFile = testInfo.outputPath('global.txt');
+  const { vscode, testController } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = {
+      testDir: 'tests',
+      globalSetup: './globalSetup.js',
+    }`,
+    'globalSetup.js': `
+      module.exports = async () => {
+        return async () => {
+          require('fs').writeFileSync('${globalFile}', 'TEARDOWN');
+        }
+      };
+    `,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => { await new Promise(() => {})});
+    `,
+  });
+
+  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run);
+  const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
+  const runPromise = profile.run();
+  const testRun = await testRunPromise;
+  await new Promise(f => setTimeout(f, 1000));
+  testRun.request.token.cancel();
+  await runPromise;
+  expect(fs.readFileSync(globalFile, 'utf-8')).toBe('TEARDOWN');
 });
 
 test('should not remove other tests when running focused test', async ({}, testInfo) => {

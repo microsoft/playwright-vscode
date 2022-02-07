@@ -61,7 +61,13 @@ class OopReporter implements Reporter {
       this._transport = Promise.resolve(new PipeTransport(fs.createWriteStream('', { fd: 2 }), fs.createReadStream('', { fd: 1 })));
     else
       this._transport = Promise.resolve(new PipeTransport(fs.createWriteStream('', { fd: 4 }), fs.createReadStream('', { fd: 3 })));
-    this._transport.then(t => { t.onclose = () => process.exit(0);});
+    this._transport.then(t => {
+      t.onmessage = message => {
+        if (message.method === 'stop')
+          process.kill(process.pid, 'SIGINT');
+      };
+      t.onclose = () => process.exit(0);
+    });
   }
 
   printsToStdio() {
@@ -143,13 +149,13 @@ class OopReporter implements Reporter {
   }
 
   async onEnd(result: FullResult) {
-    await this._emit('onEnd', {});
-    // Transport will close and this process will exit.
+    this._emit('onEnd', {});
+    // Embedder is responsible for terminating the connection.
     await new Promise(() => {});
   }
 
-  private async _emit(method: string, params: Object) {
-    await this._transport.then(t => t.send({ id: 0, method, params }));
+  private _emit(method: string, params: Object) {
+    this._transport.then(t => t.send({ id: 0, method, params }));
   }
 }
 

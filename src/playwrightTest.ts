@@ -160,11 +160,6 @@ export class PlaywrightTest {
         PW_TEST_HTML_REPORT_OPEN: 'never',
       }
     });
-    if (token) {
-      token.onCancellationRequested(() => {
-        childProcess.kill('SIGINT');
-      });
-    }
 
     const stdio = childProcess.stdio;
     stdio[1].on('data', data => listener.onStdOut?.(data));
@@ -191,7 +186,7 @@ export class PlaywrightTest {
     ];
     if (parametrizedTestTitle)
       args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
-    vscode.debug.startDebugging(undefined, {
+    await vscode.debug.startDebugging(undefined, {
       type: 'pwa-node',
       name: 'Playwright Test',
       request: 'launch',
@@ -212,10 +207,16 @@ export class PlaywrightTest {
     await this._wireTestListener(transport, listener, token);
   }
 
-  private _wireTestListener(transport: ConnectionTransport, listener: TestListener, token?: vscodeTypes.CancellationToken) {
-    token?.onCancellationRequested(() => {
-      transport.close();
-    });
+  private async _wireTestListener(transport: ConnectionTransport, listener: TestListener, token?: vscodeTypes.CancellationToken) {
+    let timeout: NodeJS.Timeout | undefined;
+
+    const killTestProcess = () => {
+      transport.send({ id: 0, method: 'stop', params: {} });
+      timeout = setTimeout(() => transport.close(), 30000);
+    };
+
+    token?.onCancellationRequested(() => killTestProcess());
+
     transport.onmessage = message => {
       if (token?.isCancellationRequested && message.method !== 'onEnd')
         return;
@@ -233,9 +234,9 @@ export class PlaywrightTest {
         }
       }
     };
-    return new Promise<void>(f => {
-      transport.onclose = f;
-    });
+    await new Promise<void>(f => transport.onclose = f);
+    if (timeout)
+      clearTimeout(timeout);
   }
 
   private _log(line: string) {
