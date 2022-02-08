@@ -40,7 +40,7 @@
     }
   },
   "scripts": {
-    "esbuild": "esbuild ./src/babelBundle.ts ./src/extension.ts ./src/oopReporter.ts ./src/debugTransform.ts --bundle --outdir=out --external:vscode --external:./babelBundle --format=cjs --platform=node",
+    "esbuild": "esbuild ./src/babelBundle.ts ./src/extension.ts ./src/oopReporter.ts ./src/debugTransform.ts --bundle --outdir=out --external:vscode --external:./babelBundle --format=cjs --platform=node --target=ES2019",
     "build": "npm run esbuild -- --minify",
     "watch": "npm run esbuild -- --sourcemap --watch",
     "vscode:prepublish": "npm run build",
