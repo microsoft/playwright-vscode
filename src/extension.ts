@@ -16,7 +16,7 @@
 
 import path from 'path';
 import StackUtils from 'stack-utils';
-import { discardHighlightCaches, hideHighlight, highlightLocator } from './highlighter';
+import { DebugHighlight } from './debugHighlight';
 import { Entry } from './oopReporter';
 import { PlaywrightTest, TestListener } from './playwrightTest';
 import type { TestError } from './reporter';
@@ -37,7 +37,11 @@ type StepInfo = {
   duration: number;
 };
 
-const debugSessions = new Map<string, vscodeTypes.DebugSession>();
+type TestRunInfo = {
+  selectedProjects: TestProject[];
+  isDebug: boolean;
+  request: vscodeTypes.TestRunRequest;
+};
 
 export async function activate(context: vscodeTypes.ExtensionContext) {
   // Do not await, quickly run the extension, schedule work.
@@ -65,6 +69,7 @@ export class Extension {
   private _completedStepDecorationType: vscodeTypes.TextEditorDecorationType;
   private _playwrightTest: PlaywrightTest;
   private _projectsScheduledToRun: TestProject[] | undefined;
+  private _debugHighlight: DebugHighlight;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -89,61 +94,14 @@ export class Extension {
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testTree = new TestTree(vscode, this._testController);
-
+    this._debugHighlight = new DebugHighlight(vscode);
+    this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
   }
 
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
-    const self = this;
     const disposables = [
-      vscode.debug.onDidStartDebugSession(session => {
-        if (session.type === 'node-terminal' || session.type === 'pwa-node')
-          debugSessions.set(session.id, session);
-      }),
-      vscode.debug.onDidTerminateDebugSession(session => {
-        debugSessions.delete(session.id);
-        hideHighlight();
-        discardHighlightCaches();
-      }),
-      vscode.languages.registerHoverProvider('typescript', {
-        provideHover(document, position, token) {
-          highlightLocator(debugSessions, document, position, token).catch();
-          return null;
-        }
-      }),
-      vscode.window.onDidChangeTextEditorSelection(event => {
-        highlightLocator(debugSessions, event.textEditor.document, event.selections[0].start).catch();
-      }),
-      vscode.debug.registerDebugAdapterTrackerFactory('*', {
-        createDebugAdapterTracker(session: vscodeTypes.DebugSession) {
-          let lastCatchLocation: DebuggerLocation | undefined;
-          return {
-            onDidSendMessage: async message => {
-              if (message.type !== 'response' || !message.success)
-                return;
-              if (message.command === 'scopes') {
-                const catchBlock = message.body.scopes.find((scope: any) => scope.name === 'Catch Block');
-                if (catchBlock) {
-                  lastCatchLocation = {
-                    path: catchBlock.source.path,
-                    line: catchBlock.line,
-                    column: catchBlock.column
-                  };
-                }
-              }
-
-              if (message.command === 'variables') {
-                const errorVariable = message.body.variables.find((v: any) => v.name === 'playwrightError' && v.type === 'error');
-                if (errorVariable && lastCatchLocation) {
-                  const error = errorVariable.value;
-                  self._errorInDebugger(error.replaceAll('\\n', '\n'), lastCatchLocation);
-                }
-              }
-            }
-          };
-        }
-      }),
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
         this._rebuildModel();
       }),
@@ -163,6 +121,7 @@ export class Extension {
       this._workspaceObserver,
     ];
     context.subscriptions.push(...disposables);
+    this._debugHighlight.activate(context);
     await this._rebuildModel();
   }
 
@@ -231,9 +190,9 @@ export class Extension {
       this._projectsScheduledToRun = [];
       this._projectsScheduledToRun.push(project);
       await Promise.resolve().then(async () => {
-        const collector = this._projectsScheduledToRun!;
+        const selectedProjects = this._projectsScheduledToRun!;
         this._projectsScheduledToRun = undefined;
-        await this._runMatchingTests(collector, isDebug, request);
+        await this._runMatchingTests({ selectedProjects, isDebug, request });
       });
     } else {
       // Subsequent requests will return right away.
@@ -241,14 +200,16 @@ export class Extension {
     }
   }
 
-  private async _runMatchingTests(collector: TestProject[], isDebug: boolean, request: vscodeTypes.TestRunRequest) {
+  private async _runMatchingTests(testRunInfo: TestRunInfo) {
+    const { selectedProjects, isDebug, request } = testRunInfo;
+
     this._completedSteps.clear();
     this._executionLinesChanged();
     this._testRun = this._testController.createTestRun(request);
 
     // Run tests with different configs sequentially, group by config.
     const projectsToRunByModel = new Map<TestModel, TestProject[]>();
-    for (const project of collector) {
+    for (const project of selectedProjects) {
       const projects = projectsToRunByModel.get(project.model) || [];
       projects.push(project);
       projectsToRunByModel.set(project.model, projects);

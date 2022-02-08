@@ -16,6 +16,7 @@
 
 import { expect, test } from '@playwright/test';
 import fs from 'fs';
+import path from 'path/posix';
 import { TestRun } from './mock/vscode';
 import { activate } from './utils';
 
@@ -390,6 +391,7 @@ test('should stop', async ({}, testInfo) => {
 
 test('should tear down on stop', async ({}, testInfo) => {
   const globalFile = testInfo.outputPath('global.txt');
+  const escaped = path.sep === '\\' ? globalFile.replace(/\\/g, '\\\\') : globalFile;
   const { vscode, testController } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = {
       testDir: 'tests',
@@ -398,7 +400,7 @@ test('should tear down on stop', async ({}, testInfo) => {
     'globalSetup.js': `
       module.exports = async () => {
         return async () => {
-          require('fs').writeFileSync('${globalFile}', 'TEARDOWN');
+          require('fs').writeFileSync('${escaped}', 'TEARDOWN');
         }
       };
     `,
