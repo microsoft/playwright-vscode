@@ -219,7 +219,7 @@ export class Extension {
     this._runProfiles.push(this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, project, true), project.isFirst));
   }
 
-  private async _scheduleTestRunRequest(project: TestProject, isDebug: boolean, request: vscodeTypes.TestRunRequest, token: vscodeTypes.CancellationToken) {
+  private async _scheduleTestRunRequest(project: TestProject, isDebug: boolean, request: vscodeTypes.TestRunRequest) {
     // Never run tests concurrently.
     if (this._testRun)
       return;
@@ -233,7 +233,7 @@ export class Extension {
       await Promise.resolve().then(async () => {
         const collector = this._projectsScheduledToRun!;
         this._projectsScheduledToRun = undefined;
-        await this._runMatchingTests(collector, isDebug, request, token);
+        await this._runMatchingTests(collector, isDebug, request);
       });
     } else {
       // Subsequent requests will return right away.
@@ -241,7 +241,7 @@ export class Extension {
     }
   }
 
-  private async _runMatchingTests(collector: TestProject[], isDebug: boolean, request: vscodeTypes.TestRunRequest, token: vscodeTypes.CancellationToken) {
+  private async _runMatchingTests(collector: TestProject[], isDebug: boolean, request: vscodeTypes.TestRunRequest) {
     this._completedSteps.clear();
     this._executionLinesChanged();
     this._testRun = this._testController.createTestRun(request);
@@ -262,7 +262,7 @@ export class Extension {
         //   locations.length => has matching items in project.
         if (locations && !locations.length)
           continue;
-        await this._runTest(this._testRun, new Set(), model, isDebug, projects, locations, parametrizedTestTitle, token);
+        await this._runTest(this._testRun, new Set(), model, isDebug, projects, locations, parametrizedTestTitle);
       }
     } finally {
       this._activeSteps.clear();
@@ -325,8 +325,7 @@ export class Extension {
     isDebug: boolean,
     projects: TestProject[],
     locations: string[] | null,
-    parametrizedTestTitle: string | undefined,
-    token: vscodeTypes.CancellationToken) {
+    parametrizedTestTitle: string | undefined) {
     const testListener: TestListener = {
       onBegin: ({ projects }) => {
         model.updateFromRunningProjects(projects);
@@ -408,9 +407,9 @@ export class Extension {
     };
 
     if (isDebug)
-      await this._playwrightTest.debugTests(this._vscode, model.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, token);
+      await this._playwrightTest.debugTests(this._vscode, model.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, testRun.token);
     else
-      await this._playwrightTest.runTests(model.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, token);
+      await this._playwrightTest.runTests(model.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, testRun.token);
   }
 
   private async _updateVisibleEditorItems() {

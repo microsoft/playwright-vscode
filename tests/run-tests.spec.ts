@@ -384,7 +384,7 @@ test('should stop', async ({}, testInfo) => {
   const runPromise = profile.run();
   const testRun = await testRunPromise;
   await new Promise(f => setTimeout(f, 1000));
-  testRun.request.token.cancel();
+  testRun.token.cancel();
   await runPromise;
 });
 
@@ -413,7 +413,7 @@ test('should tear down on stop', async ({}, testInfo) => {
   const runPromise = profile.run();
   const testRun = await testRunPromise;
   await new Promise(f => setTimeout(f, 1000));
-  testRun.request.token.cancel();
+  testRun.token.cancel();
   await runPromise;
   expect(fs.readFileSync(globalFile, 'utf-8')).toBe('TEARDOWN');
 });

@@ -228,6 +228,7 @@ export class TestRun {
   readonly _didEnd = new EventEmitter<void>();
   readonly onDidEnd = this._didEnd.event;
   readonly entries = new Map<TestItem, LogEntry[]>();
+  readonly token = new CancellationToken();
 
   constructor(
     readonly request: TestRunRequest,
