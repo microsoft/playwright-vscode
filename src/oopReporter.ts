@@ -64,7 +64,8 @@ class OopReporter implements Reporter {
     this._transport.then(t => {
       t.onmessage = message => {
         if (message.method === 'stop')
-          process.kill(process.pid, 'SIGINT');
+          process.emit('SIGINT' as any);
+
       };
       t.onclose = () => process.exit(0);
     });

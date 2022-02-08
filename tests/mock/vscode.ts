@@ -229,6 +229,7 @@ export class TestRun {
   readonly onDidEnd = this._didEnd.event;
   readonly entries = new Map<TestItem, LogEntry[]>();
   readonly token = new CancellationToken();
+  private _output: { output: string, location?: Location, test?: TestItem }[] = [];
 
   constructor(
     readonly request: TestRunRequest,
@@ -271,13 +272,14 @@ export class TestRun {
   }
 
   appendOutput(output: string, location?: Location, test?: TestItem) {
+    this._output.push({ output, location, test });
   }
 
   end() {
     this._didEnd.fire();
   }
 
-  renderLog(options: { messages?: boolean } = {}): string {
+  renderLog(options: { messages?: boolean, output?: boolean } = {}): string {
     const indent = '  ';
     const result: string[] = [''];
     const tests = [...this.entries.keys()];
@@ -289,6 +291,15 @@ export class TestRun {
         result.push(`    ${entry.status}`);
         if (options.messages && entry.message)
           entry.message.render('      ', result);
+      }
+    }
+    if (options.output) {
+      result.push('  Output:');
+      if (this._output.length) {
+        for (const output of this._output) {
+          const lines = output.output.split('\n');
+          result.push(...lines.map(l => '  ' + l));
+        }
       }
     }
     result.push('');
