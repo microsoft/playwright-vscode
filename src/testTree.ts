@@ -34,10 +34,12 @@ export class TestTree {
   private _testController: vscodeTypes.TestController;
   private _models: TestModel[] = [];
   private _disposables: vscodeTypes.Disposable[] = [];
+  private _loadingItem: vscodeTypes.TestItem;
 
   constructor(vscode: vscodeTypes.VSCode, testController: vscodeTypes.TestController) {
     this._vscode = vscode;
     this._testController = testController;
+    this._loadingItem = this._testController.createTestItem('loading', 'Loading\u2026');
   }
 
   startedLoading() {
@@ -53,15 +55,23 @@ export class TestTree {
       return;
 
     if (this._vscode.workspace.workspaceFolders?.length === 1) {
-      this._createRootItem(this._vscode.workspace.workspaceFolders[0].uri);
+      const rootItem = this._createRootItem(this._vscode.workspace.workspaceFolders[0].uri);
+      rootItem.children.replace([this._loadingItem]);
     } else {
       const rootTreeItems = [];
       for (const workspaceFolder of this._vscode.workspace.workspaceFolders || []) {
         const rootTreeItem = this.getOrCreateFileItem(workspaceFolder.uri.fsPath);
         rootTreeItems.push(rootTreeItem);
       }
-      this._testController.items.replace(rootTreeItems);
+      this._testController.items.replace([this._loadingItem, ...rootTreeItems]);
     }
+  }
+
+  finishedLoading() {
+    if (this._loadingItem.parent)
+      this._loadingItem.parent.children.delete(this._loadingItem.id);
+    else if (this._testController.items.get(this._loadingItem.id))
+      this._testController.items.delete(this._loadingItem.id);
   }
 
   addModel(model: TestModel) {

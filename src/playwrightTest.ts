@@ -88,7 +88,7 @@ export class PlaywrightTest {
     return null;
   }
 
-  listFiles(config: TestConfig): ConfigListFilesReport | null {
+  async listFiles(config: TestConfig): Promise<ConfigListFilesReport | null> {
     const node = this._findNode();
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
@@ -97,13 +97,17 @@ export class PlaywrightTest {
       // For tests.
       this._log(`${path.relative(config.workspaceFolder, configFolder)}> playwright list-files -c ${configFile}`);
     }
-    const childProcess = spawnSync(node, allArgs, {
+    const childProcess = spawn(node, allArgs, {
+      stdio: 'pipe',
       cwd: configFolder,
       env: { ...process.env }
     });
-    const output = childProcess.stdout.toString();
-    if (!output)
-      return null;
+    let output = '';
+    childProcess.stdout.on('data', data => output += data.toString());
+    await new Promise<void>((f, r) => {
+      childProcess.on('error', error => r(error));
+      childProcess.on('exit', () => f());
+    });
     try {
       return JSON.parse(output) as ConfigListFilesReport;
     } catch (e) {

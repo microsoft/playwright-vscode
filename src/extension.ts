@@ -158,7 +158,8 @@ export class Extension {
       const model = new TestModel(this._vscode, this._playwrightTest, workspaceFolderPath, configFileUri.fsPath, playwrightInfo.cli);
       this._models.push(model);
       this._testTree.addModel(model);
-      model.listFiles();
+      await model.listFiles();
+      this._testTree.finishedLoading();
 
       for (const project of model.projects.values()) {
         await this._createRunProfile(project);

@@ -67,13 +67,8 @@ export class TestModel {
     this.onUpdated = this._didUpdate.event;
   }
 
-  listFiles() {
-    this._innerListFiles();
-    this._didUpdate.fire();
-  }
-
-  private _innerListFiles() {
-    const report = this._playwrightTest.listFiles(this.config);
+  async listFiles() {
+    const report = await this._playwrightTest.listFiles(this.config);
     if (!report)
       return;
 
@@ -92,6 +87,7 @@ export class TestModel {
     }
 
     this._recalculateAllFiles();
+    this._didUpdate.fire();
   }
 
   private _createProject(projectReport: ProjectListFilesReport, isFirst: boolean): TestProject {
@@ -147,10 +143,8 @@ export class TestModel {
             hasMatchingFiles = true;
         }
       }
-      if (hasMatchingFiles) {
-        this._innerListFiles();
-        modelChanged = true;
-      }
+      if (hasMatchingFiles)
+        this.listFiles();
     }
 
     if (change.created.size || change.deleted.size)
