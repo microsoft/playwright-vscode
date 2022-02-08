@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import { declare } from '@babel/helper-plugin-utils';
-import { types as t } from '@babel/core';
+import { declare, t } from './babelBundle';
 
 export default declare(api => {
   api.assertVersion(7);

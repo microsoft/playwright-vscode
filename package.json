@@ -40,13 +40,12 @@
     }
   },
   "scripts": {
+    "esbuild": "esbuild ./src/babelBundle.ts ./src/extension.ts ./src/oopReporter.ts ./src/debugTransform.ts --bundle --outdir=out --external:vscode --external:./babelBundle --format=cjs --platform=node",
+    "build": "npm run esbuild -- --minify",
+    "watch": "npm run esbuild -- --sourcemap --watch",
     "vscode:prepublish": "npm run build",
-    "build": "tsc -p ./",
     "lint": "eslint . --ext .ts,.tsx,.js",
-    "watch": "tsc -watch -p ./",
-    "download-api": "vscode-dts dev",
-    "postdownload-api": "vscode-dts main",
-    "postinstall": "npm run download-api && npm run build",
+    "download-api": "vscode-dts dev && vscode-dts main",
     "test": "playwright test",
     "package": "vsce package",
     "code": "code --uninstall-extension ms-playwright.playwright && code --install-extension playwright-0.0.9.vsix",
@@ -66,13 +65,14 @@
     "@typescript-eslint/eslint-plugin": "^5.10.2",
     "@typescript-eslint/parser": "^5.10.2",
     "@vscode/test-electron": "^2.1.1",
+    "esbuild": "^0.14.20",
     "eslint": "^8.8.0",
     "eslint-plugin-notice": "^0.9.10",
     "eslint-plugin-react-hooks": "^4.3.0",
     "glob": "^7.2.0",
     "mocha": "^9.2.0",
     "typescript": "^4.5.5",
-    "vsce": "^2.6.6",
+    "vsce": "^2.6.7",
     "vscode-dts": "^0.3.3"
   },
   "dependencies": {

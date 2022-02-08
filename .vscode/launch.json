@@ -15,9 +15,8 @@
 				"${workspaceFolder}/../playwright/examples/todomvc"
 			],
 			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
+				"${workspaceFolder}/out/*.js"
 			],
-			"preLaunchTask": "npm: watch"
 		}
 	]
 }

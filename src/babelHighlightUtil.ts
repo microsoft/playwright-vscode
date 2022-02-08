@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-import { types as t } from '@babel/core';
-import { parse, ParseResult } from '@babel/parser';
-import traverse from '@babel/traverse';
-import type { File, SourceLocation } from '@babel/types';
+import { t, parse, ParseResult, traverse, File, SourceLocation } from './babelBundle';
 import { asyncMatchers, pageMethods } from './methodNames';
 
 const astCache = new Map<string, { text: string, ast: ParseResult<File> }>();

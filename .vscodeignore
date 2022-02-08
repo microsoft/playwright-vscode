@@ -1,6 +1,5 @@
-test/**/*
-example/**/*
-out/test/**/*
-src/**/*
-.gitignore
-tsconfig.json
+**/*
+!out/*.js
+!images
+!LICENSE
+!README.md

@@ -15,14 +15,14 @@
  */
 
 import * as http from 'http';
-import * as ws from 'ws';
+import WebSocket, { WebSocketServer } from 'ws';
 import { ConnectionTransport } from './transport';
 import { createGuid } from './utils';
 
 export class DebugServer {
-  private _clientSocketPromise: Promise<ws.WebSocket>;
-  private _clientSocketCallback!: (socket: ws.WebSocket) => void;
-  private _wsServer: ws.Server | undefined;
+  private _clientSocketPromise: Promise<WebSocket>;
+  private _clientSocketCallback!: (socket: WebSocket) => void;
+  private _wsServer: WebSocketServer | undefined;
 
   constructor() {
     this._clientSocketPromise = new Promise(f => this._clientSocketCallback = f);
@@ -45,7 +45,7 @@ export class DebugServer {
       }).on('error', reject);
     });
 
-    const wsServer = new ws.Server({ server, path });
+    const wsServer = new WebSocketServer({ server, path });
     wsServer.on('connection', async socket => this._clientSocketCallback(socket));
     this._wsServer = wsServer;
 
@@ -57,7 +57,7 @@ export class DebugServer {
 
     const transport: ConnectionTransport = {
       send: function(message): void {
-        if (socket.readyState !== ws.CLOSING)
+        if (socket.readyState !== WebSocket.CLOSING)
           socket.send(JSON.stringify(message));
       },
 

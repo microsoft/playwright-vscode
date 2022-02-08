@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { discardBabelAstCache, locatorForSourcePosition } from './babelUtil';
+import { discardBabelAstCache, locatorForSourcePosition } from './babelHighlightUtil';
 import { debugSessionName } from './debugSessionName';
 import * as vscodeTypes from './vscodeTypes';
 

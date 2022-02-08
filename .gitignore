@@ -1,11 +1,7 @@
-/out/
+out/
 node_modules
 .vscode-test/
 *.vsix
-yarn.lock
-/vscode.d.ts
-/vscode.proposed.d.ts
-/example/package-lock.json
 .DS_Store
 test-results/
 playwright-report/
