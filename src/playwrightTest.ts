@@ -17,6 +17,7 @@
 import { spawn, spawnSync } from 'child_process';
 import path from 'path';
 import { DebugServer } from './debugServer';
+import { debugSessionName } from './debugSessionName';
 import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import type { TestError } from './reporter';
 import { ConnectionTransport, PipeTransport } from './transport';
@@ -188,7 +189,7 @@ export class PlaywrightTest {
       args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
     await vscode.debug.startDebugging(undefined, {
       type: 'pwa-node',
-      name: 'Playwright Test',
+      name: debugSessionName,
       request: 'launch',
       cwd: configFolder,
       env: {
