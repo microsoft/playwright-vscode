@@ -18,7 +18,7 @@ The extension automatically detects if you have [Playwright Test] installed and 
 
 ### Run tests with a single click
 
-You can use Tests sidebar to run a test or a group of tests with a single cick.
+You can use Tests sidebar to run a test or a group of tests with a single click.
 
 ![run_tests](https://user-images.githubusercontent.com/883973/152095110-46667a83-1f56-4964-8e99-094b880b70a0.gif)
 
