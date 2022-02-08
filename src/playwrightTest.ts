@@ -129,7 +129,6 @@ export class PlaywrightTest {
     await this._test(config, files, ['--list'], {
       onBegin: params => {
         result = params.projects as Entry[];
-        return true;
       },
     });
     return result;
