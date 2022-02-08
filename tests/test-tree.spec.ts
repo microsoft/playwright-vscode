@@ -149,6 +149,43 @@ test('should discover new tests', async ({}, testInfo) => {
   `);
 });
 
+test('should discover tests on add + change', async ({}, testInfo) => {
+  const { testController, workspaceFolder, renderExecLog } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: './' }`,
+  });
+
+  await Promise.all([
+    new Promise(f => testController.onDidChangeTestItem(f)),
+    workspaceFolder.addFile('test.spec.ts', ``)
+  ]);
+
+  expect(testController.renderTestTree()).toBe(`
+    - test.spec.ts
+  `);
+
+  await testController.expandTestItems(/test.spec.ts/);
+
+  await Promise.all([
+    new Promise(f => testController.onDidChangeTestItem(f)),
+    workspaceFolder.changeFile('test.spec.ts', `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `)
+  ]);
+
+  expect(testController.renderTestTree()).toBe(`
+    - test.spec.ts
+      - one [2:0]
+  `);
+
+  expect(renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list test.spec.ts
+    > playwright test -c playwright.config.js --list test.spec.ts
+  `);
+});
+
 test('should discover new test at existing location', async ({}, testInfo) => {
   const { testController, workspaceFolder, renderExecLog } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,

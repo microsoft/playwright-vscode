@@ -207,23 +207,15 @@ export class TestModel {
   }
 
   private _updateFromRunningProject(project: TestProject, projectEntry: Entry) {
-    const reportedFiles = new Set<string>();
+    // When running tests, don't remove existing entries.
     for (const fileEntry of projectEntry.children || []) {
-      reportedFiles.add(fileEntry.location.file);
       if (!fileEntry.children)
         continue;
       let file = project.files.get(fileEntry.location.file);
       if (!file)
         file = this._createFile(project, fileEntry.location.file);
-      // Only update if not yet discovered, we might be running focused
-      // test that lacks other tests.
       if (!file.entries())
         file.setEntries(fileEntry.children);
-    }
-
-    for (const [file] of project.files) {
-      if (!reportedFiles.has(file))
-        project.files.delete(file);
     }
     this._didUpdate.fire();
   }

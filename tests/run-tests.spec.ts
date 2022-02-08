@@ -66,7 +66,6 @@ test('should run one test', async ({}, testInfo) => {
   const testItems = testController.findTestItems(/pass/);
   const testRun = await testController.run(testItems);
 
-  // Test was discovered, hence we should see immediate enqueue.
   expect(testRun.renderLog()).toBe(`
     should pass [2:0]
       enqueued
@@ -98,7 +97,6 @@ test('should run describe', async ({}, testInfo) => {
   expect(testItems.length).toBe(1);
   const testRun = await testController.run(testItems);
 
-  // Test was discovered, hence we should see immediate enqueue.
   expect(testRun.renderLog()).toBe(`
     one [3:0]
       enqueued
@@ -125,7 +123,6 @@ test('should run file', async ({}, testInfo) => {
   expect(testItems.length).toBe(1);
   const testRun = await testController.run(testItems);
 
-  // Test was discovered, hence we should see immediate enqueue.
   expect(testRun.renderLog()).toBe(`
     one [2:0]
       enqueued
@@ -160,7 +157,6 @@ test('should run folder', async ({}, testInfo) => {
   expect(testItems.length).toBe(1);
   const testRun = await testController.run(testItems);
 
-  // Test was discovered, hence we should see immediate enqueue.
   expect(testRun.renderLog()).toBe(`
     one [2:0]
       enqueued
@@ -193,7 +189,6 @@ test('should show error message', async ({}, testInfo) => {
   const testItems = testController.findTestItems(/fail/);
   const testRun = await testController.run(testItems);
 
-  // Test was discovered, hence we should see immediate enqueue.
   expect(testRun.renderLog({ messages: true })).toBe(`
     should fail [2:0]
       enqueued
@@ -459,7 +454,6 @@ test('should run all parametrized tests', async ({}, testInfo) => {
   expect(testItems.length).toBe(3);
   const testRun = await testController.run(testItems);
 
-  // Test was discovered, hence we should see immediate enqueue.
   expect(testRun.renderLog()).toBe(`
     test-one [3:0]
       enqueued
@@ -497,7 +491,6 @@ test('should run one parametrized test', async ({}, testInfo) => {
   expect(testItems.length).toBe(1);
   const testRun = await testController.run(testItems);
 
-  // Test was discovered, hence we should see immediate enqueue.
   expect(testRun.renderLog()).toBe(`
     test two [3:0]
       enqueued
@@ -530,7 +523,6 @@ test('should run one parametrized groups', async ({}, testInfo) => {
   expect(testItems.length).toBe(1);
   const testRun = await testController.run(testItems);
 
-  // Test was discovered, hence we should see immediate enqueue.
   expect(testRun.renderLog()).toBe(`
     test one in group three [4:0]
       enqueued
@@ -673,5 +665,40 @@ test('should report project-specific failures', async ({}, testInfo) => {
       failed
         test.spec.ts:[3:14 - 3:14]
         Error: projectC
+  `);
+});
+
+test('should discover tests after running one test', async ({}, testInfo) => {
+  const { testController } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test1.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+    'tests/test2.spec.ts': `
+      import { test } from '@playwright/test';
+      test('two', async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/test1.spec.ts/);
+  const testItems = testController.findTestItems(/one/);
+  const testRun = await testController.run(testItems);
+
+  expect(testRun.renderLog()).toBe(`
+    one [2:0]
+      enqueued
+      started
+      passed
+  `);
+
+  await testController.expandTestItems(/test2.spec.ts/);
+
+  expect(testController.renderTestTree()).toBe(`
+    - tests
+      - test1.spec.ts
+        - one [2:0]
+      - test2.spec.ts
+        - two [2:0]
   `);
 });
