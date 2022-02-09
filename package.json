@@ -17,7 +17,8 @@
     "Testing"
   ],
   "activationEvents": [
-    "workspaceContains:**/*playwright*.config.{ts,js,mjs}"
+    "workspaceContains:**/*playwright*.config.{ts,js,mjs}",
+    "onCommand:pw.extension.install"
   ],
   "main": "./out/extension.js",
   "contributes": {
