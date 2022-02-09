@@ -39,10 +39,7 @@ export class DebugHighlight {
     const self = this;
     const disposables = [
       vscode.debug.onDidStartDebugSession(session => {
-        let rootSession = session;
-        while (rootSession.parentSession)
-          rootSession = rootSession.parentSession;
-        if (rootSession.name === debugSessionName)
+        if (isPlaywrightSession(session))
           debugSessions.set(session.id, session);
       }),
       vscode.debug.onDidTerminateDebugSession(session => {
@@ -67,7 +64,7 @@ export class DebugHighlight {
       }),
       vscode.debug.registerDebugAdapterTrackerFactory('*', {
         createDebugAdapterTracker(session: vscodeTypes.DebugSession) {
-          if (!debugSessions.has(session.id))
+          if (!isPlaywrightSession(session))
             return {};
 
           let lastCatchLocation: DebuggerLocation | undefined;
@@ -207,4 +204,11 @@ export async function hideHighlight() {
 
 export function discardHighlightCaches() {
   discardBabelAstCache();
+}
+
+function isPlaywrightSession(session: vscodeTypes.DebugSession): boolean {
+  let rootSession = session;
+  while (rootSession.parentSession)
+    rootSession = rootSession.parentSession;
+  return rootSession.name === debugSessionName;
 }
