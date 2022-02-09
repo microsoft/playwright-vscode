@@ -27,6 +27,11 @@
         "command": "pw.extension.refreshTests",
         "icon": "$(refresh)",
         "title": "Refresh Playwright Tests"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.install",
+        "title": "Install Playwright"
       }
     ],
     "menus": {

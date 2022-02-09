@@ -25,6 +25,7 @@ export type {
   FileSystemWatcher,
   Location,
   Position,
+  QuickPickItem,
   TestItem,
   TestItemCollection,
   TestMessage,

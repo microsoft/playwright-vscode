@@ -111,6 +111,9 @@ export class Extension {
       vscode.commands.registerCommand('pw.extension.refreshTests', () => {
         this._rebuildModel();
       }),
+      vscode.commands.registerCommand('pw.extension.install', async () => {
+        this._installPlaywright();
+      }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
           this._completedSteps.clear();
@@ -123,6 +126,66 @@ export class Extension {
     context.subscriptions.push(...disposables);
     this._debugHighlight.activate(context);
     await this._rebuildModel();
+  }
+
+  private async _installPlaywright() {
+    const [workspaceFolder] = this._vscode.workspace.workspaceFolders || [];
+    if (!workspaceFolder)
+      return;
+    const chromium: vscodeTypes.QuickPickItem = {
+      label: 'Chromium',
+      picked: true,
+      description: '— powers Google Chrome, Microsoft Edge, etc\u2026',
+    };
+    const firefox: vscodeTypes.QuickPickItem = {
+      label: 'Firefox',
+      picked: true,
+      description: '— powers Mozilla Firefox',
+    };
+    const webkit: vscodeTypes.QuickPickItem = {
+      label: 'WebKit',
+      picked: true,
+      description: '— powers  Apple Safari',
+    };
+    const addAction: vscodeTypes.QuickPickItem = {
+      label: 'Add GitHub Action',
+      picked: true,
+      description: '— adds GitHub Action recipe'
+    };
+    const options: vscodeTypes.QuickPickItem[] = [
+      { label: 'Select browsers to install', kind: this._vscode.QuickPickItemKind.Separator },
+      chromium,
+      firefox,
+      webkit,
+      { label: '', kind: this._vscode.QuickPickItemKind.Separator },
+      addAction,
+    ];
+    const result = await this._vscode.window.showQuickPick(options, {
+      title: 'Install Playwright',
+      canPickMany: true,
+    });
+    if (!result?.length)
+      return;
+
+    const terminal = this._vscode.window.createTerminal({
+      name: 'Install Playwright',
+      cwd: workspaceFolder.uri.fsPath,
+      env: process.env,
+    });
+
+    terminal.show();
+
+    const args: string[] = [];
+    if (result.includes(chromium))
+      args.push('--browser=chromium');
+    if (result.includes(firefox))
+      args.push('--browser=firefox');
+    if (result.includes(webkit))
+      args.push('--browser=webkit');
+    if (result.includes(addAction))
+      args.push('--gha');
+
+    terminal.sendText(`npm init playwright@latest -- --next --quiet ${args.join(' ')}`, true);
   }
 
   private async _rebuildModel() {
@@ -144,7 +207,7 @@ export class Extension {
       const workspaceFolderPath = workspaceFolder.uri.fsPath;
       if (configFilePath.includes('test-results') && !workspaceFolderPath.includes('test-results'))
         continue;
-      const playwrightInfo = this._playwrightTest.getPlaywrightInfo(workspaceFolderPath, configFilePath);
+      const playwrightInfo = await this._playwrightTest.getPlaywrightInfo(workspaceFolderPath, configFilePath);
       if (!playwrightInfo) {
         this._vscode.window.showWarningMessage('Please install Playwright Test via running `npm i @playwright/test`');
         continue;

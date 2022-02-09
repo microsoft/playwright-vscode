@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { spawnSync } from 'child_process';
+import { spawn } from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -29,10 +29,10 @@ export function createGuid(): string {
   return crypto.randomBytes(16).toString('hex');
 }
 
-export function findInPath(program: string, env: NodeJS.ProcessEnv): string | undefined {
+export async function findInPath(program: string): Promise<string | undefined> {
   let locator: string;
   if (process.platform === 'win32') {
-    const windir = env['WINDIR'] || 'C:\\Windows';
+    const windir = process.env['WINDIR'] || 'C:\\Windows';
     locator = path.join(windir, 'System32', 'where.exe');
   } else {
     locator = '/usr/bin/which';
@@ -40,12 +40,12 @@ export function findInPath(program: string, env: NodeJS.ProcessEnv): string | un
 
   try {
     if (fs.existsSync(locator)) {
-      const located = spawnSync(locator, [program], { env });
-      const lines = located.stdout.toString().split(/\r?\n/);
+      const stdout = await spawnAsync(locator, [program]);
+      const lines = stdout.split(/\r?\n/);
 
       if (process.platform === 'win32') {
         // return the first path that has a executable extension
-        const executableExtensions = String(env['PATHEXT'] || '.exe')
+        const executableExtensions = String(process.env['PATHEXT'] || '.exe')
             .toUpperCase()
             .split(';');
 
@@ -77,4 +77,18 @@ export function findInPath(program: string, env: NodeJS.ProcessEnv): string | un
 const asciiRegex = new RegExp('[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))', 'g');
 export function stripAnsi(str: string): string {
   return str.replace(asciiRegex, '');
+}
+
+export async function spawnAsync(executable: string, args: string[], cwd?: string): Promise<string> {
+  const childProcess = spawn(executable, args, {
+    stdio: 'pipe',
+    cwd,
+    env: { ...process.env }
+  });
+  let output = '';
+  childProcess.stdout.on('data', data => output += data.toString());
+  return new Promise<string>((f, r) => {
+    childProcess.on('error', error => r(error));
+    childProcess.on('exit', () => f(output));
+  });
 }

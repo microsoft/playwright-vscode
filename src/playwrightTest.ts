@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-import { spawn, spawnSync } from 'child_process';
+import { spawn } from 'child_process';
 import path from 'path';
 import { DebugServer } from './debugServer';
 import { debugSessionName } from './debugSessionName';
 import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import type { TestError } from './reporter';
 import { ConnectionTransport, PipeTransport } from './transport';
-import { findInPath } from './utils';
+import { findInPath, spawnAsync } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
 export type TestConfig = {
@@ -56,6 +56,7 @@ const pathSeparator = process.platform === 'win32' ? ';' : ':';
 
 export class PlaywrightTest {
   private _pathToNodeJS: string | undefined;
+  private _pathToNpm: string | undefined;
   private _testLog: string[] = [];
   private _isUnderTest: boolean;
 
@@ -63,20 +64,13 @@ export class PlaywrightTest {
     this._isUnderTest = isUnderTest;
   }
 
-  getPlaywrightInfo(workspaceFolder: string, configFilePath: string): { version: number, cli: string } | null {
-    const node = this._findNode();
-    const configFolder = path.dirname(configFilePath);
-    const childProcess = spawnSync(node, [
-      '-e',
-      'try { const index = require.resolve("playwright-core"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ index, version})); } catch { console.log("undefined"); }',
-    ],
-    {
-      cwd: configFolder,
-      env: { ...process.env }
-    }
-    );
-    const output = childProcess.stdout.toString();
+  async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, cli: string } | null> {
     try {
+      const output = await this._runNode([
+        '-e',
+        'try { const index = require.resolve("playwright-core"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ index, version})); } catch { console.log("undefined"); }',
+      ], path.dirname(configFilePath));
+
       const { index, version } = JSON.parse(output);
       let cli = path.resolve(index, '..', 'lib', 'cli', 'cli');
 
@@ -91,7 +85,6 @@ export class PlaywrightTest {
   }
 
   async listFiles(config: TestConfig): Promise<ConfigListFilesReport | null> {
-    const node = this._findNode();
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
     const allArgs = [config.cli, 'list-files', '-c', configFile];
@@ -99,17 +92,7 @@ export class PlaywrightTest {
       // For tests.
       this._log(`${path.relative(config.workspaceFolder, configFolder)}> playwright list-files -c ${configFile}`);
     }
-    const childProcess = spawn(node, allArgs, {
-      stdio: 'pipe',
-      cwd: configFolder,
-      env: { ...process.env }
-    });
-    let output = '';
-    childProcess.stdout.on('data', data => output += data.toString());
-    await new Promise<void>((f, r) => {
-      childProcess.on('error', error => r(error));
-      childProcess.on('exit', () => f());
-    });
+    const output = await this._runNode(allArgs, configFolder);
     try {
       return JSON.parse(output) as ConfigListFilesReport;
     } catch (e) {
@@ -137,7 +120,7 @@ export class PlaywrightTest {
   }
 
   private async _test(config: TestConfig, locations: string[], args: string[], listener: TestListener, token?: vscodeTypes.CancellationToken): Promise<void> {
-    const node = this._findNode();
+    const node = await this._findNode();
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
     {
@@ -254,14 +237,18 @@ export class PlaywrightTest {
     return this._testLog.slice();
   }
 
-  private _findNode(): string {
+  private async _findNode(): Promise<string> {
     if (this._pathToNodeJS)
       return this._pathToNodeJS;
-    const node = findInPath('node', process.env);
+    const node = await findInPath('node');
     if (!node)
       throw new Error('Unable to launch `node`, make sure it is in your PATH');
     this._pathToNodeJS = node;
     return node;
+  }
+
+  private async _runNode(args: string[], cwd: string): Promise<string> {
+    return await spawnAsync(await this._findNode(), args, cwd);
   }
 }
 
