@@ -185,7 +185,7 @@ export class Extension {
     if (result.includes(addAction))
       args.push('--gha');
 
-    terminal.sendText(`npm init playwright@latest -- --next --quiet ${args.join(' ')}`, true);
+    terminal.sendText(`npm init playwright@latest -- --beta --quiet ${args.join(' ')}`, true);
   }
 
   private async _rebuildModel() {
