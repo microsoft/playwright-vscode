@@ -391,7 +391,7 @@ test('should tear down on stop', async ({}, testInfo) => {
     'globalSetup.js': `
       module.exports = async () => {
         return async () => {
-          console.log('RUNNING TEARDOWN');
+          await new Promise(f => process.stdout.write('RUNNING TEARDOWN', f));
         }
       };
     `,

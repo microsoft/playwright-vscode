@@ -56,7 +56,6 @@ const pathSeparator = process.platform === 'win32' ? ';' : ':';
 
 export class PlaywrightTest {
   private _pathToNodeJS: string | undefined;
-  private _pathToNpm: string | undefined;
   private _testLog: string[] = [];
   private _isUnderTest: boolean;
 
