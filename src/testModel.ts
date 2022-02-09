@@ -122,7 +122,7 @@ export class TestModel {
     return testFile;
   }
 
-  workspaceChanged(change: WorkspaceChange) {
+  async workspaceChanged(change: WorkspaceChange) {
     let modelChanged = false;
     if (change.deleted.size) {
       for (const project of this.projects.values()) {
@@ -144,7 +144,7 @@ export class TestModel {
         }
       }
       if (hasMatchingFiles)
-        this.listFiles();
+        await this.listFiles();
     }
 
     if (change.created.size || change.deleted.size)
@@ -161,7 +161,7 @@ export class TestModel {
         }
       }
       if (filesToLoad.size)
-        this.listTests([...filesToLoad]);
+        await this.listTests([...filesToLoad]);
     }
     if (modelChanged)
       this._didUpdate.fire();

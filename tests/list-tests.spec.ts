@@ -149,6 +149,47 @@ test('should discover new tests', async ({}, testInfo) => {
   `);
 });
 
+test('should discover new tests with active editor', async ({}, testInfo) => {
+  const { testController, workspaceFolder, renderExecLog, vscode } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test1.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  expect(renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+  `);
+
+  await Promise.all([
+    new Promise<void>(f => {
+      testController.onDidChangeTestItem(ti => {
+        if (ti.label.includes('test2.spec'))
+          f();
+      });
+    }),
+    workspaceFolder.addFile('tests/test2.spec.ts', `
+      import { test } from '@playwright/test';
+      test('two', async () => {});
+    `),
+    vscode.openEditors('**/test2.spec.ts'),
+  ]);
+
+  expect(testController.renderTestTree()).toBe(`
+    - tests
+      - test1.spec.ts
+      - test2.spec.ts
+        - two [2:0]
+  `);
+
+  expect(renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test2.spec.ts
+  `);
+});
+
 test('should discover tests on add + change', async ({}, testInfo) => {
   const { testController, workspaceFolder, renderExecLog } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = { testDir: './' }`,

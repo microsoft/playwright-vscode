@@ -151,8 +151,7 @@ test('should not pick non-test files', async ({}, testInfo) => {
   `);
 });
 
-test('should pick first file', async ({}, testInfo) => {
-  test.fixme(true, 'Upstream issue, > playwright list-tests should work even when testDir does not exist');
+test('should tolerate missing testDir', async ({}, testInfo) => {
   const { workspaceFolder, testController } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
   });

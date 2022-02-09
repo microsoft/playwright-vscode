@@ -340,7 +340,10 @@ export class Extension {
 
   private async _workspaceChanged(change: WorkspaceChange) {
     for (const model of this._models)
-      model.workspaceChanged(change);
+      await model.workspaceChanged(change);
+    // Workspace change can be deferred, make sure editors are
+    // decorated.
+    this._updateVisibleEditorItems();
   }
 
   private async _runTest(
