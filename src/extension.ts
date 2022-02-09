@@ -369,7 +369,7 @@ export class Extension {
     };
 
     if (isDebug)
-      await this._playwrightTest.debugTests(this._vscode, model.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, testRun.token);
+      await this._playwrightTest.debugTests(this._vscode, model.config, projects.map(p => p.name), projects.map(p => p.testDir), locations, testListener, parametrizedTestTitle, testRun.token);
     else
       await this._playwrightTest.runTests(model.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, testRun.token);
   }

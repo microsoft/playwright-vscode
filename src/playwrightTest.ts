@@ -52,6 +52,8 @@ export interface TestListener {
   onStdErr?(data: Buffer | string): void;
 }
 
+const pathSeparator = process.platform === 'win32' ? ';' : ':';
+
 export class PlaywrightTest {
   private _pathToNodeJS: string | undefined;
   private _testLog: string[] = [];
@@ -172,7 +174,7 @@ export class PlaywrightTest {
     await this._wireTestListener(transport, listener, token);
   }
 
-  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
     const configFolder = path.dirname(config.configFile);
@@ -200,6 +202,7 @@ export class PlaywrightTest {
         FORCE_COLORS: '1',
         PW_OUT_OF_PROCESS_DRIVER: '1',
         PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
+        PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
         PW_TEST_REPORTER: require.resolve('./oopReporter'),
         PW_TEST_REPORTER_WS_ENDPOINT: wsEndpoint,
         PW_TEST_HTML_REPORT_OPEN: 'never',
