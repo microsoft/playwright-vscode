@@ -239,7 +239,13 @@ export class PlaywrightTest {
   private async _findNode(): Promise<string> {
     if (this._pathToNodeJS)
       return this._pathToNodeJS;
-    const node = await findInPath('node');
+
+    let node = await findInPath('node');
+    // When etension host boots, it does not have the right env set, so we might need to wait.
+    for (let i = 0; i < 5 && !node; ++i) {
+      await new Promise(f => setTimeout(f, 1000));
+      node = await findInPath('node');
+    }
     if (!node)
       throw new Error('Unable to launch `node`, make sure it is in your PATH');
     this._pathToNodeJS = node;

@@ -17,6 +17,7 @@
 import path from 'path';
 import StackUtils from 'stack-utils';
 import { DebugHighlight } from './debugHighlight';
+import { installPlaywright } from './installer';
 import { Entry } from './oopReporter';
 import { PlaywrightTest, TestListener } from './playwrightTest';
 import type { TestError } from './reporter';
@@ -70,9 +71,11 @@ export class Extension {
   private _playwrightTest: PlaywrightTest;
   private _projectsScheduledToRun: TestProject[] | undefined;
   private _debugHighlight: DebugHighlight;
+  private _isUnderTest: boolean;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
+    this._isUnderTest = !!(this._vscode as any).isUnderTest;
     this._activeStepDecorationType = this._vscode.window.createTextEditorDecorationType({
       isWholeLine: true,
       backgroundColor: { id: 'editor.wordHighlightStrongBackground' },
@@ -90,7 +93,7 @@ export class Extension {
       },
     });
 
-    this._playwrightTest = new PlaywrightTest(!!(this._vscode as any).isUnderTest);
+    this._playwrightTest = new PlaywrightTest(this._isUnderTest);
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testTree = new TestTree(vscode, this._testController);
@@ -111,8 +114,8 @@ export class Extension {
       vscode.commands.registerCommand('pw.extension.refreshTests', () => {
         this._rebuildModel();
       }),
-      vscode.commands.registerCommand('pw.extension.install', async () => {
-        this._installPlaywright();
+      vscode.commands.registerCommand('pw.extension.install', () => {
+        installPlaywright(this._vscode);
       }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
@@ -123,69 +126,23 @@ export class Extension {
       this._testController,
       this._workspaceObserver,
     ];
-    context.subscriptions.push(...disposables);
     this._debugHighlight.activate(context);
     await this._rebuildModel();
-  }
 
-  private async _installPlaywright() {
-    const [workspaceFolder] = this._vscode.workspace.workspaceFolders || [];
-    if (!workspaceFolder)
-      return;
-    const chromium: vscodeTypes.QuickPickItem = {
-      label: 'Chromium',
-      picked: true,
-      description: '— powers Google Chrome, Microsoft Edge, etc\u2026',
-    };
-    const firefox: vscodeTypes.QuickPickItem = {
-      label: 'Firefox',
-      picked: true,
-      description: '— powers Mozilla Firefox',
-    };
-    const webkit: vscodeTypes.QuickPickItem = {
-      label: 'WebKit',
-      picked: true,
-      description: '— powers  Apple Safari',
-    };
-    const addAction: vscodeTypes.QuickPickItem = {
-      label: 'Add GitHub Action',
-      picked: true,
-      description: '— adds GitHub Action recipe'
-    };
-    const options: vscodeTypes.QuickPickItem[] = [
-      { label: 'Select browsers to install', kind: this._vscode.QuickPickItemKind.Separator },
-      chromium,
-      firefox,
-      webkit,
-      { label: '', kind: this._vscode.QuickPickItemKind.Separator },
-      addAction,
-    ];
-    const result = await this._vscode.window.showQuickPick(options, {
-      title: 'Install Playwright',
-      canPickMany: true,
-    });
-    if (!result?.length)
-      return;
-
-    const terminal = this._vscode.window.createTerminal({
-      name: 'Install Playwright',
-      cwd: workspaceFolder.uri.fsPath,
-      env: process.env,
-    });
-
-    terminal.show();
-
-    const args: string[] = [];
-    if (result.includes(chromium))
-      args.push('--browser=chromium');
-    if (result.includes(firefox))
-      args.push('--browser=firefox');
-    if (result.includes(webkit))
-      args.push('--browser=webkit');
-    if (result.includes(addAction))
-      args.push('--gha');
-
-    terminal.sendText(`npm init playwright@latest -- --beta --quiet ${args.join(' ')}`, true);
+    const fileSystemWatcher = this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mjs}');
+    disposables.push(fileSystemWatcher);
+    const rebuildModelForConfig = (uri: vscodeTypes.Uri) => {
+      // TODO: parse .gitignore
+      if (uri.fsPath.includes('node_modules'))
+        return;
+      if (!this._isUnderTest && uri.fsPath.includes('test-results'))
+        return;
+      this._rebuildModel();
+    }
+    fileSystemWatcher.onDidChange(rebuildModelForConfig);
+    fileSystemWatcher.onDidCreate(rebuildModelForConfig);
+    fileSystemWatcher.onDidDelete(rebuildModelForConfig);
+    context.subscriptions.push(...disposables);
   }
 
   private async _rebuildModel() {
@@ -200,7 +157,10 @@ export class Extension {
 
     for (const configFileUri of configFiles) {
       const configFilePath = configFileUri.fsPath;
+      // TODO: parse .gitignore
       if (configFilePath.includes('node_modules'))
+        continue;
+      if (!this._isUnderTest && configFilePath.includes('test-results'))
         continue;
       // Dogfood support
       const workspaceFolder = this._vscode.workspace.getWorkspaceFolder(configFileUri)!;
@@ -222,7 +182,6 @@ export class Extension {
       this._models.push(model);
       this._testTree.addModel(model);
       await model.listFiles();
-      this._testTree.finishedLoading();
 
       for (const project of model.projects.values()) {
         await this._createRunProfile(project);
@@ -230,6 +189,7 @@ export class Extension {
       }
     }
 
+    this._testTree.finishedLoading();
     await this._updateVisibleEditorItems();
   }
 

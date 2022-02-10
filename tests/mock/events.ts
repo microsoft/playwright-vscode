@@ -17,11 +17,13 @@
 export namespace Disposable {
   export function disposeAll(disposables: Disposable[]): void {
     for (const disposable of disposables.splice(0))
-      disposable();
+      disposable.dispose();
   }
 }
 
-export type Disposable = () => void;
+export type Disposable = {
+  dispose(): void;
+}
 
 export interface Event<T> {
   (listener: (e: T) => any, disposables?: Disposable[]): Disposable;
@@ -37,10 +39,13 @@ export class EventEmitter<T> {
     this.event = (listener: (e: T) => any, disposables?: Disposable[]) => {
       this._listeners.add(listener);
       let disposed = false;
-      const result: Disposable = () => {
-        if (!disposed) {
-          disposed = true;
-          this._listeners.delete(listener);
+      const self = this;
+      const result: Disposable = {
+        dispose() {
+          if (!disposed) {
+            disposed = true;
+            self._listeners.delete(listener);
+          }
         }
       };
       if (disposables)

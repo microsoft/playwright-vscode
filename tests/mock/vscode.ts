@@ -18,6 +18,7 @@ import fs from 'fs';
 import glob from 'glob';
 import path from 'path';
 import { EventEmitter } from './events';
+import minimatch from 'minimatch';
 
 class Uri {
   scheme = 'file';
@@ -86,23 +87,29 @@ class WorkspaceFolder {
     await fs.promises.mkdir(path.dirname(fsPath), { recursive: true });
     await fs.promises.writeFile(fsPath, content);
     if (!isNewWorkspace) {
-      for (const watchers of this.vscode.fsWatchers)
-        watchers.didCreate.fire(Uri.file(fsPath));
+      for (const watcher of this.vscode.fsWatchers) {
+        if (minimatch(fsPath, watcher.glob))
+          watcher.didCreate.fire(Uri.file(fsPath));
+      }
     }
   }
 
   async removeFile(file: string) {
     const fsPath = path.join(this.uri.fsPath, file);
     await fs.promises.unlink(fsPath);
-    for (const watchers of this.vscode.fsWatchers)
-      watchers.didDelete.fire(Uri.file(fsPath));
+    for (const watcher of this.vscode.fsWatchers) {
+      if (minimatch(fsPath, watcher.glob))
+        watcher.didDelete.fire(Uri.file(fsPath));
+    }
   }
 
   async changeFile(file: string, content: string) {
     const fsPath = path.join(this.uri.fsPath, file);
     await fs.promises.writeFile(fsPath, content);
-    for (const watchers of this.vscode.fsWatchers)
-      watchers.didChange.fire(Uri.file(fsPath));
+    for (const watcher of this.vscode.fsWatchers) {
+      if (minimatch(fsPath, watcher.glob))
+        watcher.didChange.fire(Uri.file(fsPath));
+    }
   }
 }
 
@@ -190,6 +197,8 @@ class TestRunProfile {
     const request = new TestRunRequest(include, exclude, this);
     await this.runHandler(request, request.token);
   }
+
+  dispose() { }
 }
 
 class TestRunRequest {
@@ -411,6 +420,11 @@ class FileSystemWatcher {
   readonly onDidCreate = this.didCreate.event;
   readonly onDidChange = this.didChange.event;
   readonly onDidDelete = this.didDelete.event;
+  constructor(readonly vscode: VSCode, readonly glob: string) { }
+
+  dispose() {
+    this.vscode.fsWatchers.delete(this);
+  }
 }
 
 export enum TestRunProfileKind {
@@ -451,7 +465,7 @@ export class VSCode {
   readonly onDidChangeWorkspaceFolders = this._didChangeWorkspaceFolders.event;
   readonly onDidChangeTextDocument = this._didChangeTextDocument.event;
   readonly testControllers: TestController[] = [];
-  readonly fsWatchers: FileSystemWatcher[] = [];
+  readonly fsWatchers = new Set<FileSystemWatcher>();
 
   constructor() {
     this.commands.registerCommand = () => {};
@@ -472,9 +486,9 @@ export class VSCode {
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
     this.workspace.onDidChangeTextDocument = this.onDidChangeTextDocument;
-    this.workspace.createFileSystemWatcher = () => {
-      const watcher = new FileSystemWatcher();
-      this.fsWatchers.push(watcher);
+    this.workspace.createFileSystemWatcher = (glob: string) => {
+      const watcher = new FileSystemWatcher(this, glob);
+      this.fsWatchers.add(watcher);
       return watcher;
     };
     this.workspace.workspaceFolders = [];
