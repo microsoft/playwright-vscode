@@ -89,7 +89,7 @@ export class PlaywrightTest {
     const allArgs = [config.cli, 'list-files', '-c', configFile];
     {
       // For tests.
-      this._log(`${path.relative(config.workspaceFolder, configFolder)}> playwright list-files -c ${configFile}`);
+      this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright list-files -c ${configFile}`);
     }
     const output = await this._runNode(allArgs, configFolder);
     try {
@@ -124,8 +124,8 @@ export class PlaywrightTest {
     const configFile = path.basename(config.configFile);
     {
       // For tests.
-      const relativeLocations = locations.map(f => path.relative(configFolder, f));
-      this._log(`${path.relative(config.workspaceFolder, configFolder)}> playwright test -c ${configFile}${args.length ? ' ' + args.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
+      const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex);
+      this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright test -c ${configFile}${args.length ? ' ' + args.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
     }
     const allArgs = [config.cli, 'test',
       '-c', configFile,
@@ -161,7 +161,7 @@ export class PlaywrightTest {
     const wsEndpoint = await debugServer.listen();
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
-    const locationArg = (locations ? locations : []).map(f => path.relative(configFolder, f));
+    const locationArg = (locations ? locations : []).map(f => path.relative(configFolder, f)).map(escapeRegex);
     const args = ['test',
       '-c', configFile,
       ...locationArg,

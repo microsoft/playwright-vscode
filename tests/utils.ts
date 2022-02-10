@@ -29,7 +29,11 @@ export async function activate(rootDir: string, files: { [key: string]: string }
     testController: vscode.testControllers[0],
     workspaceFolder,
     renderExecLog: (indent: string) => {
-      return (['', ...extension.playwrightTestLog()].join(`\n  ${indent}`) + `\n${indent}`).replace(/\\/g, '/');
+      return unescapeRegex((['', ...extension.playwrightTestLog()].join(`\n  ${indent}`) + `\n${indent}`)).replace(/\\/g, '/');
     },
   };
+}
+
+function unescapeRegex(regex: string) {
+  return regex.replace(/\\(.)/g, '$1');
 }
