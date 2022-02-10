@@ -389,6 +389,7 @@ test('should tear down on stop', async ({}, testInfo) => {
       globalSetup: './globalSetup.js',
     }`,
     'globalSetup.js': `
+      process.stdout.write('RUNNING SETUP');
       module.exports = async () => {
         return async () => {
           await new Promise(f => process.stdout.write('RUNNING TEARDOWN', f));
@@ -405,7 +406,13 @@ test('should tear down on stop', async ({}, testInfo) => {
   const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
   const runPromise = profile.run();
   const testRun = await testRunPromise;
-  await new Promise(f => setTimeout(f, 1000));
+
+  let output = testRun.renderLog({ output: true });
+  while (!output.includes('RUNNING SETUP')) {
+    output = testRun.renderLog({ output: true });
+    await new Promise(f => setTimeout(f, 100));
+  }
+
   testRun.token.cancel();
   await runPromise;
   expect(testRun.renderLog({ output: true })).toContain('RUNNING TEARDOWN');
