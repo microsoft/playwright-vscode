@@ -105,7 +105,7 @@ export class PlaywrightTest {
     const args = projectNames.filter(Boolean).map(p => `--project=${p}`);
     if (parametrizedTestTitle)
       args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
-    await this._test(config, locationArg,  args, listener, token);
+    await this._test(config, locationArg,  args, listener, 'run', token);
   }
 
   async listTests(config: TestConfig, files: string[]): Promise<Entry[]> {
@@ -114,11 +114,11 @@ export class PlaywrightTest {
       onBegin: params => {
         result = params.projects as Entry[];
       },
-    });
+    }, 'list');
     return result;
   }
 
-  private async _test(config: TestConfig, locations: string[], args: string[], listener: TestListener, token?: vscodeTypes.CancellationToken): Promise<void> {
+  private async _test(config: TestConfig, locations: string[], args: string[], listener: TestListener, mode: 'list' | 'run', token?: vscodeTypes.CancellationToken): Promise<void> {
     const node = await this._findNode();
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
@@ -136,6 +136,9 @@ export class PlaywrightTest {
     ];
     if (this._isUnderTest)
       allArgs.push('--workers', '1');
+    // Disable original reporters when listing files.
+    if (mode === 'list')
+      allArgs.push('--reporter', 'null');
     const childProcess = spawn(node, allArgs, {
       cwd: configFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],

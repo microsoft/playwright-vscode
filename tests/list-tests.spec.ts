@@ -16,6 +16,8 @@
 
 import { expect, test } from '@playwright/test';
 import { activate } from './utils';
+import fs from 'fs';
+
 test.describe.configure({ mode: 'parallel' });
 
 test('should list tests on expand', async ({}, testInfo) => {
@@ -476,4 +478,26 @@ test('should list parametrized tests', async ({}, testInfo) => {
         - three [3:0]
         - two [3:0]
   `);
+});
+
+test('should not run config reporters', async ({}, testInfo) => {
+  const { testController } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = {
+      testDir: 'tests',
+      reporter: 'html',
+    }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec.ts/);
+  expect(testController.renderTestTree()).toBe(`
+    - tests
+      - test.spec.ts
+        - one [2:0]
+  `);
+
+  expect(fs.existsSync(testInfo.outputPath('playwright-report'))).toBeFalsy();
 });
