@@ -138,7 +138,7 @@ export class Extension {
       if (!this._isUnderTest && uri.fsPath.includes('test-results'))
         return;
       this._rebuildModel();
-    }
+    };
     fileSystemWatcher.onDidChange(rebuildModelForConfig);
     fileSystemWatcher.onDidCreate(rebuildModelForConfig);
     fileSystemWatcher.onDidDelete(rebuildModelForConfig);
