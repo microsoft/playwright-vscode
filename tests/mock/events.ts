@@ -23,7 +23,7 @@ export namespace Disposable {
 
 export type Disposable = {
   dispose(): void;
-}
+};
 
 export interface Event<T> {
   (listener: (e: T) => any, disposables?: Disposable[]): Disposable;

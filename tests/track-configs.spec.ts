@@ -42,7 +42,7 @@ test('should load first config', async ({}, testInfo) => {
 });
 
 test('should load second config', async ({}, testInfo) => {
-  const { testController, renderExecLog , workspaceFolder} = await activate(testInfo.outputDir, {
+  const { testController, renderExecLog, workspaceFolder } = await activate(testInfo.outputDir, {
     'playwright1.config.js': `module.exports = { testDir: 'tests1' }`,
     'tests1/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -76,7 +76,7 @@ test('should load second config', async ({}, testInfo) => {
 });
 
 test('should remove model for config', async ({}, testInfo) => {
-  const { testController, renderExecLog , workspaceFolder} = await activate(testInfo.outputDir, {
+  const { testController, renderExecLog, workspaceFolder } = await activate(testInfo.outputDir, {
     'playwright1.config.js': `module.exports = { testDir: 'tests1' }`,
     'playwright2.config.js': `module.exports = { testDir: 'tests2' }`,
     'tests1/test.spec.ts': `
