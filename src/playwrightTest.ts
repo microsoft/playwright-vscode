@@ -122,6 +122,7 @@ export class PlaywrightTest {
     const node = await this._findNode();
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
+    const escapedLocations = locations.map(escapeRegex);
     {
       // For tests.
       const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex);
@@ -130,7 +131,7 @@ export class PlaywrightTest {
     const allArgs = [config.cli, 'test',
       '-c', configFile,
       ...args,
-      ...locations,
+      ...escapedLocations,
       '--repeat-each', '1',
       '--retries', '0',
     ];
