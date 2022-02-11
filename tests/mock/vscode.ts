@@ -19,6 +19,8 @@ import glob from 'glob';
 import path from 'path';
 import { EventEmitter } from './events';
 import minimatch from 'minimatch';
+import { spawn } from 'child_process';
+import { findInPath } from '../../src/utils';
 
 class Uri {
   scheme = 'file';
@@ -373,6 +375,15 @@ class TestController {
     ]);
     return testRun;
   }
+
+  async debug(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {
+    const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Debug);
+    const [testRun] = await Promise.all([
+      new Promise<TestRun>(f => this.onDidCreateTestRun(f)),
+      profile.run(include, exclude),
+    ]);
+    return testRun;
+  }
 }
 
 type Decoration = { type?: number, range: Range, renderOptions?: any };
@@ -427,6 +438,97 @@ class FileSystemWatcher {
   }
 }
 
+type DebugConfiguration  = {
+  type: string;
+  name: string;
+  request: string;
+  [key: string]: any;
+};
+
+class Debug {
+  private _didStartDebugSession = new EventEmitter();
+  private _didTerminateDebugSession = new EventEmitter();
+  readonly onDidStartDebugSession = this._didStartDebugSession.event;
+  readonly onDidTerminateDebugSession = this._didTerminateDebugSession.event;
+  output = '';
+  dapFactories = [];
+  private _dapSniffer: any;
+
+  constructor() {
+  }
+
+  registerDebugAdapterTrackerFactory(type: string, factory: any) {
+    this.dapFactories.push(factory);
+  }
+
+  async startDebugging(folder: WorkspaceFolder | undefined, configuration: DebugConfiguration, parentSession?: DebugSession): Promise<boolean> {
+    const session = new DebugSession('<extension-id>', configuration.type, configuration.name, folder, configuration, parentSession);
+    for (const factory of this.dapFactories)
+      this._dapSniffer = factory.createDebugAdapterTracker(session);
+    this._didStartDebugSession.fire(session);
+    const node = await findInPath('node');
+    const subprocess = spawn(node, [configuration.program, ...configuration.args], {
+      cwd: configuration.cwd,
+      stdio: 'pipe',
+      env: configuration.env,
+    });
+
+    subprocess.stdout.on('data', data => this.output += data.toString());
+    subprocess.stderr.on('data', data => this.output += data.toString());
+    return true;
+  }
+
+  simulateStoppedOnError(error: string, location: { file: string; line: number; }) {
+    this._dapSniffer.onDidSendMessage({
+      success: true,
+      type: 'response',
+      command: 'scopes',
+      body: {
+        scopes: [
+          {
+            name: 'Catch Block',
+            source: {
+              path: location.file,
+            },
+            line: location.line,
+            column: 0,
+          },
+        ],
+      }
+    });
+
+    this._dapSniffer.onDidSendMessage({
+      success: true,
+      type: 'response',
+      command: 'variables',
+      body: {
+        variables: [
+          {
+            type: 'error',
+            name: 'playwrightError',
+            value: error,
+          },
+        ],
+      }
+    });
+  }
+}
+
+class DebugSession {
+  constructor(
+    readonly id: string,
+    readonly type: string,
+    readonly name: string,
+    readonly workspaceFolder: WorkspaceFolder | undefined,
+    readonly configuration: DebugConfiguration,
+    readonly parentSession?: DebugSession,
+  ) {}
+
+  async customRequest(command: string, args?: any) {}
+
+  async getDebugProtocolBreakpoint() {}
+}
+
 export enum TestRunProfileKind {
   Run = 1,
   Debug = 2,
@@ -443,22 +545,18 @@ export class VSCode {
   TestRunProfileKind = TestRunProfileKind;
   Uri = Uri;
   commands: any = {};
-  debug: any = {};
+  debug: Debug;
   languages: any = {};
   tests: any = {};
   window: any = {};
   workspace: any = {};
 
-  private _didStartDebugSession = new EventEmitter();
-  private _didTerminateDebugSession = new EventEmitter();
   private _didChangeActiveTextEditor = new EventEmitter();
   private _didChangeVisibleTextEditors = new EventEmitter();
   private _didChangeTextEditorSelection = new EventEmitter();
   private _didChangeWorkspaceFolders = new EventEmitter();
   private _didChangeTextDocument = new EventEmitter();
 
-  readonly onDidStartDebugSession = this._didStartDebugSession.event;
-  readonly onDidTerminateDebugSession = this._didTerminateDebugSession.event;
   readonly onDidChangeActiveTextEditor = this._didChangeActiveTextEditor.event;
   readonly onDidChangeTextEditorSelection = this._didChangeTextEditorSelection.event;
   readonly onDidChangeVisibleTextEditors = this._didChangeVisibleTextEditors.event;
@@ -469,9 +567,7 @@ export class VSCode {
 
   constructor() {
     this.commands.registerCommand = () => {};
-    this.debug.onDidStartDebugSession = this.onDidStartDebugSession;
-    this.debug.onDidTerminateDebugSession = this.onDidTerminateDebugSession;
-    this.debug.registerDebugAdapterTrackerFactory = () => {};
+    this.debug = new Debug();
 
     this.languages.registerHoverProvider = () => {};
     this.tests.createTestController = this._createTestController.bind(this);

@@ -160,15 +160,16 @@ export class PlaywrightTest {
     await this._wireTestListener(transport, listener, token);
   }
 
-  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], locations: string[], listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
-    const locationArg = (locations ? locations : []).map(f => path.relative(configFolder, f)).map(escapeRegex);
+    locations = locations || [];
+    const escapedLocations = locations.map(escapeRegex);
     const args = ['test',
       '-c', configFile,
-      ...locationArg,
+      ...escapedLocations,
       '--headed',
       ...projectNames.filter(Boolean).map(p => `--project=${p}`),
       '--repeat-each', '1',
@@ -178,6 +179,13 @@ export class PlaywrightTest {
     ];
     if (parametrizedTestTitle)
       args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
+
+    {
+      // For tests.
+      const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex);
+      this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> debug -c ${configFile}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
+    }
+
     await vscode.debug.startDebugging(undefined, {
       type: 'pwa-node',
       name: debugSessionName,
