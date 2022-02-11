@@ -20,6 +20,7 @@ import { DebugHighlight } from './debugHighlight';
 import { installPlaywright } from './installer';
 import { Entry } from './oopReporter';
 import { PlaywrightTest, TestListener } from './playwrightTest';
+import { Recorder } from './recorder';
 import type { TestError } from './reporter';
 import { TestModel, TestProject } from './testModel';
 import { TestTree } from './testTree';
@@ -72,6 +73,7 @@ export class Extension {
   private _projectsScheduledToRun: TestProject[] | undefined;
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
+  private _recorder: Recorder;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -94,6 +96,7 @@ export class Extension {
     });
 
     this._playwrightTest = new PlaywrightTest(this._isUnderTest);
+    this._recorder = new Recorder(this._vscode, this._playwrightTest);
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testTree = new TestTree(vscode, this._testController);
@@ -114,6 +117,9 @@ export class Extension {
       vscode.commands.registerCommand('pw.extension.refreshTests', () => {
         this._rebuildModel();
       }),
+      vscode.commands.registerCommand('pw.extension.recordTest', async () => {
+        this._recorder.record(this._models);
+      }),
       vscode.commands.registerCommand('pw.extension.install', () => {
         installPlaywright(this._vscode);
       }),
@@ -125,6 +131,7 @@ export class Extension {
       }),
       this._testController,
       this._workspaceObserver,
+      this._recorder,
     ];
     this._debugHighlight.activate(context);
     await this._rebuildModel();

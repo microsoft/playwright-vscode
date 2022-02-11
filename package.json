@@ -31,12 +31,23 @@
       },
       {
         "category": "Test",
+        "command": "pw.extension.recordTest",
+        "icon": "$(record)",
+        "title": "Record Playwright Test"
+      },
+      {
+        "category": "Test",
         "command": "pw.extension.install",
         "title": "Install Playwright"
       }
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "pw.extension.recordTest",
+          "when": "view == workbench.view.testing",
+          "group": "navigation@0"
+        },
         {
           "command": "pw.extension.refreshTests",
           "when": "view == workbench.view.testing",

@@ -119,7 +119,7 @@ export class PlaywrightTest {
   }
 
   private async _test(config: TestConfig, locations: string[], args: string[], listener: TestListener, mode: 'list' | 'run', token?: vscodeTypes.CancellationToken): Promise<void> {
-    const node = await this._findNode();
+    const node = await this.findNode();
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
     const escapedLocations = locations.map(escapeRegex);
@@ -160,7 +160,7 @@ export class PlaywrightTest {
     await this._wireTestListener(transport, listener, token);
   }
 
-  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], locations: string[], listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
     const debugServer = new DebugServer();
     const wsEndpoint = await debugServer.listen();
     const configFolder = path.dirname(config.configFile);
@@ -248,7 +248,7 @@ export class PlaywrightTest {
     return this._testLog.slice();
   }
 
-  private async _findNode(): Promise<string> {
+  async findNode(): Promise<string> {
     if (this._pathToNodeJS)
       return this._pathToNodeJS;
 
@@ -265,7 +265,7 @@ export class PlaywrightTest {
   }
 
   private async _runNode(args: string[], cwd: string): Promise<string> {
-    return await spawnAsync(await this._findNode(), args, cwd);
+    return await spawnAsync(await this.findNode(), args, cwd);
   }
 }
 
