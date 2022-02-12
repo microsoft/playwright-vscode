@@ -12,4 +12,4 @@ jobs:
           node-version: 16
       - run: npm ci
       - run: npm install -g vsce
-      - run: vsce publish -p "${{ secrets.VSC_MARKETPLACE_PAT }}"
+      - run: vsce publish --pre-release --pat "${{ secrets.VSC_MARKETPLACE_PAT }}"
