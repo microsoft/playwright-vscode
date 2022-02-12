@@ -81,5 +81,5 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
   if (result.includes(installDepsAction))
     args.push('--install-deps');
 
-  terminal.sendText(`npm init playwright@latest -- --beta --quiet ${args.join(' ')}`, true);
+  terminal.sendText(`npm init playwright@latest -- --quiet ${args.join(' ')}`, true);
 }
