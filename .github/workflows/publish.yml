@@ -14,7 +14,7 @@ jobs:
       - run: npm install -g vsce
       - name: Publish release
         if: github.event.release.prerelease == false
-        run: vsce publish --pre-release --pat "${{ secrets.VSC_MARKETPLACE_PAT }}"
+        run: vsce publish --pat "${{ secrets.VSC_MARKETPLACE_PAT }}"
       - name: Publish pre-release
         if: github.event.release.prerelease == true
-        run: vsce publish --pat "${{ secrets.VSC_MARKETPLACE_PAT }}"
+        run: vsce publish --pre-release --pat "${{ secrets.VSC_MARKETPLACE_PAT }}"
