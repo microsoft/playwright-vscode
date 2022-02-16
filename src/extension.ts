@@ -114,10 +114,18 @@ export class Extension {
       vscode.window.onDidChangeVisibleTextEditors(() => {
         this._updateVisibleEditorItems();
       }),
-      vscode.commands.registerCommand('pw.extension.refreshTests', () => {
-        this._rebuildModel();
+      vscode.commands.registerCommand('pw.extension.refreshTests', async () => {
+        await this._rebuildModel();
+        if (!this._models.length) {
+          vscode.window.showWarningMessage('No Playwright Test config files found.');
+          return;
+        }
       }),
       vscode.commands.registerCommand('pw.extension.recordTest', async () => {
+        if (!this._models.length) {
+          vscode.window.showWarningMessage('No Playwright Test config files found.');
+          return;
+        }
         this._recorder.record(this._models);
       }),
       vscode.commands.registerCommand('pw.extension.install', () => {
