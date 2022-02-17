@@ -32,7 +32,7 @@ export function locatorForSourcePosition(text: string, vars: { pages: string[], 
   const cached = astCache.get(fsPath);
   let ast = cached?.ast;
   if (!cached || cached.text !== text) {
-    ast = parse(text, { errorRecovery: true, plugins: ['typescript'], sourceType: 'module' });
+    ast = parse(text, { errorRecovery: true, plugins: ['typescript', 'jsx'], sourceType: 'module' });
     astCache.set(fsPath, { text, ast });
   }
 
