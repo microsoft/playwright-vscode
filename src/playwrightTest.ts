@@ -65,13 +65,19 @@ export class PlaywrightTest {
 
   async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, cli: string } | null> {
     try {
-      const output = await this._runNode([
+      const pwtInfo = await this._runNode([
         '-e',
-        'try { const index = require.resolve("playwright-core"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ index, version})); } catch { console.log("undefined"); }',
+        'try { const pwtIndex = require.resolve("@playwright/test"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ pwtIndex, version})); } catch { console.log("undefined"); }',
       ], path.dirname(configFilePath));
+      const { pwtIndex, version } = JSON.parse(pwtInfo);
 
-      const { index, version } = JSON.parse(output);
-      let cli = path.resolve(index, '..', 'lib', 'cli', 'cli');
+      // Resolve playwright-core relative to @playwright/test.
+      const coreInfo = await this._runNode([
+        '-e',
+        'try { const coreIndex = require.resolve("playwright-core"); console.log(JSON.stringify({ coreIndex })); } catch { console.log("undefined"); }',
+      ], path.dirname(pwtIndex));
+      const { coreIndex } = JSON.parse(coreInfo);
+      let cli = path.resolve(coreIndex, '..', 'lib', 'cli', 'cli');
 
       // Dogfood for 'ttest'
       if (cli.includes('packages/playwright-core') && configFilePath.includes('playwright-test'))
