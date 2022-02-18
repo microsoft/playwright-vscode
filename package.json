@@ -3,7 +3,7 @@
   "displayName": "Playwright Test for VSCode",
   "description": "Run Playwright Test tests in Visual Studio Code.",
   "icon": "images/playwright-logo.png",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "preview": true,
   "publisher": "ms-playwright",
   "repository": "https://github.com/microsoft/playwright-vscode",
@@ -67,9 +67,9 @@
     "download-api": "vscode-dts dev && vscode-dts main",
     "test": "playwright test",
     "package": "vsce package",
-    "code": "code --uninstall-extension ms-playwright.playwright && code --install-extension playwright-0.1.0.vsix",
+    "code": "code --uninstall-extension ms-playwright.playwright && code --install-extension playwright-0.2.1.vsix",
     "uncode": "code --uninstall-extension ms-playwright.playwright",
-    "code-insiders": "code-insiders --uninstall-extension ms-playwright.playwright && code-insiders --install-extension playwright-0.1.0.vsix",
+    "code-insiders": "code-insiders --uninstall-extension ms-playwright.playwright && code-insiders --install-extension playwright-0.2.1.vsix",
     "uncode-insiders": "code-insiders --uninstall-extension ms-playwright.playwright"
   },
   "devDependencies": {
