@@ -259,7 +259,7 @@ export class PlaywrightTest {
       return this._pathToNodeJS;
 
     let node = await findInPath('node');
-    // When etension host boots, it does not have the right env set, so we might need to wait.
+    // When extension host boots, it does not have the right env set, so we might need to wait.
     for (let i = 0; i < 5 && !node; ++i) {
       await new Promise(f => setTimeout(f, 1000));
       node = await findInPath('node');

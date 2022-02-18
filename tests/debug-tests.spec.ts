@@ -67,6 +67,7 @@ test('should debug one test', async ({}, testInfo) => {
   expect(testRun.renderLog()).toBe(`
     should pass [2:0]
       enqueued
+      enqueued
       started
       passed
   `);
@@ -105,6 +106,7 @@ test('should debug error', async ({}, testInfo) => {
 
   expect(testRun.renderLog({ messages: true })).toBe(`
     should fail [2:0]
+      enqueued
       enqueued
       started
       failed

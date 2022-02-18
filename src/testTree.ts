@@ -15,7 +15,7 @@
  */
 
 import path from 'path';
-import { Entry } from './oopReporter';
+import { Entry, EntryType } from './oopReporter';
 import { Location } from './reporter';
 import { TestModel } from './testModel';
 import { createGuid } from './utils';
@@ -79,6 +79,19 @@ export class TestTree {
     this._disposables.push(model.onUpdated(() => this._update()));
   }
 
+  collectTestsInside(rootItem: vscodeTypes.TestItem): vscodeTypes.TestItem[] {
+    const result: vscodeTypes.TestItem[] = [];
+    const visitItem = (testItem: vscodeTypes.TestItem) => {
+      const entryType = (testItem as any)[itemTypeSymbol] as EntryType;
+      if (entryType === 'test')
+        result.push(testItem);
+      else
+        testItem.children.forEach(visitItem);
+    };
+    visitItem(rootItem);
+    return result;
+  }
+
   private _update() {
     const allFiles = new Set<string>();
     for (const model of this._models)
@@ -136,6 +149,7 @@ export class TestTree {
       if (!testItem) {
         // We sort by id in tests, so start with location.
         testItem = this._testController.createTestItem(this._id(entry.location.file + ':' + entry.location.line + '|' + entry.title), entry.title, this._vscode.Uri.file(entry.location.file));
+        (testItem as any)[itemTypeSymbol] = entry.type;
         collection.add(testItem);
       }
       if (!testItem.range || testItem.range.start.line + 1 !== entry.location.line) {
@@ -219,3 +233,4 @@ export class TestTree {
 }
 
 const signatureSymbol = Symbol('signatureSymbol');
+const itemTypeSymbol = Symbol('itemTypeSymbol');

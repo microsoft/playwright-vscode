@@ -246,6 +246,12 @@ export class Extension {
     this._executionLinesChanged();
     this._testRun = this._testController.createTestRun(request);
 
+    // Provisionally mark tests (not files and not suits) as enqueued to provide immediate feedback.
+    for (const item of request.include || []) {
+      for (const test of this._testTree.collectTestsInside(item))
+        this._testRun.enqueued(test);
+    }
+
     // Run tests with different configs sequentially, group by config.
     const projectsToRunByModel = new Map<TestModel, TestProject[]>();
     for (const project of selectedProjects) {
