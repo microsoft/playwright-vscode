@@ -18,8 +18,9 @@ import type { FullConfig, FullResult, Location, Reporter, Suite, TestCase, TestE
 import { ConnectionTransport, PipeTransport, WebSocketTransport } from './transport';
 import fs from 'fs';
 
+export type EntryType = 'project' | 'file' | 'suite' | 'test';
 export type Entry = {
-  type: 'project' | 'file' | 'suite' | 'test';
+  type: EntryType;
   title: string;
   location: Location;
   children?: Entry[];
