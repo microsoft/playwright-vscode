@@ -151,8 +151,10 @@ export class PlaywrightTest {
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        // Don't debug tests that we run in tests.
-        NODE_OPTIONS: this._isUnderTest ? undefined : process.env.NODE_OPTIONS,
+        // Don't debug tests when running them.
+        NODE_OPTIONS: undefined,
+        // Reset VSCode's options that affect nested Electron.
+        ELECTRON_RUN_AS_NODE: undefined,
         FORCE_COLORS: '1',
         PW_TEST_REPORTER: require.resolve('./oopReporter'),
         PW_TEST_HTML_REPORT_OPEN: 'never',
@@ -199,6 +201,8 @@ export class PlaywrightTest {
       cwd: configFolder,
       env: {
         ...process.env,
+        // Reset VSCode's options that affect nested Electron.
+        ELECTRON_RUN_AS_NODE: undefined,
         FORCE_COLORS: '1',
         PW_OUT_OF_PROCESS_DRIVER: '1',
         PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
