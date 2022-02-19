@@ -35,7 +35,7 @@ export type TestEndParams = {
   title: string;
   location: Location;
   duration: number;
-  error: TestError | undefined;
+  errors: TestError[];
   ok: boolean;
 };
 
@@ -122,7 +122,7 @@ class OopReporter implements Reporter {
       title: test.title,
       location: test.location,
       duration: result.duration,
-      error: result.error,
+      errors: result.errors,
       ok: test.ok()
     };
     this._emit('onTestEnd', params);

@@ -373,7 +373,7 @@ export class Extension {
           return;
         }
         testFailures.add(testItem);
-        testRun.failed(testItem, this._testMessageForTestError(testItem, params.error!), params.duration);
+        testRun.failed(testItem, params.errors.map(error => this._testMessageForTestError(testItem, error)), params.duration);
       },
 
       onStepBegin: params => {

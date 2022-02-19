@@ -231,7 +231,7 @@ export class TestMessage {
   }
 }
 
-type LogEntry = { status: string, duration?: number, message?: TestMessage };
+type LogEntry = { status: string, duration?: number, messages?: TestMessage | TestMessage[] };
 
 export class TestRun {
   private _didChange = new EventEmitter<void>();
@@ -260,12 +260,8 @@ export class TestRun {
     this._log(test, { status: 'skipped' });
   }
 
-  failed(test: TestItem, message: TestMessage, duration?: number) {
-    this._log(test, { status: 'failed', duration, message });
-  }
-
-  errored(test: TestItem, message: TestMessage, duration?: number) {
-    this._log(test, { status: 'errored', duration, message });
+  failed(test: TestItem, messages: TestMessage[], duration?: number) {
+    this._log(test, { status: 'failed', duration, messages });
   }
 
   passed(test: TestItem, duration?: number) {
@@ -300,8 +296,11 @@ export class TestRun {
       result.push(`  ${test.treeTitle()}`);
       for (const entry of entries) {
         result.push(`    ${entry.status}`);
-        if (options.messages && entry.message)
-          entry.message.render('      ', result);
+        if (options.messages && entry.messages) {
+          const messages = Array.isArray(entry.messages) ? entry.messages : [entry.messages];
+          for (const message of messages)
+            message.render('      ', result);
+        }
       }
     }
     if (options.output) {

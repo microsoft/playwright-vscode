@@ -204,6 +204,41 @@ test('should show error message', async ({}, testInfo) => {
   `);
 });
 
+test('should show soft error messages', async ({}, testInfo) => {
+  const { testController } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test, expect } from '@playwright/test';
+      test('should fail', async () => {
+        expect.soft(1).toBe(2);
+        expect.soft(2).toBe(3);
+      });
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/fail/);
+  const testRun = await testController.run(testItems);
+
+  expect(testRun.renderLog({ messages: true })).toBe(`
+    should fail [2:0]
+      enqueued
+      enqueued
+      started
+      failed
+        test.spec.ts:[3:23 - 3:23]
+        Error: expect(received).toBe(expected) // Object.is equality
+        
+        Expected: 2
+        Received: 1
+        test.spec.ts:[4:23 - 4:23]
+        Error: expect(received).toBe(expected) // Object.is equality
+        
+        Expected: 3
+        Received: 2
+  `);
+});
+
 test('should only create test run if file belongs to context', async ({}, testInfo) => {
   const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
     'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
