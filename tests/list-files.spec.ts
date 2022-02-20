@@ -15,6 +15,8 @@
  */
 
 import { expect, test } from '@playwright/test';
+import { Extension } from '../out/extension';
+import { VSCode } from './mock/vscode';
 import { activate } from './utils';
 
 test.describe.configure({ mode: 'parallel' });
@@ -332,3 +334,31 @@ test('should list files in relative folder', async ({}, testInfo) => {
   `);
 });
 
+test('should list files in multi-folder workspace', async ({}, testInfo) => {
+  const vscode = new VSCode();
+  await vscode.addWorkspaceFolder(testInfo.outputPath('folder1'), {
+    'playwright.config.js': `module.exports = { testDir: './' }`,
+    'test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+  await vscode.addWorkspaceFolder(testInfo.outputPath('folder2'), {
+    'playwright.config.js': `module.exports = { testDir: './' }`,
+    'test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('two', async () => {});
+    `,
+  });
+
+  const extension = new Extension(vscode);
+  const context = { subscriptions: [] };
+  await extension.activate(context);
+
+  expect(vscode.testControllers[0].renderTestTree()).toBe(`
+    - folder1
+      - test.spec.ts
+    - folder2
+      - test.spec.ts
+  `);
+});

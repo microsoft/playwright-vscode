@@ -55,12 +55,12 @@ export class TestTree {
       return;
 
     if (this._vscode.workspace.workspaceFolders?.length === 1) {
-      const rootItem = this._createRootItem(this._vscode.workspace.workspaceFolders[0].uri);
+      const rootItem = this._createInlineRootItem(this._vscode.workspace.workspaceFolders[0].uri);
       rootItem.children.replace([this._loadingItem]);
     } else {
       const rootTreeItems = [];
       for (const workspaceFolder of this._vscode.workspace.workspaceFolders || []) {
-        const rootTreeItem = this.getOrCreateFileItem(workspaceFolder.uri.fsPath);
+        const rootTreeItem = this._createRootFolderItem(workspaceFolder.uri.fsPath);
         rootTreeItems.push(rootTreeItem);
       }
       this._testController.items.replace([this._loadingItem, ...rootTreeItems]);
@@ -164,7 +164,7 @@ export class TestTree {
       collection.delete(testItem.id);
   }
 
-  private _createRootItem(uri: vscodeTypes.Uri): vscodeTypes.TestItem {
+  private _createInlineRootItem(uri: vscodeTypes.Uri): vscodeTypes.TestItem {
     const testItem: vscodeTypes.TestItem = {
       id: this._id(uri.fsPath),
       uri: uri,
@@ -179,6 +179,12 @@ export class TestTree {
     };
     this._folderItems.set(uri.fsPath, testItem);
     return testItem;
+  }
+
+  private _createRootFolderItem(folder: string): vscodeTypes.TestItem {
+    const folderItem = this._testController.createTestItem(this._id(folder), path.basename(folder), this._vscode.Uri.file(folder));
+    this._folderItems.set(folder, folderItem);
+    return folderItem;
   }
 
   testItemForLocation(location: Location, title: string): vscodeTypes.TestItem | undefined {

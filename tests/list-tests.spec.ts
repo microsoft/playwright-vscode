@@ -17,6 +17,8 @@
 import { expect, test } from '@playwright/test';
 import { activate } from './utils';
 import fs from 'fs';
+import { VSCode } from './mock/vscode';
+import { Extension } from '../out/extension';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -500,4 +502,36 @@ test('should not run config reporters', async ({}, testInfo) => {
   `);
 
   expect(fs.existsSync(testInfo.outputPath('playwright-report'))).toBeFalsy();
+});
+
+test('should list tests in multi-folder workspace', async ({}, testInfo) => {
+  const vscode = new VSCode();
+  await vscode.addWorkspaceFolder(testInfo.outputPath('folder1'), {
+    'playwright.config.js': `module.exports = { testDir: './' }`,
+    'test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+  await vscode.addWorkspaceFolder(testInfo.outputPath('folder2'), {
+    'playwright.config.js': `module.exports = { testDir: './' }`,
+    'test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('two', async () => {});
+    `,
+  });
+  const extension = new Extension(vscode);
+  const context = { subscriptions: [] };
+  await extension.activate(context);
+
+  const testController = vscode.testControllers[0];
+  await testController.expandTestItems(/test.spec.ts/);
+  expect(testController.renderTestTree()).toBe(`
+    - folder1
+      - test.spec.ts
+        - one [2:0]
+    - folder2
+      - test.spec.ts
+        - two [2:0]
+  `);
 });
