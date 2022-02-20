@@ -432,7 +432,7 @@ export class Extension {
   private _errorInDebugger(errorStack: string, location: DebuggerLocation) {
     if (!this._testRun || !this._testItemUnderDebug)
       return;
-    const testMessage = new this._vscode.TestMessage(stripAnsi(errorStack));
+    const testMessage = this._testMessageFromText(errorStack);
     const position = new this._vscode.Position(location.line - 1, location.column - 1);
     testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.path), position);
     this._testRun.failed(this._testItemUnderDebug, testMessage);
@@ -470,15 +470,40 @@ export class Extension {
 
   }
 
+  private _testMessageFromText(text: string): vscodeTypes.TestMessage {
+    let isLog = false;
+    const md: string[] = [];
+    for (const line of text.split('\n')) {
+      if (line.includes('=====') && line.includes('log')) {
+        isLog = true;
+        md.push('#### Execution log');
+        continue;
+      }
+      if (line.includes('=====')) {
+        isLog = false;
+        continue;
+      }
+      if (isLog) {
+        const [, indent, body] = line.match(/(\s*)(.*)/)!;
+        md.push(indent + ' - ' + body);
+      } else {
+        md.push(line);
+      }
+    }
+    const markdownString = new this._vscode.MarkdownString();
+    markdownString.appendMarkdown(md.join('\n'));
+    return new this._vscode.TestMessage(markdownString);
+  }
+
   private _testMessageForTestError(testItem: vscodeTypes.TestItem, error: TestError): vscodeTypes.TestMessage {
-    const sanitized = stripAnsi(error.stack || error.message || error.value!);
-    const message = new this._vscode.TestMessage(sanitized);
+    const text = stripAnsi(error.stack || error.message || error.value!);
+    const testMessage = this._testMessageFromText(text);
     const location = parseLocationFromStack(testItem, error.stack);
     if (location) {
       const position = new this._vscode.Position(location.line - 1, location.column - 1);
-      message.location = new this._vscode.Location(this._vscode.Uri.file(location.path), position);
+      testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.path), position);
     }
-    return message;
+    return testMessage;
   }
 
   playwrightTestLog(): string[] {

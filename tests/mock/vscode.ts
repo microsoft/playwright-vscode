@@ -214,7 +214,7 @@ class TestRunRequest {
 
 export class TestMessage {
   constructor(
-    readonly message: string,
+    readonly message: MarkdownString,
     readonly expectedOutput?: string,
     readonly actualOutput?: string,
     readonly location?: Location) {}
@@ -222,7 +222,7 @@ export class TestMessage {
   render(indent: string, result: string[]) {
     if (this.location)
       result.push(`${indent}${path.basename(this.location.uri.fsPath)}:${this.location.range.toString()}`);
-    const message = stripAscii(this.message);
+    const message = this.message.render();
     for (const line of message.split('\n')) {
       if (this.location && line.includes('    at'))
         break;
@@ -534,10 +534,23 @@ export enum TestRunProfileKind {
   Coverage = 3,
 }
 
+class MarkdownString {
+  readonly md: string[] = [];
+
+  appendMarkdown(md: string) {
+    this.md.push(md);
+  }
+
+  render(): string {
+    return stripAscii(this.md.join('\n'));
+  }
+}
+
 export class VSCode {
   isUnderTest = true;
   EventEmitter = EventEmitter;
   Location = Location;
+  MarkdownString = MarkdownString;
   Position = Position;
   Range = Range;
   TestMessage = TestMessage;
