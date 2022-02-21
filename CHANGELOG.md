@@ -11,7 +11,7 @@
 - fix(npm6): resolve core relative to pwt (https://github.com/microsoft/playwright-vscode/pull/99)
 - fix(https://github.com/microsoft/playwright-vscode/issues/92): activate extension on all commands (https://github.com/microsoft/playwright-vscode/pull/94)
 
-## 0.2.1
+## 0.1.0
 
 - feat: integrating codegen to generate scripts
 - feat: fully parallel run tests
