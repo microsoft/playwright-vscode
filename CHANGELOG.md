@@ -1,6 +1,6 @@
 ## 0.2.1
 
-- chore: provisionally equeue tests for better responsiveness ([#102](https://github.com/microsoft/playwright-vscode/pull/))
+- chore: provisionally equeue tests for better responsiveness ([#102](https://github.com/microsoft/playwright-vscode/pull/102))
 - feat(soft): render multiple soft error messages ([#104](https://github.com/microsoft/playwright-vscode/pull/104))
 - fix(message): render a nice error message inline ([#105](https://github.com/microsoft/playwright-vscode/pull/105))
 - fix(electron): allow running electron tests ([#106](https://github.com/microsoft/playwright-vscode/pull/106))
