@@ -33,6 +33,7 @@ export type ProtocolResponse = {
 export interface ConnectionTransport {
   send(s: ProtocolRequest): void;
   close(): void;  // Note: calling close is expected to issue onclose at some point.
+  isClosed(): boolean,
   onmessage?: (message: ProtocolResponse) => void,
   onclose?: () => void,
 }
@@ -55,6 +56,10 @@ export class PipeTransport implements ConnectionTransport {
     });
     this.onmessage = undefined;
     this.onclose = undefined;
+  }
+
+  isClosed(): boolean {
+    return this._closed;
   }
 
   send(message: ProtocolRequest) {
@@ -134,6 +139,10 @@ export class WebSocketTransport implements ConnectionTransport {
     });
     // Prevent Error: read ECONNRESET.
     this._ws.addEventListener('error', () => {});
+  }
+
+  isClosed() {
+    return this._ws.readyState === WebSocket.CLOSING || this._ws.readyState === WebSocket.CLOSED;
   }
 
   send(message: ProtocolRequest) {
