@@ -222,8 +222,15 @@ export class PlaywrightTest {
     let timeout: NodeJS.Timeout | undefined;
 
     const killTestProcess = () => {
-      transport.send({ id: 0, method: 'stop', params: {} });
-      timeout = setTimeout(() => transport.close(), 30000);
+      if (!transport.isClosed()) {
+        try {
+          transport.send({ id: 0, method: 'stop', params: {} });
+          timeout = setTimeout(() => transport.close(), 30000);
+        } catch {
+          // Close in case we are getting an error or close is racing back from remote.
+          transport.close();
+        }
+      }
     };
 
     token?.onCancellationRequested(() => killTestProcess());

@@ -61,6 +61,10 @@ export class DebugServer {
           socket.send(JSON.stringify(message));
       },
 
+      isClosed() {
+        return socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING;
+      },
+
       close: () => {
         socket.close();
         this._wsServer?.close();
