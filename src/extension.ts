@@ -109,21 +109,21 @@ export class Extension {
     const vscode = this._vscode;
     const disposables = [
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
-        this._rebuildModel();
+        this._rebuildModel(false);
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         this._updateVisibleEditorItems();
       }),
       vscode.commands.registerCommand('pw.extension.refreshTests', async () => {
-        await this._rebuildModel();
-        if (!this._models.length) {
+        const configs = await this._rebuildModel(true);
+        if (!configs.length) {
           vscode.window.showWarningMessage('No Playwright Test config files found.');
           return;
         }
       }),
       vscode.commands.registerCommand('pw.extension.recordTest', async () => {
         if (!this._models.length) {
-          vscode.window.showWarningMessage('No Playwright Test config files found.');
+          vscode.window.showWarningMessage('No Playwright tests found.');
           return;
         }
         this._recorder.record(this._models);
@@ -142,7 +142,7 @@ export class Extension {
       this._recorder,
     ];
     this._debugHighlight.activate(context);
-    await this._rebuildModel();
+    await this._rebuildModel(false);
 
     const fileSystemWatcher = this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mjs}');
     disposables.push(fileSystemWatcher);
@@ -152,7 +152,7 @@ export class Extension {
         return;
       if (!this._isUnderTest && uri.fsPath.includes('test-results'))
         return;
-      this._rebuildModel();
+      this._rebuildModel(false);
     };
     fileSystemWatcher.onDidChange(rebuildModelForConfig);
     fileSystemWatcher.onDidCreate(rebuildModelForConfig);
@@ -160,7 +160,7 @@ export class Extension {
     context.subscriptions.push(...disposables);
   }
 
-  private async _rebuildModel() {
+  private async _rebuildModel(showWarnings: boolean): Promise<vscodeTypes.Uri[]> {
     this._testTree.startedLoading();
     this._workspaceObserver.reset();
     this._models = [];
@@ -184,12 +184,14 @@ export class Extension {
         continue;
       const playwrightInfo = await this._playwrightTest.getPlaywrightInfo(workspaceFolderPath, configFilePath);
       if (!playwrightInfo) {
-        this._vscode.window.showWarningMessage('Please install Playwright Test via running `npm i @playwright/test`');
+        if (showWarnings)
+          this._vscode.window.showWarningMessage('Please install Playwright Test via running `npm i --save-dev @playwright/test`');
         continue;
       }
 
       if (playwrightInfo.version < 1.19) {
-        this._vscode.window.showWarningMessage('Playwright Test v1.19 or newer is required');
+        if (showWarnings)
+          this._vscode.window.showWarningMessage('Playwright Test v1.19 or newer is required');
         continue;
       }
 
@@ -206,6 +208,7 @@ export class Extension {
 
     this._testTree.finishedLoading();
     await this._updateVisibleEditorItems();
+    return configFiles;
   }
 
   private async _createRunProfile(project: TestProject) {
