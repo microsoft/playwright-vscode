@@ -817,3 +817,23 @@ test('should provisionally enqueue nested tests', async ({}, testInfo) => {
       passed
   `);
 });
+
+test('should run tests for folders above root', async ({}, testInfo) => {
+  const { testController } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'builder/playwright/tests' }`,
+    'builder/playwright/tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  const testItems = testController.findTestItems(/builder/);
+  const testRun = await testController.run(testItems);
+
+  expect(testRun.renderLog()).toBe(`
+    one [2:0]
+      enqueued
+      started
+      passed
+  `);
+});
