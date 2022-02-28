@@ -223,9 +223,11 @@ export class TestMessage {
     if (this.location)
       result.push(`${indent}${path.basename(this.location.uri.fsPath)}:${this.location.range.toString()}`);
     const message = this.message.render();
-    for (const line of message.split('\n')) {
+    for (let line of message.split('\n')) {
       if (this.location && line.includes('    at'))
-        break;
+        line = line.replace(/\\/g, '/');
+      if (this.location && line.includes('&nbsp;&nbsp;&nbsp;&nbsp;at'))
+        line = line.replace(/\\/g, '/');
       result.push(indent + line);
     }
   }

@@ -24,7 +24,7 @@ import { Recorder } from './recorder';
 import type { TestError } from './reporter';
 import { TestModel, TestProject } from './testModel';
 import { TestTree } from './testTree';
-import { stripAnsi } from './utils';
+import { ansiToHtml } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 
@@ -473,10 +473,21 @@ export class Extension {
   private _testMessageFromText(text: string): vscodeTypes.TestMessage {
     let isLog = false;
     const md: string[] = [];
-    for (const line of text.split('\n')) {
+    const logMd: string[] = [];
+    for (let line of text.split('\n')) {
+      if (line.startsWith('    at ')) {
+        // Render relative stack.
+        for (const workspaceFolder of this._vscode.workspace.workspaceFolders || []) {
+          const prefix = '    at ' + workspaceFolder.uri.fsPath;
+          if (line.startsWith(prefix)) {
+            line = '    at ' + line.substring(prefix.length + 1);
+            break;
+          }
+        }
+      }
       if (line.includes('=====') && line.includes('log')) {
         isLog = true;
-        md.push('#### Execution log');
+        logMd.push('\n\n**Execution log**');
         continue;
       }
       if (line.includes('=====')) {
@@ -485,18 +496,22 @@ export class Extension {
       }
       if (isLog) {
         const [, indent, body] = line.match(/(\s*)(.*)/)!;
-        md.push(indent + ' - ' + body);
+        logMd.push(indent + ' - ' + body);
       } else {
         md.push(line);
       }
     }
     const markdownString = new this._vscode.MarkdownString();
-    markdownString.appendMarkdown(md.join('\n'));
+    markdownString.isTrusted = true;
+    markdownString.supportHtml = true;
+    markdownString.appendMarkdown(ansiToHtml(md.join('\n')));
+    if (logMd.length)
+      markdownString.appendMarkdown(logMd.join('\n'));
     return new this._vscode.TestMessage(markdownString);
   }
 
   private _testMessageForTestError(testItem: vscodeTypes.TestItem, error: TestError): vscodeTypes.TestMessage {
-    const text = stripAnsi(error.stack || error.message || error.value!);
+    const text = error.stack || error.message || error.value!;
     const testMessage = this._testMessageFromText(text);
     const location = parseLocationFromStack(testItem, error.stack);
     if (location) {
