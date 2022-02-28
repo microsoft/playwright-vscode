@@ -305,7 +305,9 @@ export class Extension {
     const locations = new Set<string>();
     const projectsWithFiles: TestProject[] = [];
     for (const item of items) {
-      const projectsWithFile = projects.filter(project => item.uri!.fsPath.startsWith(project.testDir));
+      const projectsWithFile = projects.filter(project => {
+        return item.uri!.fsPath.startsWith(project.testDir) || project.testDir.startsWith(item.uri!.fsPath);
+      });
       if (!projectsWithFile.length)
         continue;
       const line = item.range ? ':' + (item.range.start.line + 1) : '';
