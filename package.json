@@ -42,7 +42,7 @@
         "category": "Test",
         "command": "pw.extension.install",
         "title": "Install Playwright"
-      }      
+      }
     ],
     "menus": {
       "view/title": [
