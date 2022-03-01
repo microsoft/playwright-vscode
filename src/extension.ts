@@ -24,7 +24,7 @@ import { Recorder } from './recorder';
 import type { TestError } from './reporter';
 import { TestModel, TestProject } from './testModel';
 import { TestTree } from './testTree';
-import { stripAnsi } from './utils';
+import { ansiToHtml } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 
@@ -109,21 +109,21 @@ export class Extension {
     const vscode = this._vscode;
     const disposables = [
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
-        this._rebuildModel();
+        this._rebuildModel(false);
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         this._updateVisibleEditorItems();
       }),
       vscode.commands.registerCommand('pw.extension.refreshTests', async () => {
-        await this._rebuildModel();
-        if (!this._models.length) {
+        const configs = await this._rebuildModel(true);
+        if (!configs.length) {
           vscode.window.showWarningMessage('No Playwright Test config files found.');
           return;
         }
       }),
       vscode.commands.registerCommand('pw.extension.recordTest', async () => {
         if (!this._models.length) {
-          vscode.window.showWarningMessage('No Playwright Test config files found.');
+          vscode.window.showWarningMessage('No Playwright tests found.');
           return;
         }
         this._recorder.record(this._models);
@@ -142,7 +142,7 @@ export class Extension {
       this._recorder,
     ];
     this._debugHighlight.activate(context);
-    await this._rebuildModel();
+    await this._rebuildModel(false);
 
     const fileSystemWatcher = this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mjs}');
     disposables.push(fileSystemWatcher);
@@ -152,7 +152,7 @@ export class Extension {
         return;
       if (!this._isUnderTest && uri.fsPath.includes('test-results'))
         return;
-      this._rebuildModel();
+      this._rebuildModel(false);
     };
     fileSystemWatcher.onDidChange(rebuildModelForConfig);
     fileSystemWatcher.onDidCreate(rebuildModelForConfig);
@@ -160,7 +160,7 @@ export class Extension {
     context.subscriptions.push(...disposables);
   }
 
-  private async _rebuildModel() {
+  private async _rebuildModel(showWarnings: boolean): Promise<vscodeTypes.Uri[]> {
     this._testTree.startedLoading();
     this._workspaceObserver.reset();
     this._models = [];
@@ -184,12 +184,14 @@ export class Extension {
         continue;
       const playwrightInfo = await this._playwrightTest.getPlaywrightInfo(workspaceFolderPath, configFilePath);
       if (!playwrightInfo) {
-        this._vscode.window.showWarningMessage('Please install Playwright Test via running `npm i @playwright/test`');
+        if (showWarnings)
+          this._vscode.window.showWarningMessage('Please install Playwright Test via running `npm i --save-dev @playwright/test`');
         continue;
       }
 
       if (playwrightInfo.version < 1.19) {
-        this._vscode.window.showWarningMessage('Playwright Test v1.19 or newer is required');
+        if (showWarnings)
+          this._vscode.window.showWarningMessage('Playwright Test v1.19 or newer is required');
         continue;
       }
 
@@ -206,6 +208,7 @@ export class Extension {
 
     this._testTree.finishedLoading();
     await this._updateVisibleEditorItems();
+    return configFiles;
   }
 
   private async _createRunProfile(project: TestProject) {
@@ -302,7 +305,9 @@ export class Extension {
     const locations = new Set<string>();
     const projectsWithFiles: TestProject[] = [];
     for (const item of items) {
-      const projectsWithFile = projects.filter(project => item.uri!.fsPath.startsWith(project.testDir));
+      const projectsWithFile = projects.filter(project => {
+        return item.uri!.fsPath.startsWith(project.testDir) || project.testDir.startsWith(item.uri!.fsPath);
+      });
       if (!projectsWithFile.length)
         continue;
       const line = item.range ? ':' + (item.range.start.line + 1) : '';
@@ -473,10 +478,21 @@ export class Extension {
   private _testMessageFromText(text: string): vscodeTypes.TestMessage {
     let isLog = false;
     const md: string[] = [];
-    for (const line of text.split('\n')) {
+    const logMd: string[] = [];
+    for (let line of text.split('\n')) {
+      if (line.startsWith('    at ')) {
+        // Render relative stack.
+        for (const workspaceFolder of this._vscode.workspace.workspaceFolders || []) {
+          const prefix = '    at ' + workspaceFolder.uri.fsPath;
+          if (line.startsWith(prefix)) {
+            line = '    at ' + line.substring(prefix.length + 1);
+            break;
+          }
+        }
+      }
       if (line.includes('=====') && line.includes('log')) {
         isLog = true;
-        md.push('#### Execution log');
+        logMd.push('\n\n**Execution log**');
         continue;
       }
       if (line.includes('=====')) {
@@ -485,18 +501,22 @@ export class Extension {
       }
       if (isLog) {
         const [, indent, body] = line.match(/(\s*)(.*)/)!;
-        md.push(indent + ' - ' + body);
+        logMd.push(indent + ' - ' + body);
       } else {
         md.push(line);
       }
     }
     const markdownString = new this._vscode.MarkdownString();
-    markdownString.appendMarkdown(md.join('\n'));
+    markdownString.isTrusted = true;
+    markdownString.supportHtml = true;
+    markdownString.appendMarkdown(ansiToHtml(md.join('\n')));
+    if (logMd.length)
+      markdownString.appendMarkdown(logMd.join('\n'));
     return new this._vscode.TestMessage(markdownString);
   }
 
   private _testMessageForTestError(testItem: vscodeTypes.TestItem, error: TestError): vscodeTypes.TestMessage {
-    const text = stripAnsi(error.stack || error.message || error.value!);
+    const text = error.stack || error.message || error.value!;
     const testMessage = this._testMessageFromText(text);
     const location = parseLocationFromStack(testItem, error.stack);
     if (location) {

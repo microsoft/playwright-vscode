@@ -44,14 +44,14 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
     label: 'Install Linux dependencies',
     picked: false,
   };
-  const options: vscodeTypes.QuickPickItem[] = [
-    { label: 'Select browsers to install', kind: vscode.QuickPickItemKind.Separator },
-    chromium,
-    firefox,
-    webkit,
-    { label: '', kind: vscode.QuickPickItemKind.Separator },
-    addAction,
-  ];
+  const hasQuickPickSeparator = parseFloat(vscode.version) >= 1.64;
+  const options: vscodeTypes.QuickPickItem[] = [];
+  if (hasQuickPickSeparator)
+    options.push({ label: 'Select browsers to install', kind: vscode.QuickPickItemKind.Separator });
+  options.push(chromium, firefox, webkit);
+  if (hasQuickPickSeparator)
+    options.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
+  options.push(addAction);
   if (process.platform === 'linux')
     options.push(installDepsAction);
   const result = await vscode.window.showQuickPick(options, {

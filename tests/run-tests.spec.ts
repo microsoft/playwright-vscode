@@ -197,10 +197,16 @@ test('should show error message', async ({}, testInfo) => {
       started
       failed
         test.spec.ts:[3:18 - 3:18]
-        Error: expect(received).toBe(expected) // Object.is equality
+        Error: <span style='color:#666;'>expect(</span><span style='color:#73c991;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#f14c4c;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
+        <br>
         
-        Expected: 2
-        Received: 1
+        <br>
+        Expected: <span style='color:#f14c4c;'>2</span>
+        <br>
+        Received: <span style='color:#73c991;'>1</span>
+        <br>
+        &nbsp;&nbsp;&nbsp;&nbsp;at tests/test.spec.ts:4:19
+        </span></br>
   `);
 });
 
@@ -227,15 +233,27 @@ test('should show soft error messages', async ({}, testInfo) => {
       started
       failed
         test.spec.ts:[3:23 - 3:23]
-        Error: expect(received).toBe(expected) // Object.is equality
+        Error: <span style='color:#666;'>expect(</span><span style='color:#73c991;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#f14c4c;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
+        <br>
         
-        Expected: 2
-        Received: 1
+        <br>
+        Expected: <span style='color:#f14c4c;'>2</span>
+        <br>
+        Received: <span style='color:#73c991;'>1</span>
+        <br>
+        &nbsp;&nbsp;&nbsp;&nbsp;at tests/test.spec.ts:4:24
+        </span></br>
         test.spec.ts:[4:23 - 4:23]
-        Error: expect(received).toBe(expected) // Object.is equality
+        Error: <span style='color:#666;'>expect(</span><span style='color:#73c991;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#f14c4c;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
+        <br>
         
-        Expected: 3
-        Received: 2
+        <br>
+        Expected: <span style='color:#f14c4c;'>3</span>
+        <br>
+        Received: <span style='color:#73c991;'>2</span>
+        <br>
+        &nbsp;&nbsp;&nbsp;&nbsp;at tests/test.spec.ts:5:24
+        </span></br>
   `);
 });
 
@@ -705,14 +723,20 @@ test('should report project-specific failures', async ({}, testInfo) => {
       failed
         test.spec.ts:[3:14 - 3:14]
         Error: projectA
+        <br>
+        &nbsp;&nbsp;&nbsp;&nbsp;at tests/test.spec.ts:4:15
       started
       failed
         test.spec.ts:[3:14 - 3:14]
         Error: projectB
+        <br>
+        &nbsp;&nbsp;&nbsp;&nbsp;at tests/test.spec.ts:4:15
       started
       failed
         test.spec.ts:[3:14 - 3:14]
         Error: projectC
+        <br>
+        &nbsp;&nbsp;&nbsp;&nbsp;at tests/test.spec.ts:4:15
   `);
 });
 
@@ -788,6 +812,26 @@ test('should provisionally enqueue nested tests', async ({}, testInfo) => {
       passed
     4 [6:0]
       enqueued
+      enqueued
+      started
+      passed
+  `);
+});
+
+test('should run tests for folders above root', async ({}, testInfo) => {
+  const { testController } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'builder/playwright/tests' }`,
+    'builder/playwright/tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  const testItems = testController.findTestItems(/builder/);
+  const testRun = await testController.run(testItems);
+
+  expect(testRun.renderLog()).toBe(`
+    one [2:0]
       enqueued
       started
       passed

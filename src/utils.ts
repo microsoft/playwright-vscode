@@ -74,9 +74,67 @@ export async function findInPath(program: string): Promise<string | undefined> {
   return undefined;
 }
 
-const asciiRegex = new RegExp('[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))', 'g');
-export function stripAnsi(str: string): string {
-  return str.replace(asciiRegex, '');
+export function ansiToHtml(text: string): string {
+  let isOpen = false;
+  let isLeadingSpace = true;
+  let hasTags = false;
+  const tokens = [];
+  for (let i = 0; i < text.length; ++i) {
+    const c = text.charAt(i);
+    if (c === '\u001b') {
+      hasTags = true;
+      const end = text.indexOf('m', i + 1);
+      const code = text.substring(i + 1, end);
+      if (!code.match(/\[\d+/))
+        continue;
+      if (isOpen) {
+        tokens.push('</span>');
+        isOpen = false;
+      }
+      switch (code) {
+        case '[2': {
+          tokens.push(`<span style='color:#666;'>`);
+          isOpen = true;
+          break;
+        }
+        case '[22': break;
+        case '[31': {
+          tokens.push(`<span style='color:#73c991;'>`);
+          isOpen = true;
+          break;
+        }
+        case '[32': {
+          tokens.push(`<span style='color:#f14c4c;'>`);
+          isOpen = true;
+          break;
+        }
+        case '[39': break;
+      }
+      i = end;
+    } else {
+      if (c === '\n') {
+        // Don't close to work around html parsing bug.
+        tokens.push('\n<br>\n');
+        isLeadingSpace = true;
+      } else if (c === ' ') {
+        if (isLeadingSpace)
+          tokens.push('&nbsp;');
+        else
+          tokens.push(' ');
+      } else {
+        tokens.push(escapeHTML(c));
+        isLeadingSpace = false;
+      }
+    }
+  }
+  // Work around html parsing bugs.
+  if (hasTags)
+    tokens.push('\n</span></br>');
+  return tokens.join('');
+}
+
+function escapeHTML(text: string): string {
+  return text.replace(/[&"<>]/g, c => ({ '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' }[c]!));
 }
 
 export async function spawnAsync(executable: string, args: string[], cwd?: string): Promise<string> {
