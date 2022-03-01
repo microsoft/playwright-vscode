@@ -192,7 +192,9 @@ class TestRunProfile {
     readonly label: string,
     readonly kind: TestRunProfileKind,
     readonly runHandler: (request: TestRunRequest, token: CancellationToken) => Promise<void>,
-    readonly isDefault?: boolean) {
+    readonly isDefault: boolean,
+    private runProfiles: TestRunProfile[]) {
+    runProfiles.push(this);
   }
 
   async run(include?: TestItem[], exclude?: TestItem[]) {
@@ -200,7 +202,9 @@ class TestRunProfile {
     await this.runHandler(request, request.token);
   }
 
-  dispose() { }
+  dispose() {
+    this.runProfiles.splice(this.runProfiles.indexOf(this), 1);
+  }
 }
 
 class TestRunRequest {
@@ -341,9 +345,7 @@ class TestController {
   }
 
   createRunProfile(label: string, kind: TestRunProfileKind, runHandler: (request: TestRunRequest, token: CancellationToken) => Promise<void>, isDefault?: boolean): TestRunProfile {
-    const profile = new TestRunProfile(label, kind, runHandler, isDefault);
-    this.runProfiles.push(profile);
-    return profile;
+    return new TestRunProfile(label, kind, runHandler, isDefault, this.runProfiles);
   }
 
   createTestRun(request: TestRunRequest, name?: string, persist?: boolean): TestRun {

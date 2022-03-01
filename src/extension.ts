@@ -57,7 +57,7 @@ export class Extension {
   private _testTree: TestTree;
 
   // Each run profile is a config + project pair.
-  private _runProfiles: vscodeTypes.TestRunProfile[] = [];
+  private _runProfiles = new Map<string, vscodeTypes.TestRunProfile>();
 
   private _testController: vscodeTypes.TestController;
   private _workspaceObserver: WorkspaceObserver;
@@ -164,11 +164,11 @@ export class Extension {
     this._testTree.startedLoading();
     this._workspaceObserver.reset();
     this._models = [];
-    for (const profile of this._runProfiles)
-      profile.dispose();
-    this._runProfiles = [];
 
     const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mjs}');
+
+    // Reuse already created run profiles in order to retain their 'selected' status.
+    const usedProfiles = new Set<vscodeTypes.TestRunProfile>();
 
     for (const configFileUri of configFiles) {
       const configFilePath = configFileUri.fsPath;
@@ -201,8 +201,16 @@ export class Extension {
       await model.listFiles();
 
       for (const project of model.projects.values()) {
-        await this._createRunProfile(project);
+        await this._createRunProfile(project, usedProfiles);
         this._workspaceObserver.addWatchFolder(project.testDir);
+      }
+    }
+
+    // Clean up unused run profiles.
+    for (const [key, profile] of this._runProfiles) {
+      if (!usedProfiles.has(profile)) {
+        this._runProfiles.delete(key);
+        profile.dispose();
       }
     }
 
@@ -211,18 +219,38 @@ export class Extension {
     return configFiles;
   }
 
-  private async _createRunProfile(project: TestProject) {
-    const configName = path.basename(project.model.config.configFile);
-    const folderName = path.basename(path.dirname(project.model.config.configFile));
+  private async _createRunProfile(project: TestProject, usedProfiles: Set<vscodeTypes.TestRunProfile>) {
+    const configFile = project.model.config.configFile;
+    const configName = path.basename(configFile);
+    const folderName = path.basename(path.dirname(configFile));
     const projectPrefix = project.name ? `${project.name} — ` : '';
-
-    this._runProfiles.push(this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, project, false), project.isFirst));
-    this._runProfiles.push(this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, project, true), project.isFirst));
+    const keyPrefix = configFile + ':' + project.name;
+    let runProfile = this._runProfiles.get(keyPrefix + ':run');
+    if (!runProfile) {
+      runProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), true);
+      this._runProfiles.set(keyPrefix + ':run', runProfile);
+    }
+    let debugProfile = this._runProfiles.get(keyPrefix + ':debug');
+    if (!debugProfile) {
+      debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), true);
+      this._runProfiles.set(keyPrefix + ':debug', debugProfile);
+    }
+    usedProfiles.add(runProfile);
+    usedProfiles.add(debugProfile);
   }
 
-  private async _scheduleTestRunRequest(project: TestProject, isDebug: boolean, request: vscodeTypes.TestRunRequest) {
+  private async _scheduleTestRunRequest(configFile: string, projectName: string, isDebug: boolean, request: vscodeTypes.TestRunRequest) {
     // Never run tests concurrently.
     if (this._testRun)
+      return;
+
+    // We can't dispose projects (and bind them to TestProject instances) because otherwise VS Code would forget its selection state.
+    // So bind run profiles to config file + project name pair, dynamically resolve the project.
+    const model = this._models.find(m => m.config.configFile === configFile);
+    if (!model)
+      return;
+    const project = model.projects.get(projectName);
+    if (!project)
       return;
 
     // VSCode will issue several test run requests (one per enabled run profile). Sometimes

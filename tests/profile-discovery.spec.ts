@@ -68,13 +68,38 @@ test('should create run & debug profile per project', async ({}, testInfo) => {
 
   expect(runProfiles[2].label).toBe('projectB — ' + configPath);
   expect(runProfiles[2].kind).toBe(vscode.TestRunProfileKind.Run);
-  expect(runProfiles[2].isDefault).toBeFalsy();
+  expect(runProfiles[1].isDefault).toBeTruthy();
 
   expect(runProfiles[3].label).toBe('projectB — ' + configPath);
   expect(runProfiles[3].kind).toBe(vscode.TestRunProfileKind.Debug);
-  expect(runProfiles[3].isDefault).toBeFalsy();
+  expect(runProfiles[1].isDefault).toBeTruthy();
 
   expect(renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
+});
+
+test('retain run profile instances of reload', async ({}, testInfo) => {
+  const { testController, workspaceFolder } = await activate(testInfo.outputPath('workspace'), {
+    'playwright.config.js': `module.exports = {
+      projects: [{ name: 'projectA' }, { name: 'projectB' }]
+    }`
+  });
+
+  const runProfiles = new Set(testController.runProfiles);
+
+  await workspaceFolder.changeFile('playwright.config.js', `module.exports = {
+    projects: [{ name: 'projectA' }, { name: 'projectC' }, { name: 'projectD' }]
+  }`);
+
+  while (testController.runProfiles.length !== 6)
+    await new Promise(f => setTimeout(f, 100));
+
+  let retained = 0;
+  for (const profile of testController.runProfiles) {
+    if (runProfiles.has(profile))
+      ++retained;
+  }
+
+  expect(retained).toBe(2); // Run & Debug projects from project A.
 });
