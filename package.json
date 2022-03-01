@@ -78,7 +78,7 @@
             "completionEvents": [
               "onCommand:pw.extension.install"
             ]
-          },        
+          },
           {
             "id": "run",
             "title": "Run a test",
