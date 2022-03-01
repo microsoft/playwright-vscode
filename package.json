@@ -20,7 +20,8 @@
     "workspaceContains:**/*playwright*.config.{ts,js,mjs}",
     "onCommand:pw.extension.install",
     "onCommand:pw.extension.recordTest",
-    "onCommand:pw.extension.refreshTests"
+    "onCommand:pw.extension.refreshTests",
+    "onCommand:pw.extension.help.openWalkthrough"    
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -41,7 +42,7 @@
         "category": "Test",
         "command": "pw.extension.install",
         "title": "Install Playwright"
-      }
+      }      
     ],
     "menus": {
       "view/title": [
@@ -56,7 +57,64 @@
           "group": "navigation@0"
         }
       ]
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "get-started",
+        "title": "Getting started with Playwright",
+        "description": "A walkthrough to get you started with Playwright.",
+        "featuredFor": [
+          "**/*playwright*.config.{ts,js,mjs}"
+        ],
+        "steps": [
+          {
+            "id": "install",
+            "title": "Install Playwright",
+            "description": "Install Playwright to get started.\n[Run Command](command:pw.extension.install)",
+            "media": {
+              "image": "images/walkthrough-install.png",
+              "altText": "Install Playwright"
+            },
+            "completionEvents": [
+              "onCommand:pw.extension.install"
+            ]
+          },        
+          {
+            "id": "run",
+            "title": "Run a test",
+            "description": "Open example.spec.ts and run a test.\n[Run an example test](command:workbench.action.files.openFile?tests)",
+            "media": {
+              "image": "images/walkthrough-run.gif",
+              "altText": "Run tests"
+            },
+						"completionEvents": [
+							"onView:workbench.view.testing"
+						] 
+          },
+          {
+            "id": "debug",
+            "title": "Debug a test",
+            "description": "Set a break point and debug.\n[Debug a test](command:workbench.view.explorer)",
+            "media": {
+              "image": "images/walkthrough-debug.gif",
+              "altText": "Debug Test"
+            }
+          },                    
+          {
+            "id": "record",
+            "title": "Record a test",
+            "description": "Use the recorder to create a test.\n[Start recording](command:pw.extension.recordTest)",
+            "media": {
+              "image": "images/walkthrough-record.gif",
+              "altText": "Record a test"
+            },
+            "completionEvents": [
+              "onCommand:pw.extension.recordTest"
+            ]
+          }
+        ]
+      }
+    ]   
   },
   "scripts": {
     "esbuild": "esbuild ./src/babelBundle.ts ./src/extension.ts ./src/oopReporter.ts ./src/debugTransform.ts --bundle --outdir=out --external:vscode --external:./babelBundle --external:./debugTransform --external:./oopReporter --format=cjs --platform=node --target=ES2019",
