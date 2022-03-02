@@ -15,9 +15,10 @@
  */
 
 import { Entry } from './oopReporter';
-import { PlaywrightTest, ProjectListFilesReport, TestConfig } from './playwrightTest';
+import { PlaywrightTest, ProjectListFilesReport, TestConfig, TestListener } from './playwrightTest';
 import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
+import { resolveSourceMap } from './utils';
 
 export class TestFile {
   readonly project: TestProject;
@@ -53,14 +54,18 @@ export type TestProject = {
 };
 
 export class TestModel {
+  private _vscode: vscodeTypes.VSCode;
   readonly config: TestConfig;
   readonly projects = new Map<string, TestProject>();
   private _didUpdate: vscodeTypes.EventEmitter<void>;
   readonly onUpdated: vscodeTypes.Event<void>;
   readonly allFiles = new Set<string>();
   private _playwrightTest: PlaywrightTest;
+  private _fileToSources: Map<string, string[]> = new Map();
+  private _sourceToFile: Map<string, string> = new Map();
 
   constructor(vscode: vscodeTypes.VSCode, playwrightTest: PlaywrightTest, workspaceFolder: string, configFile: string, cli: string) {
+    this._vscode = vscode;
     this._playwrightTest = playwrightTest;
     this.config = { workspaceFolder, configFile, cli };
     this._didUpdate = new vscode.EventEmitter();
@@ -71,6 +76,14 @@ export class TestModel {
     const report = await this._playwrightTest.listFiles(this.config);
     if (!report)
       return;
+
+    // Resolve files to sources when using source maps.
+    for (const project of report.projects) {
+      const files: string[] = [];
+      for (const file of project.files)
+        files.push(...await resolveSourceMap(file, this._fileToSources, this._sourceToFile));
+      project.files = files;
+    }
 
     const projectsToKeep = new Set<string>();
     for (const projectReport of report.projects) {
@@ -124,6 +137,11 @@ export class TestModel {
 
   async workspaceChanged(change: WorkspaceChange) {
     let modelChanged = false;
+    // Translate source maps from files to sources.
+    change.changed = this._mapFilesToSources(change.changed);
+    change.created = this._mapFilesToSources(change.created);
+    change.deleted = this._mapFilesToSources(change.deleted);
+
     if (change.deleted.size) {
       for (const project of this.projects.values()) {
         for (const file of change.deleted) {
@@ -168,11 +186,12 @@ export class TestModel {
   }
 
   async listTests(files: string[]) {
-    const filesToLoad = files.filter(f => this.allFiles.has(f));
-    if (!filesToLoad.length)
+    const sourcestoLoad = files.filter(f => this.allFiles.has(f));
+    if (!sourcestoLoad.length)
       return;
-    const projectEntries = await this._playwrightTest.listTests(this.config, filesToLoad);
-    this._updateProjects(projectEntries, filesToLoad);
+
+    const projectEntries = await this._playwrightTest.listTests(this.config, this._mapSourcesToFiles(sourcestoLoad));
+    this._updateProjects(projectEntries, sourcestoLoad);
   }
 
   private _updateProjects(projectEntries: Entry[], requestedFiles: string[]) {
@@ -226,5 +245,54 @@ export class TestModel {
       for (const file of project.files.values())
         this.allFiles.add(file.file);
     }
+  }
+
+  async runTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+    locations = locations ? this._mapSourcesToFiles(locations) : [];
+    await this._playwrightTest.runTests(this.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, token);
+  }
+
+  async debugTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+    locations = locations ? this._mapSourcesToFiles(locations) : [];
+    await this._playwrightTest.debugTests(this._vscode, this.config, projects.map(p => p.name), projects.map(p => p.testDir), locations, testListener, parametrizedTestTitle, token);
+  }
+
+  private _mapSourcesToFiles(sources: string[]): string[] {
+    const result: string[] = [];
+
+    // When we see
+    //   src/foo.ts in the source,
+    // we want to pass
+    //   out/bundle.js:0 src/foo.ts
+    // This way we'll parse bundle.js and filter source-mapped tests by src/foo.ts
+
+    // When we see
+    //   src/foo.ts:14 in the source,
+    // we want to pass
+    //   out/bundle.js:0 src/foo.ts:14
+    // Same idea here, we'll parse bundle and filter by source-mapped location.
+    // It looks wrong, but it actually achieves the right result.
+
+    for (const source of sources) {
+      const match = source.match(/^(.*)([:]\d+)$/);
+      const sourceFile = match ? match[1] : source;
+      const bundleFile = this._sourceToFile.get(sourceFile);
+      if (bundleFile)
+        result.push(bundleFile + ':0');
+      result.push(source);
+    }
+    return result;
+  }
+
+  private _mapFilesToSources(files: Set<string>): Set<string> {
+    const result = new Set<string>();
+    for (const file of files) {
+      const sources = this._fileToSources.get(file);
+      if (sources)
+        sources.forEach(f => result.add(f));
+      else
+        result.add(file);
+    }
+    return result;
   }
 }
