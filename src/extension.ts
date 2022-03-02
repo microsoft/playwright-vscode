@@ -333,8 +333,13 @@ export class Extension {
     const locations = new Set<string>();
     const projectsWithFiles: TestProject[] = [];
     for (const item of items) {
+      const itemFsPath = item.uri!.fsPath;
       const projectsWithFile = projects.filter(project => {
-        return item.uri!.fsPath.startsWith(project.testDir) || project.testDir.startsWith(item.uri!.fsPath);
+        for (const file of project.files.keys()) {
+          if (file.startsWith(itemFsPath))
+            return true;
+        }
+        return false;
       });
       if (!projectsWithFile.length)
         continue;
@@ -449,9 +454,9 @@ export class Extension {
     };
 
     if (isDebug)
-      await this._playwrightTest.debugTests(this._vscode, model.config, projects.map(p => p.name), projects.map(p => p.testDir), locations, testListener, parametrizedTestTitle, testRun.token);
+      await model.debugTests(projects, locations, testListener, parametrizedTestTitle, testRun.token);
     else
-      await this._playwrightTest.runTests(model.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, testRun.token);
+      await model.runTests(projects, locations, testListener, parametrizedTestTitle, testRun.token);
   }
 
   private async _updateVisibleEditorItems() {

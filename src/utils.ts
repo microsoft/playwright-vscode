@@ -18,6 +18,7 @@ import { spawn } from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import readline from 'readline';
 
 export function calculateSha1(buffer: Buffer | string): string {
   const hash = crypto.createHash('sha1');
@@ -149,4 +150,38 @@ export async function spawnAsync(executable: string, args: string[], cwd?: strin
     childProcess.on('error', error => r(error));
     childProcess.on('exit', () => f(output));
   });
+}
+
+export async function resolveSourceMap(file: string, fileToSources: Map<string, string[]>, sourceToFile: Map<string, string>): Promise<string[]> {
+  if (!file.endsWith('.js'))
+    return [file];
+  const cached = fileToSources.get(file);
+  if (cached)
+    return cached;
+
+  const rl = readline.createInterface({ input: fs.createReadStream(file), crlfDelay: Infinity });
+
+  let lastLine: string | undefined;
+  rl.on('line', line => {
+    lastLine = line;
+  });
+  await new Promise(f => rl.on('close', f));
+
+  if (lastLine?.startsWith('//# sourceMappingURL=')) {
+    const sourceMappingFile = path.resolve(path.dirname(file), lastLine.substring('//# sourceMappingURL='.length));
+    try {
+      const sourceMapping = await fs.promises.readFile(sourceMappingFile, 'utf-8');
+      const sources = JSON.parse(sourceMapping).sources;
+      const sourcePaths = sources.map((s: string) => {
+        const source = path.resolve(path.dirname(sourceMappingFile), s);
+        sourceToFile.set(source, file);
+        return source;
+      });
+      fileToSources.set(file, sourcePaths);
+      return sourcePaths;
+    } catch (e) {
+    }
+  }
+  fileToSources.set(file, [file]);
+  return [file];
 }
