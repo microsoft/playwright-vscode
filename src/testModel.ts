@@ -186,12 +186,12 @@ export class TestModel {
   }
 
   async listTests(files: string[]) {
-    const sourcestoLoad = files.filter(f => this.allFiles.has(f));
-    if (!sourcestoLoad.length)
+    const sourcesToLoad = files.filter(f => this.allFiles.has(f));
+    if (!sourcesToLoad.length)
       return;
 
-    const projectEntries = await this._playwrightTest.listTests(this.config, this._mapSourcesToFiles(sourcestoLoad));
-    this._updateProjects(projectEntries, sourcestoLoad);
+    const projectEntries = await this._playwrightTest.listTests(this.config, this._mapSourcesToFiles(sourcesToLoad));
+    this._updateProjects(projectEntries, sourcesToLoad);
   }
 
   private _updateProjects(projectEntries: Entry[], requestedFiles: string[]) {
