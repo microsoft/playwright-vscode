@@ -97,14 +97,21 @@ export class PlaywrightTest {
   async listFiles(config: TestConfig): Promise<ConfigListFilesReport | null> {
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
-    const allArgs = [config.cli, 'list-files', '-c', configFile];
+    const allArgs = [config.cli, 'list-files', '-c', config.configFile];
     {
       // For tests.
       this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright list-files -c ${configFile}`);
     }
-    const output = await this._runNode(allArgs, configFolder);
+
+    // Execute the list-files command with workspace folder as working directory and
+    // use full path to the config file to allow process.cwd() to work as expected
+    // in config files
+    const output = await this._runNode(allArgs, config.workspaceFolder);
     try {
-      return JSON.parse(output) as ConfigListFilesReport;
+      // Strip the JSON blob starting with {"projects":} from the output of the
+      // executed process
+      const strippedOutput = /{"projects":(.+)\}/ig.exec(output)?.[0] ?? ''
+      return JSON.parse(strippedOutput) as ConfigListFilesReport;
     } catch (e) {
       console.error(e);
       return null;
@@ -140,7 +147,7 @@ export class PlaywrightTest {
       this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright test -c ${configFile}${args.length ? ' ' + args.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
     }
     const allArgs = [config.cli, 'test',
-      '-c', configFile,
+      '-c', config.configFile,
       ...args,
       ...escapedLocations,
       '--repeat-each', '1',
@@ -152,7 +159,7 @@ export class PlaywrightTest {
     if (mode === 'list')
       allArgs.push('--reporter', 'null');
     const childProcess = spawn(node, allArgs, {
-      cwd: configFolder,
+      cwd: config.workspaceFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
@@ -181,7 +188,7 @@ export class PlaywrightTest {
     locations = locations || [];
     const escapedLocations = locations.map(escapeRegex);
     const args = ['test',
-      '-c', configFile,
+      '-c', config.configFile,
       ...escapedLocations,
       '--headed',
       ...projectNames.filter(Boolean).map(p => `--project=${p}`),
@@ -203,7 +210,7 @@ export class PlaywrightTest {
       type: 'pwa-node',
       name: debugSessionName,
       request: 'launch',
-      cwd: configFolder,
+      cwd: config.workspaceFolder,
       env: {
         ...process.env,
         // Reset VSCode's options that affect nested Electron.
