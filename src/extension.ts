@@ -405,9 +405,13 @@ export class Extension {
         const testItem = this._testTree.testItemForLocation(params.location, params.title);
         if (!testItem)
           return;
-        if (params.ok) {
-          if (!testFailures.has(testItem))
-            testRun.passed(testItem, params.duration);
+        if (params.status === params.expectedStatus) {
+          if (!testFailures.has(testItem)) {
+            if (params.status === 'skipped')
+              testRun.skipped(testItem);
+            else
+              testRun.passed(testItem, params.duration);
+          }
           return;
         }
         testFailures.add(testItem);

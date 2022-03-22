@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { FullConfig, FullResult, Location, Reporter, Suite, TestCase, TestError, TestResult, TestStep } from './reporter';
+import type { FullConfig, FullResult, Location, Reporter, Suite, TestCase, TestError, TestResult, TestStatus, TestStep } from './reporter';
 import { ConnectionTransport, PipeTransport, WebSocketTransport } from './transport';
 import fs from 'fs';
 
@@ -36,7 +36,8 @@ export type TestEndParams = {
   location: Location;
   duration: number;
   errors: TestError[];
-  ok: boolean;
+  expectedStatus: TestStatus;
+  status: TestStatus;
 };
 
 export type StepBeginParams = {
@@ -123,7 +124,8 @@ class OopReporter implements Reporter {
       location: test.location,
       duration: result.duration,
       errors: result.errors,
-      ok: test.ok()
+      expectedStatus: test.expectedStatus,
+      status: result.status,
     };
     this._emit('onTestEnd', params);
   }
