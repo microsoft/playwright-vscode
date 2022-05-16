@@ -637,6 +637,7 @@ export class VSCode {
     const workspaceFolder = new WorkspaceFolder(this, path.basename(rootFolder), Uri.file(rootFolder));
     this.workspace.workspaceFolders.push(workspaceFolder);
     await fs.promises.mkdir(rootFolder, { recursive: true });
+    await workspaceFolder.addFile('package.json', '{}', true);
     if (files) {
       for (const [fsPath, content] of Object.entries(files))
         await workspaceFolder.addFile(fsPath, content, true);
