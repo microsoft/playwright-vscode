@@ -291,6 +291,7 @@ export class Extension {
       projectsToRunByModel.set(project.model, projects);
     }
 
+    let ranSomeTests = false;
     try {
       for (const [model, projectsToRun] of projectsToRunByModel) {
         const { projects, locations, parametrizedTestTitle } = this._narrowDownProjectsAndLocations(projectsToRun, request.include);
@@ -299,6 +300,7 @@ export class Extension {
         //   locations.length => has matching items in project.
         if (locations && !locations.length)
           continue;
+        ranSomeTests = true;
         await this._runTest(this._testRun, new Set(), model, isDebug, projects, locations, parametrizedTestTitle);
       }
     } finally {
@@ -306,6 +308,12 @@ export class Extension {
       this._executionLinesChanged();
       this._testRun.end();
       this._testRun = undefined;
+    }
+
+    if (!ranSomeTests) {
+      this._vscode.window.showWarningMessage(`Selected test is outside of the Default Profile (config).
+Please make sure you select relevant Playwright projects in the "Select Configuration\u2026" drop down
+located next to Run / Debug Tests toolbar buttons.`);
     }
   }
 

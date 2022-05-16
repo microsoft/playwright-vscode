@@ -837,3 +837,35 @@ test('should run tests for folders above root', async ({}, testInfo) => {
       passed
   `);
 });
+
+test('should show warning when tests do not belong to projects', async ({}, testInfo) => {
+  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+    'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
+    'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
+    'tests1/test1.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+    'tests2/test2.spec.ts': `
+      import { test } from '@playwright/test';
+      test('two', async () => {});
+    `,
+  });
+
+  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run);
+  let testRuns: TestRun[] = [];
+  testController.onDidCreateTestRun(run => testRuns.push(run));
+
+  {
+    testRuns = [];
+    const items = testController.findTestItems(/test2.spec/);
+    await profile.run(items);
+  }
+
+  expect(renderExecLog('  ')).toBe(`
+    tests1> playwright list-files -c playwright.config.js
+    tests2> playwright list-files -c playwright.config.js
+  `);
+
+  expect(vscode.warnings[0]).toContain('Selected test is outside of the Default Profile (config)');
+});

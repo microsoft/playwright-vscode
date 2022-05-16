@@ -580,6 +580,7 @@ export class VSCode {
   readonly onDidChangeTextDocument = this._didChangeTextDocument.event;
   readonly testControllers: TestController[] = [];
   readonly fsWatchers = new Set<FileSystemWatcher>();
+  readonly warnings: string[] = [];
 
   constructor() {
     this.commands.registerCommand = () => {};
@@ -593,7 +594,7 @@ export class VSCode {
     this.window.onDidChangeTextEditorSelection = this.onDidChangeTextEditorSelection;
     this.window.onDidChangeVisibleTextEditors = this.onDidChangeVisibleTextEditors;
     this.window.createTextEditorDecorationType = () => ++lastDecorationTypeId;
-    this.window.showWarningMessage = () => {};
+    this.window.showWarningMessage = (message: string) => this.warnings.push(message);
     this.window.visibleTextEditors = [];
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
