@@ -221,10 +221,10 @@ export class PlaywrightTest {
       args,
     });
     const transport = await debugServer.transport();
-    await this._wireTestListener(transport, listener, token);
+    await this._wireTestListener(transport, listener, token, vscode?.debug.activeDebugConsole);
   }
 
-  private async _wireTestListener(transport: ConnectionTransport, listener: TestListener, token?: vscodeTypes.CancellationToken) {
+  private async _wireTestListener(transport: ConnectionTransport, listener: TestListener, token?: vscodeTypes.CancellationToken, debugConsole?: vscodeTypes.DebugConsole) {
     let timeout: NodeJS.Timeout | undefined;
 
     const killTestProcess = () => {
@@ -258,6 +258,7 @@ export class PlaywrightTest {
           transport.close();
           break;
         }
+        case 'onDebugConsole': debugConsole?.append(message.params.message); break;
       }
     };
     await new Promise<void>(f => transport.onclose = f);

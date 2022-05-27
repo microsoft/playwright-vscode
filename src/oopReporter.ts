@@ -73,13 +73,15 @@ class OopReporter implements Reporter {
     });
 
     if (process.env.PW_OUT_OF_PROCESS_REPORTER_UNDER_DEBUGGER) {
-      process.stdout.write = (chunk: string | Buffer) => {
+      const originalOut = process.stdout.write.bind(process.stdout);
+      process.stdout.write = (chunk: string | Buffer, ...args: any) => {
         this._emit('onStdOut', { message: chunk.toString() });
-        return true;
+        return originalOut(chunk, ...args);
       };
-      process.stderr.write = (chunk: string | Buffer) => {
+      const originalErr = process.stderr.write.bind(process.stderr);
+      process.stderr.write = (chunk: string | Buffer, ...args: any) => {
         this._emit('onStdErr', { message: chunk.toString() });
-        return true;
+        return originalErr(chunk, ...args);
       };
     }
   }
@@ -157,6 +159,19 @@ class OopReporter implements Reporter {
       error: step.error,
     };
     this._emit('onStepEnd', params);
+  }
+
+  onStdOut(chunk: string | Buffer) {
+    // Debug Console shows only messages written via console.log() while
+    // the worker output is written to process.stdout directly. To overcome
+    // that we forward all worker messages to the active debug console.
+    if (process.env.PW_OUT_OF_PROCESS_REPORTER_UNDER_DEBUGGER)
+      this._emit('onDebugConsole', { message: chunk.toString() });
+  }
+
+  onStdErr(chunk: string | Buffer) {
+    if (process.env.PW_OUT_OF_PROCESS_REPORTER_UNDER_DEBUGGER)
+      this._emit('onDebugConsole', { message: chunk.toString() });
   }
 
   onError(error: TestError): void {

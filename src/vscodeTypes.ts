@@ -17,6 +17,7 @@
 export type {
   CancellationToken,
   DebugSession,
+  DebugConsole,
   DecorationOptions,
   Disposable,
   Event,
