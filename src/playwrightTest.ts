@@ -215,6 +215,7 @@ export class PlaywrightTest {
         PW_TEST_REPORTER: require.resolve('./oopReporter'),
         PW_TEST_REPORTER_WS_ENDPOINT: wsEndpoint,
         PW_TEST_HTML_REPORT_OPEN: 'never',
+        PW_OUT_OF_PROCESS_REPORTER_UNDER_DEBUGGER: 1,
       },
       program: config.cli,
       args,
@@ -249,6 +250,8 @@ export class PlaywrightTest {
         case 'onTestEnd': listener.onTestEnd?.(message.params); break;
         case 'onStepBegin': listener.onStepBegin?.(message.params); break;
         case 'onStepEnd': listener.onStepEnd?.(message.params); break;
+        case 'onStdOut': listener.onStdOut?.(message.params.message); break;
+        case 'onStdErr': listener.onStdErr?.(message.params.message); break;
         case 'onError': listener.onError?.(message.params); break;
         case 'onEnd': {
           listener.onEnd?.();

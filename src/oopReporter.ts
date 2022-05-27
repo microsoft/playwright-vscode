@@ -71,6 +71,17 @@ class OopReporter implements Reporter {
       };
       t.onclose = () => process.exit(0);
     });
+
+    if (process.env.PW_OUT_OF_PROCESS_REPORTER_UNDER_DEBUGGER) {
+      process.stdout.write = (chunk: string | Buffer) => {
+        this._emit('onStdOut', { message: chunk.toString() });
+        return true;
+      };
+      process.stderr.write = (chunk: string | Buffer) => {
+        this._emit('onStdErr', { message: chunk.toString() });
+        return true;
+      };
+    }
   }
 
   printsToStdio() {
