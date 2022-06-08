@@ -197,15 +197,50 @@ test('should show error message', async ({}, testInfo) => {
       started
       failed
         test.spec.ts:[3:18 - 3:18]
-        Error: <span style='color:#666;'>expect(</span><span style='color:#73c991;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#f14c4c;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
+        Error: <span style='color:#666;'>expect(</span><span style='color:#73c991; white-space:pre;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#f14c4c; white-space:pre;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
         <br>
         
         <br>
-        Expected: <span style='color:#f14c4c;'>2</span>
+        Expected: <span style='color:#f14c4c; white-space:pre;'>2</span>
         <br>
-        Received: <span style='color:#73c991;'>1</span>
+        Received: <span style='color:#73c991; white-space:pre;'>1</span>
         <br>
         &nbsp;&nbsp;&nbsp;&nbsp;at tests/test.spec.ts:4:19
+        </span></br>
+  `);
+});
+
+test('should handle whitespace', async ({}, testInfo) => {
+  const { testController } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test, expect } from '@playwright/test';
+      test('should fail', async () => {
+        expect('abc  abc').toEqual('abc abc');
+      });
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/fail/);
+  const testRun = await testController.run(testItems);
+
+  expect(testRun.renderLog({ messages: true })).toBe(`
+    should fail [2:0]
+      enqueued
+      enqueued
+      started
+      failed
+        test.spec.ts:[3:27 - 3:27]
+        Error: <span style='color:#666;'>expect(</span><span style='color:#73c991; white-space:pre;'>received</span><span style='color:#666;'>).</span>toEqual<span style='color:#666;'>(</span><span style='color:#f14c4c; white-space:pre;'>expected</span><span style='color:#666;'>) // deep equality</span>
+        <br>
+        
+        <br>
+        Expected: <span style='color:#f14c4c; white-space:pre;'>&quot;abc abc&quot;</span>
+        <br>
+        Received: <span style='color:#73c991; white-space:pre;'>&quot;abc </span> abc&quot;
+        <br>
+        &nbsp;&nbsp;&nbsp;&nbsp;at tests/test.spec.ts:4:28
         </span></br>
   `);
 });
@@ -233,24 +268,24 @@ test('should show soft error messages', async ({}, testInfo) => {
       started
       failed
         test.spec.ts:[3:23 - 3:23]
-        Error: <span style='color:#666;'>expect(</span><span style='color:#73c991;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#f14c4c;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
+        Error: <span style='color:#666;'>expect(</span><span style='color:#73c991; white-space:pre;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#f14c4c; white-space:pre;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
         <br>
         
         <br>
-        Expected: <span style='color:#f14c4c;'>2</span>
+        Expected: <span style='color:#f14c4c; white-space:pre;'>2</span>
         <br>
-        Received: <span style='color:#73c991;'>1</span>
+        Received: <span style='color:#73c991; white-space:pre;'>1</span>
         <br>
         &nbsp;&nbsp;&nbsp;&nbsp;at tests/test.spec.ts:4:24
         </span></br>
         test.spec.ts:[4:23 - 4:23]
-        Error: <span style='color:#666;'>expect(</span><span style='color:#73c991;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#f14c4c;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
+        Error: <span style='color:#666;'>expect(</span><span style='color:#73c991; white-space:pre;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#f14c4c; white-space:pre;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
         <br>
         
         <br>
-        Expected: <span style='color:#f14c4c;'>3</span>
+        Expected: <span style='color:#f14c4c; white-space:pre;'>3</span>
         <br>
-        Received: <span style='color:#73c991;'>2</span>
+        Received: <span style='color:#73c991; white-space:pre;'>2</span>
         <br>
         &nbsp;&nbsp;&nbsp;&nbsp;at tests/test.spec.ts:5:24
         </span></br>

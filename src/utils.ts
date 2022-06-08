@@ -100,12 +100,12 @@ export function ansiToHtml(text: string): string {
         }
         case '[22': break;
         case '[31': {
-          tokens.push(`<span style='color:#73c991;'>`);
+          tokens.push(`<span style='color:#73c991; white-space:pre;'>`);
           isOpen = true;
           break;
         }
         case '[32': {
-          tokens.push(`<span style='color:#f14c4c;'>`);
+          tokens.push(`<span style='color:#f14c4c; white-space:pre;'>`);
           isOpen = true;
           break;
         }
