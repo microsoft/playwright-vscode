@@ -84,7 +84,7 @@ export class DebugHighlight {
               }
 
               if (message.command === 'variables' && message.type === 'response') {
-                const errorVariable = message.body.variables.find((v: any) => v.name === 'playwrightError' && v.type === 'error');
+                const errorVariable = message.body.variables.find((v: any) => v.name === 'playwrightError' && v.type && v.type.toLowerCase() === 'error');
                 if (errorVariable && lastCatchLocation) {
                   const error = errorVariable.value as string;
                   self._errorInDebugger.fire({
