@@ -546,7 +546,7 @@ class MarkdownString {
   }
 
   render(): string {
-    return stripAscii(this.md.join('\n'));
+    return this.md.join('\n').replace(/&nbsp;/g, ' ');
   }
 }
 
