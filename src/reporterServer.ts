@@ -16,10 +16,12 @@
 
 import * as http from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
+import { TestListener } from './playwrightTest';
 import { ConnectionTransport } from './transport';
 import { createGuid } from './utils';
+import * as vscodeTypes from './vscodeTypes';
 
-export class DebugServer {
+export class ReporterServer {
   private _clientSocketPromise: Promise<WebSocket>;
   private _clientSocketCallback!: (socket: WebSocket) => void;
   private _wsServer: WebSocketServer | undefined;
@@ -28,7 +30,15 @@ export class DebugServer {
     this._clientSocketPromise = new Promise(f => this._clientSocketCallback = f);
   }
 
-  async listen(): Promise<string> {
+  async env() {
+    const wsEndpoint = await this._listen();
+    return {
+      PW_TEST_REPORTER: require.resolve('./oopReporter'),
+      PW_TEST_REPORTER_WS_ENDPOINT: wsEndpoint,
+    };
+  }
+
+  private async _listen(): Promise<string> {
     const server = http.createServer((_, response) => response.end());
     server.on('error', error => console.error(error));
 
@@ -52,7 +62,47 @@ export class DebugServer {
     return wsEndpoint;
   }
 
-  async transport(): Promise<ConnectionTransport> {
+  async wireTestListener(listener: TestListener, token?: vscodeTypes.CancellationToken) {
+    let timeout: NodeJS.Timeout | undefined;
+    const transport = await this._waitForTransport();
+
+    const killTestProcess = () => {
+      if (!transport.isClosed()) {
+        try {
+          transport.send({ id: 0, method: 'stop', params: {} });
+          timeout = setTimeout(() => transport.close(), 30000);
+        } catch {
+          // Close in case we are getting an error or close is racing back from remote.
+          transport.close();
+        }
+      }
+    };
+
+    token?.onCancellationRequested(() => killTestProcess());
+
+    transport.onmessage = message => {
+      if (token?.isCancellationRequested && message.method !== 'onEnd')
+        return;
+      switch (message.method) {
+        case 'onBegin': listener.onBegin?.(message.params); break;
+        case 'onTestBegin': listener.onTestBegin?.(message.params); break;
+        case 'onTestEnd': listener.onTestEnd?.(message.params); break;
+        case 'onStepBegin': listener.onStepBegin?.(message.params); break;
+        case 'onStepEnd': listener.onStepEnd?.(message.params); break;
+        case 'onError': listener.onError?.(message.params); break;
+        case 'onEnd': {
+          listener.onEnd?.();
+          transport.close();
+          break;
+        }
+      }
+    };
+    await new Promise<void>(f => transport.onclose = f);
+    if (timeout)
+      clearTimeout(timeout);
+  }
+
+  private async _waitForTransport(): Promise<ConnectionTransport> {
     const socket = await this._clientSocketPromise;
 
     const transport: ConnectionTransport = {

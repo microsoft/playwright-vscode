@@ -16,11 +16,10 @@
 
 import { spawn } from 'child_process';
 import path from 'path';
-import { DebugServer } from './debugServer';
+import { ReporterServer } from './reporterServer';
 import { debugSessionName } from './debugSessionName';
 import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import type { TestError } from './reporter';
-import { ConnectionTransport, PipeTransport } from './transport';
 import { findInPath, spawnAsync } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
@@ -130,6 +129,9 @@ export class PlaywrightTest {
   }
 
   private async _test(config: TestConfig, locations: string[], args: string[], listener: TestListener, mode: 'list' | 'run', token?: vscodeTypes.CancellationToken): Promise<void> {
+    // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
+    // Always use ws transport to mitigate it.
+    const reporterServer = new ReporterServer();
     const node = await this.findNode();
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
@@ -156,12 +158,12 @@ export class PlaywrightTest {
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
+        ...(await reporterServer.env()),
         // Don't debug tests when running them.
         NODE_OPTIONS: undefined,
         // Reset VSCode's options that affect nested Electron.
         ELECTRON_RUN_AS_NODE: undefined,
         FORCE_COLORS: '1',
-        PW_TEST_REPORTER: require.resolve('./oopReporter'),
         PW_TEST_HTML_REPORT_OPEN: 'never',
       }
     });
@@ -169,13 +171,10 @@ export class PlaywrightTest {
     const stdio = childProcess.stdio;
     stdio[1].on('data', data => listener.onStdOut?.(data));
     stdio[2].on('data', data => listener.onStdErr?.(data));
-    const transport = new PipeTransport((stdio as any)[3]!, (stdio as any)[4]!);
-    await this._wireTestListener(transport, listener, token);
+    await reporterServer.wireTestListener(listener, token);
   }
 
   async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
-    const debugServer = new DebugServer();
-    const wsEndpoint = await debugServer.listen();
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
     locations = locations || [];
@@ -199,6 +198,7 @@ export class PlaywrightTest {
       this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> debug -c ${configFile}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
     }
 
+    const reporterServer = new ReporterServer();
     await vscode.debug.startDebugging(undefined, {
       type: 'pwa-node',
       name: debugSessionName,
@@ -206,60 +206,19 @@ export class PlaywrightTest {
       cwd: configFolder,
       env: {
         ...process.env,
+        ...(await reporterServer.env()),
         // Reset VSCode's options that affect nested Electron.
         ELECTRON_RUN_AS_NODE: undefined,
         FORCE_COLORS: '1',
         PW_OUT_OF_PROCESS_DRIVER: '1',
         PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
         PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
-        PW_TEST_REPORTER: require.resolve('./oopReporter'),
-        PW_TEST_REPORTER_WS_ENDPOINT: wsEndpoint,
         PW_TEST_HTML_REPORT_OPEN: 'never',
       },
       program: config.cli,
       args,
     });
-    const transport = await debugServer.transport();
-    await this._wireTestListener(transport, listener, token);
-  }
-
-  private async _wireTestListener(transport: ConnectionTransport, listener: TestListener, token?: vscodeTypes.CancellationToken) {
-    let timeout: NodeJS.Timeout | undefined;
-
-    const killTestProcess = () => {
-      if (!transport.isClosed()) {
-        try {
-          transport.send({ id: 0, method: 'stop', params: {} });
-          timeout = setTimeout(() => transport.close(), 30000);
-        } catch {
-          // Close in case we are getting an error or close is racing back from remote.
-          transport.close();
-        }
-      }
-    };
-
-    token?.onCancellationRequested(() => killTestProcess());
-
-    transport.onmessage = message => {
-      if (token?.isCancellationRequested && message.method !== 'onEnd')
-        return;
-      switch (message.method) {
-        case 'onBegin': listener.onBegin?.(message.params); break;
-        case 'onTestBegin': listener.onTestBegin?.(message.params); break;
-        case 'onTestEnd': listener.onTestEnd?.(message.params); break;
-        case 'onStepBegin': listener.onStepBegin?.(message.params); break;
-        case 'onStepEnd': listener.onStepEnd?.(message.params); break;
-        case 'onError': listener.onError?.(message.params); break;
-        case 'onEnd': {
-          listener.onEnd?.();
-          transport.close();
-          break;
-        }
-      }
-    };
-    await new Promise<void>(f => transport.onclose = f);
-    if (timeout)
-      clearTimeout(timeout);
+    await reporterServer.wireTestListener(listener, token);
   }
 
   private _log(line: string) {

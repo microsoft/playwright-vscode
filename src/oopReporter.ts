@@ -15,8 +15,7 @@
  */
 
 import type { FullConfig, FullResult, Location, Reporter, Suite, TestCase, TestError, TestResult, TestStatus, TestStep } from './reporter';
-import { ConnectionTransport, PipeTransport, WebSocketTransport } from './transport';
-import fs from 'fs';
+import { ConnectionTransport, WebSocketTransport } from './transport';
 
 export type EntryType = 'project' | 'file' | 'suite' | 'test';
 export type Entry = {
@@ -57,12 +56,7 @@ class OopReporter implements Reporter {
   private _transport: Promise<ConnectionTransport>;
 
   constructor() {
-    if (process.env.PW_TEST_REPORTER_WS_ENDPOINT)
-      this._transport = WebSocketTransport.connect(process.env.PW_TEST_REPORTER_WS_ENDPOINT);
-    else if (process.stdin.isTTY)
-      this._transport = Promise.resolve(new PipeTransport(fs.createWriteStream('', { fd: 2 }), fs.createReadStream('', { fd: 1 })));
-    else
-      this._transport = Promise.resolve(new PipeTransport(fs.createWriteStream('', { fd: 4 }), fs.createReadStream('', { fd: 3 })));
+    this._transport = WebSocketTransport.connect(process.env.PW_TEST_REPORTER_WS_ENDPOINT!);
     this._transport.then(t => {
       t.onmessage = message => {
         if (message.method === 'stop')
