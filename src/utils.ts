@@ -77,7 +77,6 @@ export async function findInPath(program: string): Promise<string | undefined> {
 
 export function ansiToHtml(text: string): string {
   let isOpen = false;
-  let isLeadingSpace = true;
   let hasTags = false;
   const tokens = [];
   for (let i = 0; i < text.length; ++i) {
@@ -100,12 +99,12 @@ export function ansiToHtml(text: string): string {
         }
         case '[22': break;
         case '[31': {
-          tokens.push(`<span style='color:#73c991;'>`);
+          tokens.push(`<span style='color:#f14c4c;'>`);
           isOpen = true;
           break;
         }
         case '[32': {
-          tokens.push(`<span style='color:#f14c4c;'>`);
+          tokens.push(`<span style='color:#73c991;'>`);
           isOpen = true;
           break;
         }
@@ -116,15 +115,10 @@ export function ansiToHtml(text: string): string {
       if (c === '\n') {
         // Don't close to work around html parsing bug.
         tokens.push('\n<br>\n');
-        isLeadingSpace = true;
       } else if (c === ' ') {
-        if (isLeadingSpace)
-          tokens.push('&nbsp;');
-        else
-          tokens.push(' ');
+        tokens.push('&nbsp;');
       } else {
         tokens.push(escapeHTML(c));
-        isLeadingSpace = false;
       }
     }
   }
