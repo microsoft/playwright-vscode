@@ -43,6 +43,7 @@ export async function findInPath(program: string): Promise<string | undefined> {
     if (fs.existsSync(locator)) {
       const stdout = await spawnAsync(locator, [program]);
       const lines = stdout.split(/\r?\n/);
+      console.log(lines);
 
       if (process.platform === 'win32') {
         // return the first path that has a executable extension
