@@ -470,6 +470,8 @@ class Debug {
       this._dapSniffer = factory.createDebugAdapterTracker(session);
     this._didStartDebugSession.fire(session);
     const node = await findInPath('node');
+    if (!node)
+      throw new Error('node executable not found!');
     const subprocess = spawn(node, [configuration.program, ...configuration.args], {
       cwd: configuration.cwd,
       stdio: 'pipe',
