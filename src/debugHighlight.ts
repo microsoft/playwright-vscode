@@ -34,7 +34,7 @@ export class DebugHighlight {
     this.onErrorInDebugger = this._errorInDebugger.event;
   }
 
-  async activate(context: vscodeTypes.ExtensionContext) {
+  activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
     const self = this;
     const disposables = [
@@ -123,7 +123,8 @@ export async function highlightLocator(document: vscodeTypes.TextDocument, posit
     if (!stackFrames)
       continue;
     for (const stackFrame of stackFrames) {
-      if (!stackFrame.source || document.uri.fsPath !== stackFrame.source.path)
+      const sourcePath = mapRemoteToLocalPath(stackFrame.source.path);
+      if (!sourcePath || document.uri.fsPath !== sourcePath)
         continue;
       if (token?.isCancellationRequested)
         return;
@@ -211,4 +212,19 @@ function isPlaywrightSession(session: vscodeTypes.DebugSession): boolean {
   while (rootSession.parentSession)
     rootSession = rootSession.parentSession;
   return rootSession.name === debugSessionName;
+}
+
+/**
+ * From WSL:
+ * vscode-remote://wsl%2Bubuntu/mnt/c/Users/john/doe/foo.spec.ts -> /mnt/c/Users/john/doe/foo.spec.ts
+ */
+function mapRemoteToLocalPath(maybeRemoteUri?: string): string | undefined {
+  if (!maybeRemoteUri)
+    return;
+  if (maybeRemoteUri.startsWith('vscode-remote://')) {
+    const decoded = decodeURIComponent(maybeRemoteUri.substring(16));
+    const separator = decoded.indexOf('/');
+    return decoded.slice(separator, decoded.length);
+  }
+  return maybeRemoteUri;
 }
