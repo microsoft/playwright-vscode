@@ -23,10 +23,12 @@ jobs:
           node-version: 12
         - os: ubuntu-latest
           node-version: 14
+        - os: ubuntu-latest
+          node-version: 18
     steps:
     - uses: actions/checkout@v2
     - name: Use Node.js
-      uses: actions/setup-node@v2
+      uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
     - run: npm ci
