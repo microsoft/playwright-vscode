@@ -37,12 +37,12 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
   };
   const addAction: vscodeTypes.QuickPickItem = {
     label: 'Add GitHub Action',
-    picked: false,
+    picked: true,
     description: '— adds GitHub Action recipe'
   };
   const installDepsAction: vscodeTypes.QuickPickItem = {
     label: 'Install Linux dependencies',
-    picked: false,
+    picked: true,
   };
   const hasQuickPickSeparator = parseFloat(vscode.version) >= 1.64;
   const options: vscodeTypes.QuickPickItem[] = [];
