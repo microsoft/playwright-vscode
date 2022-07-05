@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
 import * as vscodeTypes from './vscodeTypes';
 
 export async function installPlaywright(vscode: vscodeTypes.VSCode) {
@@ -36,13 +39,13 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
     description: '— powers  Apple Safari',
   };
   const addAction: vscodeTypes.QuickPickItem = {
-    label: 'Add GitHub Action',
+    label: 'Add GitHub Actions workflow',
     picked: true,
-    description: '— adds GitHub Action recipe'
+    description: '— adds GitHub Actions recipe'
   };
   const installDepsAction: vscodeTypes.QuickPickItem = {
     label: 'Install Linux dependencies',
-    picked: true,
+    picked: process.platform === 'linux' && !fs.existsSync(path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'), 'ms-playwright')),
   };
   const hasQuickPickSeparator = parseFloat(vscode.version) >= 1.64;
   const options: vscodeTypes.QuickPickItem[] = [];
