@@ -20,7 +20,7 @@ import path from 'path';
 import { EventEmitter } from './events';
 import minimatch from 'minimatch';
 import { spawn } from 'child_process';
-import { findInPath } from '../../src/utils';
+import which from 'which';
 
 class Uri {
   scheme = 'file';
@@ -469,7 +469,7 @@ class Debug {
     for (const factory of this.dapFactories)
       this._dapSniffer = factory.createDebugAdapterTracker(session);
     this._didStartDebugSession.fire(session);
-    const node = await findInPath('node');
+    const node = await which('node');
     const subprocess = spawn(node, [configuration.program, ...configuration.args], {
       cwd: configuration.cwd,
       stdio: 'pipe',
