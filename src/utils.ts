@@ -30,51 +30,6 @@ export function createGuid(): string {
   return crypto.randomBytes(16).toString('hex');
 }
 
-export async function findInPath(program: string): Promise<string | undefined> {
-  let locator: string;
-  if (process.platform === 'win32') {
-    const windir = process.env['WINDIR'] || 'C:\\Windows';
-    locator = path.join(windir, 'System32', 'where.exe');
-  } else {
-    locator = '/usr/bin/which';
-  }
-
-  try {
-    if (fs.existsSync(locator)) {
-      const stdout = await spawnAsync(locator, [program]);
-      const lines = stdout.split(/\r?\n/);
-
-      if (process.platform === 'win32') {
-        // return the first path that has a executable extension
-        const executableExtensions = String(process.env['PATHEXT'] || '.exe')
-            .toUpperCase()
-            .split(';');
-
-        for (const candidate of lines) {
-          const ext = path.extname(candidate).toUpperCase();
-          if (ext && executableExtensions.includes(ext))
-            return candidate;
-
-        }
-      } else {
-        // return the first path
-        if (lines.length > 0)
-          return lines[0];
-
-      }
-      return undefined;
-    } else {
-      // do not report failure if 'locator' app doesn't exist
-    }
-    return program;
-  } catch (err) {
-    // fall through
-  }
-
-  // fail
-  return undefined;
-}
-
 export function ansiToHtml(text: string): string {
   let isOpen = false;
   let hasTags = false;

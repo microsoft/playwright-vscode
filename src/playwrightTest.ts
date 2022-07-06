@@ -20,7 +20,8 @@ import { ReporterServer } from './reporterServer';
 import { debugSessionName } from './debugSessionName';
 import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import type { TestError } from './reporter';
-import { findInPath, spawnAsync } from './utils';
+import { spawnAsync } from './utils';
+import which from 'which';
 import * as vscodeTypes from './vscodeTypes';
 
 export type TestConfig = {
@@ -233,12 +234,7 @@ export class PlaywrightTest {
     if (this._pathToNodeJS)
       return this._pathToNodeJS;
 
-    let node = await findInPath('node');
-    // When extension host boots, it does not have the right env set, so we might need to wait.
-    for (let i = 0; i < 5 && !node; ++i) {
-      await new Promise(f => setTimeout(f, 1000));
-      node = await findInPath('node');
-    }
+    const node = await which('node');
     if (!node)
       throw new Error('Unable to launch `node`, make sure it is in your PATH');
     this._pathToNodeJS = node;

@@ -81,6 +81,7 @@
     "@types/mocha": "^9.1.0",
     "@types/node": "^17.0.14",
     "@types/stack-utils": "^2.0.1",
+    "@types/which": "^2.0.1",
     "@types/ws": "^8.2.2",
     "@typescript-eslint/eslint-plugin": "^5.10.2",
     "@typescript-eslint/parser": "^5.10.2",
@@ -101,6 +102,7 @@
     "@babel/parser": "^7.16.12",
     "@babel/traverse": "^7.16.10",
     "stack-utils": "^2.0.5",
+    "which": "^2.0.2",
     "ws": "^8.4.2"
   }
 }
