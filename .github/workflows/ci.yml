@@ -32,6 +32,8 @@ jobs:
     - run: npm ci
     - run: npm run lint
     - run: npm run build
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
     - run: npm run test -- --workers=1
     - run: npx vsce package
       if: matrix.os == 'ubuntu-latest' && matrix.node-version == '16'
