@@ -99,6 +99,14 @@ export class Extension {
     this._recorder = new Recorder(this._vscode, this._playwrightTest);
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
+    this._testController.refreshHandler = () => {
+      this._rebuildModel(true).then(configs => {
+        if (!configs.length) {
+          vscode.window.showWarningMessage('No Playwright Test config files found.');
+          return;
+        }
+      }).catch();
+    };
     this._testTree = new TestTree(vscode, this._testController);
     this._debugHighlight = new DebugHighlight(vscode);
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
@@ -113,13 +121,6 @@ export class Extension {
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         this._updateVisibleEditorItems();
-      }),
-      vscode.commands.registerCommand('pw.extension.refreshTests', async () => {
-        const configs = await this._rebuildModel(true);
-        if (!configs.length) {
-          vscode.window.showWarningMessage('No Playwright Test config files found.');
-          return;
-        }
       }),
       vscode.commands.registerCommand('pw.extension.recordTest', async () => {
         if (!this._models.length) {
