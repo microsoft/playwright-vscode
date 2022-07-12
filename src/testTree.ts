@@ -21,7 +21,7 @@ import { TestModel } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
-export class TestTree {
+export class TestTree implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
 
   // We don't want tests to persist state between sessions, so we are using unique test id prefixes.
@@ -31,15 +31,15 @@ export class TestTree {
   private _folderItems = new Map<string, vscodeTypes.TestItem>();
   private _fileItems = new Map<string, vscodeTypes.TestItem>();
 
-  private _testController: vscodeTypes.TestController;
+  public readonly testController: vscodeTypes.TestController;
   private _models: TestModel[] = [];
   private _disposables: vscodeTypes.Disposable[] = [];
   private _loadingItem: vscodeTypes.TestItem;
 
   constructor(vscode: vscodeTypes.VSCode, testController: vscodeTypes.TestController) {
     this._vscode = vscode;
-    this._testController = testController;
-    this._loadingItem = this._testController.createTestItem('loading', 'Loading\u2026');
+    this.testController = testController;
+    this._loadingItem = this.testController.createTestItem('loading', 'Loading\u2026');
   }
 
   startedLoading() {
@@ -49,7 +49,7 @@ export class TestTree {
     this._testGeneration = createGuid() + ':';
     this._fileItems.clear();
     this._folderItems.clear();
-    this._testController.items.replace([]);
+    this.testController.items.replace([]);
 
     if (!this._vscode.workspace.workspaceFolders?.length)
       return;
@@ -63,15 +63,15 @@ export class TestTree {
         const rootTreeItem = this._createRootFolderItem(workspaceFolder.uri.fsPath);
         rootTreeItems.push(rootTreeItem);
       }
-      this._testController.items.replace([this._loadingItem, ...rootTreeItems]);
+      this.testController.items.replace([this._loadingItem, ...rootTreeItems]);
     }
   }
 
   finishedLoading() {
     if (this._loadingItem.parent)
       this._loadingItem.parent.children.delete(this._loadingItem.id);
-    else if (this._testController.items.get(this._loadingItem.id))
-      this._testController.items.delete(this._loadingItem.id);
+    else if (this.testController.items.get(this._loadingItem.id))
+      this.testController.items.delete(this._loadingItem.id);
   }
 
   addModel(model: TestModel) {
@@ -148,7 +148,7 @@ export class TestTree {
       let testItem = existingItems.get(entry.title);
       if (!testItem) {
         // We sort by id in tests, so start with location.
-        testItem = this._testController.createTestItem(this._id(entry.location.file + ':' + entry.location.line + '|' + entry.title), entry.title, this._vscode.Uri.file(entry.location.file));
+        testItem = this.testController.createTestItem(this._id(entry.location.file + ':' + entry.location.line + '|' + entry.title), entry.title, this._vscode.Uri.file(entry.location.file));
         (testItem as any)[itemTypeSymbol] = entry.type;
         collection.add(testItem);
       }
@@ -168,7 +168,7 @@ export class TestTree {
     const testItem: vscodeTypes.TestItem = {
       id: this._id(uri.fsPath),
       uri: uri,
-      children: this._testController.items,
+      children: this.testController.items,
       parent: undefined,
       tags: [],
       canResolveChildren: false,
@@ -182,7 +182,7 @@ export class TestTree {
   }
 
   private _createRootFolderItem(folder: string): vscodeTypes.TestItem {
-    const folderItem = this._testController.createTestItem(this._id(folder), path.basename(folder), this._vscode.Uri.file(folder));
+    const folderItem = this.testController.createTestItem(this._id(folder), path.basename(folder), this._vscode.Uri.file(folder));
     this._folderItems.set(folder, folderItem);
     return folderItem;
   }
@@ -212,7 +212,7 @@ export class TestTree {
 
     const parentFile = path.dirname(file);
     const parentItem = this.getOrCreateFolderItem(parentFile);
-    const fileItem = this._testController.createTestItem(this._id(file), path.basename(file), this._vscode.Uri.file(file));
+    const fileItem = this.testController.createTestItem(this._id(file), path.basename(file), this._vscode.Uri.file(file));
     fileItem.canResolveChildren = true;
     this._fileItems.set(file, fileItem);
 
@@ -227,7 +227,7 @@ export class TestTree {
 
     const parentFolder = path.dirname(folder);
     const parentItem = this.getOrCreateFolderItem(parentFolder);
-    const folderItem = this._testController.createTestItem(this._id(folder), path.basename(folder), this._vscode.Uri.file(folder));
+    const folderItem = this.testController.createTestItem(this._id(folder), path.basename(folder), this._vscode.Uri.file(folder));
     this._folderItems.set(folder, folderItem);
     parentItem.children.add(folderItem);
     return folderItem;
@@ -235,6 +235,10 @@ export class TestTree {
 
   private _id(location: string): string {
     return this._testGeneration + location;
+  }
+
+  dispose() {
+    this.testController.dispose();
   }
 }
 

@@ -47,19 +47,18 @@ type TestRunInfo = {
 
 export async function activate(context: vscodeTypes.ExtensionContext) {
   // Do not await, quickly run the extension, schedule work.
-  new Extension(require('vscode')).activate(context);
+  new Extension(require('vscode')).activate(context).catch();
 }
 
-export class Extension {
+export class Extension implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
 
   // Global test item map.
-  private _testTree: TestTree;
+  private _testTree: TestTree | undefined;
 
   // Each run profile is a config + project pair.
   private _runProfiles = new Map<string, vscodeTypes.TestRunProfile>();
 
-  private _testController: vscodeTypes.TestController;
   private _workspaceObserver: WorkspaceObserver;
   private _testItemUnderDebug: vscodeTypes.TestItem | undefined;
 
@@ -97,20 +96,31 @@ export class Extension {
 
     this._playwrightTest = new PlaywrightTest(this._isUnderTest);
     this._recorder = new Recorder(this._vscode, this._playwrightTest);
-    this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
-    this._testController.resolveHandler = item => this._resolveChildren(item);
-    this._testController.refreshHandler = () => {
-      this._rebuildModel(true).then(configs => {
-        if (!configs.length) {
-          vscode.window.showWarningMessage('No Playwright Test config files found.');
-          return;
-        }
-      }).catch();
-    };
-    this._testTree = new TestTree(vscode, this._testController);
     this._debugHighlight = new DebugHighlight(vscode);
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
+  }
+
+  private ensureTestTree(): TestTree {
+    if (this._testTree)
+      return this._testTree;
+    const testController = this._vscode.tests.createTestController('pw.extension.testController', 'Playwright');
+    testController.resolveHandler = item => this._resolveChildren(item);
+    testController.refreshHandler = () => {
+      this._rebuildModel(true).catch();
+    };
+    this._testTree = new TestTree(this._vscode, testController);
+    return this._testTree;
+  }
+
+  private ensureTestController(): vscodeTypes.TestController {
+    return this.ensureTestTree().testController;
+  }
+
+  dispose() {
+    this._workspaceObserver.dispose();
+    this._recorder.dispose();
+    this._testTree?.dispose();
   }
 
   async activate(context: vscodeTypes.ExtensionContext) {
@@ -124,7 +134,7 @@ export class Extension {
       }),
       vscode.commands.registerCommand('pw.extension.recordTest', async () => {
         if (!this._models.length) {
-          vscode.window.showWarningMessage('No Playwright tests found.');
+          vscode.window.showWarningMessage('No Playwright config found.');
           return;
         }
         this._recorder.record(this._models);
@@ -138,9 +148,7 @@ export class Extension {
           this._executionLinesChanged();
         }
       }),
-      this._testController,
-      this._workspaceObserver,
-      this._recorder,
+      this,
     ];
     this._debugHighlight.activate(context);
     await this._rebuildModel(false);
@@ -161,12 +169,19 @@ export class Extension {
     context.subscriptions.push(...disposables);
   }
 
-  private async _rebuildModel(showWarnings: boolean): Promise<vscodeTypes.Uri[]> {
-    this._testTree.startedLoading();
+  private async _rebuildModel(showWarnings: boolean): Promise<void> {
     this._workspaceObserver.reset();
     this._models = [];
 
     const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mjs}');
+
+    if (configFiles.length === 0 && this._testTree) {
+      this._testTree.dispose();
+      this._testTree = undefined;
+      return;
+    }
+    const testTree = this.ensureTestTree();
+    testTree.startedLoading();
 
     // Reuse already created run profiles in order to retain their 'selected' status.
     const usedProfiles = new Set<vscodeTypes.TestRunProfile>();
@@ -198,7 +213,7 @@ export class Extension {
 
       const model = new TestModel(this._vscode, this._playwrightTest, workspaceFolderPath, configFileUri.fsPath, playwrightInfo.cli);
       this._models.push(model);
-      this._testTree.addModel(model);
+      testTree.addModel(model);
       await model.listFiles();
 
       for (const project of model.projects.values()) {
@@ -215,9 +230,8 @@ export class Extension {
       }
     }
 
-    this._testTree.finishedLoading();
+    testTree.finishedLoading();
     await this._updateVisibleEditorItems();
-    return configFiles;
   }
 
   private async _createRunProfile(project: TestProject, usedProfiles: Set<vscodeTypes.TestRunProfile>) {
@@ -226,14 +240,15 @@ export class Extension {
     const folderName = path.basename(path.dirname(configFile));
     const projectPrefix = project.name ? `${project.name} — ` : '';
     const keyPrefix = configFile + ':' + project.name;
+    const testController = this.ensureTestController();
     let runProfile = this._runProfiles.get(keyPrefix + ':run');
     if (!runProfile) {
-      runProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), true);
+      runProfile = testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), true);
       this._runProfiles.set(keyPrefix + ':run', runProfile);
     }
     let debugProfile = this._runProfiles.get(keyPrefix + ':debug');
     if (!debugProfile) {
-      debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), true);
+      debugProfile = testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), true);
       this._runProfiles.set(keyPrefix + ':debug', debugProfile);
     }
     usedProfiles.add(runProfile);
@@ -276,11 +291,13 @@ export class Extension {
 
     this._completedSteps.clear();
     this._executionLinesChanged();
-    this._testRun = this._testController.createTestRun(request);
+    const testController = this.ensureTestController();
+    const testTree = this.ensureTestTree();
+    this._testRun = testController.createTestRun(request);
 
     // Provisionally mark tests (not files and not suits) as enqueued to provide immediate feedback.
     for (const item of request.include || []) {
-      for (const test of this._testTree.collectTestsInside(item))
+      for (const test of testTree.collectTestsInside(item))
         this._testRun.enqueued(test);
     }
 
@@ -387,7 +404,7 @@ located next to Run / Debug Tests toolbar buttons.`);
         model.updateFromRunningProjects(projects);
         const visit = (entry: Entry) => {
           if (entry.type === 'test') {
-            const testItem = this._testTree.testItemForLocation(entry.location, entry.title);
+            const testItem = this.ensureTestTree().testItemForLocation(entry.location, entry.title);
             if (testItem)
               testRun.enqueued(testItem);
           }
@@ -397,7 +414,7 @@ located next to Run / Debug Tests toolbar buttons.`);
       },
 
       onTestBegin: params => {
-        const testItem = this._testTree.testItemForLocation(params.location, params.title);
+        const testItem = this.ensureTestTree().testItemForLocation(params.location, params.title);
         if (testItem)
           testRun.started(testItem);
         if (isDebug) {
@@ -411,7 +428,7 @@ located next to Run / Debug Tests toolbar buttons.`);
         this._activeSteps.clear();
         this._executionLinesChanged();
 
-        const testItem = this._testTree.testItemForLocation(params.location, params.title);
+        const testItem = this.ensureTestTree().testItemForLocation(params.location, params.title);
         if (!testItem)
           return;
         if (params.status === params.expectedStatus) {
