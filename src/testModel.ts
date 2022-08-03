@@ -64,10 +64,10 @@ export class TestModel {
   private _fileToSources: Map<string, string[]> = new Map();
   private _sourceToFile: Map<string, string> = new Map();
 
-  constructor(vscode: vscodeTypes.VSCode, playwrightTest: PlaywrightTest, workspaceFolder: string, configFile: string, cli: string) {
+  constructor(vscode: vscodeTypes.VSCode, playwrightTest: PlaywrightTest, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }) {
     this._vscode = vscode;
     this._playwrightTest = playwrightTest;
-    this.config = { workspaceFolder, configFile, cli };
+    this.config = { ...playwrightInfo, workspaceFolder, configFile };
     this._didUpdate = new vscode.EventEmitter();
     this.onUpdated = this._didUpdate.event;
   }
