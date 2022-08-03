@@ -128,6 +128,27 @@ export class Extension {
         }
         this._recorder.record(this._models);
       }),
+      vscode.commands.registerCommand('pw.extension.runBrowserServer', async () => {
+        if (!this._models.length) {
+          vscode.window.showErrorMessage('No Playwright tests found.');
+          return;
+        }
+        const config = this._models[0].config;
+        if (config.version < 1.25) {
+          vscode.window.showErrorMessage(`Playwright v1.25+ is required, v${config.version} found`);
+          return;
+        }
+
+        await this._vscode.window.withProgress({
+          location: this._vscode.ProgressLocation.Window,
+          title: 'Showing Browser',
+          cancellable: true
+        }, async (progress, token) => {
+          await this._playwrightTest.runBrowserServer(config, token);
+        }).then(() => {}, (e: Error) => {
+          vscode.window.showErrorMessage('Error showing browser window: ' + e.message);
+        });
+      }),
       vscode.commands.registerCommand('pw.extension.install', () => {
         installPlaywright(this._vscode);
       }),
@@ -195,7 +216,7 @@ export class Extension {
         continue;
       }
 
-      const model = new TestModel(this._vscode, this._playwrightTest, workspaceFolderPath, configFileUri.fsPath, playwrightInfo.cli);
+      const model = new TestModel(this._vscode, this._playwrightTest, workspaceFolderPath, configFileUri.fsPath, playwrightInfo);
       this._models.push(model);
       this._testTree.addModel(model);
       await model.listFiles();

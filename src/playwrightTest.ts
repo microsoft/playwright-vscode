@@ -20,7 +20,7 @@ import { ReporterServer } from './reporterServer';
 import { debugSessionName } from './debugSessionName';
 import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import type { TestError } from './reporter';
-import { spawnAsync } from './utils';
+import { createGuid, spawnAsync } from './utils';
 import which from 'which';
 import * as vscodeTypes from './vscodeTypes';
 
@@ -28,6 +28,7 @@ export type TestConfig = {
   workspaceFolder: string;
   configFile: string;
   cli: string;
+  version: number;
 };
 
 export type ProjectListFilesReport = {
@@ -58,6 +59,7 @@ export class PlaywrightTest {
   private _pathToNodeJS: string | undefined;
   private _testLog: string[] = [];
   private _isUnderTest: boolean;
+  private _browserServerWS: string | undefined;
 
   constructor(isUnderTest: boolean) {
     this._isUnderTest = isUnderTest;
@@ -149,17 +151,22 @@ export class PlaywrightTest {
       '--repeat-each', '1',
       '--retries', '0',
     ];
-    if (this._isUnderTest)
+    if (this._isUnderTest || !!this._browserServerWS)
       allArgs.push('--workers', '1');
     // Disable original reporters when listing files.
     if (mode === 'list')
       allArgs.push('--reporter', 'null');
+    const browserServerEnv = this._browserServerWS ? {
+      PW_TEST_REUSE_CONTEXT: '1',
+      PW_TEST_CONNECT_WS_ENDPOINT: this._browserServerWS,
+    } : {};
     const childProcess = spawn(node, allArgs, {
       cwd: configFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
         ...(await reporterServer.env()),
+        ...browserServerEnv,
         // Don't debug tests when running them.
         NODE_OPTIONS: undefined,
         // Reset VSCode's options that affect nested Electron.
@@ -220,6 +227,56 @@ export class PlaywrightTest {
       args,
     });
     await reporterServer.wireTestListener(listener, token);
+  }
+
+  async runBrowserServer(config: TestConfig, token: vscodeTypes.CancellationToken) {
+    if (this._browserServerWS)
+      return;
+
+    const node = await this.findNode();
+
+    const allArgs = [
+      config.cli,
+      'run-server',
+      '--reuse-browser',
+      `--path=/${createGuid()}`
+    ];
+
+    const serverProcess = spawn(node, allArgs, {
+      cwd: config.workspaceFolder,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    const stdio = serverProcess.stdio;
+    stdio[1].on('data', data => {
+      const match = data.toString().match(/Listening on (.*)/);
+      if (!match)
+        return;
+      this._browserServerWS = match[1];
+    });
+
+    let error: string | undefined = undefined;
+    stdio[2].on('data', data => {
+      error = data.toString();
+    });
+
+    token.onCancellationRequested(() => {
+      serverProcess.stdin.write('<EOL>');
+      this._browserServerWS = undefined;
+    });
+
+    await new Promise<void>((f, r) => {
+      serverProcess.on('error', e => {
+        r(e);
+      });
+      serverProcess.on('exit', () => {
+        if (error)
+          r(new Error(error));
+        else
+          f();
+      });
+    });
+    this._browserServerWS = undefined;
   }
 
   private _log(line: string) {

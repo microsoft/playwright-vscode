@@ -20,7 +20,8 @@
     "workspaceContains:**/*playwright*.config.{ts,js,mjs}",
     "onCommand:pw.extension.install",
     "onCommand:pw.extension.recordTest",
-    "onCommand:pw.extension.refreshTests"
+    "onCommand:pw.extension.refreshTests",
+    "onCommand:pw.extension.runBrowserServer"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -41,6 +42,12 @@
         "category": "Test",
         "command": "pw.extension.install",
         "title": "Install Playwright"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.runBrowserServer",
+        "icon": "$(remote-explorer)",
+        "title": "Show Playwright Browser"
       }
     ],
     "menus": {
@@ -52,6 +59,11 @@
         },
         {
           "command": "pw.extension.refreshTests",
+          "when": "view == workbench.view.testing",
+          "group": "navigation@0"
+        },
+        {
+          "command": "pw.extension.runBrowserServer",
           "when": "view == workbench.view.testing",
           "group": "navigation@0"
         }
