@@ -113,11 +113,13 @@ export class PlaywrightTest {
     }
   }
 
-  async runTests(config: TestConfig, projectNames: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async runTests(config: TestConfig, projectNames: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, headed: boolean, token?: vscodeTypes.CancellationToken) {
     const locationArg = locations ? locations : [];
     const args = projectNames.filter(Boolean).map(p => `--project=${p}`);
     if (parametrizedTestTitle)
       args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
+    if (headed)
+      args.push('--headed');
     await this._test(config, locationArg,  args, listener, 'run', token);
   }
 
@@ -151,7 +153,7 @@ export class PlaywrightTest {
       '--repeat-each', '1',
       '--retries', '0',
     ];
-    if (this._isUnderTest || !!this._browserServerWS)
+    if (this._isUnderTest || !!this._browserServerWS || args.includes('--headed'))
       allArgs.push('--workers', '1');
     // Disable original reporters when listing files.
     if (mode === 'list')
@@ -248,17 +250,6 @@ export class PlaywrightTest {
     });
 
     const stdio = serverProcess.stdio;
-    stdio[1].on('data', data => {
-      const match = data.toString().match(/Listening on (.*)/);
-      if (!match)
-        return;
-      this._browserServerWS = match[1];
-    });
-
-    let error: string | undefined = undefined;
-    stdio[2].on('data', data => {
-      error = data.toString();
-    });
 
     token.onCancellationRequested(() => {
       serverProcess.stdin.write('<EOL>');
@@ -266,17 +257,18 @@ export class PlaywrightTest {
     });
 
     await new Promise<void>((f, r) => {
-      serverProcess.on('error', e => {
-        r(e);
+      stdio[1].on('data', data => {
+        const match = data.toString().match(/Listening on (.*)/);
+        if (!match)
+          return;
+        this._browserServerWS = match[1];
+        f();
       });
-      serverProcess.on('exit', () => {
-        if (error)
-          r(new Error(error));
-        else
-          f();
+
+      stdio[2].on('data', data => {
+        r(new Error(data.toString()));
       });
     });
-    this._browserServerWS = undefined;
   }
 
   private _log(line: string) {
