@@ -267,11 +267,11 @@ export class Extension {
     if (!this._projectsScheduledToRun) {
       this._projectsScheduledToRun = [];
       this._projectsScheduledToRun.push(project);
-      await Promise.resolve().then(async () => {
+      setTimeout((async () => {
         const selectedProjects = this._projectsScheduledToRun!;
         this._projectsScheduledToRun = undefined;
         await this._runMatchingTests({ selectedProjects, isDebug, request });
-      });
+      }), 50);
     } else {
       // Subsequent requests will return right away.
       this._projectsScheduledToRun.push(project);
