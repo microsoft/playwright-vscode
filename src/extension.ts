@@ -19,9 +19,10 @@ import StackUtils from 'stack-utils';
 import { DebugHighlight } from './debugHighlight';
 import { installPlaywright } from './installer';
 import { Entry } from './oopReporter';
-import { PlaywrightTest, TestListener } from './playwrightTest';
+import { PlaywrightTest, TestConfig, TestListener } from './playwrightTest';
 import { Recorder } from './recorder';
 import type { TestError } from './reporter';
+import { SidebarViewProvider } from './sidebarView';
 import { TestModel, TestProject } from './testModel';
 import { TestTree } from './testTree';
 import { ansiToHtml } from './utils';
@@ -74,6 +75,8 @@ export class Extension {
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
   private _recorder: Recorder;
+  private _browserServerTokenSource: vscodeTypes.CancellationTokenSource | undefined;
+  private _sidebarView!: SidebarViewProvider;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -107,6 +110,7 @@ export class Extension {
 
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
+    this._sidebarView = new SidebarViewProvider(vscode, context);
     const disposables = [
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
         this._rebuildModel(false);
@@ -128,26 +132,9 @@ export class Extension {
         }
         this._recorder.record(this._models);
       }),
-      vscode.commands.registerCommand('pw.extension.runBrowserServer', async () => {
-        if (!this._models.length) {
-          vscode.window.showErrorMessage('No Playwright tests found.');
-          return;
-        }
-        const config = this._models[0].config;
-        if (config.version < 1.25) {
-          vscode.window.showErrorMessage(`Playwright v1.25+ is required, v${config.version} found`);
-          return;
-        }
-
-        await this._vscode.window.withProgress({
-          location: this._vscode.ProgressLocation.Window,
-          title: 'Showing Browser',
-          cancellable: true
-        }, async (progress, token) => {
-          await this._playwrightTest.runBrowserServer(config, token);
-        }).then(() => {}, (e: Error) => {
-          vscode.window.showErrorMessage('Error showing browser window: ' + e.message);
-        });
+      this._sidebarView.onDidChangeReuseBrowser(async reuseBrowser => {
+        if (!reuseBrowser)
+          this._stopReuseBrowser();
       }),
       vscode.commands.registerCommand('pw.extension.install', () => {
         installPlaywright(this._vscode);
@@ -293,6 +280,7 @@ export class Extension {
 
   private async _runMatchingTests(testRunInfo: TestRunInfo) {
     const { selectedProjects, isDebug, request } = testRunInfo;
+    const headed = this._sidebarView.headed();
 
     this._completedSteps.clear();
     this._executionLinesChanged();
@@ -322,7 +310,7 @@ export class Extension {
         if (locations && !locations.length)
           continue;
         ranSomeTests = true;
-        await this._runTest(this._testRun, new Set(), model, isDebug, projects, locations, parametrizedTestTitle);
+        await this._runTest(this._testRun, new Set(), model, isDebug, headed, projects, locations, parametrizedTestTitle);
       }
     } finally {
       this._activeSteps.clear();
@@ -399,6 +387,7 @@ located next to Run / Debug Tests toolbar buttons.`);
     testFailures: Set<vscodeTypes.TestItem>,
     model: TestModel,
     isDebug: boolean,
+    headed: boolean,
     projects: TestProject[],
     locations: string[] | null,
     parametrizedTestTitle: string | undefined) {
@@ -486,10 +475,13 @@ located next to Run / Debug Tests toolbar buttons.`);
       },
     };
 
-    if (isDebug)
+    if (isDebug) {
       await model.debugTests(projects, locations, testListener, parametrizedTestTitle, testRun.token);
-    else
-      await model.runTests(projects, locations, testListener, parametrizedTestTitle, testRun.token);
+    } else {
+      // Start the browser server on the first run when setting is enabled.
+      await this._startReuseBrowserIfNeeded(model.config);
+      await model.runTests(projects, locations, testListener, parametrizedTestTitle, headed, testRun.token);
+    }
   }
 
   private async _updateVisibleEditorItems() {
@@ -590,6 +582,26 @@ located next to Run / Debug Tests toolbar buttons.`);
       testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.path), position);
     }
     return testMessage;
+  }
+
+  private async _startReuseBrowserIfNeeded(config: TestConfig) {
+    if (this._browserServerTokenSource || !this._sidebarView.reuseBrowser())
+      return;
+
+    if (config.version < 1.25) {
+      this._vscode.window.showErrorMessage(`Playwright v1.25+ is required for browser reuse, v${config.version} found`);
+      return;
+    }
+
+    this._browserServerTokenSource = new this._vscode.CancellationTokenSource();
+    await this._playwrightTest.runBrowserServer(config, this._browserServerTokenSource.token);
+  }
+
+  private _stopReuseBrowser() {
+    if (!this._browserServerTokenSource)
+      return;
+    this._browserServerTokenSource.cancel();
+    this._browserServerTokenSource = undefined;
   }
 
   playwrightTestLog(): string[] {

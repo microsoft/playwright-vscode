@@ -572,12 +572,14 @@ export class VSCode {
   private _didChangeTextEditorSelection = new EventEmitter();
   private _didChangeWorkspaceFolders = new EventEmitter();
   private _didChangeTextDocument = new EventEmitter();
+  private _didChangeConfiguration = new EventEmitter();
 
   readonly onDidChangeActiveTextEditor = this._didChangeActiveTextEditor.event;
   readonly onDidChangeTextEditorSelection = this._didChangeTextEditorSelection.event;
   readonly onDidChangeVisibleTextEditors = this._didChangeVisibleTextEditors.event;
   readonly onDidChangeWorkspaceFolders = this._didChangeWorkspaceFolders.event;
   readonly onDidChangeTextDocument = this._didChangeTextDocument.event;
+  readonly onDidChangeConfiguration = this._didChangeConfiguration.event;
   readonly testControllers: TestController[] = [];
   readonly fsWatchers = new Set<FileSystemWatcher>();
   readonly warnings: string[] = [];
@@ -596,9 +598,11 @@ export class VSCode {
     this.window.createTextEditorDecorationType = () => ++lastDecorationTypeId;
     this.window.showWarningMessage = (message: string) => this.warnings.push(message);
     this.window.visibleTextEditors = [];
+    this.window.registerTreeDataProvider = () => {};
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
     this.workspace.onDidChangeTextDocument = this.onDidChangeTextDocument;
+    this.workspace.onDidChangeConfiguration = this.onDidChangeConfiguration;
     this.workspace.createFileSystemWatcher = (glob: string) => {
       const watcher = new FileSystemWatcher(this, glob);
       this.fsWatchers.add(watcher);
@@ -625,6 +629,21 @@ export class VSCode {
         if (uri.fsPath.startsWith(workspaceFolder.uri.fsPath))
           return workspaceFolder;
       }
+    };
+    const settings = {
+      'playwright.headed': false,
+      'playwright.reuseBrowser': false,
+    };
+    this.workspace.getConfiguration = scope => {
+      return {
+        get: key => settings[scope + '.' + key],
+        update: (key, value) => {
+          settings[scope + '.' + key] = value;
+          this._didChangeConfiguration.fire({
+            affectsConfiguration: prefix => (scope + '.' + key).startsWith(prefix)
+          });
+        }
+      };
     };
   }
 

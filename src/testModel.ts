@@ -247,9 +247,9 @@ export class TestModel {
     }
   }
 
-  async runTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async runTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, headed: boolean, token?: vscodeTypes.CancellationToken) {
     locations = locations ? this._mapSourcesToFiles(locations) : [];
-    await this._playwrightTest.runTests(this.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, token);
+    await this._playwrightTest.runTests(this.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, headed, token);
   }
 
   async debugTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {

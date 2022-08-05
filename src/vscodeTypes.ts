@@ -16,6 +16,7 @@
 
 export type {
   CancellationToken,
+  CancellationTokenSource,
   DebugSession,
   DecorationOptions,
   Disposable,
@@ -35,7 +36,10 @@ export type {
   TextEditorDecorationType,
   TextDocument,
   TestController,
+  TreeDataProvider,
+  TreeItem,
   Uri,
+  WorkspaceConfiguration,
 } from 'vscode';
 
 export type VSCode = typeof import('vscode');

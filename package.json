@@ -21,7 +21,7 @@
     "onCommand:pw.extension.install",
     "onCommand:pw.extension.recordTest",
     "onCommand:pw.extension.refreshTests",
-    "onCommand:pw.extension.runBrowserServer"
+    "onCommand:pw.extension.toggleReuseBrowser"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -44,12 +44,30 @@
         "title": "Install Playwright"
       },
       {
-        "category": "Test",
-        "command": "pw.extension.runBrowserServer",
+        "command": "pw.extension.toggle.reuseBrowser",
         "icon": "$(remote-explorer)",
-        "title": "Show Playwright Browser"
+        "title": "Toggle Playwright Browser Reuse"
+      },
+      {
+        "command": "pw.extension.toggle.headed",
+        "title": "Toggle Playwright Headed"
       }
     ],
+    "configuration": {
+      "title": "Playwright",
+      "properties": {
+        "playwright.headed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show browser."
+        },
+        "playwright.reuseBrowser": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show & reuse browser between tests."
+        }
+      }
+    },
     "menus": {
       "view/title": [
         {
@@ -61,11 +79,14 @@
           "command": "pw.extension.refreshTests",
           "when": "view == workbench.view.testing",
           "group": "navigation@0"
-        },
+        }
+      ]
+    },
+    "views": {
+      "test": [
         {
-          "command": "pw.extension.runBrowserServer",
-          "when": "view == workbench.view.testing",
-          "group": "navigation@0"
+          "id": "pw.extension.settingsView",
+          "name": "Playwright"
         }
       ]
     }
