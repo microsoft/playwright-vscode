@@ -120,6 +120,7 @@ class TestItem {
   readonly map = new Map<string, TestItem>();
   range: Range | undefined;
   parent: TestItem | undefined;
+  tags = [];
   canResolveChildren = false;
 
   constructor(
@@ -176,7 +177,7 @@ class TestItem {
   innerToString(indent: string, result: string[]) {
     result.push(`${indent}- ${this.treeTitle()}`);
     for (const id of [...this.children.map.keys()].sort())
-      this.children.map.get(id).innerToString(indent + '  ', result);
+      this.children.map.get(id)!.innerToString(indent + '  ', result);
   }
 
   treeTitle(): string {
@@ -298,7 +299,7 @@ export class TestRun {
     const tests = [...this.entries.keys()];
     tests.sort((a, b) => a.label.localeCompare(b.label));
     for (const test of tests) {
-      const entries = this.entries.get(test);
+      const entries = this.entries.get(test)!;
       result.push(`  ${test.treeTitle()}`);
       for (const entry of entries) {
         result.push(`    ${entry.status}`);
@@ -345,7 +346,7 @@ class TestController {
   }
 
   createRunProfile(label: string, kind: TestRunProfileKind, runHandler: (request: TestRunRequest, token: CancellationToken) => Promise<void>, isDefault?: boolean): TestRunProfile {
-    return new TestRunProfile(label, kind, runHandler, isDefault, this.runProfiles);
+    return new TestRunProfile(label, kind, runHandler, !!isDefault, this.runProfiles);
   }
 
   createTestRun(request: TestRunRequest, name?: string, persist?: boolean): TestRun {
@@ -371,7 +372,7 @@ class TestController {
   }
 
   async run(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {
-    const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Run);
+    const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Run)!;
     const [testRun] = await Promise.all([
       new Promise<TestRun>(f => this.onDidCreateTestRun(f)),
       profile.run(include, exclude),
@@ -380,7 +381,7 @@ class TestController {
   }
 
   async debug(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {
-    const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Debug);
+    const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Debug)!;
     const [testRun] = await Promise.all([
       new Promise<TestRun>(f => this.onDidCreateTestRun(f)),
       profile.run(include, exclude),
@@ -454,7 +455,7 @@ class Debug {
   readonly onDidStartDebugSession = this._didStartDebugSession.event;
   readonly onDidTerminateDebugSession = this._didTerminateDebugSession.event;
   output = '';
-  dapFactories = [];
+  dapFactories: any[] = [];
   private _dapSniffer: any;
 
   constructor() {
@@ -550,6 +551,9 @@ class MarkdownString {
   }
 }
 
+class TestTag {
+}
+
 export class VSCode {
   isUnderTest = true;
   EventEmitter = EventEmitter;
@@ -557,6 +561,7 @@ export class VSCode {
   MarkdownString = MarkdownString;
   Position = Position;
   Range = Range;
+  TestTag = TestTag;
   TestMessage = TestMessage;
   TestRunProfileKind = TestRunProfileKind;
   Uri = Uri;

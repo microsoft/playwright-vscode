@@ -20,6 +20,16 @@ import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
 import { resolveSourceMap } from './utils';
 
+/**
+ * This class builds the Playwright Test model in Playwright terms.
+ * - TestModel maps to the Playwright config
+ * - TestProject maps to the Playwright project
+ * - TestFiles belong to projects and contain test entries.
+ *
+ * A single test in the source code, and a single test in VS Code UI can correspond to multiple entries
+ * in different configs / projects. TestTree will perform model -> UI mapping and will represent
+ * them as a single entity.
+ */
 export class TestFile {
   readonly project: TestProject;
   readonly file: string;
