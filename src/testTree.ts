@@ -17,10 +17,15 @@
 import path from 'path';
 import { Entry, EntryType } from './oopReporter';
 import { Location } from './reporter';
-import { TestModel } from './testModel';
+import { TestModel, TestProject } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
+/**
+ * This class maps a collection of TestModels into the UI terms, it merges
+ * multiple logical entities (for example, one per project) into a single UI entity
+ * that can be executed at once.
+ */
 export class TestTree {
   private _vscode: vscodeTypes.VSCode;
 
@@ -102,12 +107,17 @@ export class TestTree {
         continue;
       const fileItem = this.getOrCreateFileItem(file);
       const signature: string[] = [];
+      // Tag with file granularity.
+      const projectTags: vscodeTypes.TestTag[] = [];
       let entries: Entry[] | undefined;
       for (const model of this._models) {
         for (const testProject of model.projects.values()) {
           const testFile = testProject.files.get(file);
           if (!testFile || !testFile.entries())
             continue;
+          const projectTag = this.projectTag(testProject);
+          projectTags.push(projectTag);
+          this._tagFileItem(fileItem, projectTag);
           signature.push(testProject.testDir + ':' + testProject.name + ':' + testFile.revision());
           entries = entries || [];
           if (testFile.entries())
@@ -118,7 +128,7 @@ export class TestTree {
         const signatureText = signature.join('|');
         if ((fileItem as any)[signatureSymbol] !== signatureText) {
           (fileItem as any)[signatureSymbol] = signatureText;
-          this._updateTestItems(fileItem.children, entries);
+          this._updateTestItems(fileItem.children, entries, projectTags);
         }
       }
     }
@@ -139,7 +149,7 @@ export class TestTree {
     return false;
   }
 
-  private _updateTestItems(collection: vscodeTypes.TestItemCollection, entries: Entry[]) {
+  private _updateTestItems(collection: vscodeTypes.TestItemCollection, entries: Entry[], projectTags: vscodeTypes.TestTag[]) {
     const existingItems = new Map<string, vscodeTypes.TestItem>();
     collection.forEach(test => existingItems.set(test.label, test));
     const itemsToDelete = new Map<string, vscodeTypes.TestItem>(existingItems);
@@ -156,7 +166,8 @@ export class TestTree {
         const line = entry.location.line;
         testItem.range = new this._vscode.Range(line - 1, 0, line, 0);
       }
-      this._updateTestItems(testItem.children, entry.children || []);
+      testItem.tags = projectTags;
+      this._updateTestItems(testItem.children, entry.children || [], projectTags);
       itemsToDelete.delete(entry.title);
     }
 
@@ -205,6 +216,13 @@ export class TestTree {
     return result || fileItem;
   }
 
+  private _tagFileItem(fileItem: vscodeTypes.TestItem, projectTag: vscodeTypes.TestTag) {
+    for (let item: vscodeTypes.TestItem | undefined = fileItem; item; item = item.parent) {
+      if (!item.tags.includes(projectTag))
+        item.tags = [...item.tags, projectTag];
+    }
+  }
+
   getOrCreateFileItem(file: string): vscodeTypes.TestItem {
     const result = this._fileItems.get(file);
     if (result)
@@ -236,7 +254,17 @@ export class TestTree {
   private _id(location: string): string {
     return this._testGeneration + location;
   }
+
+  projectTag(project: TestProject): vscodeTypes.TestTag {
+    let tag = (project as any)[tagSymbol];
+    if (!tag) {
+      tag = new this._vscode.TestTag(project.model.config.configFile + ':' + project.name);
+      (project as any)[tagSymbol] = tag;
+    }
+    return tag;
+  }
 }
 
 const signatureSymbol = Symbol('signatureSymbol');
 const itemTypeSymbol = Symbol('itemTypeSymbol');
+const tagSymbol = Symbol('tagSymbol');

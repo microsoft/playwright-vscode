@@ -85,7 +85,7 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
       return Promise.resolve([]);
     return Promise.resolve([
       this._createCheckboxSettingItem('Show browser', 'headed'),
-      this._createCheckboxSettingItem('Show & reuse Browser', 'reuseBrowser')
+      this._createCheckboxSettingItem('Show & reuse browser', 'reuseBrowser')
     ]);
   }
 

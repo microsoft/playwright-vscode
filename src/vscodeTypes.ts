@@ -36,6 +36,7 @@ export type {
   TextEditorDecorationType,
   TextDocument,
   TestController,
+  TestTag,
   TreeDataProvider,
   TreeItem,
   Uri,
