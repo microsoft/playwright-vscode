@@ -24,6 +24,7 @@ export type {
   EventEmitter,
   ExtensionContext,
   FileSystemWatcher,
+  InputBox,
   Location,
   Position,
   QuickPickItem,

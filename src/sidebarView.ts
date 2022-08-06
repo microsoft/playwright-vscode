@@ -23,7 +23,10 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
   readonly onDidChangeReuseBrowser: vscodeTypes.Event<boolean>;
   private _onDidChangeHeaded: vscodeTypes.EventEmitter<boolean>;
   readonly onDidChangeHeaded: vscodeTypes.Event<boolean>;
+  private _onDidRequestInspect: vscodeTypes.EventEmitter<void>;
+  readonly onDidRequestInspect: vscodeTypes.Event<void>;
   private _vscode: vscodeTypes.VSCode;
+  private _reusedBrowserOpen = false;
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     this._vscode = vscode;
@@ -36,6 +39,9 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
     this._onDidChangeHeaded = new this._vscode.EventEmitter<boolean>();
     this.onDidChangeHeaded = this._onDidChangeHeaded.event;
 
+    this._onDidRequestInspect = new this._vscode.EventEmitter<void>();
+    this.onDidRequestInspect = this._onDidRequestInspect.event;
+
     const disposables = [
       vscode.window.registerTreeDataProvider('pw.extension.settingsView', this),
       vscode.workspace.onDidChangeConfiguration(event => {
@@ -47,6 +53,9 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
           this._onDidChangeReuseBrowser.fire(this.reuseBrowser());
           this._onDidChangeTreeData.fire();
         }
+      }),
+      vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
+        this._onDidRequestInspect.fire();
       }),
       vscode.commands.registerCommand('pw.extension.toggle.reuseBrowser', async () => {
         const configuration = vscode.workspace.getConfiguration('playwright');
@@ -76,17 +85,31 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
     return configuration.get('headed') as boolean;
   }
 
-  toggleRe() {
-    this._onDidChangeTreeData.fire();
-  }
-
   getChildren(element?: vscodeTypes.TreeItem): Thenable<vscodeTypes.TreeItem[]> {
     if (element)
       return Promise.resolve([]);
-    return Promise.resolve([
+    const result: vscodeTypes.TreeItem[] = [
+      this._createCommandItem('Record test\u2026', 'recordTest'),
       this._createCheckboxSettingItem('Show browser', 'headed'),
-      this._createCheckboxSettingItem('Show & reuse browser', 'reuseBrowser')
-    ]);
+      this._createCheckboxSettingItem('Show & reuse browser', 'reuseBrowser'),
+    ];
+    if (this._reusedBrowserOpen)
+      result.push(this._createCommandItem('Selector explorer', 'inspect'));
+    return Promise.resolve(result);
+  }
+
+  setReusedBrowserOpen(reusedBrowserOpen: boolean) {
+    this._reusedBrowserOpen = reusedBrowserOpen;
+    this._onDidChangeTreeData.fire();
+  }
+
+  private _createCommandItem(title: string, commandName: string): vscodeTypes.TreeItem {
+    const treeItem = new this._vscode.TreeItem(title);
+    treeItem.command = {
+      title,
+      command: `pw.extension.command.${commandName}`,
+    };
+    return treeItem;
   }
 
   private _createCheckboxSettingItem(title: string, settingName: string): vscodeTypes.TreeItem {

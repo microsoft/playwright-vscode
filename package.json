@@ -34,7 +34,7 @@
       },
       {
         "category": "Test",
-        "command": "pw.extension.recordTest",
+        "command": "pw.extension.command.recordTest",
         "icon": "$(record)",
         "title": "Record Playwright Test"
       },
@@ -42,6 +42,10 @@
         "category": "Test",
         "command": "pw.extension.install",
         "title": "Install Playwright"
+      },
+      {
+        "command": "pw.extension.command.inspect",
+        "title": "Selector explorer"
       },
       {
         "command": "pw.extension.toggle.reuseBrowser",
@@ -70,11 +74,6 @@
     },
     "menus": {
       "view/title": [
-        {
-          "command": "pw.extension.recordTest",
-          "when": "view == workbench.view.testing",
-          "group": "navigation@0"
-        },
         {
           "command": "pw.extension.refreshTests",
           "when": "view == workbench.view.testing",

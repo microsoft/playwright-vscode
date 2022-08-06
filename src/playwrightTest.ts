@@ -16,12 +16,12 @@
 
 import { spawn } from 'child_process';
 import path from 'path';
-import { ReporterServer } from './reporterServer';
+import which from 'which';
 import { debugSessionName } from './debugSessionName';
 import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import type { TestError } from './reporter';
-import { createGuid, spawnAsync } from './utils';
-import which from 'which';
+import { ReporterServer } from './reporterServer';
+import { spawnAsync } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
 export type TestConfig = {
@@ -63,6 +63,10 @@ export class PlaywrightTest {
 
   constructor(isUnderTest: boolean) {
     this._isUnderTest = isUnderTest;
+  }
+
+  setBrowserServerWS(browserServerWS: string | undefined) {
+    this._browserServerWS = browserServerWS;
   }
 
   async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, cli: string } | null> {
@@ -229,46 +233,6 @@ export class PlaywrightTest {
       args,
     });
     await reporterServer.wireTestListener(listener, token);
-  }
-
-  async runBrowserServer(config: TestConfig, token: vscodeTypes.CancellationToken) {
-    if (this._browserServerWS)
-      return;
-
-    const node = await this.findNode();
-
-    const allArgs = [
-      config.cli,
-      'run-server',
-      '--reuse-browser',
-      `--path=/${createGuid()}`
-    ];
-
-    const serverProcess = spawn(node, allArgs, {
-      cwd: config.workspaceFolder,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    const stdio = serverProcess.stdio;
-
-    token.onCancellationRequested(() => {
-      serverProcess.stdin.write('<EOL>');
-      this._browserServerWS = undefined;
-    });
-
-    await new Promise<void>((f, r) => {
-      stdio[1].on('data', data => {
-        const match = data.toString().match(/Listening on (.*)/);
-        if (!match)
-          return;
-        this._browserServerWS = match[1];
-        f();
-      });
-
-      stdio[2].on('data', data => {
-        r(new Error(data.toString()));
-      });
-    });
   }
 
   private _log(line: string) {

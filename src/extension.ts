@@ -19,9 +19,10 @@ import StackUtils from 'stack-utils';
 import { DebugHighlight } from './debugHighlight';
 import { installPlaywright } from './installer';
 import { Entry } from './oopReporter';
-import { PlaywrightTest, TestConfig, TestListener } from './playwrightTest';
+import { PlaywrightTest, TestListener } from './playwrightTest';
 import { Recorder } from './recorder';
 import type { TestError } from './reporter';
+import { ReusedBrowser } from './reusedBrowser';
 import { SidebarViewProvider } from './sidebarView';
 import { TestModel, TestProject } from './testModel';
 import { TestTree } from './testTree';
@@ -75,8 +76,8 @@ export class Extension {
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
   private _recorder: Recorder;
-  private _browserServerTokenSource: vscodeTypes.CancellationTokenSource | undefined;
   private _sidebarView!: SidebarViewProvider;
+  private _reusedBrowser!: ReusedBrowser;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -111,6 +112,7 @@ export class Extension {
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
     this._sidebarView = new SidebarViewProvider(vscode, context);
+    this._reusedBrowser = new ReusedBrowser(vscode, context, this._sidebarView, this._playwrightTest);
     const disposables = [
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
         this._rebuildModel(false);
@@ -125,16 +127,12 @@ export class Extension {
           return;
         }
       }),
-      vscode.commands.registerCommand('pw.extension.recordTest', async () => {
+      vscode.commands.registerCommand('pw.extension.command.recordTest', async () => {
         if (!this._models.length) {
           vscode.window.showWarningMessage('No Playwright tests found.');
           return;
         }
         this._recorder.record(this._models);
-      }),
-      this._sidebarView.onDidChangeReuseBrowser(async reuseBrowser => {
-        if (!reuseBrowser)
-          this._stopReuseBrowser();
       }),
       vscode.commands.registerCommand('pw.extension.install', () => {
         installPlaywright(this._vscode);
@@ -480,7 +478,7 @@ located next to Run / Debug Tests toolbar buttons.`);
       await model.debugTests(projects, locations, testListener, parametrizedTestTitle, testRun.token);
     } else {
       // Start the browser server on the first run when setting is enabled.
-      await this._startReuseBrowserIfNeeded(model.config);
+      await this._reusedBrowser.startIfNeeded(model.config);
       await model.runTests(projects, locations, testListener, parametrizedTestTitle, headed, testRun.token);
     }
   }
@@ -583,26 +581,6 @@ located next to Run / Debug Tests toolbar buttons.`);
       testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.path), position);
     }
     return testMessage;
-  }
-
-  private async _startReuseBrowserIfNeeded(config: TestConfig) {
-    if (this._browserServerTokenSource || !this._sidebarView.reuseBrowser())
-      return;
-
-    if (config.version < 1.25) {
-      this._vscode.window.showErrorMessage(`Playwright v1.25+ is required for browser reuse, v${config.version} found`);
-      return;
-    }
-
-    this._browserServerTokenSource = new this._vscode.CancellationTokenSource();
-    await this._playwrightTest.runBrowserServer(config, this._browserServerTokenSource.token);
-  }
-
-  private _stopReuseBrowser() {
-    if (!this._browserServerTokenSource)
-      return;
-    this._browserServerTokenSource.cancel();
-    this._browserServerTokenSource = undefined;
   }
 
   playwrightTestLog(): string[] {
