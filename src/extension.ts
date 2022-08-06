@@ -137,6 +137,17 @@ export class Extension {
       vscode.commands.registerCommand('pw.extension.install', () => {
         installPlaywright(this._vscode);
       }),
+      vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
+        if (!this._models.length) {
+          vscode.window.showWarningMessage('No Playwright tests found.');
+          return;
+        }
+        if (!this._sidebarView.reuseBrowser()) {
+          vscode.window.showWarningMessage(`'Show & reuse browser' must be enabled`);
+          return;
+        }
+        await this._reusedBrowser.inspect(this._models);
+      }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
           this._completedSteps.clear();

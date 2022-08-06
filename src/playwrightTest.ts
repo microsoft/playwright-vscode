@@ -213,6 +213,10 @@ export class PlaywrightTest {
     }
 
     const reporterServer = new ReporterServer();
+    const browserServerEnv = this._browserServerWS ? {
+      PW_TEST_REUSE_CONTEXT: '1',
+      PW_TEST_CONNECT_WS_ENDPOINT: this._browserServerWS,
+    } : {};
     await vscode.debug.startDebugging(undefined, {
       type: 'pwa-node',
       name: debugSessionName,
@@ -220,6 +224,7 @@ export class PlaywrightTest {
       cwd: configFolder,
       env: {
         ...process.env,
+        ...browserServerEnv,
         ...(await reporterServer.env()),
         // Reset VSCode's options that affect nested Electron.
         ELECTRON_RUN_AS_NODE: undefined,

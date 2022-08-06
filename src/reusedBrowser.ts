@@ -17,6 +17,7 @@
 import { ChildProcess, spawn } from 'child_process';
 import { PlaywrightTest, TestConfig } from './playwrightTest';
 import { SidebarViewProvider } from './sidebarView';
+import { TestModel } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
@@ -36,7 +37,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         if (!reuseBrowser)
           this.stop();
       }),
-      this._sidebarView.onDidRequestInspect(() => this.inspect()),
       this,
     ];
     context.subscriptions.push(...disposables);
@@ -47,7 +47,12 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   async startIfNeeded(config: TestConfig) {
-    if (this._serverProcess || !this._sidebarView.reuseBrowser())
+    if (this._selectorExplorerBox) {
+      this._selectorExplorerBox.dispose();
+      this._selectorExplorerBox = undefined;
+    }
+
+    if (!this._sidebarView.reuseBrowser() || this._serverProcess)
       return;
 
     if (config.version < 1.25) {
@@ -104,16 +109,19 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   private _setBrowserServerWS(wsEndpoint: string | undefined) {
     this._playwrightTest.setBrowserServerWS(wsEndpoint);
-    this._sidebarView.setReusedBrowserOpen(!!wsEndpoint);
   }
 
-  inspect() {
+  async inspect(models: TestModel[]) {
+    if (!this._serverProcess)
+      await this.startIfNeeded(models[0].config);
+
     if (this._selectorExplorerBox)
       this._selectorExplorerBox.dispose();
     this._send('inspect', { enabled: true });
     this._selectorExplorerBox = this._vscode.window.createInputBox();
-    this._selectorExplorerBox.title = 'Selector explorer';
+    this._selectorExplorerBox.title = 'Pick selector';
     this._selectorExplorerBox.value = '';
+    this._selectorExplorerBox.prompt = 'Accept to copy selector into clipboard';
     this._selectorExplorerBox.ignoreFocusOut = true;
     this._selectorExplorerBox.onDidChangeValue(selector => {
       this._send('highlight', { selector });
@@ -121,6 +129,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._selectorExplorerBox.onDidHide(() => {
       this._send('inspect', { enabled: false });
       this._selectorExplorerBox = undefined;
+    });
+    this._selectorExplorerBox.onDidAccept(() => {
+      this._vscode.env.clipboard.writeText(this._selectorExplorerBox!.value);
+      this._selectorExplorerBox?.dispose();
     });
     this._selectorExplorerBox.show();
   }

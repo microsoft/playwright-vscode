@@ -44,17 +44,15 @@
         "title": "Install Playwright"
       },
       {
+        "category": "Test",
         "command": "pw.extension.command.inspect",
-        "title": "Selector explorer"
+        "title": "Pick selector"
       },
       {
+        "category": "Test",
         "command": "pw.extension.toggle.reuseBrowser",
         "icon": "$(remote-explorer)",
         "title": "Toggle Playwright Browser Reuse"
-      },
-      {
-        "command": "pw.extension.toggle.headed",
-        "title": "Toggle Playwright Headed"
       }
     ],
     "configuration": {
