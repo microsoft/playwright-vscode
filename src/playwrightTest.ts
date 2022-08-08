@@ -16,12 +16,12 @@
 
 import { spawn } from 'child_process';
 import path from 'path';
-import which from 'which';
 import { debugSessionName } from './debugSessionName';
 import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import type { TestError } from './reporter';
 import { ReporterServer } from './reporterServer';
-import { spawnAsync } from './utils';
+import { ReusedBrowser } from './reusedBrowser';
+import { findNode, spawnAsync } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
 export type TestConfig = {
@@ -56,17 +56,13 @@ export interface TestListener {
 const pathSeparator = process.platform === 'win32' ? ';' : ':';
 
 export class PlaywrightTest {
-  private _pathToNodeJS: string | undefined;
   private _testLog: string[] = [];
   private _isUnderTest: boolean;
-  private _browserServerWS: string | undefined;
+  private _reusedBrowser: ReusedBrowser;
 
-  constructor(isUnderTest: boolean) {
+  constructor(reusedBrowser: ReusedBrowser, isUnderTest: boolean) {
+    this._reusedBrowser = reusedBrowser;
     this._isUnderTest = isUnderTest;
-  }
-
-  setBrowserServerWS(browserServerWS: string | undefined) {
-    this._browserServerWS = browserServerWS;
   }
 
   async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, cli: string } | null> {
@@ -124,7 +120,12 @@ export class PlaywrightTest {
       args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
     if (headed)
       args.push('--headed');
-    await this._test(config, locationArg,  args, settingsEnv, listener, 'run', token);
+    await this._reusedBrowser.willRunTests(config);
+    try {
+      await this._test(config, locationArg,  args, settingsEnv, listener, 'run', token);
+    } finally {
+      await this._reusedBrowser.didRunTests(config);
+    }
   }
 
   async listTests(config: TestConfig, files: string[], settingsEnv: NodeJS.ProcessEnv): Promise<Entry[]> {
@@ -141,7 +142,7 @@ export class PlaywrightTest {
     // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
     // Always use ws transport to mitigate it.
     const reporterServer = new ReporterServer();
-    const node = await this.findNode();
+    const node = await findNode();
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
     const escapedLocations = locations.map(escapeRegex);
@@ -157,23 +158,19 @@ export class PlaywrightTest {
       '--repeat-each', '1',
       '--retries', '0',
     ];
-    if (this._isUnderTest || !!this._browserServerWS || args.includes('--headed'))
+    if (this._isUnderTest || this._reusedBrowser.browserServerEnv() || args.includes('--headed'))
       allArgs.push('--workers', '1');
     // Disable original reporters when listing files.
     if (mode === 'list')
       allArgs.push('--reporter', 'null');
-    const browserServerEnv = this._browserServerWS ? {
-      PW_TEST_REUSE_CONTEXT: '1',
-      PW_TEST_CONNECT_WS_ENDPOINT: this._browserServerWS,
-    } : {};
     const childProcess = spawn(node, allArgs, {
       cwd: configFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
         ...settingsEnv,
+        ...this._reusedBrowser.browserServerEnv(),
         ...(await reporterServer.env()),
-        ...browserServerEnv,
         // Don't debug tests when running them.
         NODE_OPTIONS: undefined,
         // Reset VSCode's options that affect nested Electron.
@@ -214,32 +211,33 @@ export class PlaywrightTest {
     }
 
     const reporterServer = new ReporterServer();
-    const browserServerEnv = this._browserServerWS ? {
-      PW_TEST_REUSE_CONTEXT: '1',
-      PW_TEST_CONNECT_WS_ENDPOINT: this._browserServerWS,
-    } : {};
-    await vscode.debug.startDebugging(undefined, {
-      type: 'pwa-node',
-      name: debugSessionName,
-      request: 'launch',
-      cwd: configFolder,
-      env: {
-        ...process.env,
-        ...settingsEnv,
-        ...browserServerEnv,
-        ...(await reporterServer.env()),
-        // Reset VSCode's options that affect nested Electron.
-        ELECTRON_RUN_AS_NODE: undefined,
-        FORCE_COLORS: '1',
-        PW_OUT_OF_PROCESS_DRIVER: '1',
-        PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
-        PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
-        PW_TEST_HTML_REPORT_OPEN: 'never',
-      },
-      program: config.cli,
-      args,
-    });
-    await reporterServer.wireTestListener(listener, token);
+    await this._reusedBrowser.willRunTests(config);
+    try {
+      await vscode.debug.startDebugging(undefined, {
+        type: 'pwa-node',
+        name: debugSessionName,
+        request: 'launch',
+        cwd: configFolder,
+        env: {
+          ...process.env,
+          ...settingsEnv,
+          ...this._reusedBrowser.browserServerEnv(),
+          ...(await reporterServer.env()),
+          // Reset VSCode's options that affect nested Electron.
+          ELECTRON_RUN_AS_NODE: undefined,
+          FORCE_COLORS: '1',
+          PW_OUT_OF_PROCESS_DRIVER: '1',
+          PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
+          PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
+          PW_TEST_HTML_REPORT_OPEN: 'never',
+        },
+        program: config.cli,
+        args,
+      });
+      await reporterServer.wireTestListener(listener, token);
+    } finally {
+      await this._reusedBrowser.didRunTests(config);
+    }
   }
 
   private _log(line: string) {
@@ -250,19 +248,8 @@ export class PlaywrightTest {
     return this._testLog.slice();
   }
 
-  async findNode(): Promise<string> {
-    if (this._pathToNodeJS)
-      return this._pathToNodeJS;
-
-    const node = await which('node');
-    if (!node)
-      throw new Error('Unable to launch `node`, make sure it is in your PATH');
-    this._pathToNodeJS = node;
-    return node;
-  }
-
   private async _runNode(args: string[], cwd: string): Promise<string> {
-    return await spawnAsync(await this.findNode(), args, cwd);
+    return await spawnAsync(await findNode(), args, cwd);
   }
 }
 

@@ -19,6 +19,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
+import which from 'which';
 
 export function calculateSha1(buffer: Buffer | string): string {
   const hash = crypto.createHash('sha1');
@@ -133,4 +134,17 @@ export async function resolveSourceMap(file: string, fileToSources: Map<string, 
   }
   fileToSources.set(file, [file]);
   return [file];
+}
+
+let pathToNodeJS: string | undefined;
+
+export async function findNode(): Promise<string> {
+  if (pathToNodeJS)
+    return pathToNodeJS;
+
+  const node = await which('node');
+  if (!node)
+    throw new Error('Unable to launch `node`, make sure it is in your PATH');
+  pathToNodeJS = node;
+  return node;
 }
