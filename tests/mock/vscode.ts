@@ -600,6 +600,7 @@ export class VSCode {
     this.window.onDidChangeActiveTextEditor = this.onDidChangeActiveTextEditor;
     this.window.onDidChangeTextEditorSelection = this.onDidChangeTextEditorSelection;
     this.window.onDidChangeVisibleTextEditors = this.onDidChangeVisibleTextEditors;
+    this.window.onDidChangeActiveColorTheme = () => {};
     this.window.createTextEditorDecorationType = () => ++lastDecorationTypeId;
     this.window.showWarningMessage = (message: string) => this.warnings.push(message);
     this.window.visibleTextEditors = [];

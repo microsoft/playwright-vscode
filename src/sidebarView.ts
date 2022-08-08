@@ -21,12 +21,7 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
   readonly onDidChangeTreeData: vscodeTypes.Event<vscodeTypes.TreeItem | undefined | null | void>;
   private _onDidChangeReuseBrowser: vscodeTypes.EventEmitter<boolean>;
   readonly onDidChangeReuseBrowser: vscodeTypes.Event<boolean>;
-  private _onDidChangeHeaded: vscodeTypes.EventEmitter<boolean>;
-  readonly onDidChangeHeaded: vscodeTypes.Event<boolean>;
-  private _onDidRequestInspect: vscodeTypes.EventEmitter<void>;
-  readonly onDidRequestInspect: vscodeTypes.Event<void>;
   private _vscode: vscodeTypes.VSCode;
-  private _reusedBrowserOpen = false;
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     this._vscode = vscode;
@@ -36,12 +31,6 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
     this._onDidChangeReuseBrowser = new this._vscode.EventEmitter<boolean>();
     this.onDidChangeReuseBrowser = this._onDidChangeReuseBrowser.event;
 
-    this._onDidChangeHeaded = new this._vscode.EventEmitter<boolean>();
-    this.onDidChangeHeaded = this._onDidChangeHeaded.event;
-
-    this._onDidRequestInspect = new this._vscode.EventEmitter<void>();
-    this.onDidRequestInspect = this._onDidRequestInspect.event;
-
     const disposables = [
       vscode.window.registerTreeDataProvider('pw.extension.settingsView', this),
       vscode.workspace.onDidChangeConfiguration(event => {
@@ -49,24 +38,13 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
           this._onDidChangeReuseBrowser.fire(this.reuseBrowser());
           this._onDidChangeTreeData.fire();
         }
-        if (event.affectsConfiguration('playwright.headed')) {
-          this._onDidChangeReuseBrowser.fire(this.reuseBrowser());
-          this._onDidChangeTreeData.fire();
-        }
-      }),
-      vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
-        this._onDidRequestInspect.fire();
       }),
       vscode.commands.registerCommand('pw.extension.toggle.reuseBrowser', async () => {
         const configuration = vscode.workspace.getConfiguration('playwright');
         const value = configuration.get('reuseBrowser');
         await configuration.update('reuseBrowser', !value, true);
       }),
-      vscode.commands.registerCommand('pw.extension.toggle.headed', async () => {
-        const configuration = vscode.workspace.getConfiguration('playwright');
-        const value = configuration.get('headed');
-        await configuration.update('headed', !value, true);
-      }),
+      vscode.window.onDidChangeActiveColorTheme(() => this._onDidChangeTreeData.fire()),
     ];
     context.subscriptions.push(...disposables);
   }
@@ -88,27 +66,22 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
   getChildren(element?: vscodeTypes.TreeItem): Thenable<vscodeTypes.TreeItem[]> {
     if (element)
       return Promise.resolve([]);
+
     const result: vscodeTypes.TreeItem[] = [
-      this._createCommandItem('Record test\u2026', 'recordTest'),
-      this._createCheckboxSettingItem('Show browser', 'headed'),
+      this._createCommandItem('Pick selector\u2026', 'inspect', pickSelectorIcon),
+      this._createCommandItem('Record new test\u2026', 'recordTest', recordIcon),
       this._createCheckboxSettingItem('Show & reuse browser', 'reuseBrowser'),
     ];
-    if (this._reusedBrowserOpen)
-      result.push(this._createCommandItem('Selector explorer', 'inspect'));
     return Promise.resolve(result);
   }
 
-  setReusedBrowserOpen(reusedBrowserOpen: boolean) {
-    this._reusedBrowserOpen = reusedBrowserOpen;
-    this._onDidChangeTreeData.fire();
-  }
-
-  private _createCommandItem(title: string, commandName: string): vscodeTypes.TreeItem {
+  private _createCommandItem(title: string, commandName: string, icon: IconFactory): vscodeTypes.TreeItem {
     const treeItem = new this._vscode.TreeItem(title);
     treeItem.command = {
       title,
       command: `pw.extension.command.${commandName}`,
     };
+    treeItem.iconPath = iconPath(this._vscode, icon);
     return treeItem;
   }
 
@@ -116,10 +89,7 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
     const treeItem = new this._vscode.TreeItem(title);
     const configuration = this._vscode.workspace.getConfiguration('playwright');
     const checked = configuration.get(settingName) as boolean;
-    treeItem.iconPath = {
-      light: checked ? checkedBox(this._vscode, 'darkGray') : empyBox(this._vscode, 'darkGray'),
-      dark: checked ? checkedBox(this._vscode, 'lightGray') : empyBox(this._vscode, 'lightGray'),
-    };
+    treeItem.iconPath = iconPath(this._vscode, checked ? checkedBoxIcon : empyBoxIcon);
     treeItem.command = {
       title,
       command: `pw.extension.toggle.${settingName}`,
@@ -129,5 +99,15 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
   }
 }
 
-const empyBox = (vscode: vscodeTypes.VSCode, color: string) => vscode.Uri.parse(`data:image/svg+xml,<svg fill="${color}" xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M9 42q-1.2 0-2.1-.9Q6 40.2 6 39V9q0-1.2.9-2.1Q7.8 6 9 6h30q1.2 0 2.1.9.9.9.9 2.1v30q0 1.2-.9 2.1-.9.9-2.1.9Zm0-3h30V9H9v30Z"/></svg>`);
-const checkedBox = (vscode: vscodeTypes.VSCode, color: string) => vscode.Uri.parse(`data:image/svg+xml,<svg fill="${color}" xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M20.95 31.95 35.4 17.5l-2.15-2.15-12.3 12.3L15 21.7l-2.15 2.15ZM9 42q-1.2 0-2.1-.9Q6 40.2 6 39V9q0-1.2.9-2.1Q7.8 6 9 6h30q1.2 0 2.1.9.9.9.9 2.1v30q0 1.2-.9 2.1-.9.9-2.1.9Zm0-3h30V9H9v30ZM9 9v30V9Z"/></svg>`);
+type IconFactory = (vscode: vscodeTypes.VSCode, color: string) => vscodeTypes.Uri;
+const empyBoxIcon: IconFactory = (vscode, color) => vscode.Uri.parse(`data:image/svg+xml,<svg fill="${color}" xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M9 42q-1.2 0-2.1-.9Q6 40.2 6 39V9q0-1.2.9-2.1Q7.8 6 9 6h30q1.2 0 2.1.9.9.9.9 2.1v30q0 1.2-.9 2.1-.9.9-2.1.9Zm0-3h30V9H9v30Z"/></svg>`);
+const checkedBoxIcon: IconFactory = (vscode, color) => vscode.Uri.parse(`data:image/svg+xml,<svg fill="${color}" xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M20.95 31.95 35.4 17.5l-2.15-2.15-12.3 12.3L15 21.7l-2.15 2.15ZM9 42q-1.2 0-2.1-.9Q6 40.2 6 39V9q0-1.2.9-2.1Q7.8 6 9 6h30q1.2 0 2.1.9.9.9.9 2.1v30q0 1.2-.9 2.1-.9.9-2.1.9Zm0-3h30V9H9v30ZM9 9v30V9Z"/></svg>`);
+const pickSelectorIcon: IconFactory = (vscode, color) => vscode.Uri.parse(`data:image/svg+xml,<svg fill="${color}" xmlns="http://www.w3.org/2000/svg" width="48" height="48"><path d="M18 42h-7.5c-3 0-4.5-1.5-4.5-4.5v-27C6 7.5 7.5 6 10.5 6h27C42 6 42 10.404 42 10.5V18h-3V9H9v30h9v3Zm27-15-9 6 9 9-3 3-9-9-6 9-6-24 24 6Z"/></svg>`);
+const recordIcon: IconFactory = (vscode, color) => vscode.Uri.parse(`data:image/svg+xml,<svg fill="${color}" xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M22.65 34h3v-8.3H34v-3h-8.35V14h-3v8.7H14v3h8.65ZM24 44q-4.1 0-7.75-1.575-3.65-1.575-6.375-4.3-2.725-2.725-4.3-6.375Q4 28.1 4 23.95q0-4.1 1.575-7.75 1.575-3.65 4.3-6.35 2.725-2.7 6.375-4.275Q19.9 4 24.05 4q4.1 0 7.75 1.575 3.65 1.575 6.35 4.275 2.7 2.7 4.275 6.35Q44 19.85 44 24q0 4.1-1.575 7.75-1.575 3.65-4.275 6.375t-6.35 4.3Q28.15 44 24 44Zm.05-3q7.05 0 12-4.975T41 23.95q0-7.05-4.95-12T24 7q-7.05 0-12.025 4.95Q7 16.9 7 24q0 7.05 4.975 12.025Q16.95 41 24.05 41ZM24 24Z"/></svg>`);
+
+function iconPath(vscode: vscodeTypes.VSCode, factory: IconFactory): { light: vscodeTypes.Uri, dark: vscodeTypes.Uri } {
+  return {
+    light: factory(vscode, 'rgb(80,80,80)'),
+    dark: factory(vscode, 'lightGray'),
+  };
+}
