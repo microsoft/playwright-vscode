@@ -637,7 +637,7 @@ export class VSCode {
       }
     };
     const settings = {
-      'playwright.headed': false,
+      'playwright.env': {},
       'playwright.reuseBrowser': false,
     };
     this.workspace.getConfiguration = scope => {

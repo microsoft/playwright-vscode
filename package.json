@@ -58,10 +58,10 @@
     "configuration": {
       "title": "Playwright",
       "properties": {
-        "playwright.headed": {
-          "type": "boolean",
-          "default": false,
-          "description": "Show browser."
+        "playwright.env": {
+          "type": "object",
+          "default": {},
+          "description": "Environment variables to pass to Playwright Test."
         },
         "playwright.reuseBrowser": {
           "type": "boolean",

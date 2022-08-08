@@ -117,19 +117,19 @@ export class PlaywrightTest {
     }
   }
 
-  async runTests(config: TestConfig, projectNames: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, headed: boolean, token?: vscodeTypes.CancellationToken) {
+  async runTests(config: TestConfig, projectNames: string[], settingsEnv: NodeJS.ProcessEnv, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, headed: boolean, token?: vscodeTypes.CancellationToken) {
     const locationArg = locations ? locations : [];
     const args = projectNames.filter(Boolean).map(p => `--project=${p}`);
     if (parametrizedTestTitle)
       args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
     if (headed)
       args.push('--headed');
-    await this._test(config, locationArg,  args, listener, 'run', token);
+    await this._test(config, locationArg,  args, settingsEnv, listener, 'run', token);
   }
 
-  async listTests(config: TestConfig, files: string[]): Promise<Entry[]> {
+  async listTests(config: TestConfig, files: string[], settingsEnv: NodeJS.ProcessEnv): Promise<Entry[]> {
     let result: Entry[] = [];
-    await this._test(config, files, ['--list'], {
+    await this._test(config, files, ['--list'], settingsEnv, {
       onBegin: params => {
         result = params.projects as Entry[];
       },
@@ -137,7 +137,7 @@ export class PlaywrightTest {
     return result;
   }
 
-  private async _test(config: TestConfig, locations: string[], args: string[], listener: TestListener, mode: 'list' | 'run', token?: vscodeTypes.CancellationToken): Promise<void> {
+  private async _test(config: TestConfig, locations: string[], args: string[], settingsEnv: NodeJS.ProcessEnv, listener: TestListener, mode: 'list' | 'run', token?: vscodeTypes.CancellationToken): Promise<void> {
     // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
     // Always use ws transport to mitigate it.
     const reporterServer = new ReporterServer();
@@ -171,6 +171,7 @@ export class PlaywrightTest {
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
+        ...settingsEnv,
         ...(await reporterServer.env()),
         ...browserServerEnv,
         // Don't debug tests when running them.
@@ -188,7 +189,7 @@ export class PlaywrightTest {
     await reporterServer.wireTestListener(listener, token);
   }
 
-  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], settingsEnv: NodeJS.ProcessEnv, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
     locations = locations || [];
@@ -224,6 +225,7 @@ export class PlaywrightTest {
       cwd: configFolder,
       env: {
         ...process.env,
+        ...settingsEnv,
         ...browserServerEnv,
         ...(await reporterServer.env()),
         // Reset VSCode's options that affect nested Electron.
