@@ -200,7 +200,8 @@ export class TestModel {
     if (!sourcesToLoad.length)
       return;
 
-    const projectEntries = await this._playwrightTest.listTests(this.config, this._mapSourcesToFiles(sourcesToLoad));
+    const settingsEnv = this._vscode.workspace.getConfiguration('playwright').get('env', {});
+    const projectEntries = await this._playwrightTest.listTests(this.config, this._mapSourcesToFiles(sourcesToLoad), settingsEnv);
     this._updateProjects(projectEntries, sourcesToLoad);
   }
 
@@ -259,12 +260,14 @@ export class TestModel {
 
   async runTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, headed: boolean, token?: vscodeTypes.CancellationToken) {
     locations = locations ? this._mapSourcesToFiles(locations) : [];
-    await this._playwrightTest.runTests(this.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, headed, token);
+    const settingsEnv = this._vscode.workspace.getConfiguration('playwright').get('env', {});
+    await this._playwrightTest.runTests(this.config, projects.map(p => p.name), settingsEnv, locations, testListener, parametrizedTestTitle, headed, token);
   }
 
   async debugTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
     locations = locations ? this._mapSourcesToFiles(locations) : [];
-    await this._playwrightTest.debugTests(this._vscode, this.config, projects.map(p => p.name), projects.map(p => p.testDir), locations, testListener, parametrizedTestTitle, token);
+    const settingsEnv = this._vscode.workspace.getConfiguration('playwright').get('env', {});
+    await this._playwrightTest.debugTests(this._vscode, this.config, projects.map(p => p.name), projects.map(p => p.testDir), settingsEnv, locations, testListener, parametrizedTestTitle, token);
   }
 
   private _mapSourcesToFiles(sources: string[]): string[] {
