@@ -58,11 +58,6 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
     return configuration.get('reuseBrowser') as boolean;
   }
 
-  headed(): boolean {
-    const configuration = this._vscode.workspace.getConfiguration('playwright');
-    return configuration.get('headed') as boolean;
-  }
-
   getChildren(element?: vscodeTypes.TreeItem): Thenable<vscodeTypes.TreeItem[]> {
     if (element)
       return Promise.resolve([]);

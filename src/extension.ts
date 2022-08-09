@@ -289,7 +289,6 @@ export class Extension {
 
   private async _runMatchingTests(testRunInfo: TestRunInfo) {
     const { selectedProjects, isDebug, request } = testRunInfo;
-    const headed = this._sidebarView.headed();
 
     this._completedSteps.clear();
     this._executionLinesChanged();
@@ -319,7 +318,7 @@ export class Extension {
         if (locations && !locations.length)
           continue;
         ranSomeTests = true;
-        await this._runTest(this._testRun, new Set(), model, isDebug, headed, projects, locations, parametrizedTestTitle);
+        await this._runTest(this._testRun, new Set(), model, isDebug, projects, locations, parametrizedTestTitle);
       }
     } finally {
       this._activeSteps.clear();
@@ -396,7 +395,6 @@ located next to Run / Debug Tests toolbar buttons.`);
     testFailures: Set<vscodeTypes.TestItem>,
     model: TestModel,
     isDebug: boolean,
-    headed: boolean,
     projects: TestProject[],
     locations: string[] | null,
     parametrizedTestTitle: string | undefined) {
@@ -487,7 +485,7 @@ located next to Run / Debug Tests toolbar buttons.`);
     if (isDebug)
       await model.debugTests(projects, locations, testListener, parametrizedTestTitle, testRun.token);
     else
-      await model.runTests(projects, locations, testListener, parametrizedTestTitle, headed, testRun.token);
+      await model.runTests(projects, locations, testListener, parametrizedTestTitle, testRun.token);
   }
 
   private async _updateVisibleEditorItems() {
