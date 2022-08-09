@@ -16,6 +16,7 @@
 
 import { discardBabelAstCache, locatorForSourcePosition } from './babelHighlightUtil';
 import { debugSessionName } from './debugSessionName';
+import { ReusedBrowser } from './reusedBrowser';
 import * as vscodeTypes from './vscodeTypes';
 
 export type DebuggerLocation = { path: string, line: number, column: number };
@@ -27,8 +28,10 @@ export class DebugHighlight {
   private _errorInDebugger: vscodeTypes.EventEmitter<DebuggerError>;
   readonly onErrorInDebugger: vscodeTypes.Event<DebuggerError>;
   private _disposables: vscodeTypes.Disposable[] = [];
+  private _reusedBrowser: ReusedBrowser;
 
-  constructor(vscode: vscodeTypes.VSCode) {
+  constructor(vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser) {
+    this._reusedBrowser = reusedBrowser;
     this._errorInDebugger = new vscode.EventEmitter();
     this.onErrorInDebugger = this._errorInDebugger.event;
 
@@ -40,23 +43,23 @@ export class DebugHighlight {
       }),
       vscode.debug.onDidTerminateDebugSession(session => {
         debugSessions.delete(session.id);
-        hideHighlight();
+        self._hideHighlight();
         discardHighlightCaches();
       }),
       vscode.languages.registerHoverProvider('typescript', {
         provideHover(document, position, token) {
-          highlightLocator(document, position, token).catch();
+          self._highlightLocator(document, position, token).catch();
           return null;
         }
       }),
       vscode.languages.registerHoverProvider('javascript', {
         provideHover(document, position, token) {
-          highlightLocator(document, position, token).catch();
+          self._highlightLocator(document, position, token).catch();
           return null;
         }
       }),
       vscode.window.onDidChangeTextEditorSelection(event => {
-        highlightLocator(event.textEditor.document, event.selections[0].start).catch();
+        self._highlightLocator(event.textEditor.document, event.selections[0].start).catch();
       }),
       vscode.debug.registerDebugAdapterTrackerFactory('*', {
         createDebugAdapterTracker(session: vscodeTypes.DebugSession) {
@@ -96,6 +99,17 @@ export class DebugHighlight {
     ];
   }
 
+  private async _highlightLocator(document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken) {
+    const result = await highlightLocator(document, position, token);
+    if (!result)
+      this._hideHighlight();
+  }
+
+  private _hideHighlight() {
+    if (!this._reusedBrowser.hideHighlight())
+      hideHighlightViaDebugger();
+  }
+
   dispose() {
     for (const d of this._disposables)
       d?.dispose?.();
@@ -107,27 +121,29 @@ export type StackFrame = {
   id: string;
   line: number;
   column: number;
-  source: { path: string };
+  source?: { path: string };
 };
 
 const sessionsWithHighlight = new Set<vscodeTypes.DebugSession>();
 
-export async function highlightLocator(document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken) {
+async function highlightLocator(document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken): Promise<boolean> {
   if (!debugSessions.size)
-    return;
+    return false;
   const fsPath = document.uri.fsPath;
   for (const session of debugSessions.values()) {
     if (token?.isCancellationRequested)
-      return;
+      return false;
     const stackFrames = await pausedStackFrames(session, undefined);
     if (!stackFrames)
       continue;
     for (const stackFrame of stackFrames) {
+      if (!stackFrame.source)
+        continue;
       const sourcePath = mapRemoteToLocalPath(stackFrame.source.path);
       if (!sourcePath || document.uri.fsPath !== sourcePath)
         continue;
       if (token?.isCancellationRequested)
-        return;
+        return false;
       const vars = await scopeVariables(session, stackFrame);
       const text = document.getText();
       const locatorExpression = locatorForSourcePosition(text, vars, fsPath, {
@@ -137,12 +153,12 @@ export async function highlightLocator(document: vscodeTypes.TextDocument, posit
       if (!locatorExpression)
         continue;
       if (token?.isCancellationRequested)
-        return;
+        return false;
       if (await doHighlightLocator(session, stackFrame.id, locatorExpression))
-        return;
+        return true;
     }
   }
-  await hideHighlight();
+  return false;
 }
 
 async function pausedStackFrames(session: vscodeTypes.DebugSession, threadId: number | undefined): Promise<StackFrame[] | undefined> {
@@ -193,11 +209,11 @@ async function doHighlightLocator(session: vscodeTypes.DebugSession, frameId: st
   return !!result;
 }
 
-export async function hideHighlight() {
+function hideHighlightViaDebugger() {
   const copy = new Set([...sessionsWithHighlight]);
   sessionsWithHighlight.clear();
   for (const session of copy) {
-    await session.customRequest('evaluate', {
+    session.customRequest('evaluate', {
       expression: 'global._playwrightInstance._hideHighlight().catch(() => {})',
     }).then(result => result, () => undefined);
   }

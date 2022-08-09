@@ -132,6 +132,11 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }, async (progress, token) => this._doRecord(models[0], token));
   }
 
+  hideHighlight(): boolean {
+    this._backend?.hideHighlight().catch(() => {});
+    return !!this._backend;
+  }
+
   private _checkVersion(config: TestConfig, message: string = 'this feature'): boolean {
     if (config.version < 1.25) {
       this._vscode.window.showWarningMessage(`Playwright v1.25+ is required for ${message} to work, v${config.version} found`);
@@ -232,15 +237,19 @@ class Backend extends EventEmitter {
   }
 
   async setMode(params: { mode: 'none' | 'inspecting' | 'recording', language?: string, file?: string }) {
-    this._send('setMode', params);
+    await this._send('setMode', params);
   }
 
   async setAutoClose(params: { enabled: boolean }) {
-    this._send('setAutoClose', params);
+    await this._send('setAutoClose', params);
   }
 
   async highlight(params: { selector: string }) {
-    this._send('highlight', params);
+    await this._send('highlight', params);
+  }
+
+  async hideHighlight() {
+    await this._send('hideHighlight');
   }
 
   async kill() {
