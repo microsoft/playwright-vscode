@@ -49,10 +49,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     }
 
-    if (config.version < 1.25) {
-      this._vscode.window.showErrorMessage(`Playwright v1.25+ is required for browser reuse, v${config.version} found`);
-      return;
-    }
     const node = await findNode();
     const allArgs = [
       config.cli,
@@ -100,6 +96,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   async inspect(models: TestModel[]) {
+    if (!this._checkVersion(models[0].config, 'selector picker'))
+      return;
+
     await this.startIfNeeded(models[0].config);
     await this._backend?.setMode({ mode: 'inspecting' });
 
@@ -123,11 +122,22 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   async record(models: TestModel[]) {
+    if (!this._checkVersion(models[0].config))
+      return;
+
     await this._vscode.window.withProgress({
       location: this._vscode.ProgressLocation.Notification,
       title: 'Recording Playwright script',
       cancellable: true
     }, async (progress, token) => this._doRecord(models[0], token));
+  }
+
+  private _checkVersion(config: TestConfig, message: string = 'this feature'): boolean {
+    if (config.version < 1.25) {
+      this._vscode.window.showWarningMessage(`Playwright v1.25+ is required for ${message} to work, v${config.version} found`);
+      return false;
+    }
+    return true;
   }
 
   private async _doRecord(model: TestModel, token: vscodeTypes.CancellationToken) {
@@ -169,6 +179,8 @@ test('test', async ({ page }) => {
   }
 
   async willRunTests(config: TestConfig) {
+    if (!this._checkVersion(config, 'Show & reuse browser'))
+      return;
     if (this._showReuseBrowserForTests)
       await this.startIfNeeded(config);
     this._backend?.setAutoClose({ enabled: false });
