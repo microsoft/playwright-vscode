@@ -12,7 +12,7 @@
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"${workspaceFolder}/../playwright/packages/html-reporter"
+				"${workspaceFolder}/../playwright/examples/todomvc"
 			],
 			"outFiles": [
 				"${workspaceFolder}/out/*.js"

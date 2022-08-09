@@ -103,7 +103,7 @@ export class Extension {
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModel(true).then(() => {});
     this._testTree = new TestTree(vscode, this._testController);
-    this._debugHighlight = new DebugHighlight(vscode);
+    this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
   }
