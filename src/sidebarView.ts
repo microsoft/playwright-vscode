@@ -16,14 +16,16 @@
 
 import * as vscodeTypes from './vscodeTypes';
 
-export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeTypes.TreeItem> {
+export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeTypes.TreeItem>, vscodeTypes.Disposable {
   private _onDidChangeTreeData: vscodeTypes.EventEmitter<vscodeTypes.TreeItem | undefined | null | void>;
   readonly onDidChangeTreeData: vscodeTypes.Event<vscodeTypes.TreeItem | undefined | null | void>;
   private _onDidChangeReuseBrowser: vscodeTypes.EventEmitter<boolean>;
   readonly onDidChangeReuseBrowser: vscodeTypes.Event<boolean>;
   private _vscode: vscodeTypes.VSCode;
+  private _disposables: vscodeTypes.Disposable[];
+  private _disposed = false;
 
-  constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
+  constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
     this._onDidChangeTreeData = new this._vscode.EventEmitter<vscodeTypes.TreeItem | undefined | null | void>();
     this.onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -31,7 +33,7 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
     this._onDidChangeReuseBrowser = new this._vscode.EventEmitter<boolean>();
     this.onDidChangeReuseBrowser = this._onDidChangeReuseBrowser.event;
 
-    const disposables = [
+    this._disposables = [
       vscode.window.registerTreeDataProvider('pw.extension.settingsView', this),
       vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('playwright.reuseBrowser')) {
@@ -46,7 +48,13 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
       }),
       vscode.window.onDidChangeActiveColorTheme(() => this._onDidChangeTreeData.fire()),
     ];
-    context.subscriptions.push(...disposables);
+  }
+
+  dispose() {
+    for (const d of this._disposables)
+      d?.dispose?.();
+    this._disposables = [];
+    this._disposed = true;
   }
 
   getTreeItem(element: vscodeTypes.TreeItem): vscodeTypes.TreeItem {
@@ -59,7 +67,7 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
   }
 
   getChildren(element?: vscodeTypes.TreeItem): Thenable<vscodeTypes.TreeItem[]> {
-    if (element)
+    if (element || this._disposed)
       return Promise.resolve([]);
 
     const result: vscodeTypes.TreeItem[] = [

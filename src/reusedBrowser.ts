@@ -27,7 +27,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
   private _selectorExplorerBox: vscodeTypes.InputBox | undefined;
   private _browserServerWS: string | undefined;
-  private _showReuseBrowserForTests = false;
+  private _shouldReuseBrowserForTests = false;
   private _backend: Backend | undefined;
 
   constructor(vscode: vscodeTypes.VSCode) {
@@ -39,7 +39,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   setReuseBrowserForTests(enabled: boolean) {
-    this._showReuseBrowserForTests = enabled;
+    this._shouldReuseBrowserForTests = enabled;
   }
 
   async startIfNeeded(config: TestConfig) {
@@ -89,7 +89,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   browserServerEnv(): NodeJS.ProcessEnv | undefined {
-    return this._showReuseBrowserForTests && this._browserServerWS ? {
+    return this._shouldReuseBrowserForTests && this._browserServerWS ? {
       PW_TEST_REUSE_CONTEXT: '1',
       PW_TEST_CONNECT_WS_ENDPOINT: this._browserServerWS,
     } : undefined;
@@ -179,10 +179,11 @@ test('test', async ({ page }) => {
   }
 
   async willRunTests(config: TestConfig) {
+    if (!this._shouldReuseBrowserForTests)
+      return;
     if (!this._checkVersion(config, 'Show & reuse browser'))
       return;
-    if (this._showReuseBrowserForTests)
-      await this.startIfNeeded(config);
+    await this.startIfNeeded(config);
     this._backend?.setAutoClose({ enabled: false });
   }
 

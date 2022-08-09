@@ -11,27 +11,18 @@
     "url": "https://github.com/microsoft/playwright-vscode/issues"
   },
   "engines": {
-    "vscode": "^1.59.0"
+    "vscode": "^1.65.0"
   },
   "categories": [
     "Testing"
   ],
   "activationEvents": [
     "workspaceContains:**/*playwright*.config.{ts,js,mjs}",
-    "onCommand:pw.extension.install",
-    "onCommand:pw.extension.recordTest",
-    "onCommand:pw.extension.refreshTests",
-    "onCommand:pw.extension.toggleReuseBrowser"
+    "onCommand:pw.extension.install"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
-      {
-        "category": "Test",
-        "command": "pw.extension.refreshTests",
-        "icon": "$(refresh)",
-        "title": "Refresh Playwright Tests"
-      },
       {
         "category": "Test",
         "command": "pw.extension.install",
@@ -69,15 +60,6 @@
           "description": "Show & reuse browser between tests."
         }
       }
-    },
-    "menus": {
-      "view/title": [
-        {
-          "command": "pw.extension.refreshTests",
-          "when": "view == workbench.view.testing",
-          "group": "navigation@0"
-        }
-      ]
     },
     "views": {
       "test": [

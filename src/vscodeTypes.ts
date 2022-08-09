@@ -40,6 +40,7 @@ export type {
   TestTag,
   TreeDataProvider,
   TreeItem,
+  TreeView,
   Uri,
   WorkspaceConfiguration,
 } from 'vscode';
