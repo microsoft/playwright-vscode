@@ -24,20 +24,16 @@ export type DebuggerError = { error: string, location: DebuggerLocation };
 const debugSessions = new Map<string, vscodeTypes.DebugSession>();
 
 export class DebugHighlight {
-  private _vscode: vscodeTypes.VSCode;
   private _errorInDebugger: vscodeTypes.EventEmitter<DebuggerError>;
   readonly onErrorInDebugger: vscodeTypes.Event<DebuggerError>;
+  private _disposables: vscodeTypes.Disposable[] = [];
 
   constructor(vscode: vscodeTypes.VSCode) {
-    this._vscode = vscode;
     this._errorInDebugger = new vscode.EventEmitter();
     this.onErrorInDebugger = this._errorInDebugger.event;
-  }
 
-  activate(context: vscodeTypes.ExtensionContext) {
-    const vscode = this._vscode;
     const self = this;
-    const disposables = [
+    this._disposables = [
       vscode.debug.onDidStartDebugSession(session => {
         if (isPlaywrightSession(session))
           debugSessions.set(session.id, session);
@@ -98,9 +94,13 @@ export class DebugHighlight {
         }
       }),
     ];
-    context.subscriptions.push(...disposables);
   }
 
+  dispose() {
+    for (const d of this._disposables)
+      d?.dispose?.();
+    this._disposables = [];
+  }
 }
 
 export type StackFrame = {

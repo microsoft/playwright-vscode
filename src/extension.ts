@@ -17,7 +17,6 @@
 import path from 'path';
 import StackUtils from 'stack-utils';
 import { DebugHighlight } from './debugHighlight';
-import { installPlaywright } from './installer';
 import { Entry } from './oopReporter';
 import { PlaywrightTest, TestListener } from './playwrightTest';
 import type { TestError } from './reporter';
@@ -53,6 +52,7 @@ export async function activate(context: vscodeTypes.ExtensionContext) {
 
 export class Extension {
   private _vscode: vscodeTypes.VSCode;
+  private _disposables: vscodeTypes.Disposable[] = [];
 
   // Global test item map.
   private _testTree: TestTree;
@@ -101,31 +101,29 @@ export class Extension {
     this._playwrightTest = new PlaywrightTest(this._reusedBrowser, this._isUnderTest);
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
+    this._testController.refreshHandler = () => this._rebuildModel(true).then(() => {});
     this._testTree = new TestTree(vscode, this._testController);
     this._debugHighlight = new DebugHighlight(vscode);
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
   }
 
+  dispose() {
+    for (const d of this._disposables)
+      d?.dispose?.();
+  }
+
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
-    this._sidebarView = new SidebarViewProvider(vscode, context);
-    const disposables = [
+    this._sidebarView = new SidebarViewProvider(vscode);
+    this._disposables = [
+      this._sidebarView,
+      this._debugHighlight,
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
         this._rebuildModel(false);
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         this._updateVisibleEditorItems();
-      }),
-      vscode.commands.registerCommand('pw.extension.refreshTests', async () => {
-        const configs = await this._rebuildModel(true);
-        if (!configs.length) {
-          vscode.window.showWarningMessage('No Playwright Test config files found.');
-          return;
-        }
-      }),
-      vscode.commands.registerCommand('pw.extension.install', () => {
-        installPlaywright(this._vscode);
       }),
       vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
         if (!this._models.length) {
@@ -155,11 +153,10 @@ export class Extension {
       this._reusedBrowser,
     ];
     this._reusedBrowser.setReuseBrowserForTests(this._sidebarView.reuseBrowser());
-    this._debugHighlight.activate(context);
     await this._rebuildModel(false);
 
     const fileSystemWatcher = this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mjs}');
-    disposables.push(fileSystemWatcher);
+    this._disposables.push(fileSystemWatcher);
     const rebuildModelForConfig = (uri: vscodeTypes.Uri) => {
       // TODO: parse .gitignore
       if (uri.fsPath.includes('node_modules'))
@@ -171,7 +168,7 @@ export class Extension {
     fileSystemWatcher.onDidChange(rebuildModelForConfig);
     fileSystemWatcher.onDidCreate(rebuildModelForConfig);
     fileSystemWatcher.onDidDelete(rebuildModelForConfig);
-    context.subscriptions.push(...disposables);
+    context.subscriptions.push(this);
   }
 
   private async _rebuildModel(showWarnings: boolean): Promise<vscodeTypes.Uri[]> {
