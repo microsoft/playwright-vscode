@@ -15,119 +15,104 @@
  */
 
 import { ChildProcess, spawn } from 'child_process';
-import { PlaywrightTest, TestConfig } from './playwrightTest';
-import { SidebarViewProvider } from './sidebarView';
-import { TestModel } from './testModel';
-import { createGuid } from './utils';
+import { TestConfig } from './playwrightTest';
+import { TestModel, TestProject } from './testModel';
+import { createGuid, findNode } from './utils';
 import * as vscodeTypes from './vscodeTypes';
+import path from 'path';
+import fs from 'fs';
+import EventEmitter from 'events';
 
 export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
-  private _sidebarView!: SidebarViewProvider;
-  private _playwrightTest: PlaywrightTest;
-  private _serverProcess: ChildProcess | undefined;
   private _selectorExplorerBox: vscodeTypes.InputBox | undefined;
+  private _browserServerWS: string | undefined;
+  private _showReuseBrowserForTests = false;
+  private _backend: Backend | undefined;
 
-  constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext, sidebarView: SidebarViewProvider, playwrightTest: PlaywrightTest) {
+  constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
-    this._sidebarView = sidebarView;
-    this._playwrightTest = playwrightTest;
-    const disposables = [
-      this._sidebarView.onDidChangeReuseBrowser(async reuseBrowser => {
-        if (!reuseBrowser)
-          this.stop();
-      }),
-      this,
-    ];
-    context.subscriptions.push(...disposables);
   }
 
   dispose() {
     this.stop();
   }
 
-  async startIfNeeded(config: TestConfig) {
-    if (this._selectorExplorerBox) {
-      this._selectorExplorerBox.dispose();
-      this._selectorExplorerBox = undefined;
-    }
+  setReuseBrowserForTests(enabled: boolean) {
+    this._showReuseBrowserForTests = enabled;
+  }
 
-    if (!this._sidebarView.reuseBrowser() || this._serverProcess)
+  async startIfNeeded(config: TestConfig) {
+    // Unconditionally close selector dialog, it might send inspect(enabled: false).
+    if (this._backend) {
+      await this._cleanupModes();
       return;
+    }
 
     if (config.version < 1.25) {
       this._vscode.window.showErrorMessage(`Playwright v1.25+ is required for browser reuse, v${config.version} found`);
       return;
     }
-    const node = await this._playwrightTest.findNode();
+    const node = await findNode();
     const allArgs = [
       config.cli,
       'run-server',
       '--reuse-browser',
       `--path=/${createGuid()}`
     ];
-    this._serverProcess = spawn(node, allArgs, {
+    const serverProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
       env: { ...process.env, PW_CODEGEN_NO_INSPECTOR: '1' },
     });
 
-    this._serverProcess.stdout?.on('data', () => {});
-    this._serverProcess.stderr?.on('data', () => {});
-    this._serverProcess.on('exit', () => {
-      this._setBrowserServerWS(undefined);
-      this._serverProcess = undefined;
+    serverProcess.stdout?.on('data', () => {});
+    serverProcess.stderr?.on('data', () => {});
+    serverProcess.on('exit', () => {
+      this._browserServerWS = undefined;
+      this._backend = undefined;
     });
-    this._serverProcess.on('error', error => {
+    serverProcess.on('error', error => {
       this._vscode.window.showErrorMessage(error.message);
       this.stop();
     });
 
-    await new Promise<void>((f, r) => {
-      this._serverProcess!.on('exit', () => f());
-      this._serverProcess!.on('message', (message: any) => {
-        if (message.method === 'ready') {
-          this._setBrowserServerWS(message.params.wsEndpoint);
-          f();
-          return;
-        }
-
-        if (message.method === 'inspectRequested') {
-          if (this._selectorExplorerBox)
-            this._selectorExplorerBox.value = message.params.selector;
-          return;
-        }
-
-        if (message.method === 'error') {
-          console.error(message.params.error);
-          return;
-        }
-      });
+    this._backend = new Backend(serverProcess);
+    this._backend.on('inspectRequested', params => {
+      if (this._selectorExplorerBox)
+        this._selectorExplorerBox.value = params.selector;
     });
 
+    await new Promise<void>(f => {
+      serverProcess!.on('exit', () => f());
+      this._backend!.on('ready', params => {
+        this._browserServerWS = params.wsEndpoint;
+        f();
+      });
+    });
   }
 
-  private _setBrowserServerWS(wsEndpoint: string | undefined) {
-    this._playwrightTest.setBrowserServerWS(wsEndpoint);
+  browserServerEnv(): NodeJS.ProcessEnv | undefined {
+    return this._showReuseBrowserForTests && this._browserServerWS ? {
+      PW_TEST_REUSE_CONTEXT: '1',
+      PW_TEST_CONNECT_WS_ENDPOINT: this._browserServerWS,
+    } : undefined;
   }
 
   async inspect(models: TestModel[]) {
-    if (!this._serverProcess)
-      await this.startIfNeeded(models[0].config);
+    await this.startIfNeeded(models[0].config);
+    await this._backend?.setMode({ mode: 'inspecting' });
 
-    if (this._selectorExplorerBox)
-      this._selectorExplorerBox.dispose();
-    this._send('inspect', { enabled: true });
     this._selectorExplorerBox = this._vscode.window.createInputBox();
     this._selectorExplorerBox.title = 'Pick selector';
     this._selectorExplorerBox.value = '';
     this._selectorExplorerBox.prompt = 'Accept to copy selector into clipboard';
     this._selectorExplorerBox.ignoreFocusOut = true;
     this._selectorExplorerBox.onDidChangeValue(selector => {
-      this._send('highlight', { selector });
+      this._backend?.highlight({ selector }).catch(() => {});
     });
     this._selectorExplorerBox.onDidHide(() => {
-      this._send('inspect', { enabled: false });
+      this._backend?.setMode({ mode: 'none' }).catch(() => {});
       this._selectorExplorerBox = undefined;
     });
     this._selectorExplorerBox.onDidAccept(() => {
@@ -137,12 +122,123 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._selectorExplorerBox.show();
   }
 
-  stop() {
-    this._send('kill');
-    this._serverProcess = undefined;
+  async record(models: TestModel[]) {
+    await this._vscode.window.withProgress({
+      location: this._vscode.ProgressLocation.Notification,
+      title: 'Recording Playwright script',
+      cancellable: true
+    }, async (progress, token) => this._doRecord(models[0], token));
   }
 
-  private _send(method: string, params = {}) {
-    this._serverProcess?.send({ method, params });
+  private async _doRecord(model: TestModel, token: vscodeTypes.CancellationToken) {
+    const [, file] = await Promise.all([
+      this.startIfNeeded(model.config),
+      this._createFileForNewTest(model),
+    ]);
+
+    await new Promise(f => {
+      this._backend?.setMode({ mode: 'recording', file, language: 'test' });
+      token.onCancellationRequested(f);
+    });
+    await this._backend?.setMode({ mode: 'none' });
+  }
+
+  private async _createFileForNewTest(model: TestModel) {
+    const project = model.projects.values().next().value as TestProject;
+    if (!project)
+      return;
+    let file;
+    for (let i = 1; i < 100; ++i) {
+      file = path.join(project.testDir, `test-${i}.spec.ts`);
+      if (fs.existsSync(file))
+        continue;
+      break;
+    }
+    if (!file)
+      return;
+
+    await fs.promises.writeFile(file, `import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  // Recording...
+});`);
+
+    const document = await this._vscode.workspace.openTextDocument(file);
+    await this._vscode.window.showTextDocument(document);
+    return file;
+  }
+
+  async willRunTests(config: TestConfig) {
+    if (this._showReuseBrowserForTests)
+      await this.startIfNeeded(config);
+    this._backend?.setAutoClose({ enabled: false });
+  }
+
+  async didRunTests(config: TestConfig) {
+    this._backend?.setAutoClose({ enabled: true });
+  }
+
+  private async _cleanupModes() {
+    // This won't wait for setMode(none).
+    if (this._selectorExplorerBox) {
+      this._selectorExplorerBox.dispose();
+      this._selectorExplorerBox = undefined;
+    }
+    // This will though.
+    await this._backend?.setMode({ mode: 'none' });
+  }
+
+  stop() {
+    this._backend?.kill();
+    this._backend = undefined;
+  }
+}
+
+class Backend extends EventEmitter {
+  private _serverProcess: ChildProcess;
+  private static _lastId = 0;
+  private _callbacks = new Map<number, { fulfill: (a: any) => void, reject: (e: Error) => void }>();
+
+  constructor(serverProcess: ChildProcess) {
+    super();
+    this._serverProcess = serverProcess;
+    this._serverProcess!.on('message', (message: any) => {
+      if (!message.id) {
+        this.emit(message.method, message.params);
+        return;
+      }
+      const pair = this._callbacks.get(message.id);
+      if (!pair)
+        return;
+      this._callbacks.delete(message.id);
+      if ('error' in message)
+        pair.reject(new Error(message.error));
+      else
+        pair.fulfill(message.result);
+    });
+  }
+
+  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', language?: string, file?: string }) {
+    this._send('setMode', params);
+  }
+
+  async setAutoClose(params: { enabled: boolean }) {
+    this._send('setAutoClose', params);
+  }
+
+  async highlight(params: { selector: string }) {
+    this._send('highlight', params);
+  }
+
+  async kill() {
+    this._send('kill');
+  }
+
+  private _send(method: string, params: any = {}): Promise<any> {
+    return new Promise((fulfill, reject) => {
+      const id = ++Backend._lastId;
+      this._serverProcess?.send({ id, method, params });
+      this._callbacks.set(id, { fulfill, reject });
+    });
   }
 }

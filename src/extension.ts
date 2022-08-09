@@ -20,7 +20,6 @@ import { DebugHighlight } from './debugHighlight';
 import { installPlaywright } from './installer';
 import { Entry } from './oopReporter';
 import { PlaywrightTest, TestListener } from './playwrightTest';
-import { Recorder } from './recorder';
 import type { TestError } from './reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SidebarViewProvider } from './sidebarView';
@@ -75,7 +74,6 @@ export class Extension {
   private _projectsScheduledToRun: TestProject[] | undefined;
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
-  private _recorder: Recorder;
   private _sidebarView!: SidebarViewProvider;
   private _reusedBrowser!: ReusedBrowser;
 
@@ -99,8 +97,8 @@ export class Extension {
       },
     });
 
-    this._playwrightTest = new PlaywrightTest(this._isUnderTest);
-    this._recorder = new Recorder(this._vscode, this._playwrightTest);
+    this._reusedBrowser = new ReusedBrowser(this._vscode);
+    this._playwrightTest = new PlaywrightTest(this._reusedBrowser, this._isUnderTest);
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testTree = new TestTree(vscode, this._testController);
@@ -112,7 +110,6 @@ export class Extension {
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
     this._sidebarView = new SidebarViewProvider(vscode, context);
-    this._reusedBrowser = new ReusedBrowser(vscode, context, this._sidebarView, this._playwrightTest);
     const disposables = [
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
         this._rebuildModel(false);
@@ -127,13 +124,6 @@ export class Extension {
           return;
         }
       }),
-      vscode.commands.registerCommand('pw.extension.command.recordTest', async () => {
-        if (!this._models.length) {
-          vscode.window.showWarningMessage('No Playwright tests found.');
-          return;
-        }
-        this._recorder.record(this._models);
-      }),
       vscode.commands.registerCommand('pw.extension.install', () => {
         installPlaywright(this._vscode);
       }),
@@ -142,11 +132,17 @@ export class Extension {
           vscode.window.showWarningMessage('No Playwright tests found.');
           return;
         }
-        if (!this._sidebarView.reuseBrowser()) {
-          vscode.window.showWarningMessage(`'Show & reuse browser' must be enabled`);
+        await this._reusedBrowser.inspect(this._models);
+      }),
+      vscode.commands.registerCommand('pw.extension.command.record', async () => {
+        if (!this._models.length) {
+          vscode.window.showWarningMessage('No Playwright tests found.');
           return;
         }
-        await this._reusedBrowser.inspect(this._models);
+        await this._reusedBrowser.record(this._models);
+      }),
+      this._sidebarView.onDidChangeReuseBrowser(reuseBrowser => {
+        this._reusedBrowser.setReuseBrowserForTests(reuseBrowser);
       }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
@@ -156,8 +152,9 @@ export class Extension {
       }),
       this._testController,
       this._workspaceObserver,
-      this._recorder,
+      this._reusedBrowser,
     ];
+    this._reusedBrowser.setReuseBrowserForTests(this._sidebarView.reuseBrowser());
     this._debugHighlight.activate(context);
     await this._rebuildModel(false);
 
@@ -212,7 +209,9 @@ export class Extension {
         continue;
       }
 
-      const model = new TestModel(this._vscode, this._playwrightTest, workspaceFolderPath, configFileUri.fsPath, playwrightInfo);
+      const model = new TestModel(this._vscode, this._playwrightTest, workspaceFolderPath, configFileUri.fsPath, playwrightInfo, () => {
+        return this._vscode.workspace.getConfiguration('playwright').get('env', {});
+      });
       this._models.push(model);
       this._testTree.addModel(model);
       await model.listFiles();
@@ -485,13 +484,10 @@ located next to Run / Debug Tests toolbar buttons.`);
       },
     };
 
-    if (isDebug) {
+    if (isDebug)
       await model.debugTests(projects, locations, testListener, parametrizedTestTitle, testRun.token);
-    } else {
-      // Start the browser server on the first run when setting is enabled.
-      await this._reusedBrowser.startIfNeeded(model.config);
+    else
       await model.runTests(projects, locations, testListener, parametrizedTestTitle, headed, testRun.token);
-    }
   }
 
   private async _updateVisibleEditorItems() {

@@ -68,18 +68,18 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
       return Promise.resolve([]);
 
     const result: vscodeTypes.TreeItem[] = [
-      this._createCommandItem('Pick selector\u2026', 'inspect', pickSelectorIcon),
-      this._createCommandItem('Record new test\u2026', 'recordTest', recordIcon),
+      this._createCommandItem('Pick selector\u2026', 'pw.extension.command.inspect', pickSelectorIcon),
+      this._createCommandItem('Record new test\u2026', 'pw.extension.command.record', recordIcon),
       this._createCheckboxSettingItem('Show & reuse browser', 'reuseBrowser'),
     ];
     return Promise.resolve(result);
   }
 
-  private _createCommandItem(title: string, commandName: string, icon: IconFactory): vscodeTypes.TreeItem {
+  private _createCommandItem(title: string, command: string, icon: IconFactory): vscodeTypes.TreeItem {
     const treeItem = new this._vscode.TreeItem(title);
     treeItem.command = {
       title,
-      command: `pw.extension.command.${commandName}`,
+      command,
     };
     treeItem.iconPath = iconPath(this._vscode, icon);
     return treeItem;
