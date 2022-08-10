@@ -23,6 +23,26 @@ import path from 'path';
 import fs from 'fs';
 import EventEmitter from 'events';
 
+export type Snapshot = {
+  browsers: BrowserSnapshot[];
+};
+
+export type BrowserSnapshot = {
+  guid: string;
+  name: string;
+  contexts: ContextSnapshot[];
+};
+
+export type ContextSnapshot = {
+  guid: string;
+  pages: PageSnapshot[];
+};
+
+export type PageSnapshot = {
+  guid: string;
+  url: string;
+};
+
 export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
   private _browserServerWS: string | undefined;
@@ -30,6 +50,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _backend: Backend | undefined;
   private _cancelRecording: (() => void) | undefined;
   private _updateOrCancelInspecting: ((params: { selector?: string, cancel?: boolean }) => void) | undefined;
+  private _isRunningTests = false;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -78,6 +99,14 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._backend.on('inspectRequested', params => {
       this._updateOrCancelInspecting?.({ selector: params.selector });
     });
+    this._backend.on('browsersChanged', params => {
+      const pages: PageSnapshot[] = [];
+      for (const browser of params.browsers) {
+        for (const context of browser.contexts)
+          pages.push(...context.pages);
+      }
+      this._pagesUpdated(pages);
+    });
 
     await new Promise<void>(f => {
       serverProcess!.on('exit', () => f());
@@ -86,6 +115,16 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         f();
       });
     });
+  }
+
+  private _pagesUpdated(pages: PageSnapshot[]) {
+    if (pages.length)
+      return;
+    if (this._isRunningTests)
+      return;
+    if (!this._cancelRecording && !this._updateOrCancelInspecting)
+      return;
+    this._reset();
   }
 
   browserServerEnv(): NodeJS.ProcessEnv | undefined {
@@ -198,9 +237,11 @@ test('test', async ({ page }) => {
       return;
     await this._startBackendIfNeeded(config);
     this._backend?.setAutoClose({ enabled: false });
+    this._isRunningTests = true;
   }
 
   async didRunTests(config: TestConfig) {
+    this._isRunningTests = false;
     this._backend?.setAutoClose({ enabled: true });
   }
 
