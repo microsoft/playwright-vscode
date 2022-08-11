@@ -25,10 +25,11 @@ import EventEmitter from 'events';
 
 export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
-  private _selectorExplorerBox: vscodeTypes.InputBox | undefined;
   private _browserServerWS: string | undefined;
   private _shouldReuseBrowserForTests = false;
   private _backend: Backend | undefined;
+  private _cancelRecording: (() => void) | undefined;
+  private _updateOrCancelInspecting: ((params: { selector?: string, cancel?: boolean }) => void) | undefined;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -38,14 +39,14 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this.stop();
   }
 
-  setReuseBrowserForTests(enabled: boolean) {
+  setReuseBrowserForRunningTests(enabled: boolean) {
     this._shouldReuseBrowserForTests = enabled;
   }
 
-  async startIfNeeded(config: TestConfig) {
+  private async _startBackendIfNeeded(config: TestConfig) {
     // Unconditionally close selector dialog, it might send inspect(enabled: false).
     if (this._backend) {
-      await this._cleanupModes();
+      await this._reset();
       return;
     }
 
@@ -75,8 +76,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
     this._backend = new Backend(serverProcess);
     this._backend.on('inspectRequested', params => {
-      if (this._selectorExplorerBox)
-        this._selectorExplorerBox.value = params.selector;
+      this._updateOrCancelInspecting?.({ selector: params.selector });
     });
 
     await new Promise<void>(f => {
@@ -99,29 +99,31 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     if (!this._checkVersion(models[0].config, 'selector picker'))
       return;
 
-    await this.startIfNeeded(models[0].config);
+    await this._startBackendIfNeeded(models[0].config);
     await this._backend?.setMode({ mode: 'inspecting' });
 
-    this._selectorExplorerBox = this._vscode.window.createInputBox();
-    this._selectorExplorerBox.title = 'Pick selector';
-    this._selectorExplorerBox.value = '';
-    this._selectorExplorerBox.prompt = 'Accept to copy selector into clipboard';
-    this._selectorExplorerBox.ignoreFocusOut = true;
-    this._selectorExplorerBox.onDidChangeValue(selector => {
+    const selectorExplorerBox = this._vscode.window.createInputBox();
+    selectorExplorerBox.title = 'Pick selector';
+    selectorExplorerBox.value = '';
+    selectorExplorerBox.prompt = 'Accept to copy selector into clipboard';
+    selectorExplorerBox.ignoreFocusOut = true;
+    selectorExplorerBox.onDidChangeValue(selector => {
       this._backend?.highlight({ selector }).catch(() => {});
     });
-    this._selectorExplorerBox.onDidHide(() => {
-      this._backend?.setMode({ mode: 'none' }).catch(() => {});
-      this._selectorExplorerBox = undefined;
+    selectorExplorerBox.onDidHide(() => this._reset().catch(() => {}));
+    selectorExplorerBox.onDidAccept(() => {
+      this._vscode.env.clipboard.writeText(selectorExplorerBox!.value);
     });
-    this._selectorExplorerBox.onDidAccept(() => {
-      this._vscode.env.clipboard.writeText(this._selectorExplorerBox!.value);
-      this._selectorExplorerBox?.dispose();
-    });
-    this._selectorExplorerBox.show();
+    selectorExplorerBox.show();
+    this._updateOrCancelInspecting = params => {
+      if (params.cancel)
+        selectorExplorerBox.dispose();
+      else if (params.selector)
+        selectorExplorerBox.value = params.selector;
+    };
   }
 
-  async record(models: TestModel[]) {
+  async record(models: TestModel[], reset: boolean) {
     if (!this._checkVersion(models[0].config))
       return;
 
@@ -129,7 +131,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       location: this._vscode.ProgressLocation.Notification,
       title: 'Recording Playwright script',
       cancellable: true
-    }, async (progress, token) => this._doRecord(models[0], token));
+    }, async (progress, token) => this._doRecord(models[0], reset, token));
   }
 
   hideHighlight(): boolean {
@@ -145,17 +147,23 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return true;
   }
 
-  private async _doRecord(model: TestModel, token: vscodeTypes.CancellationToken) {
+  private async _doRecord(model: TestModel, reset: boolean, token: vscodeTypes.CancellationToken) {
     const [, file] = await Promise.all([
-      this.startIfNeeded(model.config),
+      this._startBackendIfNeeded(model.config),
       this._createFileForNewTest(model),
     ]);
 
-    await new Promise(f => {
-      this._backend?.setMode({ mode: 'recording', file, language: 'test' });
-      token.onCancellationRequested(f);
-    });
-    await this._backend?.setMode({ mode: 'none' });
+    if (reset) {
+      await this._backend?.resetForReuse();
+      await this._backend?.navigate({ url: 'about:blank' });
+    }
+
+    await this._backend?.setMode({ mode: 'recording', file, language: 'test' });
+    await Promise.race([
+      new Promise<void>(f => token.onCancellationRequested(f)),
+      new Promise<void>(f => this._cancelRecording = f),
+    ]);
+    await this._reset();
   }
 
   private async _createFileForNewTest(model: TestModel) {
@@ -188,7 +196,7 @@ test('test', async ({ page }) => {
       return;
     if (!this._checkVersion(config, 'Show & reuse browser'))
       return;
-    await this.startIfNeeded(config);
+    await this._startBackendIfNeeded(config);
     this._backend?.setAutoClose({ enabled: false });
   }
 
@@ -196,12 +204,13 @@ test('test', async ({ page }) => {
     this._backend?.setAutoClose({ enabled: true });
   }
 
-  private async _cleanupModes() {
+  private async _reset() {
     // This won't wait for setMode(none).
-    if (this._selectorExplorerBox) {
-      this._selectorExplorerBox.dispose();
-      this._selectorExplorerBox = undefined;
-    }
+    this._updateOrCancelInspecting?.({ cancel: true });
+    this._updateOrCancelInspecting = undefined;
+    this._cancelRecording?.();
+    this._cancelRecording = undefined;
+
     // This will though.
     await this._backend?.setMode({ mode: 'none' });
   }
@@ -209,6 +218,7 @@ test('test', async ({ page }) => {
   stop() {
     this._backend?.kill();
     this._backend = undefined;
+    this._reset().catch(() => {});
   }
 }
 
@@ -234,6 +244,14 @@ class Backend extends EventEmitter {
       else
         pair.fulfill(message.result);
     });
+  }
+
+  async resetForReuse() {
+    await this._send('resetForReuse');
+  }
+
+  async navigate(params: { url: string }) {
+    await this._send('navigate', params);
   }
 
   async setMode(params: { mode: 'none' | 'inspecting' | 'recording', language?: string, file?: string }) {
