@@ -17,6 +17,7 @@
 import path from 'path';
 import StackUtils from 'stack-utils';
 import { DebugHighlight } from './debugHighlight';
+import { installPlaywright } from './installer';
 import { Entry } from './oopReporter';
 import { PlaywrightTest, TestListener } from './playwrightTest';
 import type { TestError } from './reporter';
@@ -124,6 +125,9 @@ export class Extension {
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         this._updateVisibleEditorItems();
+      }),
+      vscode.commands.registerCommand('pw.extension.install', () => {
+        installPlaywright(this._vscode);
       }),
       vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
         if (!this._models.length) {
