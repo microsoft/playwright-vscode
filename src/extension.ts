@@ -116,7 +116,7 @@ export class Extension {
 
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
-    this._sidebarView = new SidebarViewProvider(vscode);
+    this._sidebarView = new SidebarViewProvider(vscode, this._reusedBrowser);
     this._disposables = [
       this._sidebarView,
       this._debugHighlight,
@@ -136,15 +136,19 @@ export class Extension {
         }
         await this._reusedBrowser.inspect(this._models);
       }),
-      vscode.commands.registerCommand('pw.extension.command.record', async () => {
+      vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
         if (!this._models.length) {
           vscode.window.showWarningMessage('No Playwright tests found.');
           return;
         }
-        await this._reusedBrowser.record(this._models);
+        await this._reusedBrowser.record(this._models, true);
       }),
-      this._sidebarView.onDidChangeReuseBrowser(reuseBrowser => {
-        this._reusedBrowser.setReuseBrowserForTests(reuseBrowser);
+      vscode.commands.registerCommand('pw.extension.command.recordFromHere', async () => {
+        if (!this._models.length) {
+          vscode.window.showWarningMessage('No Playwright tests found.');
+          return;
+        }
+        await this._reusedBrowser.record(this._models, false);
       }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
@@ -156,7 +160,6 @@ export class Extension {
       this._workspaceObserver,
       this._reusedBrowser,
     ];
-    this._reusedBrowser.setReuseBrowserForTests(this._sidebarView.reuseBrowser());
     await this._rebuildModel(false);
 
     const fileSystemWatcher = this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mjs}');

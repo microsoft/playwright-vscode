@@ -14,30 +14,28 @@
  * limitations under the License.
  */
 
+import { ReusedBrowser } from './reusedBrowser';
 import * as vscodeTypes from './vscodeTypes';
 
 export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeTypes.TreeItem>, vscodeTypes.Disposable {
   private _onDidChangeTreeData: vscodeTypes.EventEmitter<vscodeTypes.TreeItem | undefined | null | void>;
   readonly onDidChangeTreeData: vscodeTypes.Event<vscodeTypes.TreeItem | undefined | null | void>;
-  private _onDidChangeReuseBrowser: vscodeTypes.EventEmitter<boolean>;
-  readonly onDidChangeReuseBrowser: vscodeTypes.Event<boolean>;
   private _vscode: vscodeTypes.VSCode;
   private _disposables: vscodeTypes.Disposable[];
   private _disposed = false;
+  private _reusedBrowser: ReusedBrowser;
 
-  constructor(vscode: vscodeTypes.VSCode) {
+  constructor(vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser) {
     this._vscode = vscode;
+    this._reusedBrowser = reusedBrowser;
     this._onDidChangeTreeData = new this._vscode.EventEmitter<vscodeTypes.TreeItem | undefined | null | void>();
     this.onDidChangeTreeData = this._onDidChangeTreeData.event;
-
-    this._onDidChangeReuseBrowser = new this._vscode.EventEmitter<boolean>();
-    this.onDidChangeReuseBrowser = this._onDidChangeReuseBrowser.event;
 
     this._disposables = [
       vscode.window.registerTreeDataProvider('pw.extension.settingsView', this),
       vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('playwright.reuseBrowser')) {
-          this._onDidChangeReuseBrowser.fire(this.reuseBrowser());
+          this._reusedBrowser.setReuseBrowserForRunningTests(this._reuseBrowser());
           this._onDidChangeTreeData.fire();
         }
       }),
@@ -48,6 +46,7 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
       }),
       vscode.window.onDidChangeActiveColorTheme(() => this._onDidChangeTreeData.fire()),
     ];
+    this._reusedBrowser.setReuseBrowserForRunningTests(this._reuseBrowser());
   }
 
   dispose() {
@@ -61,21 +60,27 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
     return element;
   }
 
-  reuseBrowser(): boolean {
+  private _reuseBrowser(): boolean {
     const configuration = this._vscode.workspace.getConfiguration('playwright');
     return configuration.get('reuseBrowser') as boolean;
   }
 
-  getChildren(element?: vscodeTypes.TreeItem): Thenable<vscodeTypes.TreeItem[]> {
-    if (element || this._disposed)
-      return Promise.resolve([]);
+  async getChildren(element?: vscodeTypes.TreeItem): Promise<vscodeTypes.TreeItem[]> {
+    if (this._disposed)
+      return [];
 
-    const result: vscodeTypes.TreeItem[] = [
-      this._createCommandItem('Pick selector\u2026', 'pw.extension.command.inspect', pickSelectorIcon),
-      this._createCommandItem('Record new test\u2026', 'pw.extension.command.record', recordIcon),
-      this._createCheckboxSettingItem('Show & reuse browser', 'reuseBrowser'),
-    ];
-    return Promise.resolve(result);
+    // Root elements.
+    if (!element) {
+      const result: vscodeTypes.TreeItem[] = [
+        this._createCommandItem('Pick selector\u2026', 'pw.extension.command.inspect', pickSelectorIcon),
+        this._createCommandItem('Record new\u2026', 'pw.extension.command.recordNew', recordIcon),
+        this._createCommandItem('Record from here\u2026', 'pw.extension.command.recordFromHere', recordIcon),
+        this._createCheckboxSettingItem('Show & reuse browser', 'reuseBrowser'),
+      ];
+      return result;
+    }
+
+    return [];
   }
 
   private _createCommandItem(title: string, command: string, icon: IconFactory): vscodeTypes.TreeItem {

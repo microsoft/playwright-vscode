@@ -35,9 +35,15 @@
       },
       {
         "category": "Test",
-        "command": "pw.extension.command.record",
+        "command": "pw.extension.command.recordNew",
         "icon": "$(record)",
-        "title": "Record Playwright Test"
+        "title": "Record new"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.command.recordFromHere",
+        "icon": "$(record)",
+        "title": "Record from here"
       },
       {
         "category": "Test",
