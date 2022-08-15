@@ -22,6 +22,7 @@ import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
 import fs from 'fs';
 import EventEmitter from 'events';
+import { installBrowsers } from './installer';
 
 export type Snapshot = {
   browsers: BrowserSnapshot[];
@@ -139,7 +140,12 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
 
     await this._startBackendIfNeeded(models[0].config);
-    await this._backend?.setMode({ mode: 'inspecting' });
+    try {
+      await this._backend?.setMode({ mode: 'inspecting' });
+    } catch (e) {
+      showExceptionAsUserError(this._vscode, models[0], e as Error);
+      return;
+    }
 
     const selectorExplorerBox = this._vscode.window.createInputBox();
     selectorExplorerBox.title = 'Pick selector';
@@ -197,7 +203,14 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       await this._backend?.navigate({ url: 'about:blank' });
     }
 
-    await this._backend?.setMode({ mode: 'recording', file, language: 'test' });
+    try {
+      await this._backend?.setMode({ mode: 'recording', file, language: 'test' });
+    } catch (e) {
+      showExceptionAsUserError(this._vscode, model, e as Error);
+      this._reset();
+      return;
+    }
+
     await Promise.race([
       new Promise<void>(f => token.onCancellationRequested(f)),
       new Promise<void>(f => this._cancelRecording = f),
@@ -322,4 +335,11 @@ class Backend extends EventEmitter {
       this._callbacks.set(id, { fulfill, reject });
     });
   }
+}
+
+function showExceptionAsUserError(vscode: vscodeTypes.VSCode, model: TestModel, error: Error) {
+  if (error.message.includes('Looks like Playwright Test or Playwright'))
+    installBrowsers(vscode, model);
+  else
+    vscode.window.showErrorMessage(error.message);
 }

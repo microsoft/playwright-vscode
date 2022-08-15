@@ -17,7 +17,7 @@
 import path from 'path';
 import StackUtils from 'stack-utils';
 import { DebugHighlight } from './debugHighlight';
-import { installPlaywright } from './installer';
+import { installBrowsers, installPlaywright } from './installer';
 import { Entry } from './oopReporter';
 import { PlaywrightTest, TestListener } from './playwrightTest';
 import type { TestError } from './reporter';
@@ -126,8 +126,20 @@ export class Extension {
       vscode.window.onDidChangeVisibleTextEditors(() => {
         this._updateVisibleEditorItems();
       }),
-      vscode.commands.registerCommand('pw.extension.install', () => {
-        installPlaywright(this._vscode);
+      vscode.commands.registerCommand('pw.extension.install', async () => {
+        await installPlaywright(this._vscode);
+      }),
+      vscode.commands.registerCommand('pw.extension.installBrowsers', async () => {
+        if (!this._models.length) {
+          vscode.window.showWarningMessage('No Playwright tests found.');
+          return;
+        }
+        // Install each version only once.
+        const versions = new Map<number, TestModel>();
+        for (const model of this._models)
+          versions.set(model.config.version, model);
+        for (const model of versions.values())
+          await installBrowsers(this._vscode, model);
       }),
       vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
         if (!this._models.length) {
@@ -582,7 +594,9 @@ located next to Run / Debug Tests toolbar buttons.`);
   }
 
   private _testMessageForTestError(testItem: vscodeTypes.TestItem, error: TestError): vscodeTypes.TestMessage {
-    const text = error.stack || error.message || error.value!;
+    let text = error.stack || error.message || error.value!;
+    if (text.includes('Looks like Playwright Test or Playwright'))
+      text = `Browser was not installed. Invoke 'Install Playwright Browsers' action to install missing browsers.`;
     const testMessage = this._testMessageFromText(text);
     const location = parseLocationFromStack(testItem, error.stack);
     if (location) {

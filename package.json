@@ -30,6 +30,11 @@
       },
       {
         "category": "Test",
+        "command": "pw.extension.installBrowsers",
+        "title": "Install Playwright Browsers"
+      },
+      {
+        "category": "Test",
         "command": "pw.extension.command.inspect",
         "title": "Pick selector"
       },
