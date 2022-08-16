@@ -40,6 +40,11 @@
       },
       {
         "category": "Test",
+        "command": "pw.extension.command.closeBrowsers",
+        "title": "Close all Playwright browsers"
+      },
+      {
+        "category": "Test",
         "command": "pw.extension.command.recordNew",
         "icon": "$(record)",
         "title": "Record new"
