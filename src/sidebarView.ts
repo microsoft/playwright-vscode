@@ -76,6 +76,7 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
         this._createCommandItem('Record new\u2026', 'pw.extension.command.recordNew', recordIcon),
         this._createCommandItem('Record from here\u2026', 'pw.extension.command.recordFromHere', recordIcon),
         this._createCheckboxSettingItem('Show & reuse browser', 'reuseBrowser'),
+        this._createCommandItem('Close all browsers', 'pw.extension.command.closeBrowsers', closeIcon),
       ];
       return result;
     }
@@ -112,6 +113,7 @@ const empyBoxIcon: IconFactory = (vscode, color) => vscode.Uri.parse(`data:image
 const checkedBoxIcon: IconFactory = (vscode, color) => vscode.Uri.parse(`data:image/svg+xml,<svg fill="${color}" xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M20.95 31.95 35.4 17.5l-2.15-2.15-12.3 12.3L15 21.7l-2.15 2.15ZM9 42q-1.2 0-2.1-.9Q6 40.2 6 39V9q0-1.2.9-2.1Q7.8 6 9 6h30q1.2 0 2.1.9.9.9.9 2.1v30q0 1.2-.9 2.1-.9.9-2.1.9Zm0-3h30V9H9v30ZM9 9v30V9Z"/></svg>`);
 const pickSelectorIcon: IconFactory = (vscode, color) => vscode.Uri.parse(`data:image/svg+xml,<svg fill="${color}" xmlns="http://www.w3.org/2000/svg" width="48" height="48"><path d="M18 42h-7.5c-3 0-4.5-1.5-4.5-4.5v-27C6 7.5 7.5 6 10.5 6h27C42 6 42 10.404 42 10.5V18h-3V9H9v30h9v3Zm27-15-9 6 9 9-3 3-9-9-6 9-6-24 24 6Z"/></svg>`);
 const recordIcon: IconFactory = (vscode, color) => vscode.Uri.parse(`data:image/svg+xml,<svg fill="${color}" xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M22.65 34h3v-8.3H34v-3h-8.35V14h-3v8.7H14v3h8.65ZM24 44q-4.1 0-7.75-1.575-3.65-1.575-6.375-4.3-2.725-2.725-4.3-6.375Q4 28.1 4 23.95q0-4.1 1.575-7.75 1.575-3.65 4.3-6.35 2.725-2.7 6.375-4.275Q19.9 4 24.05 4q4.1 0 7.75 1.575 3.65 1.575 6.35 4.275 2.7 2.7 4.275 6.35Q44 19.85 44 24q0 4.1-1.575 7.75-1.575 3.65-4.275 6.375t-6.35 4.3Q28.15 44 24 44Zm.05-3q7.05 0 12-4.975T41 23.95q0-7.05-4.95-12T24 7q-7.05 0-12.025 4.95Q7 16.9 7 24q0 7.05 4.975 12.025Q16.95 41 24.05 41ZM24 24Z"/></svg>`);
+const closeIcon: IconFactory = (vscode, color) => vscode.Uri.parse(`data:image/svg+xml,<svg fill="${color}" xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path xmlns="http://www.w3.org/2000/svg" d="m12.45 37.65-2.1-2.1L21.9 24 10.35 12.45l2.1-2.1L24 21.9l11.55-11.55 2.1 2.1L26.1 24l11.55 11.55-2.1 2.1L24 26.1Z"/></svg>`);
 
 function iconPath(vscode: vscodeTypes.VSCode, factory: IconFactory): { light: vscodeTypes.Uri, dark: vscodeTypes.Uri } {
   return {
