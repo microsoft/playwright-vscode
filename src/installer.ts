@@ -63,7 +63,7 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
   if (result.includes(installDepsItem))
     args.push('--install-deps');
 
-  terminal.sendText(`npm init --yes playwright@latest -- --quiet ${args.join(' ')}`, true);
+  terminal.sendText(`npm init playwright@latest --yes -- --quiet ${args.join(' ')}`, true);
 }
 
 export async function installBrowsers(vscode: vscodeTypes.VSCode, model: TestModel) {
