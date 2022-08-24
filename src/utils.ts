@@ -88,11 +88,32 @@ function escapeHTML(text: string): string {
   return text.replace(/[&"<>]/g, c => ({ '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' }[c]!));
 }
 
-export async function spawnAsync(executable: string, args: string[], cwd?: string): Promise<string> {
+export function getPnPFilepath(workspaceDir: string): string {
+  return path.join(workspaceDir, '.pnp.cjs');
+}
+export function isPnPWorkspace(workspaceDir: string): boolean {
+  return fs.existsSync(getPnPFilepath(workspaceDir));
+}
+export function getPnPEnvVariables(workspaceDir: string): Record<string,string> {
+  if (!isPnPWorkspace(workspaceDir))
+    return {};
+
+  const pnpFile = getPnPFilepath(workspaceDir);
+  return {
+    NODE_OPTIONS: `--require ${pnpFile}`
+  };
+}
+
+export async function spawnAsync(executable: string, args: string[], cwd: string, additionalEnv?: Record<string, string | undefined>): Promise<string> {
+  const env = {
+    ...process.env,
+    ...additionalEnv
+  };
+
   const childProcess = spawn(executable, args, {
     stdio: 'pipe',
     cwd,
-    env: { ...process.env }
+    env
   });
   let output = '';
   childProcess.stdout.on('data', data => output += data.toString());

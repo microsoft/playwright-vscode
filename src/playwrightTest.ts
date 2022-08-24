@@ -21,7 +21,7 @@ import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams }
 import type { TestError } from './reporter';
 import { ReporterServer } from './reporterServer';
 import { ReusedBrowser } from './reusedBrowser';
-import { findNode, spawnAsync } from './utils';
+import { findNode, getPnPEnvVariables, isPnPWorkspace, spawnAsync } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
 export type TestConfig = {
@@ -66,6 +66,30 @@ export class PlaywrightTest {
   }
 
   async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, cli: string } | null> {
+
+    if (isPnPWorkspace(workspaceFolder)) {
+      try {
+        const pwtCoreInfo = await this._runNode([
+          '-e',
+          'const pnpapi = require("pnpapi"); ' +
+          'const locators = pnpapi.getAllLocators().filter(locator => locator.name === "playwright-core"); ' +
+          'if (locators.length === 0) { process.exit(1); } ' +
+          'const info = pnpapi.getPackageInformation(locators[0]); ' +
+          'console.log(JSON.stringify({version: locators[0].reference, ...info}));'
+        ],
+        path.dirname(configFilePath),
+        getPnPEnvVariables(workspaceFolder));
+
+        const { packageLocation, version } = JSON.parse(pwtCoreInfo);
+        return {
+          cli: path.join(packageLocation, 'lib/cli/cli'),
+          version: parseFloat(version.replace('npm:', ''))
+        };
+      } catch (error) {
+        console.log('unable to use pnp.cjs', error);
+      }
+    }
+
     try {
       const pwtInfo = await this._runNode([
         '-e',
@@ -104,7 +128,7 @@ export class PlaywrightTest {
       // For tests.
       this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright list-files -c ${configFile}`);
     }
-    const output = await this._runNode(allArgs, configFolder);
+    const output = await this._runNode(allArgs, configFolder, getPnPEnvVariables(config.workspaceFolder));
     try {
       return JSON.parse(output) as ConfigListFilesReport;
     } catch (e) {
@@ -171,6 +195,7 @@ export class PlaywrightTest {
         ...(await reporterServer.env()),
         // Don't debug tests when running them.
         NODE_OPTIONS: undefined,
+        ...getPnPEnvVariables(config.workspaceFolder),
         // Reset VSCode's options that affect nested Electron.
         ELECTRON_RUN_AS_NODE: undefined,
         FORCE_COLORS: '1',
@@ -211,24 +236,30 @@ export class PlaywrightTest {
     const reporterServer = new ReporterServer();
     await this._reusedBrowser.willRunTests(config);
     try {
+      const env: Record<string, string | undefined> = {
+        ...process.env,
+        ...settingsEnv,
+        ...this._reusedBrowser.browserServerEnv(),
+        ...(await reporterServer.env()),
+        // Reset VSCode's options that affect nested Electron.
+        ELECTRON_RUN_AS_NODE: undefined,
+        FORCE_COLORS: '1',
+        PW_OUT_OF_PROCESS_DRIVER: '1',
+        PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
+        PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
+        PW_TEST_HTML_REPORT_OPEN: 'never',
+      };
+      const pnpEnvVariables = getPnPEnvVariables(config.workspaceFolder);
+      if (pnpEnvVariables.NODE_OPTIONS)
+        env.NODE_OPTIONS =  pnpEnvVariables.NODE_OPTIONS + ' ' + env.NODE_OPTIONS;
+
+
       await vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
         name: debugSessionName,
         request: 'launch',
         cwd: configFolder,
-        env: {
-          ...process.env,
-          ...settingsEnv,
-          ...this._reusedBrowser.browserServerEnv(),
-          ...(await reporterServer.env()),
-          // Reset VSCode's options that affect nested Electron.
-          ELECTRON_RUN_AS_NODE: undefined,
-          FORCE_COLORS: '1',
-          PW_OUT_OF_PROCESS_DRIVER: '1',
-          PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
-          PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
-          PW_TEST_HTML_REPORT_OPEN: 'never',
-        },
+        env,
         program: config.cli,
         args,
       });
@@ -246,8 +277,8 @@ export class PlaywrightTest {
     return this._testLog.slice();
   }
 
-  private async _runNode(args: string[], cwd: string): Promise<string> {
-    return await spawnAsync(await findNode(), args, cwd);
+  private async _runNode(args: string[], cwd: string, env?: Record<string, string | undefined>): Promise<string> {
+    return await spawnAsync(await findNode(), args, cwd, env);
   }
 }
 
