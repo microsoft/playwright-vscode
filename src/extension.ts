@@ -198,7 +198,7 @@ export class Extension {
     this._workspaceObserver.reset();
     this._models = [];
 
-    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mjs}');
+    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mjs}', '**/node_modules/**');
 
     // Reuse already created run profiles in order to retain their 'selected' status.
     const usedProfiles = new Set<vscodeTypes.TestRunProfile>();
@@ -206,8 +206,6 @@ export class Extension {
     for (const configFileUri of configFiles) {
       const configFilePath = configFileUri.fsPath;
       // TODO: parse .gitignore
-      if (configFilePath.includes('node_modules'))
-        continue;
       if (!this._isUnderTest && configFilePath.includes('test-results'))
         continue;
       // Dogfood support
