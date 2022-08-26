@@ -72,10 +72,11 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
     // Root elements.
     if (!element) {
       const result: vscodeTypes.TreeItem[] = [
-        this._createCommandItem('Pick selector\u2026', 'pw.extension.command.inspect', pickSelectorIcon),
-        this._createCommandItem('Record new\u2026', 'pw.extension.command.recordNew', recordIcon),
-        this._createCommandItem('Record from here\u2026', 'pw.extension.command.recordFromHere', recordIcon),
-        this._createCheckboxSettingItem('Show & reuse browser', 'reuseBrowser'),
+        this._createCheckboxSettingItem('Show browser', 'reuseBrowser'),
+        this._createSeparator(),
+        this._createCommandItem('Pick selector', 'pw.extension.command.inspect', pickSelectorIcon),
+        this._createCommandItem('Record new', 'pw.extension.command.recordNew', recordIcon),
+        this._createCommandItem('Record from here', 'pw.extension.command.recordFromHere', recordIcon),
         this._createCommandItem('Close all browsers', 'pw.extension.command.closeBrowsers', closeIcon),
       ];
       return result;
@@ -91,6 +92,12 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
       command,
     };
     treeItem.iconPath = iconPath(this._vscode, icon);
+    return treeItem;
+  }
+
+  private _createSeparator(): vscodeTypes.TreeItem {
+    const treeItem = new this._vscode.TreeItem('————————');
+    treeItem.tooltip = '';
     return treeItem;
   }
 

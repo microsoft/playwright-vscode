@@ -158,6 +158,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     selectorExplorerBox.onDidHide(() => this._reset().catch(() => {}));
     selectorExplorerBox.onDidAccept(() => {
       this._vscode.env.clipboard.writeText(selectorExplorerBox!.value);
+      selectorExplorerBox.hide();
     });
     selectorExplorerBox.show();
     this._updateOrCancelInspecting = params => {
