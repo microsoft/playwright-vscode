@@ -580,7 +580,7 @@ located next to Run / Debug Tests toolbar buttons.`);
       }
       if (isLog) {
         const [, indent, body] = line.match(/(\s*)(.*)/)!;
-        logMd.push(indent + ' - ' + body);
+        logMd.push(indent + ' - ' + ansiToHtml(body));
       } else {
         md.push(line);
       }

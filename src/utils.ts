@@ -85,7 +85,7 @@ export function ansiToHtml(text: string): string {
 }
 
 function escapeHTML(text: string): string {
-  return text.replace(/[&"<>]/g, c => ({ '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' }[c]!));
+  return text.replace(/[&"<>]/g, c => ({ '&': '&amp;', '"': '&quot;', '<': '<b>&lt;</b>', '>': '<b>&gt;</b>' }[c]!));
 }
 
 export async function spawnAsync(executable: string, args: string[], cwd?: string): Promise<string> {
