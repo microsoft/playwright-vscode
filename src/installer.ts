@@ -31,6 +31,7 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
   options.push(chromiumItem, firefoxItem, webkitItem);
   if (hasQuickPickSeparator)
     options.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
+  options.push(useJavaScriptItem);
   options.push(addActionItem);
   if (process.platform === 'linux') {
     updateInstallDepsPicked();
@@ -58,6 +59,8 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
     args.push('--browser=firefox');
   if (result.includes(webkitItem))
     args.push('--browser=webkit');
+  if (result.includes(useJavaScriptItem))
+    args.push('--lang=js');
   if (result.includes(addActionItem))
     args.push('--gha');
   if (result.includes(installDepsItem))
@@ -127,6 +130,11 @@ const addActionItem: vscodeTypes.QuickPickItem = {
   label: 'Add GitHub Actions workflow',
   picked: true,
   description: '— adds GitHub Actions recipe'
+};
+const useJavaScriptItem: vscodeTypes.QuickPickItem = {
+  label: 'Use JavaScript',
+  picked: false,
+  description: '— use JavaScript (TypeScript is the default)'
 };
 const installDepsItem: vscodeTypes.QuickPickItem = {
   label: 'Install Linux dependencies',
