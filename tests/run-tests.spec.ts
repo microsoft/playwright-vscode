@@ -210,6 +210,24 @@ test('should show error message', async ({}, testInfo) => {
   `);
 });
 
+test('should escape error log', async ({}, testInfo) => {
+  const { testController } = await activate(testInfo.outputDir, {
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test, expect } from '@playwright/test';
+      test('should fail', async () => {
+        throw new Error('\\n========== log ==========\\n<div class="foo bar baz"></div>\\n===============\\n');
+      });
+    `,
+  });
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/fail/);
+  const testRun = await testController.run(testItems);
+
+  expect(testRun.renderLog({ messages: true })).toContain(
+      `<b>&lt;</b>div class=&quot;foo bar baz&quot;<b>&gt;</b><b>&lt;</b>/div<b>&gt;`);
+});
+
 test('should show soft error messages', async ({}, testInfo) => {
   const { testController } = await activate(testInfo.outputDir, {
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
