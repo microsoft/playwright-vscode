@@ -128,9 +128,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._reset();
   }
 
-  browserServerEnv(): NodeJS.ProcessEnv | undefined {
-    return this._shouldReuseBrowserForTests && this._browserServerWS ? {
-      PW_TEST_REUSE_CONTEXT: '1',
+  browserServerEnv(debug: boolean): NodeJS.ProcessEnv | undefined {
+    return (debug || this._shouldReuseBrowserForTests) && this._browserServerWS ? {
+      PW_TEST_REUSE_CONTEXT: this._shouldReuseBrowserForTests ? '1' : undefined,
       PW_TEST_CONNECT_WS_ENDPOINT: this._browserServerWS,
     } : undefined;
   }
@@ -180,9 +180,12 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }, async (progress, token) => this._doRecord(models[0], reset, token));
   }
 
-  hideHighlight(): boolean {
+  highlight(selector: string) {
+    this._backend?.highlight({ selector }).catch(() => {});
+  }
+
+  hideHighlight() {
     this._backend?.hideHighlight().catch(() => {});
-    return !!this._backend;
   }
 
   private _checkVersion(config: TestConfig, message: string = 'this feature'): boolean {
@@ -244,8 +247,8 @@ test('test', async ({ page }) => {
     return file;
   }
 
-  async willRunTests(config: TestConfig) {
-    if (!this._shouldReuseBrowserForTests)
+  async willRunTests(config: TestConfig, debug: boolean) {
+    if (!this._shouldReuseBrowserForTests && !debug)
       return;
     if (!this._checkVersion(config, 'Show & reuse browser'))
       return;
@@ -254,9 +257,12 @@ test('test', async ({ page }) => {
     this._isRunningTests = true;
   }
 
-  async didRunTests(config: TestConfig) {
+  async didRunTests(debug: boolean) {
     this._isRunningTests = false;
-    this._backend?.setAutoClose({ enabled: true });
+    if (debug && !this._shouldReuseBrowserForTests)
+      this.stop();
+    else
+      this._backend?.setAutoClose({ enabled: true });
   }
 
   private async _reset() {
