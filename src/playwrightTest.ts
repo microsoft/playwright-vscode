@@ -118,11 +118,11 @@ export class PlaywrightTest {
     const args = projectNames.filter(Boolean).map(p => `--project=${p}`);
     if (parametrizedTestTitle)
       args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
-    await this._reusedBrowser.willRunTests(config);
+    await this._reusedBrowser.willRunTests(config, false);
     try {
       await this._test(config, locationArg,  args, settingsEnv, listener, 'run', token);
     } finally {
-      await this._reusedBrowser.didRunTests(config);
+      await this._reusedBrowser.didRunTests(false);
     }
   }
 
@@ -156,7 +156,7 @@ export class PlaywrightTest {
       '--repeat-each', '1',
       '--retries', '0',
     ];
-    if (this._isUnderTest || this._reusedBrowser.browserServerEnv() || args.includes('--headed'))
+    if (this._isUnderTest || this._reusedBrowser.browserServerEnv(false) || args.includes('--headed'))
       allArgs.push('--workers', '1');
     // Disable original reporters when listing files.
     if (mode === 'list')
@@ -167,7 +167,7 @@ export class PlaywrightTest {
       env: {
         ...process.env,
         ...settingsEnv,
-        ...this._reusedBrowser.browserServerEnv(),
+        ...this._reusedBrowser.browserServerEnv(false),
         ...(await reporterServer.env()),
         // Don't debug tests when running them.
         NODE_OPTIONS: undefined,
@@ -209,7 +209,7 @@ export class PlaywrightTest {
     }
 
     const reporterServer = new ReporterServer();
-    await this._reusedBrowser.willRunTests(config);
+    await this._reusedBrowser.willRunTests(config, true);
     try {
       await vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
@@ -219,12 +219,11 @@ export class PlaywrightTest {
         env: {
           ...process.env,
           ...settingsEnv,
-          ...this._reusedBrowser.browserServerEnv(),
+          ...this._reusedBrowser.browserServerEnv(true),
           ...(await reporterServer.env()),
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,
           FORCE_COLORS: '1',
-          PW_OUT_OF_PROCESS_DRIVER: '1',
           PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
           PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
           PW_TEST_HTML_REPORT_OPEN: 'never',
@@ -234,7 +233,7 @@ export class PlaywrightTest {
       });
       await reporterServer.wireTestListener(listener, token);
     } finally {
-      await this._reusedBrowser.didRunTests(config);
+      await this._reusedBrowser.didRunTests(true);
     }
   }
 

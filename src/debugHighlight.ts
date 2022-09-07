@@ -100,14 +100,15 @@ export class DebugHighlight {
   }
 
   private async _highlightLocator(document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken) {
-    const result = await highlightLocator(document, position, token);
-    if (!result)
+    const result = await locatorToHighlight(document, position, token);
+    if (result)
+      this._reusedBrowser.highlight(result);
+    else
       this._hideHighlight();
   }
 
   private _hideHighlight() {
-    if (!this._reusedBrowser.hideHighlight())
-      hideHighlightViaDebugger();
+    this._reusedBrowser.hideHighlight();
   }
 
   dispose() {
@@ -126,13 +127,13 @@ export type StackFrame = {
 
 const sessionsWithHighlight = new Set<vscodeTypes.DebugSession>();
 
-async function highlightLocator(document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken): Promise<boolean> {
+async function locatorToHighlight(document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken): Promise<string | undefined> {
   if (!debugSessions.size)
-    return false;
+    return;
   const fsPath = document.uri.fsPath;
   for (const session of debugSessions.values()) {
     if (token?.isCancellationRequested)
-      return false;
+      return;
     const stackFrames = await pausedStackFrames(session, undefined);
     if (!stackFrames)
       continue;
@@ -143,7 +144,7 @@ async function highlightLocator(document: vscodeTypes.TextDocument, position: vs
       if (!sourcePath || document.uri.fsPath !== sourcePath)
         continue;
       if (token?.isCancellationRequested)
-        return false;
+        return;
       const vars = await scopeVariables(session, stackFrame);
       const text = document.getText();
       const locatorExpression = locatorForSourcePosition(text, vars, fsPath, {
@@ -153,12 +154,12 @@ async function highlightLocator(document: vscodeTypes.TextDocument, position: vs
       if (!locatorExpression)
         continue;
       if (token?.isCancellationRequested)
-        return false;
-      if (await doHighlightLocator(session, stackFrame.id, locatorExpression))
-        return true;
+        return;
+      const result = await computeLocatorForHighlight(session, stackFrame.id, locatorExpression);
+      if (result)
+        return result;
     }
   }
-  return false;
 }
 
 async function pausedStackFrames(session: vscodeTypes.DebugSession, threadId: number | undefined): Promise<StackFrame[] | undefined> {
@@ -199,24 +200,17 @@ async function scopeVariables(session: vscodeTypes.DebugSession, stackFrame: Sta
   return { pages, locators };
 }
 
-async function doHighlightLocator(session: vscodeTypes.DebugSession, frameId: string, locatorExpression: string) {
-  const expression = `(${locatorExpression})._highlight()`;
+async function computeLocatorForHighlight(session: vscodeTypes.DebugSession, frameId: string, locatorExpression: string): Promise<string> {
+  const expression = `(${locatorExpression})._selector`;
   sessionsWithHighlight.add(session);
-  const result = await session.customRequest('evaluate', {
+  return await session.customRequest('evaluate', {
     expression,
     frameId,
-  }).then(result => result, () => undefined);
-  return !!result;
-}
-
-function hideHighlightViaDebugger() {
-  const copy = new Set([...sessionsWithHighlight]);
-  sessionsWithHighlight.clear();
-  for (const session of copy) {
-    session.customRequest('evaluate', {
-      expression: 'global._playwrightInstance._hideHighlight().catch(() => {})',
-    }).then(result => result, () => undefined);
-  }
+  }).then(result => {
+    if (result.result.startsWith('\'') && result.result.endsWith('\''))
+      return result.result.substring(1, result.result.length - 1);
+    return result.result;
+  }, () => undefined);
 }
 
 export function discardHighlightCaches() {
