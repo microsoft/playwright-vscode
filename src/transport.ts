@@ -102,8 +102,8 @@ export class WebSocketTransport implements ConnectionTransport {
   onclose?: () => void;
   readonly wsEndpoint: string;
 
-  static async connect(url: string): Promise<WebSocketTransport> {
-    const transport = new WebSocketTransport(url);
+  static async connect(url: string, headers: Record<string, string> = {}): Promise<WebSocketTransport> {
+    const transport = new WebSocketTransport(url, headers);
     await new Promise<WebSocketTransport>((fulfill, reject) => {
       transport._ws.addEventListener('open', async () => {
         fulfill(transport);
@@ -116,12 +116,13 @@ export class WebSocketTransport implements ConnectionTransport {
     return transport;
   }
 
-  constructor(url: string) {
+  constructor(url: string, headers: Record<string, string> = {}) {
     this.wsEndpoint = url;
     this._ws = new WebSocket(url, [], {
       perMessageDeflate: false,
       maxPayload: 256 * 1024 * 1024, // 256Mb,
       handshakeTimeout: 30000,
+      headers
     });
 
     this._ws.addEventListener('message', event => {

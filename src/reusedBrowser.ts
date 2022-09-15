@@ -21,26 +21,24 @@ import { createGuid, findNode } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
 import fs from 'fs';
+import events from 'events';
 import EventEmitter from 'events';
 import { installBrowsers } from './installer';
+import { WebSocketTransport } from './transport';
 
 export type Snapshot = {
   browsers: BrowserSnapshot[];
 };
 
 export type BrowserSnapshot = {
-  guid: string;
-  name: string;
   contexts: ContextSnapshot[];
 };
 
 export type ContextSnapshot = {
-  guid: string;
   pages: PageSnapshot[];
 };
 
 export type PageSnapshot = {
-  guid: string;
   url: string;
 };
 
@@ -48,10 +46,11 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
   private _browserServerWS: string | undefined;
   private _shouldReuseBrowserForTests = false;
-  private _backend: Backend | undefined;
+  private _backend: Backend | LegacyBackend | undefined;
   private _cancelRecording: (() => void) | undefined;
   private _updateOrCancelInspecting: ((params: { selector?: string, cancel?: boolean }) => void) | undefined;
   private _isRunningTests = false;
+  private _autoCloseTimer: any;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -72,21 +71,26 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     }
 
+    const legacyMode = config.version < 1.26;
+
     const node = await findNode();
     const allArgs = [
       config.cli,
       'run-server',
-      '--reuse-browser',
       `--path=/${createGuid()}`
     ];
+    if (legacyMode)
+      allArgs.push('--reuse-browser');
+
     const serverProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
-      stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+      stdio: legacyMode ? ['pipe', 'pipe', 'pipe', 'ipc'] : 'pipe',
       env: { ...process.env, PW_CODEGEN_NO_INSPECTOR: '1' },
     });
 
-    serverProcess.stdout?.on('data', () => {});
-    serverProcess.stderr?.on('data', () => {});
+    if (legacyMode)
+      serverProcess.stdout?.on('data', data => console.log(data.toString()));
+    serverProcess.stderr?.on('data', data => console.log(data.toString()));
     serverProcess.on('exit', () => {
       this._browserServerWS = undefined;
       this._backend = undefined;
@@ -96,7 +100,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       this.stop();
     });
 
-    this._backend = new Backend(serverProcess);
+    this._backend = legacyMode ? new LegacyBackend(serverProcess) : new Backend();
     this._backend.on('inspectRequested', params => {
       this._updateOrCancelInspecting?.({ selector: params.selector });
     });
@@ -109,16 +113,30 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       this._pagesUpdated(pages);
     });
 
-    await new Promise<void>(f => {
-      serverProcess!.on('exit', () => f());
-      this._backend!.on('ready', params => {
-        this._browserServerWS = params.wsEndpoint;
-        f();
+    let connectedCallback: (wsEndpoint: string) => void;
+    const wsEndpointPromise = new Promise<string>(f => connectedCallback = f);
+
+    if (legacyMode) {
+      this._backend!.on('ready', params => connectedCallback(params.wsEndpoint));
+    } else {
+      serverProcess.stdout?.on('data', data => {
+        const match = data.toString().match(/Listening on (.*)/);
+        if (!match)
+          return;
+        const wse = match[1];
+        (this._backend as Backend).connect(wse).then(() => connectedCallback(wse));
       });
-    });
+    }
+
+    await Promise.race([
+      wsEndpointPromise.then(wse => this._browserServerWS = wse),
+      events.once(serverProcess, 'exit'),
+    ]);
   }
 
   private _pagesUpdated(pages: PageSnapshot[]) {
+    if (this._autoCloseTimer)
+      clearTimeout(this._autoCloseTimer);
     if (pages.length)
       return;
     if (this._isRunningTests)
@@ -126,6 +144,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     if (!this._cancelRecording && !this._updateOrCancelInspecting)
       return;
     this._reset();
+    this._autoCloseTimer = setTimeout(() => this.stop(), 30000);
   }
 
   browserServerEnv(debug: boolean): NodeJS.ProcessEnv | undefined {
@@ -253,16 +272,19 @@ test('test', async ({ page }) => {
     if (!this._checkVersion(config, 'Show & reuse browser'))
       return;
     await this._startBackendIfNeeded(config);
-    this._backend?.setAutoClose({ enabled: false });
+    await this._backend!.setReuseBrowser({ enabled: true });
+    await this._backend!.setAutoClose({ enabled: false });
     this._isRunningTests = true;
   }
 
   async didRunTests(debug: boolean) {
     this._isRunningTests = false;
-    if (debug && !this._shouldReuseBrowserForTests)
+    if (debug && !this._shouldReuseBrowserForTests) {
       this.stop();
-    else
+    } else {
       this._backend?.setAutoClose({ enabled: true });
+      this._backend?.setReuseBrowser({ enabled: false });
+    }
   }
 
   private async _reset() {
@@ -284,6 +306,81 @@ test('test', async ({ page }) => {
 }
 
 class Backend extends EventEmitter {
+  private static _lastId = 0;
+  private _callbacks = new Map<number, { fulfill: (a: any) => void, reject: (e: Error) => void }>();
+  private _transport!: WebSocketTransport;
+
+  constructor() {
+    super();
+  }
+
+  async connect(wsEndpoint: string) {
+    this._transport = await WebSocketTransport.connect(wsEndpoint, {
+      'x-playwright-reuse-controller': 'true'
+    });
+    this._transport.onmessage = (message: any) => {
+      if (!message.id) {
+        this.emit(message.method, message.params);
+        return;
+      }
+      const pair = this._callbacks.get(message.id);
+      if (!pair)
+        return;
+      this._callbacks.delete(message.id);
+      if ('error' in message)
+        pair.reject(new Error(message.error));
+      else
+        pair.fulfill(message.result);
+    };
+  }
+
+  async resetForReuse() {
+    await this._send('resetForReuse');
+  }
+
+  async navigate(params: { url: string }) {
+    await this._send('navigateAll', params);
+  }
+
+  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', language?: string, file?: string }) {
+    await this._send('setRecorderMode', params);
+  }
+
+  async setTrackHierarchy(params: { enabled: boolean }) {
+    await this._send('setTrackHierarchy', params);
+  }
+
+  async setReuseBrowser(params: { enabled: boolean }) {
+    await this._send('setReuseBrowser', params);
+  }
+
+  async setAutoClose(params: { enabled: boolean }) {
+    await this._send('setAutoClose', params);
+  }
+
+  async highlight(params: { selector: string }) {
+    await this._send('highlightAll', params);
+  }
+
+  async hideHighlight() {
+    await this._send('hideHighlightAll');
+  }
+
+  async kill() {
+    this._send('kill');
+  }
+
+  private _send(method: string, params: any = {}): Promise<any> {
+    return new Promise((fulfill, reject) => {
+      const id = ++Backend._lastId;
+      const command = { id, guid: 'ReuseController', method, params, metadata: {} };
+      this._transport.send(command as any);
+      this._callbacks.set(id, { fulfill, reject });
+    });
+  }
+}
+
+class LegacyBackend extends EventEmitter {
   private _serverProcess: ChildProcess;
   private static _lastId = 0;
   private _callbacks = new Map<number, { fulfill: (a: any) => void, reject: (e: Error) => void }>();
@@ -323,6 +420,8 @@ class Backend extends EventEmitter {
     await this._send('setAutoClose', params);
   }
 
+  async setReuseBrowser() {}
+
   async highlight(params: { selector: string }) {
     await this._send('highlight', params);
   }
@@ -337,7 +436,7 @@ class Backend extends EventEmitter {
 
   private _send(method: string, params: any = {}): Promise<any> {
     return new Promise((fulfill, reject) => {
-      const id = ++Backend._lastId;
+      const id = ++LegacyBackend._lastId;
       this._serverProcess?.send({ id, method, params });
       this._callbacks.set(id, { fulfill, reject });
     });

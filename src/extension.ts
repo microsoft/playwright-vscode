@@ -497,6 +497,11 @@ located next to Run / Debug Tests toolbar buttons.`);
       onStdErr: data => {
         testRun.appendOutput(data.toString().replace(/\n/g, '\r\n'));
       },
+
+      onError: data => {
+        if (data.error.message?.includes('Failed to find local docker image.'))
+          this._vscode.window.showErrorMessage(`Failed to find local docker image.\nRun 'npx playwright docker build'`);
+      }
     };
 
     if (isDebug)
