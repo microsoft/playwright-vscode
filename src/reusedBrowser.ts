@@ -17,11 +17,10 @@
 import { ChildProcess, spawn } from 'child_process';
 import { TestConfig } from './playwrightTest';
 import { TestModel, TestProject } from './testModel';
-import { createGuid, findNode } from './utils';
+import { createGuid, findNode, spawnAsync } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
 import fs from 'fs';
-import events from 'events';
 import EventEmitter from 'events';
 import { installBrowsers } from './installer';
 import { WebSocketTransport } from './transport';
@@ -61,7 +60,6 @@ export type Source = {
 
 export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
-  private _browserServerWS: string | undefined;
   private _shouldReuseBrowserForTests = false;
   private _backend: Backend | LegacyBackend | undefined;
   private _cancelRecording: (() => void) | undefined;
@@ -83,46 +81,32 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   private async _startBackendIfNeeded(config: TestConfig) {
+    if (this._backend && this._backend.config.docker !== config.docker)
+      this.stop();
+
     // Unconditionally close selector dialog, it might send inspect(enabled: false).
     if (this._backend) {
       await this._reset();
       return;
     }
 
-    const legacyMode = config.version < 1.27;
-
-    const node = await findNode();
-    const allArgs = [
-      config.cli,
-      'run-server',
-      `--path=/${createGuid()}`
-    ];
-    if (legacyMode)
-      allArgs.push('--reuse-browser');
-
-    const serverProcess = spawn(node, allArgs, {
-      cwd: config.workspaceFolder,
-      stdio: legacyMode ? ['pipe', 'pipe', 'pipe', 'ipc'] : 'pipe',
-      env: { ...process.env, PW_CODEGEN_NO_INSPECTOR: '1' },
-    });
-
-    if (legacyMode)
-      serverProcess.stdout?.on('data', () => {});
-    serverProcess.stderr?.on('data', () => {});
-    serverProcess.on('exit', () => {
-      this._browserServerWS = undefined;
-      this._backend = undefined;
-    });
-    serverProcess.on('error', error => {
-      this._vscode.window.showErrorMessage(error.message);
-      this.stop();
-    });
-
-    this._backend = legacyMode ? new LegacyBackend(serverProcess) : new Backend();
-    this._backend.on('inspectRequested', params => {
+    try {
+      const legacyMode = config.version < 1.27;
+      if (legacyMode)
+        this._backend = await LegacyBackend.create(config);
+      else if (config.docker)
+        this._backend = await Backend.createForDocker(config);
+      else
+        this._backend = await Backend.create(config);
+    } catch (error) {
+      this._vscode.window.showErrorMessage((error as Error).message);
+      throw error;
+    }
+    this._backend!.on('close', () => this.stop());
+    this._backend!.on('inspectRequested', params => {
       this._updateOrCancelInspecting?.({ selector: params.selector });
     });
-    this._backend.on('browsersChanged', params => {
+    this._backend!.on('browsersChanged', params => {
       const pages: PageSnapshot[] = [];
       for (const browser of params.browsers) {
         for (const context of browser.contexts)
@@ -145,26 +129,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         });
       }
     });
-
-    let connectedCallback: (wsEndpoint: string) => void;
-    const wsEndpointPromise = new Promise<string>(f => connectedCallback = f);
-
-    if (legacyMode) {
-      this._backend!.on('ready', params => connectedCallback(params.wsEndpoint));
-    } else {
-      serverProcess.stdout?.on('data', data => {
-        const match = data.toString().match(/Listening on (.*)/);
-        if (!match)
-          return;
-        const wse = match[1];
-        (this._backend as Backend).connect(wse).then(() => connectedCallback(wse));
-      });
-    }
-
-    await Promise.race([
-      wsEndpointPromise.then(wse => this._browserServerWS = wse),
-      events.once(serverProcess, 'exit'),
-    ]);
   }
 
   private _pagesUpdated(pages: PageSnapshot[]) {
@@ -181,9 +145,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   browserServerEnv(debug: boolean): NodeJS.ProcessEnv | undefined {
-    return (debug || this._shouldReuseBrowserForTests) && this._browserServerWS ? {
+    return (debug || this._shouldReuseBrowserForTests) && this._backend?.wsEndpoint ? {
       PW_TEST_REUSE_CONTEXT: this._shouldReuseBrowserForTests ? '1' : undefined,
-      PW_TEST_CONNECT_WS_ENDPOINT: this._browserServerWS,
+      PW_TEST_CONNECT_WS_ENDPOINT: this._backend?.wsEndpoint,
     } : undefined;
   }
 
@@ -249,9 +213,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   private async _doRecord(model: TestModel, reset: boolean, token: vscodeTypes.CancellationToken) {
-    const startBackend = this._startBackendIfNeeded(model.config);
     const [, editor] = await Promise.all([
-      startBackend,
+      this._startBackendIfNeeded(model.config),
       this._createFileForNewTest(model),
     ]);
     this._editor = editor;
@@ -334,7 +297,7 @@ test('test', async ({ page }) => {
   }
 
   stop() {
-    this._backend?.kill();
+    this._backend?.stop();
     this._backend = undefined;
     this._reset().catch(() => {});
   }
@@ -344,16 +307,73 @@ class Backend extends EventEmitter {
   private static _lastId = 0;
   private _callbacks = new Map<number, { fulfill: (a: any) => void, reject: (e: Error) => void }>();
   private _transport!: WebSocketTransport;
+  private _isStopped: boolean = false;
+  readonly config: TestConfig;
+  readonly wsEndpoint: string;
 
-  constructor() {
-    super();
+  static async create(config: TestConfig) {
+    const serverProcess = spawn(await findNode(), [
+      config.cli,
+      'run-server',
+      `--path=/${createGuid()}`
+    ], {
+      cwd: config.workspaceFolder,
+      stdio: 'pipe',
+      env: { ...process.env, PW_CODEGEN_NO_INSPECTOR: '1' },
+    });
+
+    serverProcess.stderr?.on('data', () => {});
+    const { wsEndpoint, error } = await new Promise<{ wsEndpoint?: string, error?: Error }>(resolve => {
+      serverProcess.once('exit', () => resolve({ error: new Error('failed to connect to server') }));
+      serverProcess.once('error', error => resolve({ error }));
+      serverProcess.stdout?.on('data', data => {
+        const match = data.toString().match(/Listening on (.*)/);
+        if (!match)
+          return;
+        resolve({ wsEndpoint: match[1] });
+      });
+    });
+    if (error)
+      throw error;
+    if (!wsEndpoint)
+      throw new Error('Internal error: Failed to connect to backend');
+    const backend = new Backend(config, wsEndpoint);
+    await backend.connect();
+    return backend;
   }
 
-  async connect(wsEndpoint: string) {
-    this._transport = await WebSocketTransport.connect(wsEndpoint, {
+  static async createForDocker(config: TestConfig) {
+    const result = await spawnAsync(await findNode(), [
+      config.cli,
+      'docker',
+      `print-status-json`
+    ], config.workspaceFolder);
+    const { containerWSEndpoint } = JSON.parse(result);
+    const backend = new Backend(config, containerWSEndpoint);
+    await backend.connect('use-global-network-tethering');
+    return backend;
+  }
+
+  constructor(config: TestConfig, wsEndpoint: string) {
+    super();
+    this.config = config;
+    this.wsEndpoint = wsEndpoint;
+  }
+
+  async connect(networkMode?: string) {
+    const headers: any = {
       'x-playwright-debug-controller': 'true'
-    });
+    };
+    if (networkMode)
+      headers['x-playwright-proxy'] = networkMode;
+    this._transport = await WebSocketTransport.connect(this.wsEndpoint, headers);
+    this._transport.onclose = () => {
+      this.stop();
+      this.emit('close');
+    };
     this._transport.onmessage = (message: any) => {
+      if (this._isStopped)
+        return;
       if (!message.id) {
         this.emit(message.method, message.params);
         return;
@@ -404,11 +424,21 @@ class Backend extends EventEmitter {
     await this._send('hideHighlightAll');
   }
 
-  async kill() {
-    this._send('kill');
+  async stop() {
+    if (this._isStopped)
+      return;
+    if (this.config.docker) {
+      this._send('closeAllBrowsers');
+      this._transport.close();
+    } else {
+      this._send('kill');
+    }
+    this._isStopped = true;
   }
 
   private _send(method: string, params: any = {}): Promise<any> {
+    if (this._isStopped)
+      return Promise.reject(new Error('cannot send to stopped backend'));
     return new Promise((fulfill, reject) => {
       const id = ++Backend._lastId;
       const command = { id, guid: 'DebugController', method, params, metadata: {} };
@@ -420,13 +450,50 @@ class Backend extends EventEmitter {
 
 class LegacyBackend extends EventEmitter {
   private _serverProcess: ChildProcess;
+  private _isStopped: boolean = false;
   private static _lastId = 0;
   private _callbacks = new Map<number, { fulfill: (a: any) => void, reject: (e: Error) => void }>();
+  readonly config: TestConfig;
+  wsEndpoint: string = '';
 
-  constructor(serverProcess: ChildProcess) {
+  static async create(config: TestConfig) {
+    const backend = new LegacyBackend(await findNode(), config);
+    const result =  await Promise.race([
+      backend.once('ready', params => {
+        backend.wsEndpoint = params.wsEndpoint;
+        return true;
+      }),
+      backend.once('close', () => false),
+    ]);
+    if (!result)
+      throw new Error('failed to connect to legacy endpoint');
+    return backend;
+  }
+
+  constructor(node: string, config: TestConfig) {
     super();
-    this._serverProcess = serverProcess;
+    this.config = config;
+    this._serverProcess = spawn(node, [
+      config.cli,
+      'run-server',
+      `--path=/${createGuid()}`,
+      '--reuse-browser',
+    ], {
+      cwd: config.workspaceFolder,
+      stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+      env: { ...process.env, PW_CODEGEN_NO_INSPECTOR: '1' },
+    });
+
+    this._serverProcess.stdout?.on('data', () => {});
+    this._serverProcess.stderr?.on('data', () => {});
+    this._serverProcess.on('exit', () => {
+      this.stop();
+      this.emit('close');
+    });
+    this._serverProcess.on('error', error => this.emit('error', error));
     this._serverProcess!.on('message', (message: any) => {
+      if (this._isStopped)
+        return;
       if (!message.id) {
         this.emit(message.method, message.params);
         return;
@@ -468,11 +535,16 @@ class LegacyBackend extends EventEmitter {
     await this._send('hideHighlight');
   }
 
-  async kill() {
+  async stop() {
+    if (this._isStopped)
+      return;
     this._send('kill');
+    this._isStopped = true;
   }
 
   private _send(method: string, params: any = {}): Promise<any> {
+    if (this._isStopped)
+      return Promise.reject(new Error('cannot send to stopped backend'));
     return new Promise((fulfill, reject) => {
       const id = ++LegacyBackend._lastId;
       this._serverProcess?.send({ id, method, params });

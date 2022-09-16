@@ -27,6 +27,7 @@ import * as vscodeTypes from './vscodeTypes';
 export type TestConfig = {
   workspaceFolder: string;
   configFile: string;
+  docker: boolean;
   cli: string;
   version: number;
 };
@@ -34,6 +35,7 @@ export type TestConfig = {
 export type ProjectListFilesReport = {
   testDir: string;
   name: string;
+  docker: boolean;
   files: string[];
 };
 
@@ -106,7 +108,12 @@ export class PlaywrightTest {
     }
     const output = await this._runNode(allArgs, configFolder);
     try {
-      return JSON.parse(output) as ConfigListFilesReport;
+      const listReport = JSON.parse(output) as ConfigListFilesReport;
+      for (const project of listReport.projects) {
+        if (project.docker)
+          config.docker = true;
+      }
+      return listReport;
     } catch (e) {
       console.error(e);
       return null;

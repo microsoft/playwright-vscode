@@ -78,7 +78,7 @@ export class TestModel {
   constructor(vscode: vscodeTypes.VSCode, playwrightTest: PlaywrightTest, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
     this._playwrightTest = playwrightTest;
-    this.config = { ...playwrightInfo, workspaceFolder, configFile };
+    this.config = { ...playwrightInfo, workspaceFolder, configFile, docker: false };
     this._didUpdate = new vscode.EventEmitter();
     this._envProvider = envProvider;
     this.onUpdated = this._didUpdate.event;
