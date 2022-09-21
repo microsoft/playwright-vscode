@@ -42,6 +42,23 @@ export type PageSnapshot = {
   url: string;
 };
 
+export type SourceHighlight = {
+  line: number;
+  type: 'running' | 'paused' | 'error';
+};
+
+export type Source = {
+  isRecorded: boolean;
+  id: string;
+  label: string;
+  text: string;
+  language: string;
+  highlight: SourceHighlight[];
+  revealLine?: number;
+  // used to group the language generators
+  group?: string;
+};
+
 export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
   private _browserServerWS: string | undefined;
@@ -51,6 +68,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _updateOrCancelInspecting: ((params: { selector?: string, cancel?: boolean }) => void) | undefined;
   private _isRunningTests = false;
   private _autoCloseTimer: any;
+  private _editor: vscodeTypes.TextEditor | undefined;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -71,7 +89,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     }
 
-    const legacyMode = config.version < 1.26;
+    const legacyMode = config.version < 1.27;
 
     const node = await findNode();
     const allArgs = [
@@ -89,8 +107,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     });
 
     if (legacyMode)
-      serverProcess.stdout?.on('data', data => console.log(data.toString()));
-    serverProcess.stderr?.on('data', data => console.log(data.toString()));
+      serverProcess.stdout?.on('data', () => {});
+    serverProcess.stderr?.on('data', () => {});
     serverProcess.on('exit', () => {
       this._browserServerWS = undefined;
       this._backend = undefined;
@@ -111,6 +129,21 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
           pages.push(...context.pages);
       }
       this._pagesUpdated(pages);
+    });
+    this._backend.on('sourcesChanged', params => {
+      if (!this._editor)
+        return;
+      const sources: Source[] = params.sources;
+      for (const source of sources) {
+        if (source.id !== 'test' || !source.isRecorded || source.language !== 'javascript' || source.label !== 'Test Runner')
+          continue;
+        const start = new this._vscode.Position(0, 0);
+        const end = new this._vscode.Position(Number.MAX_VALUE, Number.MAX_VALUE);
+        const range = this._editor.document.validateRange(new this._vscode.Range(start, end));
+        this._editor?.edit(async editBuilder => {
+          editBuilder.replace(range, source.text);
+        });
+      }
     });
 
     let connectedCallback: (wsEndpoint: string) => void;
@@ -216,10 +249,12 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   private async _doRecord(model: TestModel, reset: boolean, token: vscodeTypes.CancellationToken) {
-    const [, file] = await Promise.all([
-      this._startBackendIfNeeded(model.config),
+    const startBackend = this._startBackendIfNeeded(model.config);
+    const [, editor] = await Promise.all([
+      startBackend,
       this._createFileForNewTest(model),
     ]);
+    this._editor = editor;
 
     if (reset) {
       await this._backend?.resetForReuse();
@@ -227,7 +262,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }
 
     try {
-      await this._backend?.setMode({ mode: 'recording', file, language: 'test' });
+      await this._backend?.setMode({ mode: 'recording', language: 'test' });
     } catch (e) {
       showExceptionAsUserError(this._vscode, model, e as Error);
       this._reset();
@@ -262,8 +297,7 @@ test('test', async ({ page }) => {
 });`);
 
     const document = await this._vscode.workspace.openTextDocument(file);
-    await this._vscode.window.showTextDocument(document);
-    return file;
+    return await this._vscode.window.showTextDocument(document);
   }
 
   async willRunTests(config: TestConfig, debug: boolean) {
@@ -289,6 +323,7 @@ test('test', async ({ page }) => {
 
   private async _reset() {
     // This won't wait for setMode(none).
+    this._editor = undefined;
     this._updateOrCancelInspecting?.({ cancel: true });
     this._updateOrCancelInspecting = undefined;
     this._cancelRecording?.();
@@ -316,7 +351,7 @@ class Backend extends EventEmitter {
 
   async connect(wsEndpoint: string) {
     this._transport = await WebSocketTransport.connect(wsEndpoint, {
-      'x-playwright-reuse-controller': 'true'
+      'x-playwright-debug-controller': 'true'
     });
     this._transport.onmessage = (message: any) => {
       if (!message.id) {
@@ -327,11 +362,15 @@ class Backend extends EventEmitter {
       if (!pair)
         return;
       this._callbacks.delete(message.id);
-      if ('error' in message)
-        pair.reject(new Error(message.error));
-      else
+      if (message.error) {
+        const error = new Error(message.error.error?.message || message.error.value);
+        error.stack = message.error.error?.stack;
+        pair.reject(error);
+      } else {
         pair.fulfill(message.result);
+      }
     };
+    this.setTrackHierarchy({ enabled: true });
   }
 
   async resetForReuse() {
@@ -355,7 +394,6 @@ class Backend extends EventEmitter {
   }
 
   async setAutoClose(params: { enabled: boolean }) {
-    await this._send('setAutoClose', params);
   }
 
   async highlight(params: { selector: string }) {
@@ -373,7 +411,7 @@ class Backend extends EventEmitter {
   private _send(method: string, params: any = {}): Promise<any> {
     return new Promise((fulfill, reject) => {
       const id = ++Backend._lastId;
-      const command = { id, guid: 'ReuseController', method, params, metadata: {} };
+      const command = { id, guid: 'DebugController', method, params, metadata: {} };
       this._transport.send(command as any);
       this._callbacks.set(id, { fulfill, reject });
     });
