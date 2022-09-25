@@ -71,11 +71,12 @@ export class PlaywrightTest {
       try {
         const pwtCoreInfo = await this._runNode([
           '-e',
-          'const pnpapi = require("pnpapi"); ' +
-          'const locators = pnpapi.getAllLocators().filter(locator => locator.name === "playwright-core"); ' +
-          'if (locators.length === 0) { process.exit(1); } ' +
-          'const info = pnpapi.getPackageInformation(locators[0]); ' +
-          'console.log(JSON.stringify({version: locators[0].reference, ...info}));'
+          `const pnpapi = require('pnpapi');
+          const pwCoreLocator = pnpapi.getAllLocators().find(locator => locator.name === 'playwright-core');
+          if (!pwCoreLocator)
+            process.exit(1);
+          const info = pnpapi.getPackageInformation(pwCoreLocator);
+          console.log(JSON.stringify({version: pwCoreLocator.reference, ...info}));`
         ],
         path.dirname(configFilePath),
         getPnPEnvVariables(workspaceFolder));
