@@ -20,7 +20,7 @@ jobs:
         node-version: [ 16 ]
         include:
         - os: ubuntu-latest
-          node-version: 12
+          node-version: 18
         - os: ubuntu-latest
           node-version: 14
     steps:
