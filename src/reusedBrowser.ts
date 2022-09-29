@@ -69,9 +69,11 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _isRunningTests = false;
   private _autoCloseTimer: any;
   private _editor: vscodeTypes.TextEditor | undefined;
+  private _envProvider: () => NodeJS.ProcessEnv;
 
-  constructor(vscode: vscodeTypes.VSCode) {
+  constructor(vscode: vscodeTypes.VSCode, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
+    this._envProvider = envProvider;
   }
 
   dispose() {
@@ -103,7 +105,11 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     const serverProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
       stdio: legacyMode ? ['pipe', 'pipe', 'pipe', 'ipc'] : 'pipe',
-      env: { ...process.env, PW_CODEGEN_NO_INSPECTOR: '1' },
+      env: {
+        ...process.env,
+        ...this._envProvider(),
+        PW_CODEGEN_NO_INSPECTOR: '1',
+      },
     });
 
     if (legacyMode)

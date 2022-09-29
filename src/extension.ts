@@ -98,7 +98,7 @@ export class Extension {
       },
     });
 
-    this._reusedBrowser = new ReusedBrowser(this._vscode);
+    this._reusedBrowser = new ReusedBrowser(this._vscode, this._envProvider.bind(this));
     this._playwrightTest = new PlaywrightTest(this._reusedBrowser, this._isUnderTest);
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
@@ -226,9 +226,7 @@ export class Extension {
         continue;
       }
 
-      const model = new TestModel(this._vscode, this._playwrightTest, workspaceFolderPath, configFileUri.fsPath, playwrightInfo, () => {
-        return this._vscode.workspace.getConfiguration('playwright').get('env', {});
-      });
+      const model = new TestModel(this._vscode, this._playwrightTest, workspaceFolderPath, configFileUri.fsPath, playwrightInfo, this._envProvider.bind(this));
       this._models.push(model);
       this._testTree.addModel(model);
       await model.listFiles();
@@ -250,6 +248,12 @@ export class Extension {
     this._testTree.finishedLoading();
     await this._updateVisibleEditorItems();
     return configFiles;
+  }
+
+  private _envProvider(): NodeJS.ProcessEnv {
+    return {
+      ...this._vscode.workspace.getConfiguration('playwright').get('env', {}),
+    };
   }
 
   private async _createRunProfile(project: TestProject, usedProfiles: Set<vscodeTypes.TestRunProfile>) {
