@@ -1,81 +1,113 @@
 # Playwright Test for VS Code
 
-This extension integrates Playwright Test into your VSCode workflow. Here is what it can do:
+This extension integrates Playwright into your VS Code workflow. Here is what it can do:
 
-- [Install Playwright Test](#install-playwright-test)
-- [Run tests with a single click](#run-tests-with-a-single-click)
-- [Follow the execution line](#follow-the-execution-line)
-- [Debug step-by-step, explore selectors](#debug-step-by-step-explore-selectors)
-- [Record new tests](#record-new-tests)
-- [Tune selectors](#tune-selectors)
+- [Playwright Test for VS Code](#playwright-test-for-vs-code)
+    - [Requirements](#requirements)
+  - [Install Playwright](#install-playwright)
+  - [Run tests with a single click](#run-tests-with-a-single-click)
+  - [Run Multiple Tests](#run-multiple-tests)
+  - [Show browsers](#show-browsers)
+  - [Pick selectors](#pick-selectors)
+  - [Debug step-by-step, explore selectors](#debug-step-by-step-explore-selectors)
+  - [Tune selectors](#tune-selectors)
+  - [Record new tests](#record-new-tests)
+  - [Record from here](#record-from-here)
 
-<br></br>
 
-<img width="715" alt="example_test_2" src="https://user-images.githubusercontent.com/883973/152095827-d04d7737-57b3-4b02-acc7-5a213ad4b637.png">
-
-<br></br>
+<img width="1268" alt="example test in vs code" src="https://user-images.githubusercontent.com/13063165/194532498-b7f88d69-65a3-49f4-b701-5ef7134bc551.png">
 
 ### Requirements
 
-This extension works with [Playwright Test] version v1.19+ or newer.
+This extension works with [Playwright] version v1.19+ or newer.
 
 
 *If you are looking for the old extension that supported Playwright v1.14+, switch to v0.0.9 of this extension manually. Having said that, we highly recommend using the latest version of [Playwright Test]!*
 
-<br></br>
-
-## Install Playwright Test
-
-If you don't have the Playwright Test NPM package installed in your project, or if you are starting with a new testing project, "Install Playwright" action will help you get started.
-
-<img width="446" alt="Install Playwright" src="https://user-images.githubusercontent.com/883973/153693073-a83fc6e6-a17a-4011-b11e-2423f75ce584.png">
-
-Pick the browsers you'd like to use by default, don't worry, you'll be able to change them later to add or configure the browsers used.
-
-<img width="579" alt="Choose browsers" src="https://user-images.githubusercontent.com/883973/153693126-258646eb-0d4c-41eb-8c4a-7ac248384078.png">
 
 
-The extension automatically detects if you have [Playwright Test] installed and loads the [Playwright Test] projects into Visual Studio Code. By default it will select the first project as a run profile and inside the test explorer you can change this behavior to run a single test in multiple or different browsers.
+## Install Playwright
 
-<br></br>
+If you don't have the Playwright NPM package installed in your project, or if you are starting with a new testing project, the "Install Playwright" action from the command panel will help you get started.
+
+
+<img width="1189" alt="Install Playwright" src="https://user-images.githubusercontent.com/13063165/193314391-6c1df069-857f-4fff-b4fd-5a228bd2fb5d.png"/>
+
+Pick the browsers you'd like to use by default, don't worry, you'll be able to change them later to add or configure the browsers used. You can also choose to add a GitHub Action so that you can easily run tests on Continuous Integration on every pull request or push.
+
+<img width="1189" alt="Choose browsers" src="https://user-images.githubusercontent.com/13063165/193314396-a32e6344-89ad-429e-a886-5367917602f3.png" />
+
+
+
+The extension automatically detects if you have [Playwright] installed and loads the browsers, known as [Playwright] projects, into Visual Studio Code. By default it will select the first project as a run profile. Inside the test explorer in VS Code you can change this behavior to run a single test in multiple or different browsers.
+
+
+![select-profile](https://user-images.githubusercontent.com/13063165/194548273-c7034777-e510-49af-9834-99e9eb528a45.gif)
+
+
 
 ## Run tests with a single click
 
-You can use Tests sidebar to run a test or a group of tests with a single click.
+Click the green triangle next to the test you want to run. You can also run the test from the testing sidebar by clicking the grey triangle next to the test name.
 
-![run_tests](https://user-images.githubusercontent.com/883973/152095110-46667a83-1f56-4964-8e99-094b880b70a0.gif)
 
-<br></br>
+![runtest](https://user-images.githubusercontent.com/13063165/194504291-c797fab1-7ad2-47dc-8d6f-371ce22d01d7.gif)
 
-## Follow the execution line
 
-While tests are running, execution line is highlighted, once the line has completed, step time is rendered as an editor decoration.
+## Run Multiple Tests
 
-![execution_line](https://user-images.githubusercontent.com/883973/152095192-b85fb222-051a-40b2-8a6e-899d43d383c0.gif)
+You can use the Testing sidebar to run a single test or a group of tests with a single click. While tests are running, the execution line is highlighted. Once the line has completed, the duration of each step of the test is shown.
 
-<br></br>
+
+![runtests](https://user-images.githubusercontent.com/13063165/193856188-4103cbb6-9115-42eb-aed3-d06ffc78c2cc.gif)
+
+<br/>
+
+## Show browsers
+
+Check the "show browsers" checkbox to run tests with the browser open so that you can visually see what is happening while your test is running. Click on "close all browsers" to close the browsers.
+
+
+![show-browser](https://user-images.githubusercontent.com/13063165/194509233-b2b708cb-e7c4-48ec-b9ea-80587371bbbd.gif)
+
+<br/>
+
+## Pick selectors
+
+Click the "pick selectors" button and hover over the browser to see the selectors available. Clicking a selector will store it in the selectors box in VS Code. Pressing enter will save it to the clip board so you can easily paste it into your code or press the escape key to cancel.
+
+![pick-selector](https://user-images.githubusercontent.com/13063165/194384763-96263c13-8435-425f-ba4b-6029a7c67f3d.gif)
+
+<br/>
 
 ## Debug step-by-step, explore selectors
 
-Right click and start breakpoint debugging. Set a breakpoint, hover over a value. When your cursor is on some Playwright action or a locator, corresponding element (or elements) are highlighted in the browser.
+Right click and start breakpoint debugging. Set a breakpoint and hover over a value. When your cursor is on some Playwright action or a locator, the corresponding element (or elements) are highlighted in the browser.
 
-![step_explore](https://user-images.githubusercontent.com/883973/152095220-b68a2a3c-8395-4252-9be8-5c6adf35eddf.gif)
+![debugging](https://user-images.githubusercontent.com/13063165/194526375-9d2b339e-e108-45d5-a53b-e884661c1954.gif)
 
-<br></br>
-
-## Record new tests
-
-Record new tests via performing the test actions in the browser.
-
-![recording](https://user-images.githubusercontent.com/883973/153694515-f25fdd12-7a7c-4fec-9695-36b19b1d6a6b.gif)
-
-<br></br>
+<br/>
 
 ## Tune selectors
 
-You can edit test source code to fine-tune selectors while on a breakpoint. A selector playground on every line of your test script!
-
-![tune_selectors](https://user-images.githubusercontent.com/883973/152095248-7dda7d77-b8ee-42ab-8902-9cf462d1f334.gif)
+You can edit the source code to fine-tune selectors while on a breakpoint. Test out different selectors and see them highlighted in the browser.
 
 
-[Playwright Test]: https://playwright.dev "Playwright Test"
+![edit-selectors](https://user-images.githubusercontent.com/13063165/194527588-5d7d1e7f-6eac-4050-8a87-ac009c221f65.gif)
+
+<br/>
+
+## Record new tests
+
+Record new tests by clicking on the "record tests" button in the testing sidebar. This will open a browser window where you can navigate to a URL and perform actions on the page which will be recorded to a new test file in VS Code.
+
+![record-new2](https://user-images.githubusercontent.com/13063165/194530684-2f8b89b4-8973-4ae7-a327-27ec51fc6d51.gif)
+
+<br>
+
+## Record from here
+
+Record a new test snippet. This creates a new empty test file but the recording starts from the current browser state from the previous test instead of starting a new browser. This snippet can then be pasted into a previous test file so it can be properly run.
+
+
+[Playwright]: https://playwright.dev "Playwright"
