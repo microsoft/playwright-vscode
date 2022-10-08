@@ -58,8 +58,12 @@
       {
         "category": "Test",
         "command": "pw.extension.toggle.reuseBrowser",
-        "icon": "$(remote-explorer)",
         "title": "Toggle Playwright Browser Reuse"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.toggle.logApiCalls",
+        "title": "Toggle Playwright Log API Calls"
       }
     ],
     "configuration": {
@@ -74,6 +78,11 @@
           "type": "boolean",
           "default": false,
           "description": "Show & reuse browser between tests."
+        },
+        "playwright.logApiCalls": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log API Calls."
         }
       }
     },

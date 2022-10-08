@@ -63,6 +63,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
   private _browserServerWS: string | undefined;
   private _shouldReuseBrowserForTests = false;
+  private _shouldLogApiCalls = false;
   private _backend: Backend | LegacyBackend | undefined;
   private _cancelRecording: (() => void) | undefined;
   private _updateOrCancelInspecting: ((params: { selector?: string, cancel?: boolean }) => void) | undefined;
@@ -82,6 +83,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   setReuseBrowserForRunningTests(enabled: boolean) {
     this._shouldReuseBrowserForTests = enabled;
+  }
+
+  setLogApiCalls(enabled: boolean) {
+    this._shouldLogApiCalls = enabled;
   }
 
   private async _startBackendIfNeeded(config: TestConfig) {
@@ -191,6 +196,12 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return (debug || this._shouldReuseBrowserForTests) && this._browserServerWS ? {
       PW_TEST_REUSE_CONTEXT: this._shouldReuseBrowserForTests ? '1' : undefined,
       PW_TEST_CONNECT_WS_ENDPOINT: this._browserServerWS,
+    } : undefined;
+  }
+
+  logApiCallsEnv(): NodeJS.ProcessEnv | undefined {
+    return this._shouldLogApiCalls ? {
+      DEBUG: 'pw:api'
     } : undefined;
   }
 
