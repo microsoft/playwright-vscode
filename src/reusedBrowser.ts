@@ -91,7 +91,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     }
 
-    const legacyMode = config.version < 1.27;
+    const legacyMode = config.version < 1.28;
 
     const node = await findNode();
     const allArgs = [
@@ -126,7 +126,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
     this._backend = legacyMode ? new LegacyBackend(serverProcess) : new Backend();
     this._backend.on('inspectRequested', params => {
-      this._updateOrCancelInspecting?.({ selector: params.selector });
+      const locator = params.locators?.find((l: { name: string, value: string }) => l.name === 'javascript');
+      this._updateOrCancelInspecting?.({ selector: locator?.value || params.selector });
     });
     this._backend.on('browsersChanged', params => {
       const pages: PageSnapshot[] = [];
