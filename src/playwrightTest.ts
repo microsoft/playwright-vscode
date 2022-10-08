@@ -168,6 +168,7 @@ export class PlaywrightTest {
         ...process.env,
         ...settingsEnv,
         ...this._reusedBrowser.browserServerEnv(false),
+        ...this._reusedBrowser.logApiCallsEnv(),
         ...(await reporterServer.env()),
         // Don't debug tests when running them.
         NODE_OPTIONS: undefined,
@@ -220,6 +221,7 @@ export class PlaywrightTest {
           ...process.env,
           ...settingsEnv,
           ...this._reusedBrowser.browserServerEnv(true),
+          ...this._reusedBrowser.logApiCallsEnv(),
           ...(await reporterServer.env()),
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,
