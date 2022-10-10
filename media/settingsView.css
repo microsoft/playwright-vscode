@@ -1,0 +1,73 @@
+/**
+ * Copyright (c) Microsoft Corporation.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+svg {
+  transform: scale(0.3);
+  fill: var(--vscode-editor-foreground);
+  margin: -18px;
+  width: 56px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.list > div {
+  height: 22px;
+  line-height: 22px;
+  padding-right: 12px;
+  padding-left: 8px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  white-space: nowrap;
+  flex: 0;
+  cursor: pointer;
+}
+
+input[type=checkbox] {
+  margin-right: 4px;
+  cursor: pointer;
+}
+
+.list > div:hover {
+  background-color: #e8e8e8;
+}
+
+body[data-vscode-theme-kind=vscode-dark] .list > div:hover {
+  background-color: #2a2d2e;
+}
+
+label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+div.separator {
+  height: 1px !important;
+  border-top: 1px solid rgba(97, 97, 97, 0.19);
+}
+
+body[data-vscode-theme-kind=vscode-dark] div.separator {
+  border-color: rgba(204, 204, 204, 0.2);
+}

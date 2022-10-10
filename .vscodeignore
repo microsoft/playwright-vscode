@@ -1,5 +1,6 @@
 **/*
 !out/*.js
 !images
+!media/*
 !LICENSE
 !README.md

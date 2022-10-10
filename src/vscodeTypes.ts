@@ -44,6 +44,10 @@ export type {
   TreeItem,
   TreeView,
   Uri,
+  Webview,
+  WebviewView,
+  WebviewViewProvider,
+  WebviewViewResolveContext,
   WorkspaceConfiguration,
 } from 'vscode';
 
