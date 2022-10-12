@@ -61,3 +61,15 @@ export const pageMethods = [
   'type',
   'uncheck'
 ];
+
+export const locatorMethods = [
+  'locator',
+  'getByAltText',
+  'getByLabel',
+  'getByPlaceholder',
+  'getByRole',
+  'getByTestId',
+  'getByText',
+  'getByTitle',
+  'getBy'
+];
