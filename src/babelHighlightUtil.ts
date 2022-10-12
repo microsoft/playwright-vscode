@@ -15,7 +15,7 @@
  */
 
 import { t, parse, ParseResult, traverse, File, SourceLocation } from './babelBundle';
-import { asyncMatchers, pageMethods } from './methodNames';
+import { asyncMatchers, pageMethods, locatorMethods } from './methodNames';
 
 const astCache = new Map<string, { text: string, ast: ParseResult<File> }>();
 
@@ -44,7 +44,7 @@ export function locatorForSourcePosition(text: string, vars: { pages: string[], 
       let pageSelectorNode;
       let pageSelectorCallee;
 
-      // page.*(selector) will highlight `page.locator(selector)`
+      // Hover over page.[click,check,...](selector) will highlight `page.locator(selector)`.
       if (t.isCallExpression(path.node) &&
           t.isMemberExpression(path.node.callee) &&
           t.isIdentifier(path.node.callee.object) &&
@@ -55,13 +55,14 @@ export function locatorForSourcePosition(text: string, vars: { pages: string[], 
         pageSelectorCallee = path.node.callee.object.name;
       }
 
-      // locator.*() will highlight `locator`
+
+      // Hover over locator variables will highlight `locator`.
       if (t.isIdentifier(path.node) &&
           vars.locators.includes(path.node.name))
         expressionNode = path.node;
 
 
-      // Web-first assertions: expect(a).to*
+      // Web assertions: expect(a).to*.
       if (t.isMemberExpression(path.node) &&
           t.isIdentifier(path.node.property) &&
           asyncMatchers.includes(path.node.property.name) &&
@@ -71,11 +72,11 @@ export function locatorForSourcePosition(text: string, vars: { pages: string[], 
         expressionNode = path.node.object.arguments[0];
 
 
-      // *.locator() call
+      // *.locator(), *.getBy*(), call
       if (t.isCallExpression(path.node) &&
           t.isMemberExpression(path.node.callee) &&
           t.isIdentifier(path.node.callee.property) &&
-          path.node.callee.property.name === 'locator')
+          locatorMethods.includes(path.node.callee.property.name))
         expressionNode = path.node;
 
 
