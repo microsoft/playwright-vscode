@@ -79,10 +79,8 @@ export class SidebarViewProvider implements vscodeTypes.TreeDataProvider<vscodeT
         this._createCommandItem('Pick selector', 'pw.extension.command.inspect', pickSelectorIcon),
         this._createCommandItem('Record new', 'pw.extension.command.recordNew', recordIcon),
         this._createCommandItem('Record from here', 'pw.extension.command.recordFromHere', recordIcon),
-        this._createCommandItem('Close all browsers', 'pw.extension.command.closeBrowsers', closeIcon),
-        this._createSeparator(),
         this._createCommandItem('Reveal test output', 'testing.showMostRecentOutput', logIcon),
-        this._createCheckboxSettingItem('Log calls', this._logApiCallsSetting),
+        this._createCommandItem('Close all browsers', 'pw.extension.command.closeBrowsers', closeIcon),
       ];
       return result;
     }
