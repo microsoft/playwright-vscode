@@ -24,9 +24,9 @@ jobs:
         - os: ubuntu-latest
           node-version: 14
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Use Node.js
-      uses: actions/setup-node@v2
+      uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
     - run: npm ci
@@ -35,7 +35,7 @@ jobs:
     - run: npm run test -- --workers=1
     - run: npx vsce package
       if: matrix.os == 'ubuntu-latest' && matrix.node-version == '16'
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       if: matrix.os == 'ubuntu-latest' && matrix.node-version == '16'
       with:
         name: vsc-extension
