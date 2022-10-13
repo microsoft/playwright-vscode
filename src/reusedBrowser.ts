@@ -69,7 +69,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _updateOrCancelInspecting: ((params: { selector?: string, cancel?: boolean }) => void) | undefined;
   private _isRunningTests = false;
   private _autoCloseTimer: any;
-  private _editor: vscodeTypes.TextEditor | undefined;
   private _envProvider: () => NodeJS.ProcessEnv;
 
   constructor(vscode: vscodeTypes.VSCode, envProvider: () => NodeJS.ProcessEnv) {
@@ -141,21 +140,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
           pages.push(...context.pages);
       }
       this._pagesUpdated(pages);
-    });
-    this._backend.on('sourcesChanged', params => {
-      if (!this._editor)
-        return;
-      const sources: Source[] = params.sources;
-      for (const source of sources) {
-        if (source.id !== 'test' || !source.isRecorded || source.language !== 'javascript' || source.label !== 'Test Runner')
-          continue;
-        const start = new this._vscode.Position(0, 0);
-        const end = new this._vscode.Position(Number.MAX_VALUE, Number.MAX_VALUE);
-        const range = this._editor.document.validateRange(new this._vscode.Range(start, end));
-        this._editor?.edit(async editBuilder => {
-          editBuilder.replace(range, source.text);
-        });
-      }
     });
 
     let connectedCallback: (wsEndpoint: string) => void;
@@ -268,11 +252,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   private async _doRecord(model: TestModel, reset: boolean, token: vscodeTypes.CancellationToken) {
     const startBackend = this._startBackendIfNeeded(model.config);
-    const [, editor] = await Promise.all([
+    const [, file] = await Promise.all([
       startBackend,
       this._createFileForNewTest(model),
     ]);
-    this._editor = editor;
 
     if (reset) {
       await this._backend?.resetForReuse();
@@ -280,7 +263,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }
 
     try {
-      await this._backend?.setMode({ mode: 'recording', language: 'test' });
+      await this._backend?.setMode({ mode: 'recording', language: 'test', file });
     } catch (e) {
       showExceptionAsUserError(this._vscode, model, e as Error);
       this._reset();
@@ -315,7 +298,8 @@ test('test', async ({ page }) => {
 });`);
 
     const document = await this._vscode.workspace.openTextDocument(file);
-    return await this._vscode.window.showTextDocument(document);
+    await this._vscode.window.showTextDocument(document);
+    return file;
   }
 
   async willRunTests(config: TestConfig, debug: boolean) {
@@ -341,7 +325,6 @@ test('test', async ({ page }) => {
 
   private async _reset() {
     // This won't wait for setMode(none).
-    this._editor = undefined;
     this._updateOrCancelInspecting?.({ cancel: true });
     this._updateOrCancelInspecting = undefined;
     this._cancelRecording?.();
