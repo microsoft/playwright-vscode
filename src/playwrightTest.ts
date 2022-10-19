@@ -166,12 +166,12 @@ export class PlaywrightTest {
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
+        // Don't debug tests when running them.
+        NODE_OPTIONS: undefined,
         ...settingsEnv,
         ...this._reusedBrowser.browserServerEnv(false),
         ...this._reusedBrowser.logApiCallsEnv(),
         ...(await reporterServer.env()),
-        // Don't debug tests when running them.
-        NODE_OPTIONS: undefined,
         // Reset VSCode's options that affect nested Electron.
         ELECTRON_RUN_AS_NODE: undefined,
         FORCE_COLORS: '1',
