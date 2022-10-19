@@ -605,6 +605,7 @@ export class VSCode {
     this.window.showWarningMessage = (message: string) => this.warnings.push(message);
     this.window.visibleTextEditors = [];
     this.window.registerTreeDataProvider = () => {};
+    this.window.registerWebviewViewProvider = () => {};
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
     this.workspace.onDidChangeTextDocument = this.onDidChangeTextDocument;

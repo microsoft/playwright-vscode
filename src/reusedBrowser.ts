@@ -25,6 +25,7 @@ import events from 'events';
 import EventEmitter from 'events';
 import { installBrowsers } from './installer';
 import { WebSocketTransport } from './transport';
+import { SettingsModel } from './settingsModel';
 
 export type Snapshot = {
   browsers: BrowserSnapshot[];
@@ -71,22 +72,28 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _autoCloseTimer: any;
   private _editor: vscodeTypes.TextEditor | undefined;
   private _envProvider: () => NodeJS.ProcessEnv;
+  private _disposables: vscodeTypes.Disposable[] = [];
 
-  constructor(vscode: vscodeTypes.VSCode, envProvider: () => NodeJS.ProcessEnv) {
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
     this._envProvider = envProvider;
+
+    this._disposables.push(settingsModel.setting<boolean>('reuseBrowser').onChange(value => {
+      this._shouldReuseBrowserForTests = value;
+    }));
+    this._shouldReuseBrowserForTests = settingsModel.get<boolean>('reuseBrowser');
+
+    this._disposables.push(settingsModel.setting<boolean>('logApiCalls').onChange(value => {
+      this._shouldLogApiCalls = value;
+    }));
+    this._shouldLogApiCalls = settingsModel.get<boolean>('logApiCalls');
   }
 
   dispose() {
     this.stop();
-  }
-
-  setReuseBrowserForRunningTests(enabled: boolean) {
-    this._shouldReuseBrowserForTests = enabled;
-  }
-
-  setLogApiCalls(enabled: boolean) {
-    this._shouldLogApiCalls = enabled;
+    for (const d of this._disposables)
+      d.dispose();
+    this._disposables = [];
   }
 
   private async _startBackendIfNeeded(config: TestConfig) {

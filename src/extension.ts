@@ -22,7 +22,8 @@ import { Entry } from './oopReporter';
 import { PlaywrightTest, TestListener } from './playwrightTest';
 import type { TestError } from './reporter';
 import { ReusedBrowser } from './reusedBrowser';
-import { SidebarViewProvider } from './sidebarView';
+import { SettingsModel } from './settingsModel';
+import { SettingsView } from './settingsView';
 import { TestModel, TestProject } from './testModel';
 import { TestTree } from './testTree';
 import { ansiToHtml } from './utils';
@@ -75,8 +76,8 @@ export class Extension {
   private _projectsScheduledToRun: TestProject[] | undefined;
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
-  private _sidebarView!: SidebarViewProvider;
   private _reusedBrowser!: ReusedBrowser;
+  private _settingsModel: SettingsModel;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -98,7 +99,8 @@ export class Extension {
       },
     });
 
-    this._reusedBrowser = new ReusedBrowser(this._vscode, this._envProvider.bind(this));
+    this._settingsModel = new SettingsModel(vscode);
+    this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._playwrightTest = new PlaywrightTest(this._reusedBrowser, this._isUnderTest);
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
@@ -116,10 +118,10 @@ export class Extension {
 
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
-    this._sidebarView = new SidebarViewProvider(vscode, this._reusedBrowser);
+    const settingsView = new SettingsView(vscode, this._settingsModel, context.extensionUri);
     this._disposables = [
-      this._sidebarView,
       this._debugHighlight,
+      this._settingsModel,
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
         this._rebuildModel(false);
       }),
@@ -171,6 +173,7 @@ export class Extension {
           this._executionLinesChanged();
         }
       }),
+      settingsView,
       this._testController,
       this._workspaceObserver,
       this._reusedBrowser,

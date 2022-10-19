@@ -89,6 +89,7 @@
     "views": {
       "test": [
         {
+          "type": "webview",
           "id": "pw.extension.settingsView",
           "name": "Playwright"
         }
@@ -104,9 +105,9 @@
     "download-api": "vscode-dts dev && vscode-dts main",
     "test": "playwright test",
     "package": "vsce package",
-    "code": "code --uninstall-extension ms-playwright.playwright && code --install-extension playwright-0.2.6.vsix",
+    "code": "code --uninstall-extension ms-playwright.playwright && code --install-extension playwright-0.2.11.vsix",
     "uncode": "code --uninstall-extension ms-playwright.playwright",
-    "code-insiders": "code-insiders --uninstall-extension ms-playwright.playwright && code-insiders --install-extension playwright-0.2.6.vsix",
+    "code-insiders": "code-insiders --uninstall-extension ms-playwright.playwright && code-insiders --install-extension playwright-0.2.11.vsix",
     "uncode-insiders": "code-insiders --uninstall-extension ms-playwright.playwright"
   },
   "devDependencies": {
