@@ -337,11 +337,10 @@ test('test', async ({ page }) => {
 
   async didRunTests(debug: boolean) {
     this._isRunningTests = false;
-    if (debug && !this._shouldReuseBrowserForTests) {
+    if (debug && !this._shouldReuseBrowserForTests)
       this.stop();
-    } else {
+    else
       this._backend?.setAutoClose({ enabled: true });
-    }
   }
 
   private async _reset() {
