@@ -103,7 +103,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     }
 
-    const legacyMode = config.version < 1.28;
+    const legacyMode = config.version < 1.29;
 
     const node = await findNode();
     const allArgs = [
@@ -331,19 +331,16 @@ test('test', async ({ page }) => {
     if (!this._checkVersion(config, 'Show & reuse browser'))
       return;
     await this._startBackendIfNeeded(config);
-    await this._backend!.setReuseBrowser({ enabled: true });
     await this._backend!.setAutoClose({ enabled: false });
     this._isRunningTests = true;
   }
 
   async didRunTests(debug: boolean) {
     this._isRunningTests = false;
-    if (debug && !this._shouldReuseBrowserForTests) {
+    if (debug && !this._shouldReuseBrowserForTests)
       this.stop();
-    } else {
+    else
       this._backend?.setAutoClose({ enabled: true });
-      this._backend?.setReuseBrowser({ enabled: false });
-    }
   }
 
   private async _reset() {
@@ -414,10 +411,6 @@ class Backend extends EventEmitter {
     await this._send('setTrackHierarchy', params);
   }
 
-  async setReuseBrowser(params: { enabled: boolean }) {
-    await this._send('setReuseBrowser', params);
-  }
-
   async setAutoClose(params: { enabled: boolean }) {
   }
 
@@ -482,8 +475,6 @@ class LegacyBackend extends EventEmitter {
   async setAutoClose(params: { enabled: boolean }) {
     await this._send('setAutoClose', params);
   }
-
-  async setReuseBrowser() {}
 
   async highlight(params: { selector: string }) {
     await this._send('highlight', params);
