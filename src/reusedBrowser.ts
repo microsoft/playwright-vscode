@@ -141,14 +141,21 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       const locator = params.locators?.find((l: { name: string, value: string }) => l.name === 'javascript');
       this._updateOrCancelInspecting?.({ selector: locator?.value || params.selector });
     });
+
+    // TODO: used only in legacy mode.
     this._backend.on('browsersChanged', params => {
       const pages: PageSnapshot[] = [];
       for (const browser of params.browsers) {
         for (const context of browser.contexts)
           pages.push(...context.pages);
       }
-      this._pagesUpdated(pages);
+      this._pagesUpdated(!!pages.length);
     });
+
+    this._backend.on('stateChanged', params => {
+      this._pagesUpdated(!!params.pageCount);
+    });
+
     this._backend.on('sourcesChanged', params => {
       if (!this._editor)
         return;
@@ -186,10 +193,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     ]);
   }
 
-  private _pagesUpdated(pages: PageSnapshot[]) {
+  private _pagesUpdated(hasPages: boolean) {
     if (this._autoCloseTimer)
       clearTimeout(this._autoCloseTimer);
-    if (pages.length)
+    if (hasPages)
       return;
     if (this._isRunningTests)
       return;
@@ -392,7 +399,7 @@ class Backend extends EventEmitter {
         pair.fulfill(message.result);
       }
     };
-    this.setTrackHierarchy({ enabled: true });
+    this.setReportState({ enabled: true });
   }
 
   async resetForReuse() {
@@ -407,8 +414,8 @@ class Backend extends EventEmitter {
     await this._send('setRecorderMode', params);
   }
 
-  async setTrackHierarchy(params: { enabled: boolean }) {
-    await this._send('setTrackHierarchy', params);
+  async setReportState(params: { enabled: boolean }) {
+    await this._send('setReportState', params);
   }
 
   async setAutoClose(params: { enabled: boolean }) {
