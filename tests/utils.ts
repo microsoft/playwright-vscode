@@ -14,28 +14,44 @@
  * limitations under the License.
  */
 
+import { test as baseTest } from '@playwright/test';
 import { Extension } from '../out/extension';
-import { VSCode } from './mock/vscode';
+import { TestController, VSCode, WorkspaceFolder } from './mock/vscode';
+import path from 'path';
 
-export async function activate(rootDir: string, files: { [key: string]: string }) {
-  const vscode = new VSCode();
-  const workspaceFolder = await vscode.addWorkspaceFolder(rootDir, files);
-  const extension = new Extension(vscode);
-  const context = { subscriptions: [] };
-  await extension.activate(context);
-  return {
-    vscode,
-    extension,
-    testController: vscode.testControllers[0],
-    workspaceFolder,
-    renderExecLog: (indent: string) => renderExecLog(extension, indent),
-  };
-}
+type ActivateResult = {
+  vscode: VSCode,
+  testController: TestController;
+  workspaceFolder: WorkspaceFolder;
+};
 
-function renderExecLog(extension: any, indent: string) {
-  return unescapeRegex((['', ...extension.playwrightTestLog()].join(`\n  ${indent}`) + `\n${indent}`)).replace(/\\/g, '/');
-}
+type TestFixtures = {
+  activate: (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][] }) => Promise<ActivateResult>;
+};
 
-function unescapeRegex(regex: string) {
-  return regex.replace(/\\(.)/g, '$1');
-}
+export { expect } from '@playwright/test';
+export const test = baseTest.extend<TestFixtures>({
+  activate: async ({ browser }, use, testInfo) => {
+    const instances: VSCode[] = [];
+    await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][] }) => {
+      const vscode = new VSCode(path.resolve(__dirname, '..'), browser);
+      if (options?.workspaceFolders) {
+        for (const wf of options?.workspaceFolders)
+          await vscode.addWorkspaceFolder(wf[0], wf[1]);
+      } else {
+        await vscode.addWorkspaceFolder(options?.rootDir || testInfo.outputDir, files);
+      }
+      const extension = new Extension(vscode);
+      vscode.extensions.push(extension);
+      await vscode.activate();
+      instances.push(vscode);
+      return {
+        vscode,
+        testController: vscode.testControllers[0],
+        workspaceFolder: vscode.workspace.workspaceFolders[0],
+      };
+    });
+    for (const vscode of instances)
+      vscode.dispose();
+  }
+});

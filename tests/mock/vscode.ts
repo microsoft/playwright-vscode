@@ -21,8 +21,9 @@ import { EventEmitter } from './events';
 import minimatch from 'minimatch';
 import { spawn } from 'child_process';
 import which from 'which';
+import { Browser, Page } from '@playwright/test';
 
-class Uri {
+export class Uri {
   scheme = 'file';
   fsPath!: string;
 
@@ -30,6 +31,10 @@ class Uri {
     const uri = new Uri();
     uri.fsPath = fsPath;
     return uri;
+  }
+
+  static joinPath(base: Uri, ...args: string[]): Uri {
+    return Uri.file(path.join(base.fsPath, ...args));
   }
 }
 
@@ -75,7 +80,7 @@ class CancellationToken {
   }
 }
 
-class WorkspaceFolder {
+export class WorkspaceFolder {
   name: string;
   uri: Uri;
 
@@ -240,6 +245,8 @@ export class TestMessage {
 
 type LogEntry = { status: string, duration?: number, messages?: TestMessage | TestMessage[] };
 
+const disposable = { dispose: () => {} };
+
 export class TestRun {
   private _didChange = new EventEmitter<void>();
   readonly onDidChange = this._didChange.event;
@@ -324,7 +331,7 @@ export class TestRun {
   }
 }
 
-class TestController {
+export class TestController {
   readonly items: TestItem;
   readonly runProfiles: TestRunProfile[] = [];
   readonly allTestItems = new Map<string, TestItem>();
@@ -588,24 +595,44 @@ export class VSCode {
   readonly testControllers: TestController[] = [];
   readonly fsWatchers = new Set<FileSystemWatcher>();
   readonly warnings: string[] = [];
+  readonly context: { subscriptions: any[]; extensionUri: Uri; };
+  readonly extensions: any[] = [];
+  private _webviewProviders = new Map<string, any>();
+  private _browser: Browser;
+  readonly webViews = new Map<string, Page>();
+  readonly commandLog: string[] = [];
 
-  constructor() {
-    this.commands.registerCommand = () => {};
+  constructor(baseDir: string, browser: Browser) {
+    this.context = { subscriptions: [], extensionUri: Uri.file(baseDir) };
+    this._browser = browser;
+
+    const commands = new Map<string, () => Promise<void>>();
+    this.commands.registerCommand = (name: string, callback: () => Promise<void>) => {
+      commands.set(name, callback);
+      return disposable;
+    };
+    this.commands.executeCommand = (name: string) => {
+      commands.get(name)?.();
+      this.commandLog.push(name);
+    };
     this.debug = new Debug();
 
-    this.languages.registerHoverProvider = () => {};
+    this.languages.registerHoverProvider = () => disposable;
     this.tests.createTestController = this._createTestController.bind(this);
 
     let lastDecorationTypeId = 0;
     this.window.onDidChangeActiveTextEditor = this.onDidChangeActiveTextEditor;
     this.window.onDidChangeTextEditorSelection = this.onDidChangeTextEditorSelection;
     this.window.onDidChangeVisibleTextEditors = this.onDidChangeVisibleTextEditors;
-    this.window.onDidChangeActiveColorTheme = () => {};
+    this.window.onDidChangeActiveColorTheme = () => disposable;
     this.window.createTextEditorDecorationType = () => ++lastDecorationTypeId;
     this.window.showWarningMessage = (message: string) => this.warnings.push(message);
     this.window.visibleTextEditors = [];
-    this.window.registerTreeDataProvider = () => {};
-    this.window.registerWebviewViewProvider = () => {};
+    this.window.registerTreeDataProvider = () => disposable;
+    this.window.registerWebviewViewProvider = (name: string, provider: any) => {
+      this._webviewProviders.set(name, provider);
+      return disposable;
+    };
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
     this.workspace.onDidChangeTextDocument = this.onDidChangeTextDocument;
@@ -639,6 +666,7 @@ export class VSCode {
     };
     const settings = {
       'playwright.env': {},
+      'playwright.logApiCalls': false,
       'playwright.reuseBrowser': false,
     };
     this.workspace.getConfiguration = scope => {
@@ -652,6 +680,64 @@ export class VSCode {
         }
       };
     };
+  }
+
+  async activate() {
+    for (const extension of this.extensions)
+      await extension.activate(this.context);
+
+    for (const [name, provider] of this._webviewProviders) {
+      const webview: any = {};
+      webview.asWebviewUri = uri => path.relative(this.context.extensionUri.fsPath, uri.fsPath);
+      const eventEmitter = new EventEmitter<any>();
+      let initializedPage: Page | undefined = undefined;
+      webview.onDidReceiveMessage = eventEmitter.event;
+      webview.cspSource = 'http://localhost/';
+      const pendingMessages: any[] = [];
+      webview.postMessage = (data: any) => {
+        if (!initializedPage) {
+          pendingMessages.push(data);
+          return;
+        }
+        initializedPage.evaluate((data: any) => {
+          const event = new Event('message');
+          (event as any).data = data;
+          globalThis.dispatchEvent(event);
+        }, data).catch(() => {});
+      };
+      provider.resolveWebviewView({ webview });
+      const context = await this._browser.newContext();
+      const page = await context.newPage();
+      this.webViews.set(name, page);
+      await page.route('**/*', route => {
+        const url = route.request().url();
+        if (url === 'http://localhost/') {
+          route.fulfill({ body: webview.html });
+        } else {
+          const suffix = url.substring('http://localhost/'.length);
+          const buffer = fs.readFileSync(path.join(this.context.extensionUri.fsPath, suffix));
+          route.fulfill({ body: buffer });
+        }
+      });
+      await page.addInitScript(() => {
+        globalThis.acquireVsCodeApi = () => globalThis;
+      });
+      await page.goto('http://localhost');
+      await page.exposeFunction('postMessage', (data: any) => eventEmitter.fire(data));
+      this.context.subscriptions.push({
+        dispose: () => {
+          context.close().catch(() => {});
+        }
+      });
+      initializedPage = page;
+      for (const m of pendingMessages)
+        webview.postMessage(m);
+    }
+  }
+
+  dispose() {
+    for (const d of this.context.subscriptions)
+      d.dispose();
   }
 
   private _createTestController(id: string, label: string): TestController {
@@ -686,9 +772,20 @@ export class VSCode {
     this._didChangeVisibleTextEditors.fire(this.window.visibleTextEditors);
     this._didChangeActiveTextEditor.fire(this.window.activeTextEditor);
   }
+
+  renderExecLog(indent: string) {
+    const log: string[] = [''];
+    for (const extension of this.extensions)
+      log.push(...extension.playwrightTestLog());
+    return unescapeRegex(log.join(`\n  ${indent}`) + `\n${indent}`).replace(/\\/g, '/');
+  }
 }
 
 const asciiRegex = new RegExp('[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))', 'g');
 export function stripAscii(str: string): string {
   return str.replace(asciiRegex, '');
+}
+
+function unescapeRegex(regex: string) {
+  return regex.replace(/\\(.)/g, '$1');
 }
