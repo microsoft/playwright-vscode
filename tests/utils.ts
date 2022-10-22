@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { test as baseTest, PlaywrightTestConfig as BasePlaywrightTestConfig, } from '@playwright/test';
+import { test as baseTest } from '@playwright/test';
 import { Extension } from '../out/extension';
 import { TestController, VSCode, WorkspaceFolder } from './mock/vscode';
 import path from 'path';
