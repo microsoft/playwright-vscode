@@ -29,9 +29,14 @@ type TestFixtures = {
   activate: (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][] }) => Promise<ActivateResult>;
 };
 
+export type TestOptions = {
+  mode: 'default' | 'reuse';
+};
+
 export { expect } from '@playwright/test';
-export const test = baseTest.extend<TestFixtures>({
-  activate: async ({ browser }, use, testInfo) => {
+export const test = baseTest.extend<TestFixtures & TestOptions>({
+  mode: ['default', { option: true }],
+  activate: async ({ browser, mode }, use, testInfo) => {
     const instances: VSCode[] = [];
     await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][] }) => {
       const vscode = new VSCode(path.resolve(__dirname, '..'), browser);
@@ -44,6 +49,12 @@ export const test = baseTest.extend<TestFixtures>({
       const extension = new Extension(vscode);
       vscode.extensions.push(extension);
       await vscode.activate();
+
+      if (mode === 'reuse') {
+        const configuration = vscode.workspace.getConfiguration('playwright');
+        configuration.update('reuseBrowser', true);
+      }
+
       instances.push(vscode);
       return {
         vscode,

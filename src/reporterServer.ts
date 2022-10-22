@@ -79,6 +79,8 @@ export class ReporterServer {
     };
 
     token?.onCancellationRequested(() => killTestProcess());
+    if (token?.isCancellationRequested)
+      killTestProcess();
 
     transport.onmessage = message => {
       if (token?.isCancellationRequested && message.method !== 'onEnd')
