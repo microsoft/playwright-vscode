@@ -14,48 +14,46 @@
  * limitations under the License.
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from './utils';
 import { Extension } from '../out/extension';
-import { VSCode } from './mock/vscode';
-import { activate } from './utils';
 
-test.describe.configure({ mode: 'parallel' });
-
-test('should list files', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should list files', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
       test('one', async () => {});
     `,
   });
+
   expect(testController.renderTestTree()).toBe(`
     - tests
       - test.spec.ts
   `);
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
 });
 
-test('should list files top level if no testDir', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputPath('myWorkspace'), {
+test('should list files top level if no testDir', async ({ activate }, testInfo) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `{}`,
     'test.spec.ts': `
       import { test } from '@playwright/test';
       test('one', async () => {});
     `,
-  });
+  }, { rootDir: testInfo.outputPath('myWorkspace') });
+
   expect(testController.renderTestTree()).toBe(`
     - test.spec.ts
   `);
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
 });
 
-test('should list only test files', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
+test('should list only test files', async ({ activate }) => {
+  const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'model.ts': `
       export const a = 1;
@@ -65,20 +63,22 @@ test('should list only test files', async ({}, testInfo) => {
       test('one', async () => {});
     `,
   });
+
   expect(testController.renderTestTree()).toBe(`
     - tests
       - test.spec.ts
   `);
 });
 
-test('should list folders', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should list folders', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/foo/test-a.spec.ts': ``,
     'tests/foo/test-b.spec.ts': ``,
     'tests/bar/test-a.spec.ts': ``,
     'tests/a/b/c/d/test-c.spec.ts': ``,
   });
+
   expect(testController.renderTestTree()).toBe(`
     - tests
       - a
@@ -92,13 +92,13 @@ test('should list folders', async ({}, testInfo) => {
         - test-a.spec.ts
         - test-b.spec.ts
   `);
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
 });
 
-test('should pick new files', async ({}, testInfo) => {
-  const { workspaceFolder, testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should pick new files', async ({ activate }) => {
+  const { vscode, testController, workspaceFolder } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test-1.spec.ts': ``
   });
@@ -108,7 +108,7 @@ test('should pick new files', async ({}, testInfo) => {
       - test-1.spec.ts
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
 
@@ -123,14 +123,14 @@ test('should pick new files', async ({}, testInfo) => {
       - test-2.spec.ts
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.js
   `);
 });
 
-test('should not pick non-test files', async ({}, testInfo) => {
-  const { workspaceFolder, testController } = await activate(testInfo.outputDir, {
+test('should not pick non-test files', async ({ activate }) => {
+  const { workspaceFolder, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test-1.spec.ts': ``
   });
@@ -153,8 +153,8 @@ test('should not pick non-test files', async ({}, testInfo) => {
   `);
 });
 
-test('should tolerate missing testDir', async ({}, testInfo) => {
-  const { workspaceFolder, testController } = await activate(testInfo.outputDir, {
+test('should tolerate missing testDir', async ({ activate }) => {
+  const { workspaceFolder, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
   });
 
@@ -172,8 +172,8 @@ test('should tolerate missing testDir', async ({}, testInfo) => {
   `);
 });
 
-test('should remove deleted files', async ({}, testInfo) => {
-  const { workspaceFolder, testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should remove deleted files', async ({ activate }) => {
+  const { vscode, testController, workspaceFolder } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test-1.spec.ts': ``,
     'tests/test-2.spec.ts': ``,
@@ -187,7 +187,7 @@ test('should remove deleted files', async ({}, testInfo) => {
       - test-3.spec.ts
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
 
@@ -202,13 +202,13 @@ test('should remove deleted files', async ({}, testInfo) => {
       - test-3.spec.ts
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
 });
 
-test('should do nothing for not loaded changed file', async ({}, testInfo) => {
-  const { workspaceFolder, testController } = await activate(testInfo.outputDir, {
+test('should do nothing for not loaded changed file', async ({ activate }) => {
+  const { workspaceFolder, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test-1.spec.ts': ``,
     'tests/test-2.spec.ts': ``,
@@ -229,8 +229,8 @@ test('should do nothing for not loaded changed file', async ({}, testInfo) => {
   expect(changed).toBeFalsy();
 });
 
-test('should support multiple configs', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should support multiple configs', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests1/test.spec.ts': `
@@ -249,14 +249,14 @@ test('should support multiple configs', async ({}, testInfo) => {
       - test.spec.ts
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
   `);
 });
 
-test('should support multiple projects', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should support multiple projects', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: './tests',
       projects: [
@@ -279,13 +279,13 @@ test('should support multiple projects', async ({}, testInfo) => {
       - test2.spec.ts
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
 });
 
-test('should support multiple projects with filter', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should support multiple projects with filter', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: './tests',
       projects: [
@@ -312,13 +312,13 @@ test('should support multiple projects with filter', async ({}, testInfo) => {
       - test2.spec.ts
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
 });
 
-test('should list files in relative folder', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should list files in relative folder', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'foo/bar/playwright.config.js': `module.exports = { testDir: '../../tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -329,33 +329,36 @@ test('should list files in relative folder', async ({}, testInfo) => {
     - tests
       - test.spec.ts
   `);
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     foo/bar> playwright list-files -c playwright.config.js
   `);
 });
 
-test('should list files in multi-folder workspace', async ({}, testInfo) => {
-  const vscode = new VSCode();
-  await vscode.addWorkspaceFolder(testInfo.outputPath('folder1'), {
-    'playwright.config.js': `module.exports = { testDir: './' }`,
-    'test.spec.ts': `
-      import { test } from '@playwright/test';
-      test('one', async () => {});
-    `,
-  });
-  await vscode.addWorkspaceFolder(testInfo.outputPath('folder2'), {
-    'playwright.config.js': `module.exports = { testDir: './' }`,
-    'test.spec.ts': `
-      import { test } from '@playwright/test';
-      test('two', async () => {});
-    `,
+test('should list files in multi-folder workspace', async ({ activate }, testInfo) => {
+  const { vscode, testController } = await activate({}, {
+    workspaceFolders: [
+      [testInfo.outputPath('folder1'), {
+        'playwright.config.js': `module.exports = { testDir: './' }`,
+        'test.spec.ts': `
+          import { test } from '@playwright/test';
+          test('one', async () => {});
+        `,
+      }],
+      [testInfo.outputPath('folder2'), {
+        'playwright.config.js': `module.exports = { testDir: './' }`,
+        'test.spec.ts': `
+          import { test } from '@playwright/test';
+          test('two', async () => {});
+        `,
+      }],
+    ]
   });
 
   const extension = new Extension(vscode);
   const context = { subscriptions: [] };
   await extension.activate(context);
 
-  expect(vscode.testControllers[0].renderTestTree()).toBe(`
+  expect(testController.renderTestTree()).toBe(`
     - folder1
       - test.spec.ts
     - folder2

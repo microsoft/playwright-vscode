@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-import { expect, test } from '@playwright/test';
-import { activate } from './utils';
+import { expect, test } from './utils';
 
-test.describe.configure({ mode: 'parallel' });
-
-test('should mark test as skipped', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should mark test as skipped', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -58,7 +55,7 @@ test('should mark test as skipped', async ({}, testInfo) => {
       skipped
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js
   `);

@@ -14,14 +14,11 @@
  * limitations under the License.
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from './utils';
 import { TestRun } from './mock/vscode';
-import { activate } from './utils';
 
-test.describe.configure({ mode: 'parallel' });
-
-test('should run all tests', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should run all tests', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test-1.spec.ts': `
       import { test } from '@playwright/test';
@@ -45,14 +42,14 @@ test('should run all tests', async ({}, testInfo) => {
       passed
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js
   `);
 });
 
-test('should run one test', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should run one test', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -72,15 +69,15 @@ test('should run one test', async ({}, testInfo) => {
       passed
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list tests/test.spec.ts
     > playwright test -c playwright.config.js tests/test.spec.ts:3
   `);
 });
 
-test('should run describe', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
+test('should run describe', async ({ activate }) => {
+  const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -110,8 +107,8 @@ test('should run describe', async ({}, testInfo) => {
   `);
 });
 
-test('should run file', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should run file', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -135,14 +132,14 @@ test('should run file', async ({}, testInfo) => {
       passed
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js tests/test.spec.ts
   `);
 });
 
-test('should run folder', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should run folder', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/folder/test1.spec.ts': `
       import { test } from '@playwright/test';
@@ -169,14 +166,14 @@ test('should run folder', async ({}, testInfo) => {
       passed
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js tests/folder
   `);
 });
 
-test('should show error message', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
+test('should show error message', async ({ activate }) => {
+  const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test, expect } from '@playwright/test';
@@ -210,8 +207,8 @@ test('should show error message', async ({}, testInfo) => {
   `);
 });
 
-test('should escape error log', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
+test('should escape error log', async ({ activate }) => {
+  const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test, expect } from '@playwright/test';
@@ -228,8 +225,8 @@ test('should escape error log', async ({}, testInfo) => {
       `<b>&lt;</b>div class=&quot;foo bar baz&quot;<b>&gt;</b><b>&lt;</b>/div<b>&gt;`);
 });
 
-test('should show soft error messages', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
+test('should show soft error messages', async ({ activate }) => {
+  const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test, expect } from '@playwright/test';
@@ -275,8 +272,8 @@ test('should show soft error messages', async ({}, testInfo) => {
   `);
 });
 
-test('should only create test run if file belongs to context', async ({}, testInfo) => {
-  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should only create test run if file belongs to context', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests1/test1.spec.ts': `
@@ -300,7 +297,7 @@ test('should only create test run if file belongs to context', async ({}, testIn
     expect(testRuns).toHaveLength(1);
   }
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
     tests1> playwright test -c playwright.config.js test1.spec.ts
@@ -313,7 +310,7 @@ test('should only create test run if file belongs to context', async ({}, testIn
     expect(testRuns).toHaveLength(1);
   }
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
     tests1> playwright test -c playwright.config.js test1.spec.ts
@@ -321,8 +318,8 @@ test('should only create test run if file belongs to context', async ({}, testIn
   `);
 });
 
-test('should only create test run if folder belongs to context', async ({}, testInfo) => {
-  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should only create test run if folder belongs to context', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests1/foo1/bar1/test1.spec.ts': `
@@ -343,15 +340,15 @@ test('should only create test run if folder belongs to context', async ({}, test
   expect(testRuns).toHaveLength(1);
   expect(testRuns[0].request.profile).toBe(profiles[0]);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
     tests1> playwright test -c playwright.config.js foo1
   `);
 });
 
-test('should only create test run if test belongs to context', async ({}, testInfo) => {
-  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should only create test run if test belongs to context', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests1/foo1/bar1/test1.spec.ts': `
@@ -372,7 +369,7 @@ test('should only create test run if test belongs to context', async ({}, testIn
   await Promise.all(profiles.map(p => p.run(items)));
   expect(testRuns).toHaveLength(1);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
     tests2> playwright test -c playwright.config.js --list foo2/bar2/test2.spec.ts
@@ -380,8 +377,8 @@ test('should only create test run if test belongs to context', async ({}, testIn
   `);
 });
 
-test('should run all projects at once', async ({}, testInfo) => {
-  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should run all projects at once', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: './tests',
       projects: [
@@ -398,14 +395,14 @@ test('should run all projects at once', async ({}, testInfo) => {
   const profiles = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
   await Promise.all(profiles.map(p => p.run()));
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --project=projectOne --project=projectTwo
   `);
 });
 
-test('should group projects by config', async ({}, testInfo) => {
-  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should group projects by config', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'tests1/playwright.config.js': `module.exports = {
       projects: [
         { name: 'projectOne' },
@@ -431,7 +428,7 @@ test('should group projects by config', async ({}, testInfo) => {
   const profiles = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
   await Promise.all(profiles.map(p => p.run()));
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
     tests1> playwright test -c playwright.config.js --project=projectOne --project=projectTwo
@@ -439,8 +436,8 @@ test('should group projects by config', async ({}, testInfo) => {
   `);
 });
 
-test('should stop', async ({}, testInfo) => {
-  const { vscode, testController } = await activate(testInfo.outputDir, {
+test('should stop', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -448,7 +445,7 @@ test('should stop', async ({}, testInfo) => {
     `,
   });
 
-  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run);
+  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run)!;
   const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
   const runPromise = profile.run();
   const testRun = await testRunPromise;
@@ -457,8 +454,8 @@ test('should stop', async ({}, testInfo) => {
   await runPromise;
 });
 
-test('should tear down on stop', async ({}, testInfo) => {
-  const { vscode, testController } = await activate(testInfo.outputDir, {
+test('should tear down on stop', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: 'tests',
       globalSetup: './globalSetup.js',
@@ -477,7 +474,7 @@ test('should tear down on stop', async ({}, testInfo) => {
     `,
   });
 
-  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run);
+  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run)!;
   const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
   const runPromise = profile.run();
   const testRun = await testRunPromise;
@@ -493,8 +490,8 @@ test('should tear down on stop', async ({}, testInfo) => {
   expect(testRun.renderLog({ output: true })).toContain('RUNNING TEARDOWN');
 });
 
-test('should not remove other tests when running focused test', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
+test('should not remove other tests when running focused test', async ({ activate }) => {
+  const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -517,8 +514,8 @@ test('should not remove other tests when running focused test', async ({}, testI
   `);
 });
 
-test('should run all parametrized tests', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should run all parametrized tests', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -550,15 +547,15 @@ test('should run all parametrized tests', async ({}, testInfo) => {
       passed
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list tests/test.spec.ts
     > playwright test -c playwright.config.js tests/test.spec.ts:4
   `);
 });
 
-test('should run one parametrized test', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should run one parametrized test', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -580,15 +577,15 @@ test('should run one parametrized test', async ({}, testInfo) => {
       passed
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list tests/test.spec.ts
     > playwright test -c playwright.config.js --grep=test two tests/test.spec.ts:4
   `);
 });
 
-test('should run one parametrized groups', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should run one parametrized groups', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -618,15 +615,15 @@ test('should run one parametrized groups', async ({}, testInfo) => {
       passed
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list tests/test.spec.ts
     > playwright test -c playwright.config.js --grep=group three tests/test.spec.ts:4
   `);
 });
 
-test('should list tests in relative folder', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should list tests in relative folder', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'foo/bar/playwright.config.js': `module.exports = { testDir: '../../tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -636,7 +633,7 @@ test('should list tests in relative folder', async ({}, testInfo) => {
 
   await testController.expandTestItems(/test.spec/);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     foo/bar> playwright list-files -c playwright.config.js
     foo/bar> playwright test -c playwright.config.js --list ../../tests/test.spec.ts
   `);
@@ -648,8 +645,8 @@ test('should list tests in relative folder', async ({}, testInfo) => {
   `);
 });
 
-test('should specify project', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should specify project', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
       projects: [
         { testDir: './tests1', name: 'project 1' },
@@ -676,14 +673,14 @@ test('should specify project', async ({}, testInfo) => {
       passed
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --project=project 1 tests1/test.spec.ts
   `);
 });
 
-test('should run tests concurrently', async ({}, testInfo) => {
-  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should run tests concurrently', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test-1.spec.ts': `
       import { test } from '@playwright/test';
@@ -691,20 +688,20 @@ test('should run tests concurrently', async ({}, testInfo) => {
     `,
   });
 
-  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run);
-  const runs = [];
+  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run)!;
+  const runs: any[] = [];
   testController.onDidCreateTestRun(run => runs.push(run));
   await Promise.all([profile.run(), profile.run(), profile.run()]);
   expect(runs).toHaveLength(1);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js
   `);
 });
 
-test('should report project-specific failures', async ({}, testInfo) => {
-  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should report project-specific failures', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: 'tests',
       projects: [
@@ -727,7 +724,7 @@ test('should report project-specific failures', async ({}, testInfo) => {
     ...profile.map(p => p.run()),
   ]);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --project=projectA --project=projectB --project=projectC
   `);
@@ -758,8 +755,8 @@ test('should report project-specific failures', async ({}, testInfo) => {
   `);
 });
 
-test('should discover tests after running one test', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
+test('should discover tests after running one test', async ({ activate }) => {
+  const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test1.spec.ts': `
       import { test } from '@playwright/test';
@@ -794,8 +791,8 @@ test('should discover tests after running one test', async ({}, testInfo) => {
   `);
 });
 
-test('should provisionally enqueue nested tests', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
+test('should provisionally enqueue nested tests', async ({ activate }) => {
+  const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -836,8 +833,8 @@ test('should provisionally enqueue nested tests', async ({}, testInfo) => {
   `);
 });
 
-test('should run tests for folders above root', async ({}, testInfo) => {
-  const { testController } = await activate(testInfo.outputDir, {
+test('should run tests for folders above root', async ({ activate }) => {
+  const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'builder/playwright/tests' }`,
     'builder/playwright/tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -856,8 +853,8 @@ test('should run tests for folders above root', async ({}, testInfo) => {
   `);
 });
 
-test('should show warning when tests do not belong to projects', async ({}, testInfo) => {
-  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should show warning when tests do not belong to projects', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
     'tests1/test1.spec.ts': `
@@ -870,7 +867,7 @@ test('should show warning when tests do not belong to projects', async ({}, test
     `,
   });
 
-  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run);
+  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run)!;
   let testRuns: TestRun[] = [];
   testController.onDidCreateTestRun(run => testRuns.push(run));
 
@@ -880,7 +877,7 @@ test('should show warning when tests do not belong to projects', async ({}, test
     await profile.run(items);
   }
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
   `);

@@ -14,20 +14,17 @@
  * limitations under the License.
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from './utils';
 import path from 'path';
-import { activate } from './utils';
 
-test.describe.configure({ mode: 'parallel' });
-
-test('should activate', async ({}, testInfo) => {
-  await activate(testInfo.outputDir, {});
+test('should activate', async ({ activate }) => {
+  await activate({});
 });
 
-test('should create run & debug profiles', async ({}, testInfo) => {
-  const { vscode, testController, renderExecLog } = await activate(testInfo.outputPath('workspace'), {
+test('should create run & debug profiles', async ({ activate }, testInfo) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {}`
-  });
+  }, { rootDir: testInfo.outputPath('workspace') });
   expect(vscode.testControllers).toHaveLength(1);
 
   const runProfiles = testController.runProfiles;
@@ -42,17 +39,17 @@ test('should create run & debug profiles', async ({}, testInfo) => {
   expect(runProfiles[1].kind).toBe(vscode.TestRunProfileKind.Debug);
   expect(runProfiles[1].isDefault).toBeTruthy();
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
 });
 
-test('should create run & debug profile per project', async ({}, testInfo) => {
-  const { testController, vscode, renderExecLog } = await activate(testInfo.outputPath('workspace'), {
+test('should create run & debug profile per project', async ({ activate }, testInfo) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
       projects: [{ name: 'projectA' }, { name: 'projectB' }]
     }`
-  });
+  }, { rootDir: testInfo.outputPath('workspace') });
 
   const runProfiles = testController.runProfiles;
   const configPath = 'workspace' + path.sep + 'playwright.config.js';
@@ -74,17 +71,17 @@ test('should create run & debug profile per project', async ({}, testInfo) => {
   expect(runProfiles[3].kind).toBe(vscode.TestRunProfileKind.Debug);
   expect(runProfiles[1].isDefault).toBeTruthy();
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
 });
 
-test('retain run profile instances of reload', async ({}, testInfo) => {
-  const { testController, workspaceFolder } = await activate(testInfo.outputPath('workspace'), {
+test('retain run profile instances of reload', async ({ activate }, testInfo) => {
+  const { testController, workspaceFolder } = await activate({
     'playwright.config.js': `module.exports = {
       projects: [{ name: 'projectA' }, { name: 'projectB' }]
     }`
-  });
+  }, { rootDir: testInfo.outputPath('workspace') });
 
   const runProfiles = new Set(testController.runProfiles);
 

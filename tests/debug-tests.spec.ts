@@ -14,14 +14,11 @@
  * limitations under the License.
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from './utils';
 import { TestRun } from './mock/vscode';
-import { activate } from './utils';
 
-test.describe.configure({ mode: 'parallel' });
-
-test('should debug all tests', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should debug all tests', async ({ activate }) => {
+  const { vscode } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test-1.spec.ts': `
       import { test } from '@playwright/test';
@@ -33,7 +30,7 @@ test('should debug all tests', async ({}, testInfo) => {
     `,
   });
 
-  const testRun = await testController.debug();
+  const testRun = await vscode.testControllers[0].debug();
   expect(testRun.renderLog()).toBe(`
     should fail [2:0]
       enqueued
@@ -45,14 +42,14 @@ test('should debug all tests', async ({}, testInfo) => {
       passed
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > debug -c playwright.config.js
   `);
 });
 
-test('should debug one test', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should debug one test', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -72,15 +69,15 @@ test('should debug one test', async ({}, testInfo) => {
       passed
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list tests/test.spec.ts
     > debug -c playwright.config.js tests/test.spec.ts:3
   `);
 });
 
-test('should debug error', async ({}, testInfo) => {
-  const { vscode, testController } = await activate(testInfo.outputDir, {
+test('should debug error', async ({ activate }, testInfo) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -95,7 +92,7 @@ test('should debug error', async ({}, testInfo) => {
   await testController.expandTestItems(/test.spec/);
   const testItems = testController.findTestItems(/fail/);
 
-  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Debug);
+  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Debug)!;
   profile.run(testItems);
   const testRun = await new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
 

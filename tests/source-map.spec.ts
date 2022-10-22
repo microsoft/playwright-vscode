@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-import { expect, test } from '@playwright/test';
-import { activate } from './utils';
+import { expect, test } from './utils';
 
-test.describe.configure({ mode: 'parallel' });
-
-test('should list files', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should list files', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'build' }`,
     'tests/test.spec.ts': testSpecTs,
     'build/test.spec.js': testSpecJs('test.spec'),
@@ -30,13 +27,13 @@ test('should list files', async ({}, testInfo) => {
     - tests
       - test.spec.ts
   `);
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
 });
 
-test('should list tests on expand', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should list tests on expand', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'build' }`,
     'tests/test.spec.ts': testSpecTs,
     'build/test.spec.js': testSpecJs('test.spec'),
@@ -51,14 +48,14 @@ test('should list tests on expand', async ({}, testInfo) => {
         - two [3:0]
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list build/test.spec.js:0 tests/test.spec.ts
   `);
 });
 
-test('should list tests for visible editors', async ({}, testInfo) => {
-  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should list tests for visible editors', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'build' }`,
     'tests/test.spec.ts': testSpecTs,
     'build/test.spec.js': testSpecJs('test.spec'),
@@ -75,14 +72,14 @@ test('should list tests for visible editors', async ({}, testInfo) => {
         - two [3:0]
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list build/test.spec.js:0 tests/test.spec.ts
   `);
 });
 
-test('should pick new files', async ({}, testInfo) => {
-  const { workspaceFolder, testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should pick new files', async ({ activate }) => {
+  const { vscode, workspaceFolder, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'build' }`,
     'tests/test-1.spec.ts': testSpecTs,
     'build/test-1.spec.js': testSpecJs('test-1.spec'),
@@ -94,7 +91,7 @@ test('should pick new files', async ({}, testInfo) => {
       - test-1.spec.ts
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
 
@@ -111,14 +108,14 @@ test('should pick new files', async ({}, testInfo) => {
       - test-2.spec.ts
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.js
   `);
 });
 
-test('should remove deleted files', async ({}, testInfo) => {
-  const { workspaceFolder, testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should remove deleted files', async ({ activate }) => {
+  const { vscode, workspaceFolder, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'build' }`,
     'tests/test-1.spec.ts': testSpecTs,
     'tests/test-2.spec.ts': testSpecTs,
@@ -138,7 +135,7 @@ test('should remove deleted files', async ({}, testInfo) => {
       - test-3.spec.ts
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
 
@@ -155,13 +152,13 @@ test('should remove deleted files', async ({}, testInfo) => {
       - test-3.spec.ts
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
   `);
 });
 
-test('should discover new tests', async ({}, testInfo) => {
-  const { testController, workspaceFolder, renderExecLog } = await activate(testInfo.outputDir, {
+test('should discover new tests', async ({ activate }) => {
+  const { vscode, testController, workspaceFolder } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'build' }`,
     'tests/test.spec.ts': testSpecTs,
     'build/test.spec.js': testSpecJs('test.spec'),
@@ -170,7 +167,7 @@ test('should discover new tests', async ({}, testInfo) => {
 
   await testController.expandTestItems(/test.spec.ts/);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list build/test.spec.js:0 tests/test.spec.ts
   `);
@@ -190,15 +187,15 @@ test('should discover new tests', async ({}, testInfo) => {
         - two [4:0]
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list build/test.spec.js:0 tests/test.spec.ts
     > playwright test -c playwright.config.js --list build/test.spec.js:0 tests/test.spec.ts
   `);
 });
 
-test('should run all tests', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should run all tests', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'build' }`,
     'tests/test.spec.ts': testSpecTs,
     'build/test.spec.js': testSpecJs('test.spec'),
@@ -217,14 +214,14 @@ test('should run all tests', async ({}, testInfo) => {
       passed
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js
   `);
 });
 
-test('should run one test', async ({}, testInfo) => {
-  const { testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should run one test', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'build' }`,
     'tests/test.spec.ts': testSpecTs,
     'build/test.spec.js': testSpecJs('test.spec'),
@@ -243,7 +240,7 @@ test('should run one test', async ({}, testInfo) => {
       passed
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list build/test.spec.js:0 tests/test.spec.ts
     > playwright test -c playwright.config.js build/test.spec.js:0 tests/test.spec.ts:3

@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-import { expect, test } from '@playwright/test';
-import { activate } from './utils';
+import { expect, test } from './utils';
 
-test.describe.configure({ mode: 'parallel' });
-
-test('should highlight steps while running', async ({}, testInfo) => {
-  const { vscode, testController, renderExecLog } = await activate(testInfo.outputDir, {
+test('should highlight steps while running', async ({ activate }) => {
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test, expect } from '@playwright/test';
@@ -66,7 +63,7 @@ test('should highlight steps while running', async ({}, testInfo) => {
     [5:18 - 5:18]: decorator #2 {"after":{"contentText":" — Xms"}}
   `);
 
-  expect(renderExecLog('  ')).toBe(`
+  expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list tests/test.spec.ts
     > playwright test -c playwright.config.js
