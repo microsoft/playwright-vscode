@@ -69,14 +69,19 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _cancelRecording: (() => void) | undefined;
   private _updateOrCancelInspecting: ((params: { selector?: string, cancel?: boolean }) => void) | undefined;
   private _isRunningTests = false;
-  private _autoCloseTimer: any;
   private _editor: vscodeTypes.TextEditor | undefined;
   private _envProvider: () => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
+  private _pageCount = 0;
+  private _sawPages = false;
+  readonly onPageCountChanged: vscodeTypes.Event<number>;
+  private _onPageCountChangedEvent: vscodeTypes.EventEmitter<number>;
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
     this._envProvider = envProvider;
+    this._onPageCountChangedEvent = new vscode.EventEmitter();
+    this.onPageCountChanged = this._onPageCountChangedEvent.event;
 
     this._disposables.push(settingsModel.setting<boolean>('reuseBrowser').onChange(value => {
       this._shouldReuseBrowserForTests = value;
@@ -90,7 +95,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   dispose() {
-    this.stop();
+    this._reset(true).catch(() => {});
     for (const d of this._disposables)
       d.dispose();
     this._disposables = [];
@@ -99,11 +104,11 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private async _startBackendIfNeeded(config: TestConfig) {
     // Unconditionally close selector dialog, it might send inspect(enabled: false).
     if (this._backend) {
-      await this._reset();
+      await this._reset(false);
       return;
     }
 
-    const legacyMode = config.version < 1.29;
+    const legacyMode = config.version < 1.28;
 
     const node = await findNode();
     const allArgs = [
@@ -124,53 +129,44 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       },
     });
 
+    const backend = legacyMode ? new LegacyBackend(serverProcess) : new Backend();
+    if (legacyMode)
+      this._pageCount = 1;  // Auto-close is handled on server-side.
+    this._backend = backend;
+
     if (legacyMode)
       serverProcess.stdout?.on('data', () => {});
     serverProcess.stderr?.on('data', () => {});
     serverProcess.on('exit', () => {
-      this._browserServerWS = undefined;
-      this._backend = undefined;
+      if (backend === this._backend) {
+        this._backend = undefined;
+        this._reset(false);
+      }
     });
     serverProcess.on('error', error => {
       this._vscode.window.showErrorMessage(error.message);
-      this.stop();
+      this._reset(true).catch(() => {});
     });
 
-    this._backend = legacyMode ? new LegacyBackend(serverProcess) : new Backend();
     this._backend.on('inspectRequested', params => {
-      const locator = params.locators?.find((l: { name: string, value: string }) => l.name === 'javascript');
-      this._updateOrCancelInspecting?.({ selector: locator?.value || params.selector });
+      this._updateOrCancelInspecting?.({ selector: params.locator || params.selector });
     });
 
-    // TODO: used only in legacy mode.
-    this._backend.on('browsersChanged', params => {
-      const pages: PageSnapshot[] = [];
-      for (const browser of params.browsers) {
-        for (const context of browser.contexts)
-          pages.push(...context.pages);
-      }
-      this._pagesUpdated(!!pages.length);
-    });
-
-    this._backend.on('stateChanged', params => {
-      this._pagesUpdated(!!params.pageCount);
-    });
-
-    this._backend.on('sourcesChanged', params => {
-      if (!this._editor)
-        return;
-      const sources: Source[] = params.sources;
-      for (const source of sources) {
-        if (source.id !== 'test' || !source.isRecorded || source.language !== 'javascript' || source.label !== 'Test Runner')
-          continue;
+    if (!legacyMode) {
+      this._backend.on('stateChanged', params => {
+        this._pageCountChanged(params.pageCount);
+      });
+      this._backend.on('sourceChanged', params => {
+        if (!this._editor)
+          return;
         const start = new this._vscode.Position(0, 0);
         const end = new this._vscode.Position(Number.MAX_VALUE, Number.MAX_VALUE);
         const range = this._editor.document.validateRange(new this._vscode.Range(start, end));
         this._editor?.edit(async editBuilder => {
-          editBuilder.replace(range, source.text);
+          editBuilder.replace(range, params.text);
         });
-      }
-    });
+      });
+    }
 
     let connectedCallback: (wsEndpoint: string) => void;
     const wsEndpointPromise = new Promise<string>(f => connectedCallback = f);
@@ -188,22 +184,26 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }
 
     await Promise.race([
-      wsEndpointPromise.then(wse => this._browserServerWS = wse),
+      wsEndpointPromise.then(wse => {
+        this._browserServerWS = wse;
+        this._backend!.setReportStateChanged({ enabled: true });
+      }),
       events.once(serverProcess, 'exit'),
     ]);
   }
 
-  private _pagesUpdated(hasPages: boolean) {
-    if (this._autoCloseTimer)
-      clearTimeout(this._autoCloseTimer);
-    if (hasPages)
-      return;
+  private _pageCountChanged(pageCount: number) {
+    this._pageCount = pageCount;
+    this._onPageCountChangedEvent.fire(pageCount);
     if (this._isRunningTests)
       return;
-    if (!this._cancelRecording && !this._updateOrCancelInspecting)
+    if (!this._sawPages) {
+      this._sawPages = !!pageCount;
       return;
-    this._reset();
-    this._autoCloseTimer = setTimeout(() => this.stop(), 30000);
+    }
+    if (pageCount)
+      return;
+    this._reset(true).catch(() => {});
   }
 
   browserServerEnv(debug: boolean): NodeJS.ProcessEnv | undefined {
@@ -211,6 +211,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       PW_TEST_REUSE_CONTEXT: this._shouldReuseBrowserForTests ? '1' : undefined,
       PW_TEST_CONNECT_WS_ENDPOINT: this._browserServerWS,
     } : undefined;
+  }
+
+  browserServerWSForTest() {
+    return this._browserServerWS;
   }
 
   logApiCallsEnv(): NodeJS.ProcessEnv | undefined {
@@ -239,7 +243,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     selectorExplorerBox.onDidChangeValue(selector => {
       this._backend?.highlight({ selector }).catch(() => {});
     });
-    selectorExplorerBox.onDidHide(() => this._reset().catch(() => {}));
+    selectorExplorerBox.onDidHide(() => this._reset(false).catch(() => {}));
     selectorExplorerBox.onDidAccept(() => {
       this._vscode.env.clipboard.writeText(selectorExplorerBox!.value);
       selectorExplorerBox.hide();
@@ -294,10 +298,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }
 
     try {
-      await this._backend?.setMode({ mode: 'recording', language: 'test' });
+      await this._backend?.setMode({ mode: 'recording', file: editor?.document.uri.fsPath });
     } catch (e) {
       showExceptionAsUserError(this._vscode, model, e as Error);
-      this._reset();
+      await this._reset(true);
       return;
     }
 
@@ -305,7 +309,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       new Promise<void>(f => token.onCancellationRequested(f)),
       new Promise<void>(f => this._cancelRecording = f),
     ]);
-    await this._reset();
+    await this._reset(false);
   }
 
   private async _createFileForNewTest(model: TestModel) {
@@ -337,20 +341,27 @@ test('test', async ({ page }) => {
       return;
     if (!this._checkVersion(config, 'Show & reuse browser'))
       return;
+    this._isRunningTests = true;
     await this._startBackendIfNeeded(config);
     await this._backend!.setAutoClose({ enabled: false });
-    this._isRunningTests = true;
   }
 
   async didRunTests(debug: boolean) {
-    this._isRunningTests = false;
-    if (debug && !this._shouldReuseBrowserForTests)
-      this.stop();
-    else
+    if (debug && !this._shouldReuseBrowserForTests) {
+      this._reset(true);
+    } else {
       this._backend?.setAutoClose({ enabled: true });
+      if (!this._pageCount)
+        await this._reset(true);
+    }
+    this._isRunningTests = false;
   }
 
-  private async _reset() {
+  closeAllBrowsers() {
+    this._reset(true).catch(() => {});
+  }
+
+  private async _reset(stop: boolean) {
     // This won't wait for setMode(none).
     this._editor = undefined;
     this._updateOrCancelInspecting?.({ cancel: true });
@@ -359,17 +370,19 @@ test('test', async ({ page }) => {
     this._cancelRecording = undefined;
 
     // This will though.
-    await this._backend?.setMode({ mode: 'none' });
-  }
-
-  stop() {
-    this._backend?.kill();
-    this._backend = undefined;
-    this._reset().catch(() => {});
+    if (stop) {
+      this._backend?.kill();
+      this._backend = undefined;
+      this._browserServerWS = undefined;
+      this._pageCount = 0;
+      this._sawPages = false;
+    } else {
+      await this._backend?.setMode({ mode: 'none' });
+    }
   }
 }
 
-class Backend extends EventEmitter {
+export class Backend extends EventEmitter {
   private static _lastId = 0;
   private _callbacks = new Map<number, { fulfill: (a: any) => void, reject: (e: Error) => void }>();
   private _transport!: WebSocketTransport;
@@ -399,7 +412,6 @@ class Backend extends EventEmitter {
         pair.fulfill(message.result);
       }
     };
-    this.setReportState({ enabled: true });
   }
 
   async resetForReuse() {
@@ -407,26 +419,26 @@ class Backend extends EventEmitter {
   }
 
   async navigate(params: { url: string }) {
-    await this._send('navigateAll', params);
+    await this._send('navigate', params);
   }
 
-  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', language?: string, file?: string }) {
+  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', file?: string }) {
     await this._send('setRecorderMode', params);
   }
 
-  async setReportState(params: { enabled: boolean }) {
-    await this._send('setReportState', params);
+  async setReportStateChanged(params: { enabled: boolean }) {
+    await this._send('setReportStateChanged', params);
   }
 
   async setAutoClose(params: { enabled: boolean }) {
   }
 
   async highlight(params: { selector: string }) {
-    await this._send('highlightAll', params);
+    await this._send('highlight', params);
   }
 
   async hideHighlight() {
-    await this._send('hideHighlightAll');
+    await this._send('hideHighlight');
   }
 
   async kill() {
@@ -453,7 +465,12 @@ class LegacyBackend extends EventEmitter {
     this._serverProcess = serverProcess;
     this._serverProcess!.on('message', (message: any) => {
       if (!message.id) {
-        this.emit(message.method, message.params);
+        if (message.method === 'inspectRequested') {
+          const { selector, locators } = message.params;
+          this.emit(message.method, { selector, locator: locators.find((l: any) => l.name === 'javascript').value });
+        } else {
+          this.emit(message.method, message.params);
+        }
         return;
       }
       const pair = this._callbacks.get(message.id);
@@ -467,6 +484,9 @@ class LegacyBackend extends EventEmitter {
     });
   }
 
+  async setReportStateChanged(params: { enabled: boolean }) {
+  }
+
   async resetForReuse() {
     await this._send('resetForReuse');
   }
@@ -475,8 +495,8 @@ class LegacyBackend extends EventEmitter {
     await this._send('navigate', params);
   }
 
-  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', language?: string, file?: string }) {
-    await this._send('setMode', params);
+  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', file?: string }) {
+    await this._send('setMode', { ...params, language: 'test' });
   }
 
   async setAutoClose(params: { enabled: boolean }) {

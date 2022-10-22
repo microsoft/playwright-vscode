@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { test as baseTest } from '@playwright/test';
+import { expect, test as baseTest, Browser, chromium, Page } from '@playwright/test';
 import { Extension } from '../out/extension';
 import { TestController, VSCode, WorkspaceFolder } from './mock/vscode';
 import path from 'path';
@@ -29,13 +29,14 @@ type TestFixtures = {
   activate: (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][] }) => Promise<ActivateResult>;
 };
 
-export type TestOptions = {
+export type WorkerOptions = {
   mode: 'default' | 'reuse';
 };
 
 export { expect } from '@playwright/test';
-export const test = baseTest.extend<TestFixtures & TestOptions>({
-  mode: ['default', { option: true }],
+export const test = baseTest.extend<TestFixtures, WorkerOptions>({
+  mode: ['default', { option: true, scope: 'worker' }],
+
   activate: async ({ browser, mode }, use, testInfo) => {
     const instances: VSCode[] = [];
     await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][] }) => {
@@ -64,5 +65,23 @@ export const test = baseTest.extend<TestFixtures & TestOptions>({
     });
     for (const vscode of instances)
       vscode.dispose();
-  }
+  },
 });
+
+export async function connectToSharedBrowser(vscode: VSCode) {
+  await expect.poll(() => vscode.extensions[0].browserServerWSForTest()).toBeTruthy();
+  const wsEndpoint = vscode.extensions[0].browserServerWSForTest();
+  return await chromium.connect(wsEndpoint, {
+    headers: { 'x-playwright-reuse-context': '1' }
+  });
+}
+
+export async function waitForPage(browser: Browser) {
+  let pages: Page[] = [];
+  await expect.poll(async () => {
+    const context = await (browser as any)._newContextForReuse();
+    pages = context.pages();
+    return pages.length;
+  }).toBeTruthy();
+  return pages[0];
+}

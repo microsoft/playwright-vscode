@@ -151,7 +151,7 @@ export class Extension {
         await this._reusedBrowser.inspect(this._models);
       }),
       vscode.commands.registerCommand('pw.extension.command.closeBrowsers', () => {
-        this._reusedBrowser.stop();
+        this._reusedBrowser.closeAllBrowsers();
       }),
       vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
         if (!this._models.length) {
@@ -621,6 +621,10 @@ located next to Run / Debug Tests toolbar buttons.`);
 
   playwrightTestLog(): string[] {
     return this._playwrightTest.testLog();
+  }
+
+  browserServerWSForTest() {
+    return this._reusedBrowser.browserServerWSForTest();
   }
 }
 
