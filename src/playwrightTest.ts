@@ -118,8 +118,12 @@ export class PlaywrightTest {
     const args = projectNames.filter(Boolean).map(p => `--project=${p}`);
     if (parametrizedTestTitle)
       args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
+    if (token?.isCancellationRequested)
+      return;
     await this._reusedBrowser.willRunTests(config, false);
     try {
+      if (token?.isCancellationRequested)
+        return;
       await this._test(config, locationArg,  args, settingsEnv, listener, 'run', token);
     } finally {
       await this._reusedBrowser.didRunTests(false);
@@ -141,6 +145,8 @@ export class PlaywrightTest {
     // Always use ws transport to mitigate it.
     const reporterServer = new ReporterServer();
     const node = await findNode();
+    if (token?.isCancellationRequested)
+      return;
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
     const escapedLocations = locations.map(escapeRegex);

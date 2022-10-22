@@ -14,12 +14,25 @@
  * limitations under the License.
  */
 import { PlaywrightTestConfig } from '@playwright/test';
+import { TestOptions } from './tests/utils';
 
-const config: PlaywrightTestConfig = {
+const config: PlaywrightTestConfig<TestOptions> = {
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'line',
+  projects: [
+    {
+      name: 'default',
+    },
+    {
+      name: 'reuse',
+      testIgnore: '**/settings.spec.ts',
+      use: {
+        mode: 'reuse',
+      }
+    }
+  ]
 };
 export default config;
