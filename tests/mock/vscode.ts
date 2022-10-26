@@ -69,6 +69,9 @@ class Range {
   }
 }
 
+class Selection {
+}
+
 class CancellationToken {
   isCancellationRequested: boolean;
   readonly didCancel = new EventEmitter<void>();
@@ -588,6 +591,7 @@ export class VSCode {
   MarkdownString = MarkdownString;
   Position = Position;
   Range = Range;
+  Selection = Selection;
   TestTag = TestTag;
   TestMessage = TestMessage;
   TestRunProfileKind = TestRunProfileKind;
@@ -625,6 +629,7 @@ export class VSCode {
   private _browser: Browser;
   readonly webViews = new Map<string, Page>();
   readonly commandLog: string[] = [];
+  lastWithProgressData = undefined;
 
   constructor(baseDir: string, browser: Browser) {
     this.context = { subscriptions: [], extensionUri: Uri.file(baseDir) };
@@ -635,8 +640,8 @@ export class VSCode {
       commands.set(name, callback);
       return disposable;
     };
-    this.commands.executeCommand = (name: string) => {
-      commands.get(name)?.();
+    this.commands.executeCommand = async (name: string) => {
+      await commands.get(name)?.();
       this.commandLog.push(name);
     };
     this.debug = new Debug();
@@ -683,7 +688,10 @@ export class VSCode {
       return inputBox;
     };
     this.window.withProgress = async (opts, callback) => {
-      await callback({}, new CancellationToken());
+      const progress = {
+        report: (data: any) => this.lastWithProgressData = data,
+      };
+      await callback(progress, new CancellationToken());
     };
     this.window.showTextDocument = (document: TextDocument) => {
       const editor = new TextEditor(document);

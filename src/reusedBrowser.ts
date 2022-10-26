@@ -76,12 +76,16 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _sawPages = false;
   readonly onPageCountChanged: vscodeTypes.Event<number>;
   private _onPageCountChangedEvent: vscodeTypes.EventEmitter<number>;
+  readonly onRunningTestsChanged: vscodeTypes.Event<boolean>;
+  private _onRunningTestsChangedEvent: vscodeTypes.EventEmitter<boolean>;
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
     this._envProvider = envProvider;
     this._onPageCountChangedEvent = new vscode.EventEmitter();
     this.onPageCountChanged = this._onPageCountChangedEvent.event;
+    this._onRunningTestsChangedEvent = new vscode.EventEmitter();
+    this.onRunningTestsChanged = this._onRunningTestsChangedEvent.event;
 
     this._disposables.push(settingsModel.setting<boolean>('reuseBrowser').onChange(value => {
       this._shouldReuseBrowserForTests = value;
@@ -164,6 +168,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         const range = this._editor.document.validateRange(new this._vscode.Range(start, end));
         this._editor?.edit(async editBuilder => {
           editBuilder.replace(range, params.text);
+          if (this._editor) {
+            const lastLine = this._editor.document.lineCount - 1;
+            this._editor.selections = [new this._vscode.Selection(lastLine, 0, lastLine, 0)];
+          }
         });
       });
     }
@@ -263,9 +271,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
     await this._vscode.window.withProgress({
       location: this._vscode.ProgressLocation.Notification,
-      title: 'Recording Playwright script',
+      title: 'Playwright codegen',
       cancellable: true
-    }, async (progress, token) => this._doRecord(models[0], reset, token));
+    }, async (progress, token) => this._doRecord(progress, models[0], reset, token));
   }
 
   highlight(selector: string) {
@@ -284,13 +292,15 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return true;
   }
 
-  private async _doRecord(model: TestModel, reset: boolean, token: vscodeTypes.CancellationToken) {
+  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, reset: boolean, token: vscodeTypes.CancellationToken) {
     const startBackend = this._startBackendIfNeeded(model.config);
     const [, editor] = await Promise.all([
       startBackend,
       this._createFileForNewTest(model),
     ]);
     this._editor = editor;
+
+    progress.report({ message: 'starting\u2026' });
 
     if (reset) {
       await this._backend?.resetForReuse();
@@ -304,6 +314,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       await this._reset(true);
       return;
     }
+
+    progress.report({ message: 'recording\u2026' });
 
     await Promise.race([
       new Promise<void>(f => token.onCancellationRequested(f)),
@@ -342,6 +354,7 @@ test('test', async ({ page }) => {
     if (!this._checkVersion(config, 'Show & reuse browser'))
       return;
     this._isRunningTests = true;
+    this._onRunningTestsChangedEvent.fire(true);
     await this._startBackendIfNeeded(config);
     await this._backend!.setAutoClose({ enabled: false });
   }
@@ -355,6 +368,7 @@ test('test', async ({ page }) => {
         await this._reset(true);
     }
     this._isRunningTests = false;
+    this._onRunningTestsChangedEvent.fire(false);
   }
 
   closeAllBrowsers() {

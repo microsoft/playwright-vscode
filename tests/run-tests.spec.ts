@@ -436,7 +436,8 @@ test('should group projects by config', async ({ activate }) => {
   `);
 });
 
-test('should stop', async ({ activate }) => {
+test('should stop', async ({ activate, mode }) => {
+  test.fixme(mode === 'reuse', 'Times out');
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `

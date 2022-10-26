@@ -27,6 +27,7 @@ export type {
   InputBox,
   Location,
   Position,
+  Progress,
   QuickPickItem,
   Range,
   TestItem,

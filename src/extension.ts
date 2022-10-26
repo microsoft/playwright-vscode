@@ -118,7 +118,7 @@ export class Extension {
 
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
-    const settingsView = new SettingsView(vscode, this._settingsModel, context.extensionUri);
+    const settingsView = new SettingsView(vscode, this._settingsModel, this._reusedBrowser, context.extensionUri);
     this._disposables = [
       this._debugHighlight,
       this._settingsModel,

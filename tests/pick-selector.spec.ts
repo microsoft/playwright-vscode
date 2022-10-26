@@ -34,6 +34,7 @@ test('should pick selector', async ({ activate }) => {
   expect(inputBox.value).toBe('');
   expect(inputBox.prompt).toBe('Accept to copy selector into clipboard');
 
+  // It is important that we await for input to be visible to want for the context to be set up.
   const valuePromise = new Promise(f => inputBox.onDidAssignValue(f));
   const browser = await connectToSharedBrowser(vscode);
   const page = await waitForPage(browser);

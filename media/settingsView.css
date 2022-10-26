@@ -44,6 +44,12 @@ svg {
   cursor: pointer;
 }
 
+.list > div[disabled] {
+  opacity: 0.5;
+  cursor: default;
+  background-color: none !important;
+}
+
 input[type=checkbox] {
   margin-right: 4px;
   cursor: pointer;
@@ -60,7 +66,7 @@ body[data-vscode-theme-kind=vscode-dark] .list > div:hover {
 label {
   display: flex;
   align-items: center;
-  cursor: pointer;
+  cursor: inherit;
 }
 
 div.separator {

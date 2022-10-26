@@ -57,9 +57,9 @@ test('should auto-close after pick', async ({ activate }) => {
     'playwright.config.js': `module.exports = {}`,
   });
 
-  const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  await webView.getByText('Pick selector').click();
+  await vscode.commands.executeCommand('pw.extension.command.inspect');
 
+  // It is important that we await for command above to have context for reuse set up.
   const browser = await connectToSharedBrowser(vscode);
   const page = await waitForPage(browser);
   await page.close();
