@@ -27,6 +27,7 @@ test('should generate code', async ({ activate }) => {
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
   await webView.getByText('Record new').click();
+  await expect.poll(() => vscode.lastWithProgressData).toEqual({ message: 'recording\u2026' });
 
   const browser = await connectToSharedBrowser(vscode);
   const page = await waitForPage(browser);
