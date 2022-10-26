@@ -399,13 +399,25 @@ export class TestController {
 
 type Decoration = { type?: number, range: Range, renderOptions?: any };
 
+class TextDocument {
+  uri: Uri;
+  constructor(uri: Uri) {
+    this.uri = uri;
+  }
+
+  validateRange(range) {
+    return range;
+  }
+}
+
 class TextEditor {
   readonly document: { uri: Uri; };
   private _log: string[] = [];
   private _state = new Map<number, Decoration[]>();
+  text: string = '';
 
-  constructor(uri: Uri) {
-    this.document = { uri };
+  constructor(document: TextDocument) {
+    this.document = document;
   }
 
   setDecorations(type: number, decorations: Decoration[]) {
@@ -432,6 +444,14 @@ class TextEditor {
     }
     result.push('');
     return result.join(`\n${indent}`);
+  }
+
+  edit(editCallback) {
+    editCallback({
+      replace: (range, text) => {
+        this.text = text;
+      }
+    });
   }
 }
 
@@ -578,6 +598,7 @@ export class VSCode {
   tests: any = {};
   window: any = {};
   workspace: any = {};
+  ProgressLocation = { Notification: 1 };
 
   private _didChangeActiveTextEditor = new EventEmitter();
   private _didChangeVisibleTextEditors = new EventEmitter();
@@ -585,6 +606,7 @@ export class VSCode {
   private _didChangeWorkspaceFolders = new EventEmitter();
   private _didChangeTextDocument = new EventEmitter();
   private _didChangeConfiguration = new EventEmitter();
+  private _didShowInputBox = new EventEmitter<any>();
 
   readonly onDidChangeActiveTextEditor = this._didChangeActiveTextEditor.event;
   readonly onDidChangeTextEditorSelection = this._didChangeTextEditorSelection.event;
@@ -592,6 +614,8 @@ export class VSCode {
   readonly onDidChangeWorkspaceFolders = this._didChangeWorkspaceFolders.event;
   readonly onDidChangeTextDocument = this._didChangeTextDocument.event;
   readonly onDidChangeConfiguration = this._didChangeConfiguration.event;
+  readonly onDidShowInputBox = this._didShowInputBox.event;
+
   readonly testControllers: TestController[] = [];
   readonly fsWatchers = new Set<FileSystemWatcher>();
   readonly warnings: string[] = [];
@@ -633,6 +657,41 @@ export class VSCode {
       this._webviewProviders.set(name, provider);
       return disposable;
     };
+    this.window.createInputBox = () => {
+      const didAccept = new EventEmitter<void>();
+      const didChange = new EventEmitter<string>();
+      const didHide = new EventEmitter<void>();
+      const didAssignValue = new EventEmitter<string>();
+      let value = '';
+      const inputBox = {
+        onDidAccept: didAccept.event,
+        onDidChangeValue: didChange.event,
+        onDidHide: didHide.event,
+        onDidAssignValue: didAssignValue.event,
+        set value(val: string) {
+          value = val;
+          didAssignValue.fire(val);
+        },
+        get value() {
+          return value;
+        },
+        dispose: () => {},
+        accept: () => didAccept.fire(),
+        hide: () => didHide.fire(),
+        show: () => this._didShowInputBox.fire(inputBox),
+      };
+      return inputBox;
+    };
+    this.window.withProgress = async (opts, callback) => {
+      await callback({}, new CancellationToken());
+    };
+    this.window.showTextDocument = (document: TextDocument) => {
+      const editor = new TextEditor(document);
+      this.window.visibleTextEditors.push(editor);
+      this._didChangeVisibleTextEditors.fire(this.window.visibleTextEditors);
+      this._didChangeActiveTextEditor.fire(this.window.activeTextEditor);
+      return editor;
+    };
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
     this.workspace.onDidChangeTextDocument = this.onDidChangeTextDocument;
@@ -643,6 +702,9 @@ export class VSCode {
       return watcher;
     };
     this.workspace.workspaceFolders = [];
+    this.workspace.openTextDocument = (file: string) => {
+      return new TextDocument(Uri.file(file));
+    };
 
     this.workspace.findFiles = async pattern => {
       const uris: Uri[] = [];
@@ -764,7 +826,7 @@ export class VSCode {
     this.window.activeTextEditor = undefined;
     this.window.visibleTextEditors = [];
     for (const uri of uris) {
-      const editor = new TextEditor(uri);
+      const editor = new TextEditor(new TextDocument(uri));
       if (!this.window.activeTextEditor)
         this.window.activeTextEditor = editor;
       this.window.visibleTextEditors.push(editor);
