@@ -12,7 +12,7 @@ This extension integrates Playwright into your VS Code workflow. Here is what it
   - [Debug step-by-step, explore selectors](#debug-step-by-step-explore-selectors)
   - [Tune selectors](#tune-selectors)
   - [Record new tests](#record-new-tests)
-  - [Record from here](#record-from-here)
+  - [Record at cursor](#record-at-cursor)
 
 
 <img width="1268" alt="example test in vs code" src="https://user-images.githubusercontent.com/13063165/194532498-b7f88d69-65a3-49f4-b701-5ef7134bc551.png">
@@ -105,9 +105,9 @@ Record new tests by clicking on the "record tests" button in the testing sidebar
 
 <br>
 
-## Record from here
+## Record at cursor
 
-Record a new test snippet. This creates a new empty test file but the recording starts from the current browser state from the previous test instead of starting a new browser. This snippet can then be pasted into a previous test file so it can be properly run.
+This generates actions into the existing test at the current cursor position. You can run the test, position the cursor at the end of the test and continue generating the test.
 
 
 [Playwright]: https://playwright.dev "Playwright"

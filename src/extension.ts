@@ -160,7 +160,7 @@ export class Extension {
         }
         await this._reusedBrowser.record(this._models, false);
       }),
-      vscode.commands.registerCommand('pw.extension.command.recordFromHere', async () => {
+      vscode.commands.registerCommand('pw.extension.command.recordAtCursor', async () => {
         if (!this._models.length) {
           vscode.window.showWarningMessage('No Playwright tests found.');
           return;

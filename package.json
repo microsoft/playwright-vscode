@@ -51,9 +51,9 @@
       },
       {
         "category": "Test",
-        "command": "pw.extension.command.recordFromHere",
+        "command": "pw.extension.command.recordAtCursor",
         "icon": "$(record)",
-        "title": "Record from here"
+        "title": "Record at cursor"
       },
       {
         "category": "Test",

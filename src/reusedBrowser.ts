@@ -70,7 +70,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _updateOrCancelInspecting: ((params: { selector?: string, cancel?: boolean }) => void) | undefined;
   private _isRunningTests = false;
   private _editor: vscodeTypes.TextEditor | undefined;
-  private _isInlineEdit = false;
   private _insertedEditActionCount = 0;
   private _envProvider: () => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
@@ -169,40 +168,27 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         this._scheduleEdit(async () => {
           if (!this._editor)
             return;
-          if (this._isInlineEdit) {
-            if (params.actions?.length > this._insertedEditActionCount) {
-              // Collapse selection to start recoding a new action.
-              this._editor.selections = [new this._vscode.Selection(this._editor.selection.end, this._editor.selection.end)];
-            }
+          if (!params.actions || !params.actions.length)
+            return;
+          const targetIndentation = guessIndentation(this._editor);
+
+          // Previous action committed, insert new line & collapse selection.
+          if (params.actions.length > 1 && params.actions?.length > this._insertedEditActionCount) {
+            const range = new this._vscode.Range(this._editor.selection.end, this._editor.selection.end);
+            await this._editor.edit(async editBuilder => {
+              editBuilder.replace(range, '\n' + ' '.repeat(targetIndentation));
+            });
+            this._editor.selection = new this._vscode.Selection(this._editor.selection.end, this._editor.selection.end);
             this._insertedEditActionCount = params.actions.length;
-            if (params.actions?.length) {
-              await this._editor.edit(async editBuilder => {
-                if (!this._editor)
-                  return;
-                const indent = guessIndentation(this._editor);
-                const action = params.actions[params.actions.length - 1];
-                const lineNumber = this._editor.selection.start.line;
-                const line = this._editor.document.lineAt(lineNumber);
-                const lineStart = new this._vscode.Position(lineNumber, 0);
-                const lineEnd = new this._vscode.Position(lineNumber, line.text.length);
-                // If there is text before cursor, we insert actions in a new line, otherwise, we insert them in the current line.
-                const hasTextBeforeCursor = !!line.text.substring(0, this._editor.selection.start.character).trim();
-                const selection = hasTextBeforeCursor
-                  ? new this._vscode.Selection(lineEnd, lineEnd)
-                  : new this._vscode.Selection(lineStart, this._editor.selection.end);
-                editBuilder.replace(selection, (hasTextBeforeCursor ? '\n' : '') + indentBlock(action, indent) + '\n');
-              });
-            }
-          } else {
-            const start = new this._vscode.Position(0, 0);
-            const end = new this._vscode.Position(Number.MAX_VALUE, Number.MAX_VALUE);
-            const range = this._editor.document.validateRange(new this._vscode.Range(start, end));
-            this._editor.edit(async editBuilder => {
-              editBuilder.replace(range, params.text);
-              if (this._editor) {
-                const lastLine = this._editor.document.lineCount - 1;
-                this._editor.selections = [new this._vscode.Selection(lastLine, 0, lastLine, 0)];
-              }
+          }
+
+          // Replace selection with the current action.
+          if (params.actions.length) {
+            await this._editor.edit(async editBuilder => {
+              if (!this._editor)
+                return;
+              const action = params.actions[params.actions.length - 1];
+              editBuilder.replace(this._editor.selection, indentBlock(action, targetIndentation));
             });
           }
         });
@@ -337,7 +323,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     else
       this._editor = await this._createFileForNewTest(model);
     await startBackend;
-    this._isInlineEdit = isInlineEdit;
     this._insertedEditActionCount = 0;
 
     progress.report({ message: 'starting\u2026' });
@@ -385,7 +370,9 @@ test('test', async ({ page }) => {
 });`);
 
     const document = await this._vscode.workspace.openTextDocument(file);
-    return await this._vscode.window.showTextDocument(document);
+    const editor = await this._vscode.window.showTextDocument(document);
+    editor.selection = new this._vscode.Selection(new this._vscode.Position(3, 2), new this._vscode.Position(3, 2 + '// Recording...'.length));
+    return editor;
   }
 
   async willRunTests(config: TestConfig, debug: boolean) {
@@ -418,7 +405,6 @@ test('test', async ({ page }) => {
   private async _reset(stop: boolean) {
     // This won't wait for setMode(none).
     this._editor = undefined;
-    this._isInlineEdit = false;
     this._insertedEditActionCount = 0;
     this._updateOrCancelInspecting?.({ cancel: true });
     this._updateOrCancelInspecting = undefined;
@@ -589,11 +575,7 @@ function showExceptionAsUserError(vscode: vscodeTypes.VSCode, model: TestModel, 
 
 function guessIndentation(editor: vscodeTypes.TextEditor): number {
   const lineNumber = editor.selection.start.line;
-  const line = editor.document.lineAt(lineNumber);
-  if (line.text.substring(0, editor.selection.start.character).trim())
-    return line.firstNonWhitespaceCharacterIndex;
-
-  for (let i = lineNumber - 1; i >= 0; ++i) {
+  for (let i = lineNumber; i >= 0; --i) {
     const line = editor.document.lineAt(i);
     if (!line.isEmptyOrWhitespace)
       return line.firstNonWhitespaceCharacterIndex;
@@ -608,7 +590,5 @@ function indentBlock(block: string, indent: number) {
 
   const blockIndent = lines[0].match(/\s*/)![0].length;
   const shift = ' '.repeat(Math.max(0, indent - blockIndent));
-  if (!shift)
-    return block;
-  return lines.map(l => shift + l).join('\n');
+  return lines.map((l, i) => i ? shift + l : l.trimStart()).join('\n');
 }

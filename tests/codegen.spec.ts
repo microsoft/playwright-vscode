@@ -21,6 +21,7 @@ test.beforeAll(async () => {
 });
 
 test('should generate code', async ({ activate }) => {
+  test.skip('Waiting for the roll');
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = {}`,
   });
