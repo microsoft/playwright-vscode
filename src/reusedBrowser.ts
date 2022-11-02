@@ -182,8 +182,15 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
                 const indent = guessIndentation(this._editor);
                 const action = params.actions[params.actions.length - 1];
                 const lineNumber = this._editor.selection.start.line;
-                const selection = new this._vscode.Selection(new this._vscode.Position(lineNumber, 0), this._editor.selection.end);
-                editBuilder.replace(selection, indentBlock(action, indent) + '\n');
+                const line = this._editor.document.lineAt(lineNumber);
+                const lineStart = new this._vscode.Position(lineNumber, 0);
+                const lineEnd = new this._vscode.Position(lineNumber, line.text.length);
+                // If there is text before cursor, we insert actions in a new line, otherwise, we insert them in the current line.
+                const hasTextBeforeCursor = !!line.text.substring(0, this._editor.selection.start.character).trim();
+                const selection = hasTextBeforeCursor
+                  ? new this._vscode.Selection(lineEnd, lineEnd)
+                  : new this._vscode.Selection(lineStart, this._editor.selection.end);
+                editBuilder.replace(selection, (hasTextBeforeCursor ? '\n' : '') + indentBlock(action, indent) + '\n');
               });
             }
           } else {
@@ -582,6 +589,10 @@ function showExceptionAsUserError(vscode: vscodeTypes.VSCode, model: TestModel, 
 
 function guessIndentation(editor: vscodeTypes.TextEditor): number {
   const lineNumber = editor.selection.start.line;
+  const line = editor.document.lineAt(lineNumber);
+  if (line.text.substring(0, editor.selection.start.character).trim())
+    return line.firstNonWhitespaceCharacterIndex;
+
   for (let i = lineNumber - 1; i >= 0; ++i) {
     const line = editor.document.lineAt(i);
     if (!line.isEmptyOrWhitespace)
