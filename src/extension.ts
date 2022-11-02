@@ -158,14 +158,14 @@ export class Extension {
           vscode.window.showWarningMessage('No Playwright tests found.');
           return;
         }
-        await this._reusedBrowser.record(this._models, true);
+        await this._reusedBrowser.record(this._models, false);
       }),
       vscode.commands.registerCommand('pw.extension.command.recordFromHere', async () => {
         if (!this._models.length) {
           vscode.window.showWarningMessage('No Playwright tests found.');
           return;
         }
-        await this._reusedBrowser.record(this._models, false);
+        await this._reusedBrowser.record(this._models, true);
       }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {

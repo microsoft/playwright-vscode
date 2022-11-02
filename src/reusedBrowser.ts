@@ -70,6 +70,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _updateOrCancelInspecting: ((params: { selector?: string, cancel?: boolean }) => void) | undefined;
   private _isRunningTests = false;
   private _editor: vscodeTypes.TextEditor | undefined;
+  private _isInlineEdit = false;
+  private _insertedEditActionCount = 0;
   private _envProvider: () => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
   private _pageCount = 0;
@@ -78,6 +80,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _onPageCountChangedEvent: vscodeTypes.EventEmitter<number>;
   readonly onRunningTestsChanged: vscodeTypes.Event<boolean>;
   private _onRunningTestsChangedEvent: vscodeTypes.EventEmitter<boolean>;
+  private _isLegacyMode = false;
+  private _editOperations = Promise.resolve();
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
@@ -113,6 +117,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }
 
     const legacyMode = config.version < 1.28;
+    this._isLegacyMode = legacyMode;
 
     const node = await findNode();
     const allArgs = [
@@ -160,17 +165,38 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       this._backend.on('stateChanged', params => {
         this._pageCountChanged(params.pageCount);
       });
-      this._backend.on('sourceChanged', params => {
-        if (!this._editor)
-          return;
-        const start = new this._vscode.Position(0, 0);
-        const end = new this._vscode.Position(Number.MAX_VALUE, Number.MAX_VALUE);
-        const range = this._editor.document.validateRange(new this._vscode.Range(start, end));
-        this._editor?.edit(async editBuilder => {
-          editBuilder.replace(range, params.text);
-          if (this._editor) {
-            const lastLine = this._editor.document.lineCount - 1;
-            this._editor.selections = [new this._vscode.Selection(lastLine, 0, lastLine, 0)];
+      this._backend.on('sourceChanged', async params => {
+        this._scheduleEdit(async () => {
+          if (!this._editor)
+            return;
+          if (this._isInlineEdit) {
+            if (params.actions?.length > this._insertedEditActionCount) {
+              // Collapse selection to start recoding a new action.
+              this._editor.selections = [new this._vscode.Selection(this._editor.selection.end, this._editor.selection.end)];
+            }
+            this._insertedEditActionCount = params.actions.length;
+            if (params.actions?.length) {
+              await this._editor.edit(async editBuilder => {
+                if (!this._editor)
+                  return;
+                const indent = guessIndentation(this._editor);
+                const action = params.actions[params.actions.length - 1];
+                const lineNumber = this._editor.selection.start.line;
+                const selection = new this._vscode.Selection(new this._vscode.Position(lineNumber, 0), this._editor.selection.end);
+                editBuilder.replace(selection, indentBlock(action, indent) + '\n');
+              });
+            }
+          } else {
+            const start = new this._vscode.Position(0, 0);
+            const end = new this._vscode.Position(Number.MAX_VALUE, Number.MAX_VALUE);
+            const range = this._editor.document.validateRange(new this._vscode.Range(start, end));
+            this._editor.edit(async editBuilder => {
+              editBuilder.replace(range, params.text);
+              if (this._editor) {
+                const lastLine = this._editor.document.lineCount - 1;
+                this._editor.selections = [new this._vscode.Selection(lastLine, 0, lastLine, 0)];
+              }
+            });
           }
         });
       });
@@ -198,6 +224,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       }),
       events.once(serverProcess, 'exit'),
     ]);
+  }
+
+  private _scheduleEdit(callback: () => Promise<void>) {
+    this._editOperations = this._editOperations.then(callback).catch(() => {});
   }
 
   private _pageCountChanged(pageCount: number) {
@@ -265,15 +295,16 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     };
   }
 
-  async record(models: TestModel[], reset: boolean) {
+  async record(models: TestModel[], isInlineEdit: boolean) {
     if (!this._checkVersion(models[0].config))
       return;
-
+    if (this._isLegacyMode)
+      isInlineEdit = false;
     await this._vscode.window.withProgress({
       location: this._vscode.ProgressLocation.Notification,
       title: 'Playwright codegen',
       cancellable: true
-    }, async (progress, token) => this._doRecord(progress, models[0], reset, token));
+    }, async (progress, token) => this._doRecord(progress, models[0], isInlineEdit, token));
   }
 
   highlight(selector: string) {
@@ -292,23 +323,25 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return true;
   }
 
-  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, reset: boolean, token: vscodeTypes.CancellationToken) {
+  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, isInlineEdit: boolean, token: vscodeTypes.CancellationToken) {
     const startBackend = this._startBackendIfNeeded(model.config);
-    const [, editor] = await Promise.all([
-      startBackend,
-      this._createFileForNewTest(model),
-    ]);
-    this._editor = editor;
+    if (isInlineEdit)
+      this._editor = this._vscode.window.activeTextEditor;
+    else
+      this._editor = await this._createFileForNewTest(model);
+    await startBackend;
+    this._isInlineEdit = isInlineEdit;
+    this._insertedEditActionCount = 0;
 
     progress.report({ message: 'starting\u2026' });
 
-    if (reset) {
+    if (!isInlineEdit) {
       await this._backend?.resetForReuse();
       await this._backend?.navigate({ url: 'about:blank' });
     }
 
     try {
-      await this._backend?.setMode({ mode: 'recording', file: editor?.document.uri.fsPath });
+      await this._backend?.setMode({ mode: 'recording', file: this._editor?.document.uri.fsPath });
     } catch (e) {
       showExceptionAsUserError(this._vscode, model, e as Error);
       await this._reset(true);
@@ -378,6 +411,8 @@ test('test', async ({ page }) => {
   private async _reset(stop: boolean) {
     // This won't wait for setMode(none).
     this._editor = undefined;
+    this._isInlineEdit = false;
+    this._insertedEditActionCount = 0;
     this._updateOrCancelInspecting?.({ cancel: true });
     this._updateOrCancelInspecting = undefined;
     this._cancelRecording?.();
@@ -543,4 +578,26 @@ function showExceptionAsUserError(vscode: vscodeTypes.VSCode, model: TestModel, 
     installBrowsers(vscode, model);
   else
     vscode.window.showErrorMessage(error.message);
+}
+
+function guessIndentation(editor: vscodeTypes.TextEditor): number {
+  const lineNumber = editor.selection.start.line;
+  for (let i = lineNumber - 1; i >= 0; ++i) {
+    const line = editor.document.lineAt(i);
+    if (!line.isEmptyOrWhitespace)
+      return line.firstNonWhitespaceCharacterIndex;
+  }
+  return 0;
+}
+
+function indentBlock(block: string, indent: number) {
+  const lines = block.split('\n');
+  if (!lines.length)
+    return block;
+
+  const blockIndent = lines[0].match(/\s*/)![0].length;
+  const shift = ' '.repeat(Math.max(0, indent - blockIndent));
+  if (!shift)
+    return block;
+  return lines.map(l => shift + l).join('\n');
 }
