@@ -223,6 +223,14 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._editOperations = this._editOperations.then(callback).catch(() => {});
   }
 
+  isRunningTests() {
+    return this._isRunningTests;
+  }
+
+  pageCount() {
+    return this._pageCount;
+  }
+
   private _pageCountChanged(pageCount: number) {
     this._pageCount = pageCount;
     this._onPageCountChangedEvent.fire(pageCount);
@@ -267,9 +275,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }
 
     const selectorExplorerBox = this._vscode.window.createInputBox();
-    selectorExplorerBox.title = 'Pick selector';
+    selectorExplorerBox.title = 'Pick locator';
     selectorExplorerBox.value = '';
-    selectorExplorerBox.prompt = 'Accept to copy selector into clipboard';
+    selectorExplorerBox.prompt = 'Accept to copy locator into clipboard';
     selectorExplorerBox.ignoreFocusOut = true;
     selectorExplorerBox.onDidChangeValue(selector => {
       this._backend?.highlight({ selector }).catch(() => {});

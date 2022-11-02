@@ -36,7 +36,7 @@
       {
         "category": "Test",
         "command": "pw.extension.command.inspect",
-        "title": "Pick selector"
+        "title": "Pick locator"
       },
       {
         "category": "Test",

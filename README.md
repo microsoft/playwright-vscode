@@ -8,9 +8,9 @@ This extension integrates Playwright into your VS Code workflow. Here is what it
   - [Run tests with a single click](#run-tests-with-a-single-click)
   - [Run Multiple Tests](#run-multiple-tests)
   - [Show browsers](#show-browsers)
-  - [Pick selectors](#pick-selectors)
-  - [Debug step-by-step, explore selectors](#debug-step-by-step-explore-selectors)
-  - [Tune selectors](#tune-selectors)
+  - [Pick locators](#pick-locators)
+  - [Debug step-by-step, explore locators](#debug-step-by-step-explore-locators)
+  - [Tune locators](#tune-locators)
   - [Record new tests](#record-new-tests)
   - [Record at cursor](#record-at-cursor)
 
@@ -72,15 +72,15 @@ Check the "show browsers" checkbox to run tests with the browser open so that yo
 
 <br/>
 
-## Pick selectors
+## Pick locators
 
-Click the "pick selectors" button and hover over the browser to see the selectors available. Clicking a selector will store it in the selectors box in VS Code. Pressing enter will save it to the clip board so you can easily paste it into your code or press the escape key to cancel.
+Click the "pick locator" button and hover over the browser to see the locators available. Clicking an element will store it in the locators box in VS Code. Pressing enter will save it to the clip board so you can easily paste it into your code or press the escape key to cancel.
 
-![pick-selector](https://user-images.githubusercontent.com/13063165/194384763-96263c13-8435-425f-ba4b-6029a7c67f3d.gif)
+![pick-locator](https://user-images.githubusercontent.com/13063165/194384763-96263c13-8435-425f-ba4b-6029a7c67f3d.gif)
 
 <br/>
 
-## Debug step-by-step, explore selectors
+## Debug step-by-step, explore locators
 
 Right click and start breakpoint debugging. Set a breakpoint and hover over a value. When your cursor is on some Playwright action or a locator, the corresponding element (or elements) are highlighted in the browser.
 
@@ -88,12 +88,12 @@ Right click and start breakpoint debugging. Set a breakpoint and hover over a va
 
 <br/>
 
-## Tune selectors
+## Tune locators
 
-You can edit the source code to fine-tune selectors while on a breakpoint. Test out different selectors and see them highlighted in the browser.
+You can edit the source code to fine-tune locators while on a breakpoint. Test out different locators and see them highlighted in the browser.
 
 
-![edit-selectors](https://user-images.githubusercontent.com/13063165/194527588-5d7d1e7f-6eac-4050-8a87-ac009c221f65.gif)
+![edit-locators](https://user-images.githubusercontent.com/13063165/194527588-5d7d1e7f-6eac-4050-8a87-ac009c221f65.gif)
 
 <br/>
 

@@ -775,7 +775,7 @@ export class VSCode {
           globalThis.dispatchEvent(event);
         }, data).catch(() => {});
       };
-      provider.resolveWebviewView({ webview });
+      provider.resolveWebviewView({ webview, onDidChangeVisibility: () => disposable });
       const context = await this._browser.newContext();
       const page = await context.newPage();
       this.webViews.set(name, page);
