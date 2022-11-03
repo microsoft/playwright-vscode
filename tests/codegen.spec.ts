@@ -21,7 +21,6 @@ test.beforeAll(async () => {
 });
 
 test('should generate code', async ({ activate }) => {
-  test.skip('Waiting for the roll');
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = {}`,
   });
@@ -34,6 +33,18 @@ test('should generate code', async ({ activate }) => {
   const page = await waitForPage(browser);
   await page.locator('body').click();
   await expect.poll(() => {
-    return vscode.window.visibleTextEditors[0]?.text;
-  }).toContain(`await page.locator('body').click`);
+    return vscode.window.visibleTextEditors[0]?.edits;
+  }).toEqual([{
+    range: '[3:2 - 3:2]',
+    text: `await page.goto('about:blank');`,
+  },
+  {
+    range: '[3:48 - 3:48]',
+    text: `
+`,
+  },
+  {
+    range: '[4:0 - 4:0]',
+    text: `await page.locator('body').click();`,
+  }]);
 });

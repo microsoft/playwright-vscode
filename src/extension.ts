@@ -111,6 +111,10 @@ export class Extension {
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
   }
 
+  reusedBrowserForTest(): ReusedBrowser {
+    return this._reusedBrowser;
+  }
+
   dispose() {
     for (const d of this._disposables)
       d?.dispose?.();

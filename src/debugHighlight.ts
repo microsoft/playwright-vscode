@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-import { discardBabelAstCache, locatorForSourcePosition } from './babelHighlightUtil';
+import { locatorForSourcePosition, pruneAstCaches } from './babelHighlightUtil';
 import { debugSessionName } from './debugSessionName';
+import { locatorMethodRegex } from './methodNames';
 import { ReusedBrowser } from './reusedBrowser';
 import * as vscodeTypes from './vscodeTypes';
 
@@ -44,7 +45,6 @@ export class DebugHighlight {
       vscode.debug.onDidTerminateDebugSession(session => {
         debugSessions.delete(session.id);
         self._hideHighlight();
-        discardHighlightCaches();
       }),
       vscode.languages.registerHoverProvider('typescript', {
         provideHover(document, position, token) {
@@ -60,6 +60,9 @@ export class DebugHighlight {
       }),
       vscode.window.onDidChangeTextEditorSelection(event => {
         self._highlightLocator(event.textEditor.document, event.selections[0].start).catch();
+      }),
+      vscode.window.onDidChangeVisibleTextEditors(event => {
+        pruneHighlightCaches(vscode.window.visibleTextEditors.map(e => e.document.fileName));
       }),
       vscode.debug.registerDebugAdapterTrackerFactory('*', {
         createDebugAdapterTracker(session: vscodeTypes.DebugSession) {
@@ -100,6 +103,8 @@ export class DebugHighlight {
   }
 
   private async _highlightLocator(document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken) {
+    if (!this._reusedBrowser.pageCount())
+      return;
     const result = await locatorToHighlight(document, position, token);
     if (result)
       this._reusedBrowser.highlight(result);
@@ -128,9 +133,29 @@ export type StackFrame = {
 const sessionsWithHighlight = new Set<vscodeTypes.DebugSession>();
 
 async function locatorToHighlight(document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken): Promise<string | undefined> {
-  if (!debugSessions.size)
-    return;
   const fsPath = document.uri.fsPath;
+
+  if (!debugSessions.size) {
+    // When not debugging, discover all the locator-alike expressions.
+    const text = document.getText();
+    const line = document.lineAt(position.line);
+    if (!line.text.match(locatorMethodRegex))
+      return;
+    const locatorExpression = locatorForSourcePosition(text, { pages: [], locators: [] }, fsPath, {
+      line: position.line + 1,
+      column: position.character + 1
+    });
+    // Only consider the locator expressions starting with page. because we know the base for them (root).
+    // Non-"page." locators can be relative.
+    const match = locatorExpression?.match(/^page\s*\.([\s\S]*)/m);
+    if (match) {
+      // It is Ok to return the locator expression, not the selector because the highlight call is going to handle it
+      // just fine.
+      return match[1];
+    }
+    return;
+  }
+
   for (const session of debugSessions.values()) {
     if (token?.isCancellationRequested)
       return;
@@ -213,8 +238,8 @@ async function computeLocatorForHighlight(session: vscodeTypes.DebugSession, fra
   }, () => undefined);
 }
 
-export function discardHighlightCaches() {
-  discardBabelAstCache();
+export function pruneHighlightCaches(fsPathsToRetain: string[]) {
+  pruneAstCaches(fsPathsToRetain);
 }
 
 function isPlaywrightSession(session: vscodeTypes.DebugSession): boolean {
