@@ -20,7 +20,7 @@ test.beforeAll(async () => {
   process.env.PW_DEBUG_CONTROLLER_HEADLESS = '1';
 });
 
-test('should pick selector', async ({ activate }) => {
+test('should pick locator', async ({ activate }) => {
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = {}`,
   });
@@ -28,11 +28,11 @@ test('should pick selector', async ({ activate }) => {
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
   const [inputBox] = await Promise.all([
     new Promise<any>(f => vscode.onDidShowInputBox(f)),
-    webView.getByText('Pick selector').click(),
+    webView.getByText('Pick locator').click(),
   ]);
-  expect(inputBox.title).toBe('Pick selector');
+  expect(inputBox.title).toBe('Pick locator');
   expect(inputBox.value).toBe('');
-  expect(inputBox.prompt).toBe('Accept to copy selector into clipboard');
+  expect(inputBox.prompt).toBe('Accept to copy locator into clipboard');
 
   // It is important that we await for input to be visible to want for the context to be set up.
   const valuePromise = new Promise(f => inputBox.onDidAssignValue(f));

@@ -24,13 +24,16 @@ export class SettingsView implements vscodeTypes.WebviewViewProvider, vscodeType
   private _extensionUri: vscodeTypes.Uri;
   private _disposables: vscodeTypes.Disposable[];
   private _settingsModel: SettingsModel;
+  private _reusedBrowser: ReusedBrowser;
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, reusedBrowser: ReusedBrowser, extensionUri: vscodeTypes.Uri) {
     this._vscode = vscode;
     this._settingsModel = settingsModel;
-    reusedBrowser.onRunningTestsChanged(isRunningTests => this._updateActions(isRunningTests));
+    this._reusedBrowser = reusedBrowser;
     this._extensionUri = extensionUri;
     this._disposables = [
+      reusedBrowser.onRunningTestsChanged(() => this._updateActions()),
+      reusedBrowser.onPageCountChanged(() => this._updateActions()),
       vscode.window.registerWebviewViewProvider('pw.extension.settingsView', this),
     ];
   }
@@ -58,18 +61,31 @@ export class SettingsView implements vscodeTypes.WebviewViewProvider, vscodeType
     }));
 
     this._disposables.push(this._settingsModel.onChange(() => {
-      this._view!.webview.postMessage({ method: 'settings', params: { settings: this._settingsModel.json() } });
+      this._updateSettings();
     }));
-    this._view!.webview.postMessage({ method: 'settings', params: { settings: this._settingsModel.json() } });
-    this._updateActions(false);
+
+    this._disposables.push(webviewView.onDidChangeVisibility(() => {
+      if (!webviewView.visible)
+        return;
+      this._updateSettings();
+      this._updateActions();
+    }));
+    this._updateSettings();
+    this._updateActions();
   }
 
-  private _updateActions(isRunningTests: boolean) {
+  private _updateSettings() {
+    this._view!.webview.postMessage({ method: 'settings', params: { settings: this._settingsModel.json() } });
+  }
+
+  private _updateActions() {
+    const isRunningTests = this._reusedBrowser.isRunningTests();
+    const pageCount = this._reusedBrowser.pageCount();
     const actions = [
       {
         command: 'pw.extension.command.inspect',
         svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M18 42h-7.5c-3 0-4.5-1.5-4.5-4.5v-27C6 7.5 7.5 6 10.5 6h27C42 6 42 10.404 42 10.5V18h-3V9H9v30h9v3Zm27-15-9 6 9 9-3 3-9-9-6 9-6-24 24 6Z"/></svg>`,
-        text: 'Pick selector',
+        text: 'Pick locator',
         disabled: isRunningTests,
       },
       {
@@ -93,7 +109,7 @@ export class SettingsView implements vscodeTypes.WebviewViewProvider, vscodeType
         command: 'pw.extension.command.closeBrowsers',
         svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path xmlns="http://www.w3.org/2000/svg" d="m12.45 37.65-2.1-2.1L21.9 24 10.35 12.45l2.1-2.1L24 21.9l11.55-11.55 2.1 2.1L26.1 24l11.55 11.55-2.1 2.1L24 26.1Z"/></svg>`,
         text: 'Close all browsers',
-        disabled: isRunningTests,
+        disabled: isRunningTests || !pageCount,
       },
     ];
     this._view!.webview.postMessage({ method: 'actions', params: { actions } });
