@@ -71,5 +71,10 @@ export const locatorMethods = [
   'getByTestId',
   'getByText',
   'getByTitle',
-  'getBy'
+  'first',
+  'last',
+  'nth',
+  'filter'
 ];
+
+export const locatorMethodRegex = /\.\s*(locator|getBy[\w]+|first|last|nth|filter)\(/;

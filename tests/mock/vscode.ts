@@ -59,9 +59,14 @@ class Location {
 class Range {
   start: Position;
   end: Position;
-  constructor(startLine: number, startCharacter: number, endLine: number, endCharacter: number) {
-    this.start = new Position(startLine, startCharacter);
-    this.end = new Position(endLine, endCharacter);
+  constructor(startLine: number | Position, startCharacter: number | Position, endLine?: number, endCharacter?: number) {
+    if (startLine instanceof Position) {
+      this.start = startLine;
+      this.end = startCharacter as Position;
+    } else {
+      this.start = new Position(startLine as number, startCharacter as number);
+      this.end = new Position(endLine as number, endCharacter as number);
+    }
   }
 
   toString() {
@@ -69,7 +74,7 @@ class Range {
   }
 }
 
-class Selection {
+class Selection extends Range {
 }
 
 class CancellationToken {
@@ -404,20 +409,38 @@ type Decoration = { type?: number, range: Range, renderOptions?: any };
 
 class TextDocument {
   uri: Uri;
+  text: string;
+  lines: string[];
+
   constructor(uri: Uri) {
     this.uri = uri;
   }
 
-  validateRange(range) {
-    return range;
+  getText() {
+    return this.text;
+  }
+
+  async _load() {
+    this.text = await fs.promises.readFile(this.uri.fsPath, 'utf-8');
+    this.lines = this.text.split('\n');
+  }
+
+  lineAt(i) {
+    const line = this.lines[i];
+    return {
+      text: line,
+      isEmptyOrWhitespace: !!line.replace(/\s/g, '').trim(),
+      firstNonWhitespaceCharacterIndex: line.match(/^\s*/g)![0].length
+    };
   }
 }
 
 class TextEditor {
-  readonly document: { uri: Uri; };
+  readonly document: TextDocument;
   private _log: string[] = [];
   private _state = new Map<number, Decoration[]>();
-  text: string = '';
+  readonly edits: { text: string, range: string }[] = [];
+  selection = new Selection(0, 0, 0, 0);
 
   constructor(document: TextDocument) {
     this.document = document;
@@ -451,8 +474,12 @@ class TextEditor {
 
   edit(editCallback) {
     editCallback({
-      replace: (range, text) => {
-        this.text = text;
+      replace: (range: Range, text: string) => {
+        this.edits.push({ range: range.toString(), text });
+        this.selection = range;
+        const lines = text.split('\n');
+        const lastLine = lines[lines.length - 1];
+        this.selection.end = new Position(range.end.line + (lines.length - 1), lines.length > 1 ? lastLine.length : range.end.character + lastLine.length);
       }
     });
   }
@@ -652,6 +679,9 @@ export class VSCode {
     let lastDecorationTypeId = 0;
     this.window.onDidChangeActiveTextEditor = this.onDidChangeActiveTextEditor;
     this.window.onDidChangeTextEditorSelection = this.onDidChangeTextEditorSelection;
+    this.window.didChangeTextEditorSelection = (textEditor: TextEditor, selection: Selection) => {
+      this._didChangeTextEditorSelection.fire({ textEditor, selections: [selection] });
+    };
     this.window.onDidChangeVisibleTextEditors = this.onDidChangeVisibleTextEditors;
     this.window.onDidChangeActiveColorTheme = () => disposable;
     this.window.createTextEditorDecorationType = () => ++lastDecorationTypeId;
@@ -710,8 +740,10 @@ export class VSCode {
       return watcher;
     };
     this.workspace.workspaceFolders = [];
-    this.workspace.openTextDocument = (file: string) => {
-      return new TextDocument(Uri.file(file));
+    this.workspace.openTextDocument = async (file: string) => {
+      const document = new TextDocument(Uri.file(file));
+      await document._load();
+      return document;
     };
 
     this.workspace.findFiles = async pattern => {
@@ -835,12 +867,14 @@ export class VSCode {
     this.window.visibleTextEditors = [];
     for (const uri of uris) {
       const editor = new TextEditor(new TextDocument(uri));
+      await editor.document._load();
       if (!this.window.activeTextEditor)
         this.window.activeTextEditor = editor;
       this.window.visibleTextEditors.push(editor);
     }
     this._didChangeVisibleTextEditors.fire(this.window.visibleTextEditors);
     this._didChangeActiveTextEditor.fire(this.window.activeTextEditor);
+    return this.window.visibleTextEditors;
   }
 
   renderExecLog(indent: string) {

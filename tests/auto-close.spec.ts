@@ -30,7 +30,7 @@ test('should reuse browsers', async ({ activate }) => {
     `
   });
 
-  const reusedBrowser = await vscode.extensions[0]._reusedBrowser;
+  const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
   const events: number[] = [];
   reusedBrowser.onPageCountChanged(count => events.push(count));
   await testController.run();
@@ -48,7 +48,7 @@ test('should auto-close after test', async ({ activate }) => {
   });
 
   await testController.run();
-  const reusedBrowser = await vscode.extensions[0]._reusedBrowser;
+  const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
   await expect.poll(() => !!reusedBrowser._backend).toBeFalsy();
 });
 
@@ -64,6 +64,6 @@ test('should auto-close after pick', async ({ activate }) => {
   const page = await waitForPage(browser);
   await page.close();
 
-  const reusedBrowser = await vscode.extensions[0]._reusedBrowser;
+  const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
   await expect.poll(() => !!reusedBrowser._backend).toBeFalsy();
 });

@@ -17,10 +17,14 @@
 import { t, parse, ParseResult, traverse, File, SourceLocation } from './babelBundle';
 import { asyncMatchers, pageMethods, locatorMethods } from './methodNames';
 
-const astCache = new Map<string, { text: string, ast: ParseResult<File> }>();
+const astCache = new Map<string, { text: string, ast?: ParseResult<File> }>();
 
-export function discardBabelAstCache() {
-  astCache.clear();
+export function pruneAstCaches(fsPathsToRetain: string[]) {
+  const retain = new Set(fsPathsToRetain);
+  for (const key of astCache.keys()) {
+    if (!retain.has(key))
+      astCache.delete(key);
+  }
 }
 
 export type SourcePosition = {
@@ -32,9 +36,16 @@ export function locatorForSourcePosition(text: string, vars: { pages: string[], 
   const cached = astCache.get(fsPath);
   let ast = cached?.ast;
   if (!cached || cached.text !== text) {
-    ast = parse(text, { errorRecovery: true, plugins: ['typescript', 'jsx'], sourceType: 'module' });
-    astCache.set(fsPath, { text, ast });
+    try {
+      ast = parse(text, { errorRecovery: true, plugins: ['typescript', 'jsx'], sourceType: 'module' });
+      astCache.set(fsPath, { text, ast });
+    } catch (e) {
+      astCache.set(fsPath, { text, ast: undefined });
+    }
   }
+
+  if (!ast)
+    return;
 
   let rangeMatch: string | undefined;
   let lineMatch: string | undefined;
@@ -95,7 +106,7 @@ export function locatorForSourcePosition(text: string, vars: { pages: string[], 
           // Prefer shortest range match to better support chains.
           rangeMatch = expression;
         }
-        if (isLineMatch && (!lineMatch || expression.length < lineMatch.length)) {
+        if (isLineMatch && (!lineMatch || lineMatch.length < expression.length)) {
           // Prefer longest line match to better support chains.
           lineMatch = expression;
         }

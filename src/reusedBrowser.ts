@@ -78,6 +78,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   readonly onPageCountChanged: vscodeTypes.Event<number>;
   private _onPageCountChangedEvent: vscodeTypes.EventEmitter<number>;
   readonly onRunningTestsChanged: vscodeTypes.Event<boolean>;
+  readonly _onHighlightRequestedForTestEvent: vscodeTypes.EventEmitter<string>;
+  readonly onHighlightRequestedForTest: vscodeTypes.Event<string>;
   private _onRunningTestsChangedEvent: vscodeTypes.EventEmitter<boolean>;
   private _isLegacyMode = false;
   private _editOperations = Promise.resolve();
@@ -89,6 +91,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this.onPageCountChanged = this._onPageCountChangedEvent.event;
     this._onRunningTestsChangedEvent = new vscode.EventEmitter();
     this.onRunningTestsChanged = this._onRunningTestsChangedEvent.event;
+    this._onHighlightRequestedForTestEvent = new vscode.EventEmitter();
+    this.onHighlightRequestedForTest = this._onHighlightRequestedForTestEvent.event;
 
     this._disposables.push(settingsModel.setting<boolean>('reuseBrowser').onChange(value => {
       this._shouldReuseBrowserForTests = value;
@@ -220,7 +224,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   private _scheduleEdit(callback: () => Promise<void>) {
-    this._editOperations = this._editOperations.then(callback).catch(() => {});
+    this._editOperations = this._editOperations.then(callback).catch(e => console.log(e));
   }
 
   isRunningTests() {
@@ -310,10 +314,12 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   highlight(selector: string) {
     this._backend?.highlight({ selector }).catch(() => {});
+    this._onHighlightRequestedForTestEvent.fire(selector);
   }
 
   hideHighlight() {
     this._backend?.hideHighlight().catch(() => {});
+    this._onHighlightRequestedForTestEvent.fire('');
   }
 
   private _checkVersion(config: TestConfig, message: string = 'this feature'): boolean {
