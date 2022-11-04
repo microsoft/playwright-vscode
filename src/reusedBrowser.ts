@@ -105,6 +105,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._shouldLogApiCalls = settingsModel.get<boolean>('logApiCalls');
   }
 
+  isLegacyMode() {
+    return this._isLegacyMode;
+  }
+
   dispose() {
     this._reset(true).catch(() => {});
     for (const d of this._disposables)

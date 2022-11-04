@@ -46,10 +46,6 @@ test('should toggle setting from webview', async ({ activate }) => {
   expect(configuration.get('reuseBrowser')).toBe(false);
   await webView.getByLabel('Show browser').click();
   expect(configuration.get('reuseBrowser')).toBe(true);
-
-  expect(configuration.get('logApiCalls')).toBe(false);
-  await webView.getByLabel('Log calls').click();
-  expect(configuration.get('logApiCalls')).toBe(true);
 });
 
 test('should reflect changes to setting', async ({ activate }) => {
