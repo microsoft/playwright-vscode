@@ -235,6 +235,7 @@ export class PlaywrightTest {
           PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
           PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
           PW_TEST_HTML_REPORT_OPEN: 'never',
+          PWDEBUG: 'console',
         },
         program: config.cli,
         args,
