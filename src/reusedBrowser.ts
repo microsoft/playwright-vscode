@@ -351,7 +351,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }
 
     try {
-      await this._backend?.setMode({ mode: 'recording', file: this._editor?.document.uri.fsPath });
+      await this._backend?.setMode({ mode: 'recording', file: this._editor?.document.uri.fsPath, testIdAttributeName: model.config.testIdAttributeName });
     } catch (e) {
       showExceptionAsUserError(this._vscode, model, e as Error);
       await this._reset(true);
@@ -482,7 +482,7 @@ export class Backend extends EventEmitter {
     await this._send('navigate', params);
   }
 
-  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', file?: string }) {
+  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', file?: string, testIdAttributeName?: string }) {
     await this._send('setRecorderMode', params);
   }
 
@@ -555,7 +555,7 @@ class LegacyBackend extends EventEmitter {
     await this._send('navigate', params);
   }
 
-  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', file?: string }) {
+  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', file?: string, testIdAttributeName?: string }) {
     await this._send('setMode', { ...params, language: 'test' });
   }
 

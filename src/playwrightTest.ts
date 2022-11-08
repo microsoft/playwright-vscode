@@ -17,6 +17,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import { debugSessionName } from './debugSessionName';
+import { ConfigListFilesReport } from './listTests';
 import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import type { TestError } from './reporter';
 import { ReporterServer } from './reporterServer';
@@ -29,16 +30,7 @@ export type TestConfig = {
   configFile: string;
   cli: string;
   version: number;
-};
-
-export type ProjectListFilesReport = {
-  testDir: string;
-  name: string;
-  files: string[];
-};
-
-export type ConfigListFilesReport = {
-  projects: ProjectListFilesReport[];
+  testIdAttributeName?: string;
 };
 
 export interface TestListener {
