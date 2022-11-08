@@ -15,10 +15,11 @@
  */
 
 import { Entry } from './oopReporter';
-import { PlaywrightTest, ProjectListFilesReport, TestConfig, TestListener } from './playwrightTest';
+import { PlaywrightTest, TestConfig, TestListener } from './playwrightTest';
 import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
 import { resolveSourceMap } from './utils';
+import { ProjectConfigWithFiles } from './listTests';
 
 /**
  * This class builds the Playwright Test model in Playwright terms.
@@ -95,6 +96,7 @@ export class TestModel {
       for (const file of project.files)
         files.push(...await resolveSourceMap(file, this._fileToSources, this._sourceToFile));
       project.files = files;
+      this.config.testIdAttributeName = project.use?.testIdAttribute;
     }
 
     const projectsToKeep = new Set<string>();
@@ -115,7 +117,7 @@ export class TestModel {
     this._didUpdate.fire();
   }
 
-  private _createProject(projectReport: ProjectListFilesReport, isFirst: boolean): TestProject {
+  private _createProject(projectReport: ProjectConfigWithFiles, isFirst: boolean): TestProject {
     const project: TestProject = {
       model: this,
       ...projectReport,
@@ -126,7 +128,7 @@ export class TestModel {
     return project;
   }
 
-  private _updateProject(project: TestProject, projectReport: ProjectListFilesReport) {
+  private _updateProject(project: TestProject, projectReport: ProjectConfigWithFiles) {
     const filesToKeep = new Set<string>();
     for (const file of projectReport.files) {
       filesToKeep.add(file);
