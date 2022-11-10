@@ -219,7 +219,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       this._backend!.on('ready', params => connectedCallback(params.wsEndpoint));
     } else {
       serverProcess.stdout?.on('data', async data => {
-        console.log(data.toString());
         const match = data.toString().match(/Listening on (.*)/);
         if (!match)
           return;
