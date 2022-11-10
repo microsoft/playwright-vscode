@@ -83,6 +83,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _onRunningTestsChangedEvent: vscodeTypes.EventEmitter<boolean>;
   private _isLegacyMode = false;
   private _editOperations = Promise.resolve();
+  private _pausedOnPagePause = false;
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
@@ -169,6 +170,14 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     });
 
     if (!legacyMode) {
+      this._backend.on('paused', async params => {
+        if (!this._pausedOnPagePause && params.paused) {
+          this._pausedOnPagePause = true;
+          await this._vscode.window.showInformationMessage('Paused', { modal: false }, 'Resume');
+          this._pausedOnPagePause = false;
+          this._backend?.resume();
+        }
+      });
       this._backend.on('stateChanged', params => {
         this._pageCountChanged(params.pageCount);
       });
@@ -209,12 +218,15 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     if (legacyMode) {
       this._backend!.on('ready', params => connectedCallback(params.wsEndpoint));
     } else {
-      serverProcess.stdout?.on('data', data => {
+      serverProcess.stdout?.on('data', async data => {
+        console.log(data.toString());
         const match = data.toString().match(/Listening on (.*)/);
         if (!match)
           return;
         const wse = match[1];
-        (this._backend as Backend).connect(wse).then(() => connectedCallback(wse));
+        await (this._backend as Backend).connect(wse);
+        await this._backend?.initialize();
+        connectedCallback(wse);
       });
     }
 
@@ -398,6 +410,7 @@ test('test', async ({ page }) => {
       return;
     if (!this._checkVersion(config, 'Show & reuse browser'))
       return;
+    this._pausedOnPagePause = false;
     this._isRunningTests = true;
     this._onRunningTestsChangedEvent.fire(true);
     await this._startBackendIfNeeded(config);
@@ -474,6 +487,10 @@ export class Backend extends EventEmitter {
     };
   }
 
+  async initialize() {
+    await this._send('initialize', { codegenId: 'playwright-test', sdkLanguage: 'javascript' });
+  }
+
   async resetForReuse() {
     await this._send('resetForReuse');
   }
@@ -499,6 +516,10 @@ export class Backend extends EventEmitter {
 
   async hideHighlight() {
     await this._send('hideHighlight');
+  }
+
+  async resume() {
+    this._send('resume');
   }
 
   async kill() {
@@ -544,6 +565,8 @@ class LegacyBackend extends EventEmitter {
     });
   }
 
+  async initialize() {}
+
   async setReportStateChanged(params: { enabled: boolean }) {
   }
 
@@ -570,6 +593,8 @@ class LegacyBackend extends EventEmitter {
   async hideHighlight() {
     await this._send('hideHighlight');
   }
+
+  async resume() {}
 
   async kill() {
     this._send('kill');
