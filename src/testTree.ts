@@ -15,11 +15,14 @@
  */
 
 import path from 'path';
+import { MultiMap } from './multimap';
 import { Entry, EntryType } from './oopReporter';
 import { Location } from './reporter';
 import { TestModel, TestProject } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
+
+type EntriesByTitle = MultiMap<string, { entry: Entry, projectTag: vscodeTypes.TestTag }>;
 
 /**
  * This class maps a collection of TestModels into the UI terms, it merges
@@ -107,29 +110,24 @@ export class TestTree {
         continue;
       const fileItem = this.getOrCreateFileItem(file);
       const signature: string[] = [];
-      // Tag with file granularity.
-      const projectTags: vscodeTypes.TestTag[] = [];
-      let entries: Entry[] | undefined;
+      const entriesByTitle: EntriesByTitle = new MultiMap();
       for (const model of this._models) {
         for (const testProject of model.projects.values()) {
           const testFile = testProject.files.get(file);
           if (!testFile || !testFile.entries())
             continue;
           const projectTag = this.projectTag(testProject);
-          projectTags.push(projectTag);
           this._tagFileItem(fileItem, projectTag);
           signature.push(testProject.testDir + ':' + testProject.name + ':' + testFile.revision());
-          entries = entries || [];
-          if (testFile.entries())
-            entries.push(...testFile.entries()!);
+          for (const entry of testFile.entries() || [])
+            entriesByTitle.set(entry.title, { entry, projectTag });
         }
       }
-      if (entries) {
-        const signatureText = signature.join('|');
-        if ((fileItem as any)[signatureSymbol] !== signatureText) {
-          (fileItem as any)[signatureSymbol] = signatureText;
-          this._updateTestItems(fileItem.children, entries, projectTags);
-        }
+
+      const signatureText = signature.join('|');
+      if ((fileItem as any)[signatureSymbol] !== signatureText) {
+        (fileItem as any)[signatureSymbol] = signatureText;
+        this._updateTestItems(fileItem.children, entriesByTitle);
       }
     }
 
@@ -149,29 +147,38 @@ export class TestTree {
     return false;
   }
 
-  private _updateTestItems(collection: vscodeTypes.TestItemCollection, entries: Entry[], projectTags: vscodeTypes.TestTag[]) {
+  private _updateTestItems(collection: vscodeTypes.TestItemCollection, entriesByTitle: EntriesByTitle) {
     const existingItems = new Map<string, vscodeTypes.TestItem>();
     collection.forEach(test => existingItems.set(test.label, test));
-    const itemsToDelete = new Map<string, vscodeTypes.TestItem>(existingItems);
+    const itemsToDelete = new Set<vscodeTypes.TestItem>(existingItems.values());
 
-    for (const entry of entries) {
-      let testItem = existingItems.get(entry.title);
+    for (const [title, entriesWithTag] of entriesByTitle) {
+      // Process each testItem exactly once.
+      let testItem = existingItems.get(title);
+      const firstEntry = entriesWithTag[0].entry;
       if (!testItem) {
         // We sort by id in tests, so start with location.
-        testItem = this._testController.createTestItem(this._id(entry.location.file + ':' + entry.location.line + '|' + entry.title), entry.title, this._vscode.Uri.file(entry.location.file));
-        (testItem as any)[itemTypeSymbol] = entry.type;
+        testItem = this._testController.createTestItem(this._id(firstEntry.location.file + ':' + firstEntry.location.line + '|' + firstEntry.title), firstEntry.title, this._vscode.Uri.file(firstEntry.location.file));
+        (testItem as any)[itemTypeSymbol] = firstEntry.type;
         collection.add(testItem);
       }
-      if (!testItem.range || testItem.range.start.line + 1 !== entry.location.line) {
-        const line = entry.location.line;
+      if (!testItem.range || testItem.range.start.line + 1 !== firstEntry.location.line) {
+        const line = firstEntry.location.line;
         testItem.range = new this._vscode.Range(line - 1, 0, line, 0);
       }
-      testItem.tags = projectTags;
-      this._updateTestItems(testItem.children, entry.children || [], projectTags);
-      itemsToDelete.delete(entry.title);
+
+      const childEntries: EntriesByTitle = new MultiMap();
+      for (const { projectTag, entry } of entriesWithTag) {
+        if (!testItem.tags.includes(projectTag))
+          testItem.tags = [...testItem.tags, projectTag];
+        for (const child of entry.children || [])
+          childEntries.set(child.title, { entry: child, projectTag });
+      }
+      itemsToDelete.delete(testItem);
+      this._updateTestItems(testItem.children, childEntries);
     }
 
-    for (const testItem of itemsToDelete.values())
+    for (const testItem of itemsToDelete)
       collection.delete(testItem.id);
   }
 

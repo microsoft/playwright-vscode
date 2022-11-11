@@ -529,3 +529,34 @@ test('should list tests in multi-folder workspace', async ({ activate }, testInf
         - two [2:0]
   `);
 });
+
+test('should merge items from different projects', async ({ activate }, testInfo) => {
+  const { testController } = await activate({
+    'playwright.config.ts': `module.exports = {
+      projects: [
+        { name: 'desktop', grepInvert: /mobile|tablet/ },
+        { name: 'mobile', grep: /@mobile/ },
+        { name: 'tablet', grep: /@tablet/ },
+      ]
+    }`,
+    'test.spec.ts': `
+      import { test } from '@playwright/test';
+      test.describe('group', () => {
+        test('test 1', async () => {});
+        test('test 2 [@mobile]', async () => {});
+        test('test 3 [@mobile]', async () => {});
+        test('test 4', async () => {});
+      });`,
+  });
+
+  await testController.expandTestItems(/test.spec.ts/);
+  await testController.expandTestItems(/group/);
+  expect(testController.renderTestTree({ renderTags: true })).toBe(`
+    - test.spec.ts [desktop][mobile][tablet]
+      - group [2:0] [desktop][mobile]
+        - test 1 [3:0] [desktop]
+        - test 2 [@mobile] [4:0] [mobile]
+        - test 3 [@mobile] [5:0] [mobile]
+        - test 4 [6:0] [desktop]
+  `);
+});
