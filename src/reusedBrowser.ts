@@ -315,16 +315,14 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     };
   }
 
-  async record(models: TestModel[], isInlineEdit: boolean) {
+  async record(models: TestModel[], recordNew: boolean) {
     if (!this._checkVersion(models[0].config))
       return;
-    if (this._isLegacyMode)
-      isInlineEdit = false;
     await this._vscode.window.withProgress({
       location: this._vscode.ProgressLocation.Notification,
       title: 'Playwright codegen',
       cancellable: true
-    }, async (progress, token) => this._doRecord(progress, models[0], isInlineEdit, token));
+    }, async (progress, token) => this._doRecord(progress, models[0], recordNew, token));
   }
 
   highlight(selector: string) {
@@ -345,18 +343,18 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return true;
   }
 
-  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, isInlineEdit: boolean, token: vscodeTypes.CancellationToken) {
+  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, recordNew: boolean, token: vscodeTypes.CancellationToken) {
     const startBackend = this._startBackendIfNeeded(model.config);
-    if (isInlineEdit)
-      this._editor = this._vscode.window.activeTextEditor;
-    else
+    if (recordNew || this.isLegacyMode())
       this._editor = await this._createFileForNewTest(model);
+    else
+      this._editor = this._vscode.window.activeTextEditor;
     await startBackend;
     this._insertedEditActionCount = 0;
 
     progress.report({ message: 'starting\u2026' });
 
-    if (!isInlineEdit) {
+    if (recordNew) {
       await this._backend?.resetForReuse();
       await this._backend?.navigate({ url: 'about:blank' });
     }
