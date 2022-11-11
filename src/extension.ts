@@ -76,8 +76,9 @@ export class Extension {
   private _projectsScheduledToRun: TestProject[] | undefined;
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
-  private _reusedBrowser!: ReusedBrowser;
+  private _reusedBrowser: ReusedBrowser;
   private _settingsModel: SettingsModel;
+  private _settingsView!: SettingsView;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -122,7 +123,7 @@ export class Extension {
 
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
-    const settingsView = new SettingsView(vscode, this._settingsModel, this._reusedBrowser, context.extensionUri);
+    this._settingsView = new SettingsView(vscode, this._settingsModel, this._reusedBrowser, context.extensionUri);
     this._disposables = [
       this._debugHighlight,
       this._settingsModel,
@@ -162,14 +163,14 @@ export class Extension {
           vscode.window.showWarningMessage('No Playwright tests found.');
           return;
         }
-        await this._reusedBrowser.record(this._models, false);
+        await this._reusedBrowser.record(this._models, true);
       }),
       vscode.commands.registerCommand('pw.extension.command.recordAtCursor', async () => {
         if (!this._models.length) {
           vscode.window.showWarningMessage('No Playwright tests found.');
           return;
         }
-        await this._reusedBrowser.record(this._models, true);
+        await this._reusedBrowser.record(this._models, false);
       }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
@@ -177,7 +178,7 @@ export class Extension {
           this._executionLinesChanged();
         }
       }),
-      settingsView,
+      this._settingsView,
       this._testController,
       this._workspaceObserver,
       this._reusedBrowser,
@@ -252,8 +253,12 @@ export class Extension {
       }
     }
 
+    const onlyLegacyConfigs = !!this._models.length && !this._models.find(m => m.config.version >= 1.28);
+    this._settingsView.updateActions(onlyLegacyConfigs);
+
     this._testTree.finishedLoading();
     await this._updateVisibleEditorItems();
+
     return configFiles;
   }
 

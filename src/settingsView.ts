@@ -25,6 +25,7 @@ export class SettingsView implements vscodeTypes.WebviewViewProvider, vscodeType
   private _disposables: vscodeTypes.Disposable[];
   private _settingsModel: SettingsModel;
   private _reusedBrowser: ReusedBrowser;
+  private _onlyLegacyConfigs = false;
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, reusedBrowser: ReusedBrowser, extensionUri: vscodeTypes.Uri) {
     this._vscode = vscode;
@@ -74,6 +75,14 @@ export class SettingsView implements vscodeTypes.WebviewViewProvider, vscodeType
     this._updateActions();
   }
 
+  updateActions(onlyLegacyConfigs: boolean) {
+    if (this._onlyLegacyConfigs !== onlyLegacyConfigs) {
+      this._onlyLegacyConfigs = onlyLegacyConfigs;
+      if (this._view)
+        this._updateActions();
+    }
+  }
+
   private _updateSettings() {
     this._view!.webview.postMessage({ method: 'settings', params: { settings: this._settingsModel.json() } });
   }
@@ -94,11 +103,11 @@ export class SettingsView implements vscodeTypes.WebviewViewProvider, vscodeType
         text: 'Record new',
         disabled: isRunningTests,
       },
-      this._reusedBrowser.isLegacyMode() ? undefined : {
+      {
         command: 'pw.extension.command.recordAtCursor',
         svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M9 39h2.2l22.15-22.15-2.2-2.2L9 36.8Zm30.7-24.3-6.4-6.4 2.1-2.1q.85-.85 2.1-.85t2.1.85l2.2 2.2q.85.85.85 2.1t-.85 2.1Zm-2.1 2.1L12.4 42H6v-6.4l25.2-25.2Zm-5.35-1.05-1.1-1.1 2.2 2.2Z"/></svg>`,
-        text: 'Record at cursor',
-        disabled: isRunningTests,
+        text: this._onlyLegacyConfigs ? 'Record from here' : 'Record at cursor',
+        disabled: isRunningTests || !pageCount,
       },
       {
         command: 'testing.showMostRecentOutput',
