@@ -133,7 +133,7 @@ class TestItem {
   readonly map = new Map<string, TestItem>();
   range: Range | undefined;
   parent: TestItem | undefined;
-  tags = [];
+  tags: TestTag[] = [];
   canResolveChildren = false;
 
   constructor(
@@ -187,10 +187,11 @@ class TestItem {
     return result.join('\n');
   }
 
-  innerToString(indent: string, result: string[]) {
-    result.push(`${indent}- ${this.treeTitle()}`);
+  innerToString(indent: string, result: string[], options?: { renderTags?: boolean }) {
+    const tags = options?.renderTags ? ' ' + this.tags.map(t => `[${t.name}]`).join('') : '';
+    result.push(`${indent}- ${this.treeTitle()}${tags}`);
     for (const id of [...this.children.map.keys()].sort())
-      this.children.map.get(id)!.innerToString(indent + '  ', result);
+      this.children.map.get(id)!.innerToString(indent + '  ', result, options);
   }
 
   treeTitle(): string {
@@ -370,10 +371,10 @@ export class TestController {
     return testRun;
   }
 
-  renderTestTree() {
+  renderTestTree(options?: { renderTags?: boolean }) {
     const result: string[] = [''];
     for (const item of this.items.map.values())
-      item.innerToString('    ', result);
+      item.innerToString('    ', result, options);
     result.push('  ');
     return result.join('\n');
   }
@@ -609,6 +610,10 @@ class MarkdownString {
 }
 
 class TestTag {
+  name: string;
+  constructor(name: string) {
+    this.name = name.replace(/.*playwright.config.[tj]s:/, '');
+  }
 }
 
 export class VSCode {
