@@ -95,7 +95,6 @@ export class SettingsView implements vscodeTypes.WebviewViewProvider, vscodeType
         command: 'pw.extension.command.inspect',
         svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M18 42h-7.5c-3 0-4.5-1.5-4.5-4.5v-27C6 7.5 7.5 6 10.5 6h27C42 6 42 10.404 42 10.5V18h-3V9H9v30h9v3Zm27-15-9 6 9 9-3 3-9-9-6 9-6-24 24 6Z"/></svg>`,
         text: 'Pick locator',
-        disabled: isRunningTests,
       },
       {
         command: 'pw.extension.command.recordNew',
