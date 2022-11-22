@@ -22,13 +22,13 @@ import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams }
 import type { TestError } from './reporter';
 import { ReporterServer } from './reporterServer';
 import { ReusedBrowser } from './reusedBrowser';
-import { findNode, spawnAsync } from './utils';
+import { findNode, findYarn, isPnP, isYarnWorkspace, spawnAsync } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
 export type TestConfig = {
   workspaceFolder: string;
   configFile: string;
-  cli: string;
+  command: string;
   version: number;
   testIdAttributeName?: string;
 };
@@ -57,32 +57,22 @@ export class PlaywrightTest {
     this._isUnderTest = isUnderTest;
   }
 
-  async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, cli: string } | null> {
+  async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, command: string} | null> {
+    const command = await this._getCommand(workspaceFolder);
+
     try {
       const pwtInfo = await this._runNode([
         '-e',
-        'try { const pwtIndex = require.resolve("@playwright/test"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ pwtIndex, version})); } catch { console.log("undefined"); }',
+        `try { const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ version })); } catch { console.log("undefined"); }`,
       ], path.dirname(configFilePath));
-      const { pwtIndex, version } = JSON.parse(pwtInfo);
+      const { version } = JSON.parse(pwtInfo);
       const v = parseFloat(version);
 
       // We only depend on playwright-core in 1.15+, bail out.
       if (v < 1.19)
-        return { cli: '', version: v };
+        return { command, version: v };
 
-      // Resolve playwright-core relative to @playwright/test.
-      const coreInfo = await this._runNode([
-        '-e',
-        'try { const coreIndex = require.resolve("playwright-core"); console.log(JSON.stringify({ coreIndex })); } catch { console.log("undefined"); }',
-      ], path.dirname(pwtIndex));
-      const { coreIndex } = JSON.parse(coreInfo);
-      let cli = path.resolve(coreIndex, '..', 'lib', 'cli', 'cli');
-
-      // Dogfood for 'ttest'
-      if (cli.includes('packages/playwright-core') && configFilePath.includes('playwright-test'))
-        cli = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/playwright-core/lib/cli/cli');
-
-      return { cli, version: v };
+      return { command, version: v };
     } catch {
     }
     return null;
@@ -91,12 +81,12 @@ export class PlaywrightTest {
   async listFiles(config: TestConfig): Promise<ConfigListFilesReport | null> {
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
-    const allArgs = [config.cli, 'list-files', '-c', configFile];
+    const allArgs = ['playwright', 'list-files', '-c', configFile];
     {
       // For tests.
       this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright list-files -c ${configFile}`);
     }
-    const output = await this._runNode(allArgs, configFolder);
+    const output = await spawnAsync(config.command, allArgs, configFolder);
     try {
       return JSON.parse(output) as ConfigListFilesReport;
     } catch (e) {
@@ -136,7 +126,6 @@ export class PlaywrightTest {
     // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
     // Always use ws transport to mitigate it.
     const reporterServer = new ReporterServer();
-    const node = await findNode();
     if (token?.isCancellationRequested)
       return;
     const configFolder = path.dirname(config.configFile);
@@ -147,7 +136,7 @@ export class PlaywrightTest {
       const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex);
       this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright test -c ${configFile}${args.length ? ' ' + args.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
     }
-    const allArgs = [config.cli, 'test',
+    const allArgs = ['playwright', 'test',
       '-c', configFile,
       ...args,
       ...escapedLocations,
@@ -159,7 +148,7 @@ export class PlaywrightTest {
     // Disable original reporters when listing files.
     if (mode === 'list')
       allArgs.push('--reporter', 'null');
-    const childProcess = spawn(node, allArgs, {
+    const childProcess = spawn(config.command, allArgs, {
       cwd: configFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
@@ -188,7 +177,8 @@ export class PlaywrightTest {
     const configFile = path.basename(config.configFile);
     locations = locations || [];
     const escapedLocations = locations.map(escapeRegex);
-    const args = ['test',
+    const args = ['playwright',
+      'test',
       '-c', configFile,
       ...escapedLocations,
       '--headed',
@@ -229,7 +219,7 @@ export class PlaywrightTest {
           PW_TEST_HTML_REPORT_OPEN: 'never',
           PWDEBUG: 'console',
         },
-        program: config.cli,
+        runtimeExecutable: config.command,
         args,
       });
       await reporterServer.wireTestListener(listener, token);
@@ -247,7 +237,16 @@ export class PlaywrightTest {
   }
 
   private async _runNode(args: string[], cwd: string): Promise<string> {
+    if (await isPnP(cwd)) {
+      const yarn = await findYarn();
+      return await spawnAsync(yarn, ['node', ...args], cwd);
+    }
     return await spawnAsync(await findNode(), args, cwd);
+  }
+
+  private async _getCommand(cwd: string): Promise<string> {
+    const isYarn = await isYarnWorkspace(cwd);
+    return isYarn ? 'yarn' : 'npx';
   }
 }
 

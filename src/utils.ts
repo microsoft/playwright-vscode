@@ -136,15 +136,40 @@ export async function resolveSourceMap(file: string, fileToSources: Map<string, 
   return [file];
 }
 
-let pathToNodeJS: string | undefined;
+const pathCaches: Record<string, string> = {};
+
+export async function findExecutable(name: string): Promise<string> {
+  if (pathCaches[name])
+    return pathCaches[name];
+
+  const pathToExec = await which(name);
+  if (!pathToExec)
+    throw new Error(`Unable to find \`${name}\`, make sure it is in your PATH`);
+  pathCaches[name] = pathToExec;
+  return pathToExec;
+}
 
 export async function findNode(): Promise<string> {
-  if (pathToNodeJS)
-    return pathToNodeJS;
+  return await findExecutable('node');
+}
 
-  const node = await which('node');
-  if (!node)
-    throw new Error('Unable to launch `node`, make sure it is in your PATH');
-  pathToNodeJS = node;
-  return node;
+export async function findYarn(): Promise<string> {
+  return await findExecutable('yarn');
+}
+
+export async function isPnP(cwd: string): Promise<boolean> {
+  return await fileExists(path.join(cwd, '.pnp.cjs'));
+}
+
+export async function isYarnWorkspace(workspaceRoot: string): Promise<boolean> {
+  return await fileExists(path.join(workspaceRoot, 'yarn.lock'));
+}
+
+export async function fileExists(path: string): Promise<boolean> {
+  try {
+    await fs.promises.access(path, fs.constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }

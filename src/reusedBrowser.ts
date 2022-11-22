@@ -17,7 +17,7 @@
 import { ChildProcess, spawn } from 'child_process';
 import { TestConfig } from './playwrightTest';
 import { TestModel, TestProject } from './testModel';
-import { createGuid, findNode } from './utils';
+import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
 import fs from 'fs';
@@ -127,16 +127,15 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     const legacyMode = config.version < 1.28;
     this._isLegacyMode = legacyMode;
 
-    const node = await findNode();
     const allArgs = [
-      config.cli,
+      'playwright',
       'run-server',
       `--path=/${createGuid()}`
     ];
     if (legacyMode)
       allArgs.push('--reuse-browser');
 
-    const serverProcess = spawn(node, allArgs, {
+    const serverProcess = spawn(config.command, allArgs, {
       cwd: config.workspaceFolder,
       stdio: legacyMode ? ['pipe', 'pipe', 'pipe', 'ipc'] : 'pipe',
       env: {

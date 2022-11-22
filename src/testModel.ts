@@ -76,7 +76,7 @@ export class TestModel {
   private _sourceToFile: Map<string, string> = new Map();
   private _envProvider: () => NodeJS.ProcessEnv;
 
-  constructor(vscode: vscodeTypes.VSCode, playwrightTest: PlaywrightTest, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }, envProvider: () => NodeJS.ProcessEnv) {
+  constructor(vscode: vscodeTypes.VSCode, playwrightTest: PlaywrightTest, workspaceFolder: string, configFile: string, playwrightInfo: { command: string, version: number }, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
     this._playwrightTest = playwrightTest;
     this.config = { ...playwrightInfo, workspaceFolder, configFile };
