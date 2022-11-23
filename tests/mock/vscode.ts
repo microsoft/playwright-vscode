@@ -773,7 +773,6 @@ export class VSCode {
     };
     const settings = {
       'playwright.env': {},
-      'playwright.logApiCalls': false,
       'playwright.reuseBrowser': false,
     };
     this.workspace.getConfiguration = scope => {
