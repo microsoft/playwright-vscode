@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import { t, parse, ParseResult, traverse, File, SourceLocation } from './babelBundle';
+import { t, parse, ParseResult, traverse, SourceLocation } from './babelBundle';
 import { asyncMatchers, pageMethods, locatorMethods } from './methodNames';
 
-const astCache = new Map<string, { text: string, ast?: ParseResult<File> }>();
+const astCache = new Map<string, { text: string, ast?: ParseResult }>();
 
 export function pruneAstCaches(fsPathsToRetain: string[]) {
   const retain = new Set(fsPathsToRetain);
