@@ -15,8 +15,10 @@
  */
 
 export { types as t } from '@babel/core';
-export { parse, ParseResult } from '@babel/parser';
+import { parse } from '@babel/parser';
+export { parse };
+export type ParseResult = ReturnType<typeof parse>;
 import traverseFunc from '@babel/traverse';
 export const traverse = traverseFunc;
-export type { File, SourceLocation } from '@babel/types';
+export type { SourceLocation } from '@babel/types';
 export { declare } from '@babel/helper-plugin-utils';
