@@ -74,7 +74,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _envProvider: () => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
   private _pageCount = 0;
-  private _sawPages = false;
   readonly onPageCountChanged: vscodeTypes.Event<number>;
   private _onPageCountChangedEvent: vscodeTypes.EventEmitter<number>;
   readonly onRunningTestsChanged: vscodeTypes.Event<boolean>;
@@ -255,10 +254,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._onPageCountChangedEvent.fire(pageCount);
     if (this._isRunningTests)
       return;
-    if (!this._sawPages) {
-      this._sawPages = !!pageCount;
-      return;
-    }
     if (pageCount)
       return;
     this._reset(true).catch(() => {});
@@ -315,9 +310,21 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     };
   }
 
+  canRecord() {
+    return !this._isRunningTests;
+  }
+
+  canClose() {
+    return !this._isRunningTests && !!this._pageCount;
+  }
+
   async record(models: TestModel[], recordNew: boolean) {
     if (!this._checkVersion(models[0].config))
       return;
+    if (!this.canRecord()) {
+      this._vscode.window.showWarningMessage(`Can't record while running tests`);
+      return;
+    }
     await this._vscode.window.withProgress({
       location: this._vscode.ProgressLocation.Notification,
       title: 'Playwright codegen',
@@ -427,6 +434,10 @@ test('test', async ({ page }) => {
   }
 
   closeAllBrowsers() {
+    if (!this.canClose()) {
+      this._vscode.window.showWarningMessage(`Can't close browsers while running tests`);
+      return;
+    }
     this._reset(true).catch(() => {});
   }
 
@@ -445,7 +456,6 @@ test('test', async ({ page }) => {
       this._backend = undefined;
       this._browserServerWS = undefined;
       this._pageCount = 0;
-      this._sawPages = false;
     } else {
       await this._backend?.setMode({ mode: 'none' });
     }
