@@ -352,11 +352,13 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, recordNew: boolean, token: vscodeTypes.CancellationToken) {
     const startBackend = this._startBackendIfNeeded(model.config);
+    let editor: vscodeTypes.TextEditor | undefined;
     if (recordNew || this.isLegacyMode())
-      this._editor = await this._createFileForNewTest(model);
+      editor = await this._createFileForNewTest(model);
     else
-      this._editor = this._vscode.window.activeTextEditor;
+      editor = this._vscode.window.activeTextEditor;
     await startBackend;
+    this._editor = editor;
     this._insertedEditActionCount = 0;
 
     progress.report({ message: 'starting\u2026' });
