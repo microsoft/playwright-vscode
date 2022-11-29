@@ -27,12 +27,6 @@ test('should toggle settings', async ({ activate }) => {
   expect(configuration.get('reuseBrowser')).toBe(true);
   await vscode.commands.executeCommand('pw.extension.toggle.reuseBrowser');
   expect(configuration.get('reuseBrowser')).toBe(false);
-
-  expect(configuration.get('logApiCalls')).toBe(false);
-  await vscode.commands.executeCommand('pw.extension.toggle.logApiCalls');
-  expect(configuration.get('logApiCalls')).toBe(true);
-  await vscode.commands.executeCommand('pw.extension.toggle.logApiCalls');
-  expect(configuration.get('logApiCalls')).toBe(false);
 });
 
 test('should toggle setting from webview', async ({ activate }) => {

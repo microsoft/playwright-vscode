@@ -64,7 +64,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
   private _browserServerWS: string | undefined;
   private _shouldReuseBrowserForTests = false;
-  private _shouldLogApiCalls = false;
   private _backend: Backend | LegacyBackend | undefined;
   private _cancelRecording: (() => void) | undefined;
   private _updateOrCancelInspecting: ((params: { selector?: string, cancel?: boolean }) => void) | undefined;
@@ -98,11 +97,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       this._shouldReuseBrowserForTests = value;
     }));
     this._shouldReuseBrowserForTests = settingsModel.get<boolean>('reuseBrowser');
-
-    this._disposables.push(settingsModel.setting<boolean>('logApiCalls').onChange(value => {
-      this._shouldLogApiCalls = value;
-    }));
-    this._shouldLogApiCalls = settingsModel.get<boolean>('logApiCalls');
   }
 
   isLegacyMode() {
@@ -268,12 +262,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   browserServerWSForTest() {
     return this._browserServerWS;
-  }
-
-  logApiCallsEnv(): NodeJS.ProcessEnv | undefined {
-    return this._shouldLogApiCalls ? {
-      DEBUG: 'pw:api'
-    } : undefined;
   }
 
   async inspect(models: TestModel[]) {
