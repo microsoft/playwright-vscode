@@ -3,7 +3,7 @@
   "displayName": "Playwright Test for VSCode",
   "description": "Run Playwright Test tests in Visual Studio Code.",
   "icon": "images/playwright-logo.png",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "ms-playwright",
   "repository": "https://github.com/microsoft/playwright-vscode",
   "bugs": {
@@ -72,6 +72,17 @@
           "type": "boolean",
           "default": false,
           "description": "Show & reuse browser between tests."
+        },
+        "playwright.packageManager": {
+          "type": "string",
+          "enum": ["npm", "yarn", "pnpm"],
+          "default": "npm",
+          "description": "Set yarn or pnpm. Default is npm."
+        },
+        "playwright.quiet": {
+          "type": "boolean",
+          "default": true,
+          "description": "Set --quiet for install"
         }
       }
     },

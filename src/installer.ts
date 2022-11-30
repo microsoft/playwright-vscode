@@ -66,7 +66,23 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
   if (result.includes(installDepsItem))
     args.push('--install-deps');
 
-  terminal.sendText(`npm init playwright@latest --yes -- --quiet ${args.join(' ')}`, true);
+  // confirm package manager
+  const tool = await vscode.workspace.getConfiguration('playwright').get('packageManager');
+  const quiet = await vscode.workspace.getConfiguration('playwright').get('quiet');
+
+  switch (tool) {
+    case 'npm':
+      terminal.sendText(`npm init playwright@latest --yes -- ${quiet ? '--quiet' : ''} ${args.join(' ')}`, true);
+      break;
+    case 'yarn':
+      terminal.sendText(`yarn create playwright ${quiet ? '--quiet' : ''} ${args.join(' ')}`, true);
+      break;
+    case 'pnpm':
+      terminal.sendText(`pnpm dlx create-playwright ${quiet ? '--quiet' : ''} ${args.join(' ')}`, true);
+      break;
+  }
+
+  // terminal.sendText(`npm init playwright@latest --yes -- --quiet ${args.join(' ')}`, true);
 }
 
 export async function installBrowsers(vscode: vscodeTypes.VSCode, model: TestModel) {
