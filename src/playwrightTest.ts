@@ -83,7 +83,8 @@ export class PlaywrightTest {
         cli = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/playwright-core/lib/cli/cli');
 
       return { cli, version: v };
-    } catch {
+    } catch (e) {
+      console.error(e);
     }
     return null;
   }
