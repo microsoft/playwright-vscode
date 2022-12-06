@@ -26,6 +26,7 @@ import EventEmitter from 'events';
 import { installBrowsers } from './installer';
 import { WebSocketTransport } from './transport';
 import { SettingsModel } from './settingsModel';
+import { InspectAssertDialog } from './InspectAssertDialog';
 
 export type Snapshot = {
   browsers: BrowserSnapshot[];
@@ -288,6 +289,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     }
 
+    // NOTICE: Modifications Copyright 2022.12.05 @csbun
+    /*
     const selectorExplorerBox = this._vscode.window.createInputBox();
     selectorExplorerBox.title = 'Pick locator';
     selectorExplorerBox.value = '';
@@ -308,6 +311,17 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       else if (params.selector)
         selectorExplorerBox.value = params.selector;
     };
+    */
+    const assertDialog = new InspectAssertDialog(this._vscode, this._vscode.window.activeTextEditor);
+    this._updateOrCancelInspecting = (params) => {
+      if (!params.cancel && params.selector) {
+        assertDialog.updateOrCancelInspectAssert(params.selector)
+          .then(() => {
+            this._reset(false).catch(() => {});
+            // TODO: resume record
+          })
+      }
+    }
   }
 
   canRecord() {
