@@ -289,8 +289,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     }
 
-    // NOTICE: Modifications Copyright 2022.12.05 @csbun
-    /*
     const selectorExplorerBox = this._vscode.window.createInputBox();
     selectorExplorerBox.title = 'Pick locator';
     selectorExplorerBox.value = '';
@@ -311,17 +309,34 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       else if (params.selector)
         selectorExplorerBox.value = params.selector;
     };
-    */
+  }
+
+  /**
+   * Pick a locator and insert assertion
+   * NOTICE: Modifications Copyright 2022.12.05 @csbun
+   */
+  async inspectAssert(models: TestModel[]) {
+    if (!this._checkVersion(models[0].config, 'inspect and assert'))
+      return;
+
+    await this._startBackendIfNeeded(models[0].config);
+    try {
+      await this._backend?.setMode({ mode: 'inspecting' });
+    } catch (e) {
+      showExceptionAsUserError(this._vscode, models[0], e as Error);
+      return;
+    }
+
     const assertDialog = new InspectAssertDialog(this._vscode, this._vscode.window.activeTextEditor);
-    this._updateOrCancelInspecting = (params) => {
+    this._updateOrCancelInspecting = params => {
       if (!params.cancel && params.selector) {
         assertDialog.updateOrCancelInspectAssert(params.selector)
-          .then(() => {
-            this._reset(false).catch(() => {});
-            // TODO: resume record
-          })
+            .then(() => {
+              this._reset(false).catch(() => {});
+              // TODO: resume record
+            });
       }
-    }
+    };
   }
 
   canRecord() {
