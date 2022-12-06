@@ -1,6 +1,6 @@
 {
   "name": "playwright",
-  "displayName": "Playwright Test for VSCode",
+  "displayName": "Playwright Test for VSCode (with Assertion)",
   "description": "Run Playwright Test tests in Visual Studio Code.",
   "icon": "images/playwright-logo.png",
   "version": "1.1.0-beta.1",
