@@ -79,6 +79,12 @@ export class Extension {
   private _reusedBrowser: ReusedBrowser;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
+  private _filesPendingListTests: {
+    files: Set<string>,
+    timer: NodeJS.Timeout,
+    promise: Promise<void>,
+    finishedCallback: () => void
+  } | undefined;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -117,6 +123,9 @@ export class Extension {
   }
 
   dispose() {
+    clearTimeout(this._filesPendingListTests?.timer);
+    this._filesPendingListTests?.finishedCallback();
+    delete this._filesPendingListTests;
     for (const d of this._disposables)
       d?.dispose?.();
   }
@@ -411,8 +420,7 @@ located next to Run / Debug Tests toolbar buttons.`);
   private async _resolveChildren(fileItem: vscodeTypes.TestItem | undefined): Promise<void> {
     if (!fileItem)
       return;
-    for (const model of this._models)
-      await model.listTests([fileItem!.uri!.fsPath]);
+    await this._listTestsInAllModels([fileItem!.uri!.fsPath]);
   }
 
   private async _workspaceChanged(change: WorkspaceChange) {
@@ -528,10 +536,39 @@ located next to Run / Debug Tests toolbar buttons.`);
 
   private async _updateVisibleEditorItems() {
     const files = this._vscode.window.visibleTextEditors.map(e => e.document.uri.fsPath);
-    if (files.length) {
-      for (const model of this._models)
-        await model.listTests(files);
+    await this._listTestsInAllModels(files);
+  }
+
+  private _listTestsInAllModels(files: string[]): Promise<void> {
+    // Perform coalescing listTests calls to avoid multiple
+    // 'list tests' processes running at the same time.
+    if (!files.length)
+      return Promise.resolve();
+
+    if (!this._filesPendingListTests) {
+      let finishedCallback!: () => void;
+      const promise = new Promise<void>(f => finishedCallback = f);
+      const files = new Set<string>();
+
+      const timer = setTimeout(async () => {
+        delete this._filesPendingListTests;
+        for (const model of this._models.slice())
+          await model.listTests([...files]).catch(e => console.log(e));
+        finishedCallback();
+      }, 0);
+
+      this._filesPendingListTests = {
+        files,
+        finishedCallback,
+        promise,
+        timer,
+      };
     }
+
+    for (const file of files)
+      this._filesPendingListTests.files.add(file);
+
+    return this._filesPendingListTests.promise;
   }
 
   private _errorInDebugger(errorStack: string, location: DebuggerLocation) {
