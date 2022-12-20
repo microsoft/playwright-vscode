@@ -83,7 +83,8 @@ export class PlaywrightTest {
         cli = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/playwright-core/lib/cli/cli');
 
       return { cli, version: v };
-    } catch {
+    } catch (e) {
+      console.error(e);
     }
     return null;
   }
@@ -168,7 +169,6 @@ export class PlaywrightTest {
         NODE_OPTIONS: undefined,
         ...settingsEnv,
         ...this._reusedBrowser.browserServerEnv(false),
-        ...this._reusedBrowser.logApiCallsEnv(),
         ...(await reporterServer.env()),
         // Reset VSCode's options that affect nested Electron.
         ELECTRON_RUN_AS_NODE: undefined,
@@ -219,7 +219,6 @@ export class PlaywrightTest {
           ...process.env,
           ...settingsEnv,
           ...this._reusedBrowser.browserServerEnv(true),
-          ...this._reusedBrowser.logApiCallsEnv(),
           ...(await reporterServer.env()),
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,

@@ -65,7 +65,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
   private _browserServerWS: string | undefined;
   private _shouldReuseBrowserForTests = false;
-  private _shouldLogApiCalls = false;
   private _backend: Backend | LegacyBackend | undefined;
   private _cancelRecording: (() => void) | undefined;
   private _updateOrCancelInspecting: ((params: { selector?: string, cancel?: boolean }) => void) | undefined;
@@ -99,11 +98,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       this._shouldReuseBrowserForTests = value;
     }));
     this._shouldReuseBrowserForTests = settingsModel.get<boolean>('reuseBrowser');
-
-    this._disposables.push(settingsModel.setting<boolean>('logApiCalls').onChange(value => {
-      this._shouldLogApiCalls = value;
-    }));
-    this._shouldLogApiCalls = settingsModel.get<boolean>('logApiCalls');
   }
 
   isLegacyMode() {
@@ -271,12 +265,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return this._browserServerWS;
   }
 
-  logApiCallsEnv(): NodeJS.ProcessEnv | undefined {
-    return this._shouldLogApiCalls ? {
-      DEBUG: 'pw:api'
-    } : undefined;
-  }
-
   async inspect(models: TestModel[]) {
     if (!this._checkVersion(models[0].config, 'selector picker'))
       return;
@@ -381,11 +369,13 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, recordNew: boolean, token: vscodeTypes.CancellationToken) {
     const startBackend = this._startBackendIfNeeded(model.config);
+    let editor: vscodeTypes.TextEditor | undefined;
     if (recordNew || this.isLegacyMode())
-      this._editor = await this._createFileForNewTest(model);
+      editor = await this._createFileForNewTest(model);
     else
-      this._editor = this._vscode.window.activeTextEditor;
+      editor = this._vscode.window.activeTextEditor;
     await startBackend;
+    this._editor = editor;
     this._insertedEditActionCount = 0;
 
     progress.report({ message: 'starting\u2026' });
