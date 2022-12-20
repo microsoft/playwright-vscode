@@ -16,6 +16,8 @@
 import * as vscodeTypes from './vscodeTypes';
 
 /**
+ * Assert Type Pick Item
+ * @description
  * 断言类型，扩展 VSCode QuickPickItem
  */
 interface ExtendQuickPickItem extends vscodeTypes.QuickPickItem {
@@ -44,7 +46,8 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
   detail: 'Check if an item is visible',
   needAssertValue: false,
   genAssertCode: (selector: string) => {
-    return `expect(await page.${selector}).toBeVisible();`;
+    // .toBeVisible 是 async 方法
+    return `await expect(await page.${selector}).toBeVisible();`;
   }
 }, {
   // 判断元素是否包含字符串
