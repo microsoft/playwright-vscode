@@ -29,7 +29,6 @@ export class SettingsModel implements vscodeTypes.Disposable {
     this.onChange = this._onChange.event;
 
     this.createSetting('reuseBrowser');
-    this.createSetting('logApiCalls');
   }
 
   createSetting<T>(settingName: string): Setting<T> {
