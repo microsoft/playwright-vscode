@@ -1,13 +1,13 @@
 {
-  "name": "playwright",
+  "name": "playwright-extend",
   "displayName": "Playwright Test for VSCode (with Assertion)",
   "description": "Run Playwright Test tests in Visual Studio Code.",
   "icon": "images/playwright-logo.png",
   "version": "1.1.0-beta.2",
-  "publisher": "ms-playwright",
-  "repository": "https://github.com/microsoft/playwright-vscode",
+  "publisher": "csbun",
+  "repository": "https://github.com/csbun/playwright-vscode",
   "bugs": {
-    "url": "https://github.com/microsoft/playwright-vscode/issues"
+    "url": "https://github.com/csbun/playwright-vscode/issues"
   },
   "engines": {
     "vscode": "^1.65.0"
@@ -61,7 +61,7 @@
       }
     ],
     "configuration": {
-      "title": "Playwright",
+      "title": "Playwright Extend",
       "properties": {
         "playwright.env": {
           "type": "object",
@@ -86,6 +86,7 @@
     }
   },
   "scripts": {
+    "version:beta": "npm version prerelease --preid=beta",
     "esbuild": "esbuild ./src/babelBundle.ts ./src/extension.ts ./src/oopReporter.ts ./src/debugTransform.ts --bundle --outdir=out --external:vscode --external:./babelBundle --external:./debugTransform --external:./oopReporter --format=cjs --platform=node --target=ES2019",
     "build": "npm run esbuild -- --minify",
     "watch": "npm run esbuild -- --sourcemap --watch",
@@ -94,9 +95,9 @@
     "download-api": "vscode-dts dev && vscode-dts main",
     "test": "playwright test",
     "package": "vsce package",
-    "code": "code --uninstall-extension ms-playwright.playwright && code --install-extension playwright-1.1.0-beta.1.vsix",
+    "code": "code --uninstall-extension ms-playwright.playwright && code --install-extension playwright-1.1.0-beta.2.vsix",
     "uncode": "code --uninstall-extension ms-playwright.playwright",
-    "code-insiders": "code-insiders --uninstall-extension ms-playwright.playwright && code-insiders --install-extension playwright-1.1.0-beta.1.vsix",
+    "code-insiders": "code-insiders --uninstall-extension ms-playwright.playwright && code-insiders --install-extension playwright-1.1.0-beta.2.vsix",
     "uncode-insiders": "code-insiders --uninstall-extension ms-playwright.playwright"
   },
   "devDependencies": {
