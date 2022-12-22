@@ -3,7 +3,7 @@
   "displayName": "Playwright Test for VSCode",
   "description": "Run Playwright Test tests in Visual Studio Code.",
   "icon": "images/playwright-logo.png",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "ms-playwright",
   "repository": "https://github.com/microsoft/playwright-vscode",
   "bugs": {
