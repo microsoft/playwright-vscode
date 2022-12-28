@@ -46,6 +46,19 @@ class Position {
   }
 }
 
+export enum DiagnosticSeverity {
+  Error = 'Error',
+  Warning = 'Warning',
+  Information = 'Information',
+  Hint = 'Hint'
+}
+
+type Diagnostic = {
+  message: string;
+  location: Location;
+  severity: DiagnosticSeverity;
+};
+
 class Location {
   range: Range;
   constructor(readonly uri: Uri, rangeOrPosition: Range | Position) {
@@ -616,8 +629,29 @@ class TestTag {
   }
 }
 
+class DiagnosticsCollection {
+  readonly _entries = new Map<string, Diagnostic[]>();
+
+  set(uri: Uri, diagnostics: Diagnostic[]) {
+    this._entries.set(uri.toString(), diagnostics);
+  }
+
+  get(uri: Uri) {
+    return this._entries.get(uri.toString()) || [];
+  }
+
+  delete(uri: Uri) {
+    this._entries.delete(uri.toString());
+  }
+
+  clear() {
+    this._entries.clear();
+  }
+}
+
 export class VSCode {
   isUnderTest = true;
+  DiagnosticSeverity = DiagnosticSeverity;
   EventEmitter = EventEmitter;
   Location = Location;
   MarkdownString = MarkdownString;
@@ -678,7 +712,21 @@ export class VSCode {
     };
     this.debug = new Debug();
 
+    const diagnosticsCollections: DiagnosticsCollection[] = [];
     this.languages.registerHoverProvider = () => disposable;
+    this.languages.getDiagnostics = () => {
+      const result: Diagnostic[] = [];
+      for (const collection of diagnosticsCollections) {
+        for (const diagnostics of collection._entries.values())
+          result.push(...diagnostics);
+      }
+      return result;
+    };
+    this.languages.createDiagnosticCollection = () => {
+      const diagnosticsCollection = new DiagnosticsCollection();
+      diagnosticsCollections.push(diagnosticsCollection);
+      return diagnosticsCollection;
+    };
     this.tests.createTestController = this._createTestController.bind(this);
 
     let lastDecorationTypeId = 0;

@@ -123,14 +123,18 @@ export class PlaywrightTest {
     }
   }
 
-  async listTests(config: TestConfig, files: string[], settingsEnv: NodeJS.ProcessEnv): Promise<Entry[]> {
-    let result: Entry[] = [];
+  async listTests(config: TestConfig, files: string[], settingsEnv: NodeJS.ProcessEnv): Promise<{ entries: Entry[], errors: TestError[] }> {
+    let entries: Entry[] = [];
+    const errors: TestError[] = [];
     await this._test(config, files, ['--list'], settingsEnv, {
       onBegin: params => {
-        result = params.projects as Entry[];
+        entries = params.projects as Entry[];
+      },
+      onError: params => {
+        errors.push(params.error);
       },
     }, 'list');
-    return result;
+    return { entries, errors };
   }
 
   private async _test(config: TestConfig, locations: string[], args: string[], settingsEnv: NodeJS.ProcessEnv, listener: TestListener, mode: 'list' | 'run', token?: vscodeTypes.CancellationToken): Promise<void> {
