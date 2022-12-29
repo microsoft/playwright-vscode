@@ -587,7 +587,8 @@ located next to Run / Debug Tests toolbar buttons.`);
 
     return this._filesPendingListTests.promise;
   }
-  private _updateDiagnistics(errorsByFile: MultiMap<string, TestError>) {
+
+  private _updateDiagnostics(errorsByFile: MultiMap<string, TestError>) {
     this._diagnostics.clear();
     for (const [file, errors] of errorsByFile) {
       const diagnostics: vscodeTypes.Diagnostic[] = [];
