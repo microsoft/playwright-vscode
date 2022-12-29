@@ -36,6 +36,8 @@ export interface TestError {
    * The value that was thrown. Set when anything except the [Error] (or its subclass) has been thrown.
    */
   value?: string;
+
+  location?: Location;
 }
 
 /**

@@ -18,6 +18,7 @@ import path from 'path';
 import StackUtils from 'stack-utils';
 import { DebugHighlight } from './debugHighlight';
 import { installBrowsers, installPlaywright } from './installer';
+import { MultiMap } from './multimap';
 import { Entry } from './oopReporter';
 import { PlaywrightTest, TestListener } from './playwrightTest';
 import type { TestError } from './reporter';
@@ -85,6 +86,7 @@ export class Extension {
     promise: Promise<void>,
     finishedCallback: () => void
   } | undefined;
+  private _diagnostics: vscodeTypes.DiagnosticCollection;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -116,6 +118,7 @@ export class Extension {
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
+    this._diagnostics = this._vscode.languages.createDiagnosticCollection('pw.diagnostics');
   }
 
   reusedBrowserForTest(): ReusedBrowser {
@@ -191,6 +194,7 @@ export class Extension {
       this._testController,
       this._workspaceObserver,
       this._reusedBrowser,
+      this._diagnostics,
     ];
     await this._rebuildModel(false);
 
@@ -552,8 +556,21 @@ located next to Run / Debug Tests toolbar buttons.`);
 
       const timer = setTimeout(async () => {
         delete this._filesPendingListTests;
-        for (const model of this._models.slice())
-          await model.listTests([...files]).catch(e => console.log(e));
+        const allErrors = new Set<string>();
+        const errorsByFile = new MultiMap<string, TestError>();
+        for (const model of this._models.slice()) {
+          const errors = await model.listTests([...files]).catch(e => console.log(e)) || [];
+          for (const error of errors) {
+            if (!error.location || !error.message)
+              continue;
+            const key = error.location.file + ':' + error.location.line + ':' + error.message;
+            if (allErrors.has(key))
+              continue;
+            allErrors.add(key);
+            errorsByFile.set(error.location?.file, error);
+          }
+        }
+        this._updateDiagnistics(errorsByFile);
         finishedCallback();
       }, 0);
 
@@ -569,6 +586,22 @@ located next to Run / Debug Tests toolbar buttons.`);
       this._filesPendingListTests.files.add(file);
 
     return this._filesPendingListTests.promise;
+  }
+
+  private _updateDiagnostics(errorsByFile: MultiMap<string, TestError>) {
+    this._diagnostics.clear();
+    for (const [file, errors] of errorsByFile) {
+      const diagnostics: vscodeTypes.Diagnostic[] = [];
+      for (const error of errors) {
+        diagnostics.push({
+          severity: this._vscode.DiagnosticSeverity.Error,
+          source: 'playwright',
+          range: new this._vscode.Range(error.location!.line - 1, error.location!.column - 1, error.location!.line, 0),
+          message: error.message!,
+        });
+      }
+      this._diagnostics.set(this._vscode.Uri.file(file), diagnostics);
+    }
   }
 
   private _errorInDebugger(errorStack: string, location: DebuggerLocation) {

@@ -19,6 +19,8 @@ export type {
   CancellationTokenSource,
   DebugSession,
   DecorationOptions,
+  Diagnostic,
+  DiagnosticCollection,
   Disposable,
   Event,
   EventEmitter,
