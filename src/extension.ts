@@ -448,7 +448,7 @@ located next to Run / Debug Tests toolbar buttons.`);
         model.updateFromRunningProjects(projects);
         const visit = (entry: Entry) => {
           if (entry.type === 'test') {
-            const testItem = this._testTree.testItemForLocation(entry.location, entry.title);
+            const testItem = this._testTree.testItemForLocation(entry.location, entry.titlePath);
             if (testItem)
               testRun.enqueued(testItem);
           }
@@ -458,7 +458,7 @@ located next to Run / Debug Tests toolbar buttons.`);
       },
 
       onTestBegin: params => {
-        const testItem = this._testTree.testItemForLocation(params.location, params.title);
+        const testItem = this._testTree.testItemForLocation(params.location, params.titlePath);
         if (testItem)
           testRun.started(testItem);
         if (isDebug) {
@@ -472,7 +472,7 @@ located next to Run / Debug Tests toolbar buttons.`);
         this._activeSteps.clear();
         this._executionLinesChanged();
 
-        const testItem = this._testTree.testItemForLocation(params.location, params.title);
+        const testItem = this._testTree.testItemForLocation(params.location, params.titlePath);
         if (!testItem)
           return;
         if (params.status === params.expectedStatus) {
@@ -570,7 +570,7 @@ located next to Run / Debug Tests toolbar buttons.`);
             errorsByFile.set(error.location?.file, error);
           }
         }
-        this._updateDiagnistics(errorsByFile);
+        this._updateDiagnostics(errorsByFile);
         finishedCallback();
       }, 0);
 

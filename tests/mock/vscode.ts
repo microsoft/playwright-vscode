@@ -213,6 +213,19 @@ class TestItem {
       location = ` [${this.range.start.toString()}]`;
     return `${this.label}${location}`;
   }
+
+  flatTitle(): string {
+    let location = '';
+    if (this.range)
+      location = ` [${this.range.start.toString()}]`;
+    const titlePath: string[] = [];
+    let item: TestItem | undefined = this;
+    while (item && item.parent) {
+      titlePath.unshift(item.label);
+      item = item.parent;
+    }
+    return `${titlePath.join(' > ')}${location}`;
+  }
 }
 
 class TestRunProfile {
@@ -329,7 +342,7 @@ export class TestRun {
     tests.sort((a, b) => a.label.localeCompare(b.label));
     for (const test of tests) {
       const entries = this.entries.get(test)!;
-      result.push(`  ${test.treeTitle()}`);
+      result.push(`  ${test.flatTitle()}`);
       for (const entry of entries) {
         result.push(`    ${entry.status}`);
         if (options.messages && entry.messages) {

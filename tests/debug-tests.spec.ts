@@ -32,11 +32,11 @@ test('should debug all tests', async ({ activate }) => {
 
   const testRun = await vscode.testControllers[0].debug();
   expect(testRun.renderLog()).toBe(`
-    should fail [2:0]
+    tests > test-2.spec.ts > should fail [2:0]
       enqueued
       started
       failed
-    should pass [2:0]
+    tests > test-1.spec.ts > should pass [2:0]
       enqueued
       started
       passed
@@ -62,7 +62,7 @@ test('should debug one test', async ({ activate }) => {
   const testRun = await testController.debug(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    should pass [2:0]
+    tests > test.spec.ts > should pass [2:0]
       enqueued
       enqueued
       started
@@ -102,7 +102,7 @@ test('should debug error', async ({ activate }, testInfo) => {
   vscode.debug.simulateStoppedOnError('Error on line 10', { file: testInfo.outputPath('tests/test.spec.ts'), line: 10 });
 
   expect(testRun.renderLog({ messages: true })).toBe(`
-    should fail [2:0]
+    tests > test.spec.ts > should fail [2:0]
       enqueued
       enqueued
       started
