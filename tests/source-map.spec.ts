@@ -204,11 +204,11 @@ test('should run all tests', async ({ activate }) => {
 
   const testRun = await testController.run();
   expect(testRun.renderLog()).toBe(`
-    one [2:0]
+    tests > test.spec.ts > one [2:0]
       enqueued
       started
       passed
-    two [3:0]
+    tests > test.spec.ts > two [3:0]
       enqueued
       started
       passed
@@ -233,7 +233,7 @@ test('should run one test', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    one [2:0]
+    tests > test.spec.ts > one [2:0]
       enqueued
       enqueued
       started
