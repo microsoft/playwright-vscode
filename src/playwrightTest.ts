@@ -159,7 +159,9 @@ export class PlaywrightTest {
       '--repeat-each', '1',
       '--retries', '0',
     ];
-    if (this._isUnderTest || this._reusedBrowser.browserServerEnv(false) || args.includes('--headed'))
+    if (this._reusedBrowser.browserServerEnv(false) && !allArgs.includes('--headed') && !this._isUnderTest)
+      allArgs.push('--headed');
+    if (this._isUnderTest || args.includes('--headed'))
       allArgs.push('--workers', '1');
     // Disable original reporters when listing files.
     if (mode === 'list')
