@@ -21,7 +21,7 @@ import { installBrowsers, installPlaywright } from './installer';
 import { MultiMap } from './multimap';
 import { Entry } from './oopReporter';
 import { PlaywrightTest, TestListener } from './playwrightTest';
-import type { TestError } from './reporter';
+import type { Location, TestError } from './reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
@@ -34,7 +34,6 @@ import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
 });
-export type DebuggerLocation = { path: string, line: number, column: number };
 
 type StepInfo = {
   location: vscodeTypes.Location;
@@ -443,14 +442,18 @@ located next to Run / Debug Tests toolbar buttons.`);
     projects: TestProject[],
     locations: string[] | null,
     parametrizedTestTitle: string | undefined) {
+    let testItemForGlobalError: vscodeTypes.TestItem | undefined;
     const testListener: TestListener = {
       onBegin: ({ projects }) => {
         model.updateFromRunningProjects(projects);
         const visit = (entry: Entry) => {
           if (entry.type === 'test') {
             const testItem = this._testTree.testItemForLocation(entry.location, entry.titlePath);
-            if (testItem)
+            if (testItem) {
+              if (!testItemForGlobalError)
+                testItemForGlobalError = testItem;
               testRun.enqueued(testItem);
+            }
           }
           (entry.children || []).forEach(visit);
         };
@@ -459,8 +462,10 @@ located next to Run / Debug Tests toolbar buttons.`);
 
       onTestBegin: params => {
         const testItem = this._testTree.testItemForLocation(params.location, params.titlePath);
-        if (testItem)
+        if (testItem) {
           testRun.started(testItem);
+          testItemForGlobalError = testItem;
+        }
         if (isDebug) {
           // Debugging is always single-workers.
           this._testItemUnderDebug = testItem;
@@ -485,7 +490,7 @@ located next to Run / Debug Tests toolbar buttons.`);
           return;
         }
         testFailures.add(testItem);
-        testRun.failed(testItem, params.errors.map(error => this._testMessageForTestError(testItem, error)), params.duration);
+        testRun.failed(testItem, params.errors.map(error => this._testMessageForTestError(error, testItem)), params.duration);
       },
 
       onStepBegin: params => {
@@ -527,8 +532,10 @@ located next to Run / Debug Tests toolbar buttons.`);
       },
 
       onError: data => {
-        if (data.error.message?.includes('Failed to find local docker image.'))
-          this._vscode.window.showErrorMessage(`Failed to find local docker image.\nRun 'npx playwright docker build'`);
+        // Global errors don't have associated tests, so we'll be allocating them
+        // to the first item / current.
+        if (testItemForGlobalError)
+          testRun.failed(testItemForGlobalError, this._testMessageForTestError(data.error), 0);
       }
     };
 
@@ -604,12 +611,12 @@ located next to Run / Debug Tests toolbar buttons.`);
     }
   }
 
-  private _errorInDebugger(errorStack: string, location: DebuggerLocation) {
+  private _errorInDebugger(errorStack: string, location: Location) {
     if (!this._testRun || !this._testItemUnderDebug)
       return;
     const testMessage = this._testMessageFromText(errorStack);
     const position = new this._vscode.Position(location.line - 1, location.column - 1);
-    testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.path), position);
+    testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.file), position);
     this._testRun.failed(this._testItemUnderDebug, testMessage);
     this._testItemUnderDebug = undefined;
   }
@@ -685,15 +692,15 @@ located next to Run / Debug Tests toolbar buttons.`);
     return new this._vscode.TestMessage(markdownString);
   }
 
-  private _testMessageForTestError(testItem: vscodeTypes.TestItem, error: TestError): vscodeTypes.TestMessage {
+  private _testMessageForTestError(error: TestError, testItem?: vscodeTypes.TestItem): vscodeTypes.TestMessage {
     let text = error.stack || error.message || error.value!;
     if (text.includes('Looks like Playwright Test or Playwright'))
       text = `Browser was not installed. Invoke 'Install Playwright Browsers' action to install missing browsers.`;
     const testMessage = this._testMessageFromText(text);
-    const location = parseLocationFromStack(testItem, error.stack);
+    const location = error.location || parseLocationFromStack(error.stack, testItem);
     if (location) {
       const position = new this._vscode.Position(location.line - 1, location.column - 1);
-      testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.path), position);
+      testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.file), position);
     }
     return testMessage;
   }
@@ -707,16 +714,16 @@ located next to Run / Debug Tests toolbar buttons.`);
   }
 }
 
-function parseLocationFromStack(testItem: vscodeTypes.TestItem, stack: string | undefined): DebuggerLocation | undefined {
+function parseLocationFromStack(stack: string | undefined, testItem?: vscodeTypes.TestItem): Location | undefined {
   const lines = stack?.split('\n') || [];
   for (const line of lines) {
     const frame = stackUtils.parseLine(line);
     if (!frame || !frame.file || !frame.line || !frame.column)
       continue;
     frame.file = frame.file.replace(/\//g, path.sep);
-    if (testItem.uri!.fsPath === frame.file) {
+    if (!testItem || testItem.uri!.fsPath === frame.file) {
       return {
-        path: frame.file,
+        file: frame.file,
         line: frame.line,
         column: frame.column,
       };
