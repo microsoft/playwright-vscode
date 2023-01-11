@@ -44,3 +44,35 @@ test('should report duplicate test title', async ({ activate }) => {
     }
   ]);
 });
+
+test('should report error in global setup', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {
+      testDir: 'tests',
+      globalSetup: 'globalSetup.ts',
+    }`,
+    'globalSetup.ts': `
+      import { expect } from '@playwright/test';
+      async function globalSetup(config: FullConfig) {
+        expect(true).toBe(false);
+      }
+      export default globalSetup;`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => {});
+    `,
+  });
+
+  const testRun = await testController.run();
+  expect(testRun.renderLog({ messages: true })).toContain(`
+    tests > test.spec.ts > should pass [2:0]
+      enqueued
+      failed
+        globalSetup.ts:[3:21 - 3:21]
+        Error: <span style='color:#666;'>expect(</span>`);
+
+  expect(vscode.renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js
+  `);
+});

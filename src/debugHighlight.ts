@@ -17,11 +17,11 @@
 import { locatorForSourcePosition, pruneAstCaches } from './babelHighlightUtil';
 import { debugSessionName } from './debugSessionName';
 import { locatorMethodRegex } from './methodNames';
+import type { Location } from './reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import * as vscodeTypes from './vscodeTypes';
 
-export type DebuggerLocation = { path: string, line: number, column: number };
-export type DebuggerError = { error: string, location: DebuggerLocation };
+export type DebuggerError = { error: string, location: Location };
 
 const debugSessions = new Map<string, vscodeTypes.DebugSession>();
 
@@ -69,7 +69,7 @@ export class DebugHighlight {
           if (!isPlaywrightSession(session))
             return {};
 
-          let lastCatchLocation: DebuggerLocation | undefined;
+          let lastCatchLocation: Location | undefined;
           return {
             onDidSendMessage: async message => {
               if (!message.success)
@@ -78,7 +78,7 @@ export class DebugHighlight {
                 const catchBlock = message.body.scopes.find((scope: any) => scope.name === 'Catch Block');
                 if (catchBlock) {
                   lastCatchLocation = {
-                    path: catchBlock.source.path,
+                    file: catchBlock.source.path,
                     line: catchBlock.line,
                     column: catchBlock.column
                   };
