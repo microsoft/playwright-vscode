@@ -226,7 +226,9 @@ async function scopeVariables(session: vscodeTypes.DebugSession, stackFrame: Sta
 }
 
 async function computeLocatorForHighlight(session: vscodeTypes.DebugSession, frameId: string, locatorExpression: string): Promise<string> {
-  const expression = `(${locatorExpression})._selector`;
+  const innerExpression = `(${locatorExpression})._selector`;
+  const base64Encoded = Buffer.from(innerExpression).toString('base64');
+  const expression = `eval(Buffer.from("${base64Encoded}", "base64").toString())`;
   sessionsWithHighlight.add(session);
   return await session.customRequest('evaluate', {
     expression,
