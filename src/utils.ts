@@ -88,11 +88,11 @@ function escapeHTML(text: string): string {
   return text.replace(/[&"<>]/g, c => ({ '&': '&amp;', '"': '&quot;', '<': '<b>&lt;</b>', '>': '<b>&gt;</b>' }[c]!));
 }
 
-export async function spawnAsync(executable: string, args: string[], cwd?: string): Promise<string> {
+export async function spawnAsync(executable: string, args: string[], cwd?: string, settingsEnv: NodeJS.ProcessEnv): Promise<string> {
   const childProcess = spawn(executable, args, {
     stdio: 'pipe',
     cwd,
-    env: { ...process.env }
+    env: { ...process.env, ...settingsEnv }
   });
   let output = '';
   childProcess.stdout.on('data', data => output += data.toString());

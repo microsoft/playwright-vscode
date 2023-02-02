@@ -87,7 +87,7 @@ export class TestModel {
   }
 
   async listFiles() {
-    const report = await this._playwrightTest.listFiles(this.config);
+    const report = await this._playwrightTest.listFiles(this.config, this._envProvider());
     if (!report)
       return;
 

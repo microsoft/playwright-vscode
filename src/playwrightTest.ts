@@ -57,12 +57,12 @@ export class PlaywrightTest {
     this._isUnderTest = isUnderTest;
   }
 
-  async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, cli: string } | null> {
+  async getPlaywrightInfo(workspaceFolder: string, configFilePath: string, settingsEnv: NodeJS.ProcessEnv): Promise<{ version: number, cli: string } | null> {
     try {
       const pwtInfo = await this._runNode([
         '-e',
         'try { const pwtIndex = require.resolve("@playwright/test"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ pwtIndex, version})); } catch { console.log("undefined"); }',
-      ], path.dirname(configFilePath));
+      ], path.dirname(configFilePath), settingsEnv);
       const { pwtIndex, version } = JSON.parse(pwtInfo);
       const v = parseFloat(version);
 
@@ -74,7 +74,7 @@ export class PlaywrightTest {
       const coreInfo = await this._runNode([
         '-e',
         'try { const coreIndex = require.resolve("playwright-core"); console.log(JSON.stringify({ coreIndex })); } catch { console.log("undefined"); }',
-      ], path.dirname(pwtIndex));
+      ], path.dirname(pwtIndex), settingsEnv);
       const { coreIndex } = JSON.parse(coreInfo);
       let cli = path.resolve(coreIndex, '..', 'lib', 'cli', 'cli');
 
@@ -89,7 +89,7 @@ export class PlaywrightTest {
     return null;
   }
 
-  async listFiles(config: TestConfig): Promise<ConfigListFilesReport | null> {
+  async listFiles(config: TestConfig, settingsEnv: NodeJS.ProcessEnv): Promise<ConfigListFilesReport | null> {
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
     const allArgs = [config.cli, 'list-files', '-c', configFile];
@@ -97,7 +97,7 @@ export class PlaywrightTest {
       // For tests.
       this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright list-files -c ${configFile}`);
     }
-    const output = await this._runNode(allArgs, configFolder);
+    const output = await this._runNode(allArgs, configFolder, settingsEnv);
     try {
       return JSON.parse(output) as ConfigListFilesReport;
     } catch (e) {
@@ -251,8 +251,8 @@ export class PlaywrightTest {
     return this._testLog.slice();
   }
 
-  private async _runNode(args: string[], cwd: string): Promise<string> {
-    return await spawnAsync(await findNode(), args, cwd);
+  private async _runNode(args: string[], cwd: string, settingsEnv: NodeJS.ProcessEnv): Promise<string> {
+    return await spawnAsync(await findNode(), args, cwd, settingsEnv);
   }
 }
 
