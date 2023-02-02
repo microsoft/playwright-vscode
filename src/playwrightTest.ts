@@ -73,7 +73,7 @@ export class PlaywrightTest {
       // Resolve playwright-core relative to @playwright/test.
       const cliInfo = await this._runNode([
         '-e',
-        'try { const cli = require.resolve("playwright/cli"); console.log(JSON.stringify({ cli })); } catch { console.log("undefined"); }',
+        'try { const cli = require.resolve("@playwright/test/cli"); console.log(JSON.stringify({ cli })); } catch { console.log("undefined"); }',
       ], path.dirname(configFilePath), settingsEnv);
       let { cli } = JSON.parse(cliInfo);
 
