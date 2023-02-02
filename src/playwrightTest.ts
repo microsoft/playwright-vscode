@@ -71,12 +71,11 @@ export class PlaywrightTest {
         return { cli: '', version: v };
 
       // Resolve playwright-core relative to @playwright/test.
-      const coreInfo = await this._runNode([
+      const cliInfo = await this._runNode([
         '-e',
-        'try { const coreIndex = require.resolve("playwright-core"); console.log(JSON.stringify({ coreIndex })); } catch { console.log("undefined"); }',
-      ], path.dirname(pwtIndex), settingsEnv);
-      const { coreIndex } = JSON.parse(coreInfo);
-      let cli = path.resolve(coreIndex, '..', 'lib', 'cli', 'cli');
+        'try { const cli = require.resolve("playwright/cli"); console.log(JSON.stringify({ cli })); } catch { console.log("undefined"); }',
+      ], path.dirname(configFilePath), settingsEnv);
+      let { cli } = JSON.parse(cliInfo);
 
       // Dogfood for 'ttest'
       if (cli.includes('packages/playwright-core') && configFilePath.includes('playwright-test'))
