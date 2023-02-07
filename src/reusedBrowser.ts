@@ -200,6 +200,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
               const action = params.actions[params.actions.length - 1];
               editBuilder.replace(this._editor.selection, indentBlock(action, targetIndentation));
             });
+            // Update line selection to the end of the line.
+            const currentLineEnd = this._editor.document.lineAt(this._editor.selection.start.line).range.end.character;
+            const range = new this._vscode.Range(this._editor.selection.start.line, targetIndentation, this._editor.selection.start.line, currentLineEnd);
+            this._editor.selection = new this._vscode.Selection(range.start, range.end);
           }
         });
       });
