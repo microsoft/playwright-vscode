@@ -506,7 +506,9 @@ class TextEditor {
         this.selection = range;
         const lines = text.split('\n');
         const lastLine = lines[lines.length - 1];
-        this.selection.end = new Position(range.end.line + (lines.length - 1), lines.length > 1 ? lastLine.length : range.end.character + lastLine.length);
+        const endOfLastLine = new Position(range.end.line + (lines.length - 1), lines.length > 1 ? lastLine.length : range.end.character + lastLine.length);
+        this.selection.start = endOfLastLine;
+        this.selection.end = endOfLastLine;
       }
     });
   }
