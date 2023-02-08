@@ -25,6 +25,7 @@ const WS_ADDRESS = process.argv[2];
   });
   let pages = [];
   while (true) {
+    // @ts-ignore
     const context = await browser._newContextForReuse();
     pages = context.pages();
     if (pages.length > 0)
