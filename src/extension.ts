@@ -48,8 +48,9 @@ type TestRunInfo = {
 };
 
 export async function activate(context: vscodeTypes.ExtensionContext) {
-  // Do not await, quickly run the extension, schedule work.
-  new Extension(require('vscode')).activate(context);
+  const extension = new Extension(require('vscode'));
+  await extension.activate(context);
+  return extension;
 }
 
 export class Extension {

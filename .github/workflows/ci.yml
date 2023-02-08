@@ -34,6 +34,10 @@ jobs:
     - run: npm run lint
     - run: npm run build
     - run: npm run test -- --workers=1
+    - run: npm run test:integration
+      if: matrix.os != 'ubuntu-latest'
+    - run: xvfb-run npm run test:integration
+      if: matrix.os == 'ubuntu-latest'
     - run: npx vsce package
       if: matrix.os == 'ubuntu-latest' && matrix.node-version == '16'
     - uses: actions/upload-artifact@v3
