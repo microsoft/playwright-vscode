@@ -937,3 +937,60 @@ test('should show warning when tests do not belong to projects', async ({ activa
 
   expect(vscode.warnings[0]).toContain('Selected test is outside of the Default Profile (config)');
 });
+
+test('should produce output twice', async ({ activate }) => {
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = {
+      testDir: 'tests',
+      reporter: 'line',
+    }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {
+        console.log('some output');
+      });
+    `,
+  });
+
+  const testItems = testController.findTestItems(/test.spec.ts/);
+  expect(testItems.length).toBe(1);
+
+  const testRun1 = await testController.run(testItems);
+  expect(testRun1.renderLog({ output: true })).toBe(`
+    tests > test.spec.ts > one [2:0]
+      enqueued
+      started
+      passed
+    Output:
+
+    Running 1 test using 1 worker
+
+    [1/1] test.spec.ts:3:11 › one
+    test.spec.ts:3:11 › one
+    some output
+
+
+      1 passed (XXms)
+
+  `);
+
+  const testRun2 = await testController.run(testItems);
+  expect(testRun2.renderLog({ output: true })).toBe(`
+    tests > test.spec.ts > one [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+    Output:
+
+    Running 1 test using 1 worker
+
+    [1/1] test.spec.ts:3:11 › one
+    test.spec.ts:3:11 › one
+    some output
+
+
+      1 passed (XXms)
+
+  `);
+});
