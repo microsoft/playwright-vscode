@@ -16,15 +16,14 @@
 // @ts-check
 const assert = require('assert');
 const path = require('path');
-
-const vscode = require('vscode');
 const childProcess = require('child_process');
+const vscode = require('vscode');
 
 /** @type {import('../../src/extension').Extension} */
 const extension = vscode.extensions.getExtension('ms-playwright.playwright')?.exports;
 
-suite('Extension Test Suite', () => {
-  test('Sample test', async () => {
+suite('Codegen', () => {
+  test('Should be able to start', async () => {
     await vscode.commands.executeCommand('pw.extension.settingsView.focus');
     vscode.commands.executeCommand('pw.extension.command.recordNew');
 
@@ -42,6 +41,9 @@ test('test', async ({ page }) => {
   // Recording...
 });`);
 
+  });
+
+  test('Should be able to record', async () => {
     // We need to perform this out-of-process because Playwright does not work inside Electron for some reason (reports no pages).
     await new Promise(resolve => {
       const child = childProcess.spawn('node', [path.join(__dirname, '../assets/codegen-do-stuff.js'), extension.browserServerWSForTest()], {
@@ -50,6 +52,7 @@ test('test', async ({ page }) => {
       child.on('close', resolve);
     });
 
+    const document = vscode.window.activeTextEditor?.document;
     assert.equal(document?.getText(), `import { test, expect } from '@playwright/test';
 
 test('test', async ({ page }) => {

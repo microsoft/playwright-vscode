@@ -22,7 +22,7 @@ function run() {
   // Create the mocha test
   const mocha = new Mocha({
     ui: 'tdd',
-    timeout: 60_4000,
+    timeout: 120_000,
   });
 
   const testsRoot = path.join(__dirname, '../..');

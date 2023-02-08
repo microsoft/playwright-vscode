@@ -24,7 +24,6 @@ const WS_ADDRESS = process.argv[2];
     headers: { 'x-playwright-reuse-context': '1' }
   });
   let pages = [];
-  console.log('waiting for page');
   while (true) {
     const context = await browser._newContextForReuse();
     pages = context.pages();
@@ -41,4 +40,3 @@ const WS_ADDRESS = process.argv[2];
   console.error(e);
   process.exit(1);
 });
-
