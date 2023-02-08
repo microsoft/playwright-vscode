@@ -361,8 +361,7 @@ export class TestRun {
         }
       }
     }
-    result.push('');
-    return result.join(`\n${indent}`);
+    return trimLog(result.join(`\n${indent}`)) + `\n${indent}`;
   }
 }
 
@@ -495,8 +494,7 @@ class TextEditor {
       result.push('  --------------------------------------------------------------');
       result.push(...state.split('\n').map(s => '  ' + s));
     }
-    result.push('');
-    return result.join(`\n${indent}`);
+    return trimLog(result.join(`\n${indent}`)) + `\n${indent}`;
   }
 
   edit(editCallback) {
@@ -948,7 +946,7 @@ export class VSCode {
     const log: string[] = [''];
     for (const extension of this.extensions)
       log.push(...extension.playwrightTestLog());
-    return unescapeRegex(log.join(`\n  ${indent}`) + `\n${indent}`).replace(/\\/g, '/');
+    return trimLog(unescapeRegex(log.join(`\n  ${indent}`)).replace(/\\/g, '/')) + `\n${indent}`;
   }
 }
 
@@ -959,4 +957,8 @@ export function stripAscii(str: string): string {
 
 function unescapeRegex(regex: string) {
   return regex.replace(/\\(.)/g, '$1');
+}
+
+function trimLog(log: string) {
+  return log.split('\n').map(line => line.trimEnd()).join('\n');
 }

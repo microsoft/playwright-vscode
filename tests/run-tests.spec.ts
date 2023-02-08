@@ -196,7 +196,7 @@ test('should show error message', async ({ activate }) => {
         test.spec.ts:[3:18 - 3:18]
         Error: <span style='color:#666;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
         <br>
-        
+
         <br>
         Expected: <span style='color:#73c991;'>2</span>
         <br>
@@ -250,7 +250,7 @@ test('should show soft error messages', async ({ activate }) => {
         test.spec.ts:[3:23 - 3:23]
         Error: <span style='color:#666;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
         <br>
-        
+
         <br>
         Expected: <span style='color:#73c991;'>2</span>
         <br>
@@ -261,7 +261,7 @@ test('should show soft error messages', async ({ activate }) => {
         test.spec.ts:[4:23 - 4:23]
         Error: <span style='color:#666;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
         <br>
-        
+
         <br>
         Expected: <span style='color:#73c991;'>3</span>
         <br>
@@ -853,7 +853,7 @@ test('should provisionally enqueue nested tests', async ({ activate }) => {
       test('2', async () => {});
       test.describe('group', () => {
         test('3', async () => {});
-        test('4', async () => {});  
+        test('4', async () => {});
       });
     `,
   });
