@@ -171,6 +171,7 @@ export class PlaywrightTest {
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
+        CI: this._isUnderTest ? undefined : process.env.CI,
         // Don't debug tests when running them.
         NODE_OPTIONS: undefined,
         ...settingsEnv,
@@ -223,6 +224,7 @@ export class PlaywrightTest {
         cwd: configFolder,
         env: {
           ...process.env,
+          CI: this._isUnderTest ? undefined : process.env.CI,
           ...settingsEnv,
           ...this._reusedBrowser.browserServerEnv(true),
           ...(await reporterServer.env()),

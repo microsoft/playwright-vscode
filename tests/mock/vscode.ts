@@ -354,12 +354,9 @@ export class TestRun {
     }
     if (options.output) {
       result.push('  Output:');
-      if (this._output.length) {
-        for (const output of this._output) {
-          const lines = output.output.split('\n');
-          result.push(...lines.map(l => '  ' + l));
-        }
-      }
+      const output = this._output.map(o => o.output).join('');
+      const lines = output.split('\n');
+      result.push(...lines.map(l => '  ' + stripAnsi(l).replace(/\d+(\.\d+)?(ms|s)/, 'XXms')));
     }
     return trimLog(result.join(`\n${indent}`)) + `\n${indent}`;
   }
@@ -961,4 +958,9 @@ function unescapeRegex(regex: string) {
 
 function trimLog(log: string) {
   return log.split('\n').map(line => line.trimEnd()).join('\n');
+}
+
+const ansiRegex = new RegExp('[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))', 'g');
+function stripAnsi(str: string): string {
+  return str.replace(ansiRegex, '');
 }
