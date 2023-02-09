@@ -390,6 +390,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     if (!file)
       return;
 
+    await fs.promises.mkdir(path.dirname(file), { recursive: true });
     await fs.promises.writeFile(file, `import { test, expect } from '@playwright/test';
 
 test('test', async ({ page }) => {
