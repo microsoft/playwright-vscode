@@ -64,7 +64,7 @@ export class PlaywrightTest {
         'try { const pwtIndex = require.resolve("@playwright/test"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ pwtIndex, version})); } catch { console.log("undefined"); }',
       ], path.dirname(configFilePath));
       const { pwtIndex, version } = JSON.parse(pwtInfo);
-      const v = parseFloat(version);
+      const v = parseFloat(version.replace(/-(next|beta)$/, ''));
 
       // We only depend on playwright-core in 1.15+, bail out.
       if (v < 1.19)
