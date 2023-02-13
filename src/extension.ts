@@ -265,8 +265,7 @@ export class Extension {
       }
     }
 
-    const onlyLegacyConfigs = !!this._models.length && !this._models.find(m => m.config.version >= 1.28);
-    this._settingsView.updateActions(onlyLegacyConfigs);
+    this._settingsView.updateActions();
 
     this._testTree.finishedLoading();
     await this._updateVisibleEditorItems();

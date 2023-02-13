@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { ChildProcess, spawn } from 'child_process';
+import { spawn } from 'child_process';
 import { TestConfig } from './playwrightTest';
 import { TestModel, TestProject } from './testModel';
 import { createGuid, findNode } from './utils';
@@ -64,7 +64,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
   private _browserServerWS: string | undefined;
   private _shouldReuseBrowserForTests = false;
-  private _backend: Backend | LegacyBackend | undefined;
+  private _backend: Backend | undefined;
   private _cancelRecording: (() => void) | undefined;
   private _updateOrCancelInspecting: ((params: { selector?: string, cancel?: boolean }) => void) | undefined;
   private _isRunningTests = false;
@@ -79,7 +79,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   readonly _onHighlightRequestedForTestEvent: vscodeTypes.EventEmitter<string>;
   readonly onHighlightRequestedForTest: vscodeTypes.Event<string>;
   private _onRunningTestsChangedEvent: vscodeTypes.EventEmitter<boolean>;
-  private _isLegacyMode = false;
   private _editOperations = Promise.resolve();
   private _pausedOnPagePause = false;
 
@@ -99,10 +98,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._shouldReuseBrowserForTests = settingsModel.get<boolean>('reuseBrowser');
   }
 
-  isLegacyMode() {
-    return this._isLegacyMode;
-  }
-
   dispose() {
     this._reset(true).catch(() => {});
     for (const d of this._disposables)
@@ -117,21 +112,16 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     }
 
-    const legacyMode = config.version < 1.28;
-    this._isLegacyMode = legacyMode;
-
     const node = await findNode();
     const allArgs = [
       config.cli,
       'run-server',
       `--path=/${createGuid()}`
     ];
-    if (legacyMode)
-      allArgs.push('--reuse-browser');
 
     const serverProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
-      stdio: legacyMode ? ['pipe', 'pipe', 'pipe', 'ipc'] : 'pipe',
+      stdio: 'pipe',
       env: {
         ...process.env,
         ...this._envProvider(),
@@ -139,13 +129,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       },
     });
 
-    const backend = legacyMode ? new LegacyBackend(serverProcess) : new Backend();
-    if (legacyMode)
-      this._pageCount = 1;  // Auto-close is handled on server-side.
+    const backend = new Backend();
     this._backend = backend;
 
-    if (legacyMode)
-      serverProcess.stdout?.on('data', () => {});
     serverProcess.stderr?.on('data', () => {});
     serverProcess.on('exit', () => {
       if (backend === this._backend) {
@@ -162,68 +148,62 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       this._updateOrCancelInspecting?.({ selector: params.locator || params.selector });
     });
 
-    if (!legacyMode) {
-      this._backend.on('paused', async params => {
-        if (!this._pausedOnPagePause && params.paused) {
-          this._pausedOnPagePause = true;
-          await this._vscode.window.showInformationMessage('Paused', { modal: false }, 'Resume');
-          this._pausedOnPagePause = false;
-          this._backend?.resume();
+    this._backend.on('paused', async params => {
+      if (!this._pausedOnPagePause && params.paused) {
+        this._pausedOnPagePause = true;
+        await this._vscode.window.showInformationMessage('Paused', { modal: false }, 'Resume');
+        this._pausedOnPagePause = false;
+        this._backend?.resume();
+      }
+    });
+    this._backend.on('stateChanged', params => {
+      this._pageCountChanged(params.pageCount);
+    });
+    this._backend.on('sourceChanged', async params => {
+      this._scheduleEdit(async () => {
+        if (!this._editor)
+          return;
+        if (!params.actions || !params.actions.length)
+          return;
+        const targetIndentation = guessIndentation(this._editor);
+
+        // Previous action committed, insert new line & collapse selection.
+        if (params.actions.length > 1 && params.actions?.length > this._insertedEditActionCount) {
+          const range = new this._vscode.Range(this._editor.selection.end, this._editor.selection.end);
+          await this._editor.edit(async editBuilder => {
+            editBuilder.replace(range, '\n' + ' '.repeat(targetIndentation));
+          });
+          this._editor.selection = new this._vscode.Selection(this._editor.selection.end, this._editor.selection.end);
+          this._insertedEditActionCount = params.actions.length;
+        }
+
+        // Replace selection with the current action.
+        if (params.actions.length) {
+          const selectionStart = this._editor.selection.start;
+          await this._editor.edit(async editBuilder => {
+            if (!this._editor)
+              return;
+            const action = params.actions[params.actions.length - 1];
+            editBuilder.replace(this._editor.selection, indentBlock(action, targetIndentation));
+          });
+          const selectionEnd = this._editor.selection.end;
+          this._editor.selection = new this._vscode.Selection(selectionStart, selectionEnd);
         }
       });
-      this._backend.on('stateChanged', params => {
-        this._pageCountChanged(params.pageCount);
-      });
-      this._backend.on('sourceChanged', async params => {
-        this._scheduleEdit(async () => {
-          if (!this._editor)
-            return;
-          if (!params.actions || !params.actions.length)
-            return;
-          const targetIndentation = guessIndentation(this._editor);
-
-          // Previous action committed, insert new line & collapse selection.
-          if (params.actions.length > 1 && params.actions?.length > this._insertedEditActionCount) {
-            const range = new this._vscode.Range(this._editor.selection.end, this._editor.selection.end);
-            await this._editor.edit(async editBuilder => {
-              editBuilder.replace(range, '\n' + ' '.repeat(targetIndentation));
-            });
-            this._editor.selection = new this._vscode.Selection(this._editor.selection.end, this._editor.selection.end);
-            this._insertedEditActionCount = params.actions.length;
-          }
-
-          // Replace selection with the current action.
-          if (params.actions.length) {
-            const selectionStart = this._editor.selection.start;
-            await this._editor.edit(async editBuilder => {
-              if (!this._editor)
-                return;
-              const action = params.actions[params.actions.length - 1];
-              editBuilder.replace(this._editor.selection, indentBlock(action, targetIndentation));
-            });
-            const selectionEnd = this._editor.selection.end;
-            this._editor.selection = new this._vscode.Selection(selectionStart, selectionEnd);
-          }
-        });
-      });
-    }
+    });
 
     let connectedCallback: (wsEndpoint: string) => void;
     const wsEndpointPromise = new Promise<string>(f => connectedCallback = f);
 
-    if (legacyMode) {
-      this._backend!.on('ready', params => connectedCallback(params.wsEndpoint));
-    } else {
-      serverProcess.stdout?.on('data', async data => {
-        const match = data.toString().match(/Listening on (.*)/);
-        if (!match)
-          return;
-        const wse = match[1];
-        await (this._backend as Backend).connect(wse);
-        await this._backend?.initialize();
-        connectedCallback(wse);
-      });
-    }
+    serverProcess.stdout?.on('data', async data => {
+      const match = data.toString().match(/Listening on (.*)/);
+      if (!match)
+        return;
+      const wse = match[1];
+      await (this._backend as Backend).connect(wse);
+      await this._backend?.initialize();
+      connectedCallback(wse);
+    });
 
     await Promise.race([
       wsEndpointPromise.then(wse => {
@@ -344,7 +324,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, recordNew: boolean, token: vscodeTypes.CancellationToken) {
     const startBackend = this._startBackendIfNeeded(model.config);
     let editor: vscodeTypes.TextEditor | undefined;
-    if (recordNew || this.isLegacyMode())
+    if (recordNew)
       editor = await this._createFileForNewTest(model);
     else
       editor = this._vscode.window.activeTextEditor;
@@ -360,7 +340,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }
 
     try {
-      await this._backend?.setMode({ mode: 'recording', file: this._editor?.document.uri.fsPath, testIdAttributeName: model.config.testIdAttributeName });
+      await this._backend?.setMode({ mode: 'recording', testIdAttributeName: model.config.testIdAttributeName });
     } catch (e) {
       showExceptionAsUserError(this._vscode, model, e as Error);
       await this._reset(true);
@@ -499,7 +479,7 @@ export class Backend extends EventEmitter {
     await this._send('navigate', params);
   }
 
-  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', file?: string, testIdAttributeName?: string }) {
+  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', testIdAttributeName?: string }) {
     await this._send('setRecorderMode', params);
   }
 
@@ -531,79 +511,6 @@ export class Backend extends EventEmitter {
       const id = ++Backend._lastId;
       const command = { id, guid: 'DebugController', method, params, metadata: {} };
       this._transport.send(command as any);
-      this._callbacks.set(id, { fulfill, reject });
-    });
-  }
-}
-
-class LegacyBackend extends EventEmitter {
-  private _serverProcess: ChildProcess;
-  private static _lastId = 0;
-  private _callbacks = new Map<number, { fulfill: (a: any) => void, reject: (e: Error) => void }>();
-
-  constructor(serverProcess: ChildProcess) {
-    super();
-    this._serverProcess = serverProcess;
-    this._serverProcess!.on('message', (message: any) => {
-      if (!message.id) {
-        if (message.method === 'inspectRequested') {
-          const { selector, locators } = message.params;
-          this.emit(message.method, { selector, locator: locators.find((l: any) => l.name === 'javascript').value });
-        } else {
-          this.emit(message.method, message.params);
-        }
-        return;
-      }
-      const pair = this._callbacks.get(message.id);
-      if (!pair)
-        return;
-      this._callbacks.delete(message.id);
-      if ('error' in message)
-        pair.reject(new Error(message.error));
-      else
-        pair.fulfill(message.result);
-    });
-  }
-
-  async initialize() {}
-
-  async setReportStateChanged(params: { enabled: boolean }) {
-  }
-
-  async resetForReuse() {
-    await this._send('resetForReuse');
-  }
-
-  async navigate(params: { url: string }) {
-    await this._send('navigate', params);
-  }
-
-  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', file?: string, testIdAttributeName?: string }) {
-    await this._send('setMode', { ...params, language: 'test' });
-  }
-
-  async setAutoClose(params: { enabled: boolean }) {
-    await this._send('setAutoClose', params);
-  }
-
-  async highlight(params: { selector: string }) {
-    await this._send('highlight', params);
-  }
-
-  async hideHighlight() {
-    await this._send('hideHighlight');
-  }
-
-  async resume() {}
-
-  async kill() {
-    this._send('kill');
-  }
-
-  private _send(method: string, params: any = {}): Promise<any> {
-    return new Promise((fulfill, reject) => {
-      const id = ++LegacyBackend._lastId;
-      this._serverProcess?.send({ id, method, params });
       this._callbacks.set(id, { fulfill, reject });
     });
   }
