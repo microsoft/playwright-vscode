@@ -141,12 +141,14 @@ async function locatorToHighlight(document: vscodeTypes.TextDocument, position: 
     const line = document.lineAt(position.line);
     if (!line.text.match(locatorMethodRegex))
       return;
-    const locatorExpression = locatorForSourcePosition(text, { pages: [], locators: [] }, fsPath, {
+    let locatorExpression = locatorForSourcePosition(text, { pages: [], locators: [] }, fsPath, {
       line: position.line + 1,
       column: position.character + 1
     });
-    // Only consider the locator expressions starting with page. because we know the base for them (root).
-    // Non-"page." locators can be relative.
+    // Translate locator expressions starting with "component." to be starting with "page.".
+    locatorExpression = locatorExpression?.replace(/^component\s*\./, `page.locator('#root').locator('internal:control=component').`);
+    // Only consider locator expressions starting with "page." because we know the base for them (root).
+    // Other locators can be relative.
     const match = locatorExpression?.match(/^page\s*\.([\s\S]*)/m);
     if (match) {
       // It is Ok to return the locator expression, not the selector because the highlight call is going to handle it
