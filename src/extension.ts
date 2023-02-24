@@ -18,9 +18,10 @@ import path from 'path';
 import StackUtils from 'stack-utils';
 import { DebugHighlight } from './debugHighlight';
 import { installBrowsers, installPlaywright } from './installer';
+import { MultiMap } from './multimap';
 import { Entry } from './oopReporter';
 import { PlaywrightTest, TestListener } from './playwrightTest';
-import type { TestError } from './reporter';
+import type { Location, TestError } from './reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
@@ -33,7 +34,6 @@ import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
 });
-export type DebuggerLocation = { path: string, line: number, column: number };
 
 type StepInfo = {
   location: vscodeTypes.Location;
@@ -79,6 +79,13 @@ export class Extension {
   private _reusedBrowser: ReusedBrowser;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
+  private _filesPendingListTests: {
+    files: Set<string>,
+    timer: NodeJS.Timeout,
+    promise: Promise<void>,
+    finishedCallback: () => void
+  } | undefined;
+  private _diagnostics: vscodeTypes.DiagnosticCollection;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -110,6 +117,7 @@ export class Extension {
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
+    this._diagnostics = this._vscode.languages.createDiagnosticCollection('pw.diagnostics');
   }
 
   reusedBrowserForTest(): ReusedBrowser {
@@ -117,6 +125,9 @@ export class Extension {
   }
 
   dispose() {
+    clearTimeout(this._filesPendingListTests?.timer);
+    this._filesPendingListTests?.finishedCallback();
+    delete this._filesPendingListTests;
     for (const d of this._disposables)
       d?.dispose?.();
   }
@@ -182,6 +193,7 @@ export class Extension {
       this._testController,
       this._workspaceObserver,
       this._reusedBrowser,
+      this._diagnostics,
     ];
     await this._rebuildModel(false);
 
@@ -253,8 +265,7 @@ export class Extension {
       }
     }
 
-    const onlyLegacyConfigs = !!this._models.length && !this._models.find(m => m.config.version >= 1.28);
-    this._settingsView.updateActions(onlyLegacyConfigs);
+    this._settingsView.updateActions();
 
     this._testTree.finishedLoading();
     await this._updateVisibleEditorItems();
@@ -411,8 +422,7 @@ located next to Run / Debug Tests toolbar buttons.`);
   private async _resolveChildren(fileItem: vscodeTypes.TestItem | undefined): Promise<void> {
     if (!fileItem)
       return;
-    for (const model of this._models)
-      await model.listTests([fileItem!.uri!.fsPath]);
+    await this._listTestsInAllModels([fileItem!.uri!.fsPath]);
   }
 
   private async _workspaceChanged(change: WorkspaceChange) {
@@ -431,14 +441,18 @@ located next to Run / Debug Tests toolbar buttons.`);
     projects: TestProject[],
     locations: string[] | null,
     parametrizedTestTitle: string | undefined) {
+    let testItemForGlobalError: vscodeTypes.TestItem | undefined;
     const testListener: TestListener = {
       onBegin: ({ projects }) => {
         model.updateFromRunningProjects(projects);
         const visit = (entry: Entry) => {
           if (entry.type === 'test') {
-            const testItem = this._testTree.testItemForLocation(entry.location, entry.title);
-            if (testItem)
+            const testItem = this._testTree.testItemForLocation(entry.location, entry.titlePath);
+            if (testItem) {
+              if (!testItemForGlobalError)
+                testItemForGlobalError = testItem;
               testRun.enqueued(testItem);
+            }
           }
           (entry.children || []).forEach(visit);
         };
@@ -446,9 +460,11 @@ located next to Run / Debug Tests toolbar buttons.`);
       },
 
       onTestBegin: params => {
-        const testItem = this._testTree.testItemForLocation(params.location, params.title);
-        if (testItem)
+        const testItem = this._testTree.testItemForLocation(params.location, params.titlePath);
+        if (testItem) {
           testRun.started(testItem);
+          testItemForGlobalError = testItem;
+        }
         if (isDebug) {
           // Debugging is always single-workers.
           this._testItemUnderDebug = testItem;
@@ -460,7 +476,7 @@ located next to Run / Debug Tests toolbar buttons.`);
         this._activeSteps.clear();
         this._executionLinesChanged();
 
-        const testItem = this._testTree.testItemForLocation(params.location, params.title);
+        const testItem = this._testTree.testItemForLocation(params.location, params.titlePath);
         if (!testItem)
           return;
         if (params.status === params.expectedStatus) {
@@ -473,7 +489,7 @@ located next to Run / Debug Tests toolbar buttons.`);
           return;
         }
         testFailures.add(testItem);
-        testRun.failed(testItem, params.errors.map(error => this._testMessageForTestError(testItem, error)), params.duration);
+        testRun.failed(testItem, params.errors.map(error => this._testMessageForTestError(error, testItem)), params.duration);
       },
 
       onStepBegin: params => {
@@ -515,8 +531,10 @@ located next to Run / Debug Tests toolbar buttons.`);
       },
 
       onError: data => {
-        if (data.error.message?.includes('Failed to find local docker image.'))
-          this._vscode.window.showErrorMessage(`Failed to find local docker image.\nRun 'npx playwright docker build'`);
+        // Global errors don't have associated tests, so we'll be allocating them
+        // to the first item / current.
+        if (testItemForGlobalError)
+          testRun.failed(testItemForGlobalError, this._testMessageForTestError(data.error), 0);
       }
     };
 
@@ -528,18 +546,76 @@ located next to Run / Debug Tests toolbar buttons.`);
 
   private async _updateVisibleEditorItems() {
     const files = this._vscode.window.visibleTextEditors.map(e => e.document.uri.fsPath);
-    if (files.length) {
-      for (const model of this._models)
-        await model.listTests(files);
+    await this._listTestsInAllModels(files);
+  }
+
+  private _listTestsInAllModels(files: string[]): Promise<void> {
+    // Perform coalescing listTests calls to avoid multiple
+    // 'list tests' processes running at the same time.
+    if (!files.length)
+      return Promise.resolve();
+
+    if (!this._filesPendingListTests) {
+      let finishedCallback!: () => void;
+      const promise = new Promise<void>(f => finishedCallback = f);
+      const files = new Set<string>();
+
+      const timer = setTimeout(async () => {
+        delete this._filesPendingListTests;
+        const allErrors = new Set<string>();
+        const errorsByFile = new MultiMap<string, TestError>();
+        for (const model of this._models.slice()) {
+          const errors = await model.listTests([...files]).catch(e => console.log(e)) || [];
+          for (const error of errors) {
+            if (!error.location || !error.message)
+              continue;
+            const key = error.location.file + ':' + error.location.line + ':' + error.message;
+            if (allErrors.has(key))
+              continue;
+            allErrors.add(key);
+            errorsByFile.set(error.location?.file, error);
+          }
+        }
+        this._updateDiagnostics(errorsByFile);
+        finishedCallback();
+      }, 0);
+
+      this._filesPendingListTests = {
+        files,
+        finishedCallback,
+        promise,
+        timer,
+      };
+    }
+
+    for (const file of files)
+      this._filesPendingListTests.files.add(file);
+
+    return this._filesPendingListTests.promise;
+  }
+
+  private _updateDiagnostics(errorsByFile: MultiMap<string, TestError>) {
+    this._diagnostics.clear();
+    for (const [file, errors] of errorsByFile) {
+      const diagnostics: vscodeTypes.Diagnostic[] = [];
+      for (const error of errors) {
+        diagnostics.push({
+          severity: this._vscode.DiagnosticSeverity.Error,
+          source: 'playwright',
+          range: new this._vscode.Range(error.location!.line - 1, error.location!.column - 1, error.location!.line, 0),
+          message: error.message!,
+        });
+      }
+      this._diagnostics.set(this._vscode.Uri.file(file), diagnostics);
     }
   }
 
-  private _errorInDebugger(errorStack: string, location: DebuggerLocation) {
+  private _errorInDebugger(errorStack: string, location: Location) {
     if (!this._testRun || !this._testItemUnderDebug)
       return;
     const testMessage = this._testMessageFromText(errorStack);
     const position = new this._vscode.Position(location.line - 1, location.column - 1);
-    testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.path), position);
+    testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.file), position);
     this._testRun.failed(this._testItemUnderDebug, testMessage);
     this._testItemUnderDebug = undefined;
   }
@@ -615,15 +691,15 @@ located next to Run / Debug Tests toolbar buttons.`);
     return new this._vscode.TestMessage(markdownString);
   }
 
-  private _testMessageForTestError(testItem: vscodeTypes.TestItem, error: TestError): vscodeTypes.TestMessage {
+  private _testMessageForTestError(error: TestError, testItem?: vscodeTypes.TestItem): vscodeTypes.TestMessage {
     let text = error.stack || error.message || error.value!;
     if (text.includes('Looks like Playwright Test or Playwright'))
       text = `Browser was not installed. Invoke 'Install Playwright Browsers' action to install missing browsers.`;
     const testMessage = this._testMessageFromText(text);
-    const location = parseLocationFromStack(testItem, error.stack);
+    const location = error.location || parseLocationFromStack(error.stack, testItem);
     if (location) {
       const position = new this._vscode.Position(location.line - 1, location.column - 1);
-      testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.path), position);
+      testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.file), position);
     }
     return testMessage;
   }
@@ -637,16 +713,16 @@ located next to Run / Debug Tests toolbar buttons.`);
   }
 }
 
-function parseLocationFromStack(testItem: vscodeTypes.TestItem, stack: string | undefined): DebuggerLocation | undefined {
+function parseLocationFromStack(stack: string | undefined, testItem?: vscodeTypes.TestItem): Location | undefined {
   const lines = stack?.split('\n') || [];
   for (const line of lines) {
     const frame = stackUtils.parseLine(line);
     if (!frame || !frame.file || !frame.line || !frame.column)
       continue;
     frame.file = frame.file.replace(/\//g, path.sep);
-    if (testItem.uri!.fsPath === frame.file) {
+    if (!testItem || testItem.uri!.fsPath === frame.file) {
       return {
-        path: frame.file,
+        file: frame.file,
         line: frame.line,
         column: frame.column,
       };

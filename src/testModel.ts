@@ -20,6 +20,7 @@ import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
 import { resolveSourceMap } from './utils';
 import { ProjectConfigWithFiles } from './listTests';
+import { TestError } from './reporter';
 
 /**
  * This class builds the Playwright Test model in Playwright terms.
@@ -199,13 +200,14 @@ export class TestModel {
       this._didUpdate.fire();
   }
 
-  async listTests(files: string[]) {
+  async listTests(files: string[]): Promise<TestError[]> {
     const sourcesToLoad = files.filter(f => this.allFiles.has(f));
     if (!sourcesToLoad.length)
-      return;
+      return [];
 
-    const projectEntries = await this._playwrightTest.listTests(this.config, this._mapSourcesToFiles(sourcesToLoad), this._envProvider());
-    this._updateProjects(projectEntries, sourcesToLoad);
+    const { entries, errors } = await this._playwrightTest.listTests(this.config, this._mapSourcesToFiles(sourcesToLoad), this._envProvider());
+    this._updateProjects(entries, sourcesToLoad);
+    return errors;
   }
 
   private _updateProjects(projectEntries: Entry[], requestedFiles: string[]) {

@@ -477,6 +477,30 @@ test('should list parametrized tests', async ({ activate }) => {
   `);
 });
 
+test('should list tests in parametrized groups', async ({ activate }) => {
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      for (const foo of [1, 2]) {
+        test.describe('level ' + foo, () => {
+          test('should work', async () => {});
+        });
+      }
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec.ts/);
+  expect(testController.renderTestTree()).toBe(`
+    - tests
+      - test.spec.ts
+        - level 1 [3:0]
+          - should work [4:0]
+        - level 2 [3:0]
+          - should work [4:0]
+  `);
+});
+
 test('should not run config reporters', async ({ activate }, testInfo) => {
   const { testController } = await activate({
     'playwright.config.js': `module.exports = {

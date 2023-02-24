@@ -37,19 +37,19 @@ test('should mark test as skipped', async ({ activate }) => {
 
   const testRun = await testController.run();
   expect(testRun.renderLog()).toBe(`
-    fails [9:0]
+    tests > test.spec.ts > fails [9:0]
       enqueued
       started
       passed
-    fixme [6:0]
+    tests > test.spec.ts > fixme [6:0]
       enqueued
       started
       skipped
-    pass [2:0]
+    tests > test.spec.ts > pass [2:0]
       enqueued
       started
       passed
-    skipped [3:0]
+    tests > test.spec.ts > skipped [3:0]
       enqueued
       started
       skipped

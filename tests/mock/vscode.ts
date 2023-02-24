@@ -46,6 +46,19 @@ class Position {
   }
 }
 
+export enum DiagnosticSeverity {
+  Error = 'Error',
+  Warning = 'Warning',
+  Information = 'Information',
+  Hint = 'Hint'
+}
+
+type Diagnostic = {
+  message: string;
+  location: Location;
+  severity: DiagnosticSeverity;
+};
+
 class Location {
   range: Range;
   constructor(readonly uri: Uri, rangeOrPosition: Range | Position) {
@@ -200,6 +213,19 @@ class TestItem {
       location = ` [${this.range.start.toString()}]`;
     return `${this.label}${location}`;
   }
+
+  flatTitle(): string {
+    let location = '';
+    if (this.range)
+      location = ` [${this.range.start.toString()}]`;
+    const titlePath: string[] = [];
+    let item: TestItem | undefined = this;
+    while (item && item.parent) {
+      titlePath.unshift(item.label);
+      item = item.parent;
+    }
+    return `${titlePath.join(' > ')}${location}`;
+  }
 }
 
 class TestRunProfile {
@@ -316,7 +342,7 @@ export class TestRun {
     tests.sort((a, b) => a.label.localeCompare(b.label));
     for (const test of tests) {
       const entries = this.entries.get(test)!;
-      result.push(`  ${test.treeTitle()}`);
+      result.push(`  ${test.flatTitle()}`);
       for (const entry of entries) {
         result.push(`    ${entry.status}`);
         if (options.messages && entry.messages) {
@@ -328,15 +354,11 @@ export class TestRun {
     }
     if (options.output) {
       result.push('  Output:');
-      if (this._output.length) {
-        for (const output of this._output) {
-          const lines = output.output.split('\n');
-          result.push(...lines.map(l => '  ' + l));
-        }
-      }
+      const output = this._output.map(o => o.output).join('');
+      const lines = output.split('\n');
+      result.push(...lines.map(l => '  ' + stripAnsi(l).replace(/\d+(\.\d+)?(ms|s)/, 'XXms')));
     }
-    result.push('');
-    return result.join(`\n${indent}`);
+    return trimLog(result.join(`\n${indent}`)) + `\n${indent}`;
   }
 }
 
@@ -469,8 +491,7 @@ class TextEditor {
       result.push('  --------------------------------------------------------------');
       result.push(...state.split('\n').map(s => '  ' + s));
     }
-    result.push('');
-    return result.join(`\n${indent}`);
+    return trimLog(result.join(`\n${indent}`)) + `\n${indent}`;
   }
 
   edit(editCallback) {
@@ -480,7 +501,9 @@ class TextEditor {
         this.selection = range;
         const lines = text.split('\n');
         const lastLine = lines[lines.length - 1];
-        this.selection.end = new Position(range.end.line + (lines.length - 1), lines.length > 1 ? lastLine.length : range.end.character + lastLine.length);
+        const endOfLastLine = new Position(range.end.line + (lines.length - 1), lines.length > 1 ? lastLine.length : range.end.character + lastLine.length);
+        this.selection.start = endOfLastLine;
+        this.selection.end = endOfLastLine;
       }
     });
   }
@@ -616,8 +639,29 @@ class TestTag {
   }
 }
 
+class DiagnosticsCollection {
+  readonly _entries = new Map<string, Diagnostic[]>();
+
+  set(uri: Uri, diagnostics: Diagnostic[]) {
+    this._entries.set(uri.toString(), diagnostics);
+  }
+
+  get(uri: Uri) {
+    return this._entries.get(uri.toString()) || [];
+  }
+
+  delete(uri: Uri) {
+    this._entries.delete(uri.toString());
+  }
+
+  clear() {
+    this._entries.clear();
+  }
+}
+
 export class VSCode {
   isUnderTest = true;
+  DiagnosticSeverity = DiagnosticSeverity;
   EventEmitter = EventEmitter;
   Location = Location;
   MarkdownString = MarkdownString;
@@ -678,7 +722,21 @@ export class VSCode {
     };
     this.debug = new Debug();
 
+    const diagnosticsCollections: DiagnosticsCollection[] = [];
     this.languages.registerHoverProvider = () => disposable;
+    this.languages.getDiagnostics = () => {
+      const result: Diagnostic[] = [];
+      for (const collection of diagnosticsCollections) {
+        for (const diagnostics of collection._entries.values())
+          result.push(...diagnostics);
+      }
+      return result;
+    };
+    this.languages.createDiagnosticCollection = () => {
+      const diagnosticsCollection = new DiagnosticsCollection();
+      diagnosticsCollections.push(diagnosticsCollection);
+      return diagnosticsCollection;
+    };
     this.tests.createTestController = this._createTestController.bind(this);
 
     let lastDecorationTypeId = 0;
@@ -885,7 +943,7 @@ export class VSCode {
     const log: string[] = [''];
     for (const extension of this.extensions)
       log.push(...extension.playwrightTestLog());
-    return unescapeRegex(log.join(`\n  ${indent}`) + `\n${indent}`).replace(/\\/g, '/');
+    return trimLog(unescapeRegex(log.join(`\n  ${indent}`)).replace(/\\/g, '/')) + `\n${indent}`;
   }
 }
 
@@ -896,4 +954,13 @@ export function stripAscii(str: string): string {
 
 function unescapeRegex(regex: string) {
   return regex.replace(/\\(.)/g, '$1');
+}
+
+function trimLog(log: string) {
+  return log.split('\n').map(line => line.trimEnd()).join('\n');
+}
+
+const ansiRegex = new RegExp('[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))', 'g');
+function stripAnsi(str: string): string {
+  return str.replace(ansiRegex, '');
 }
