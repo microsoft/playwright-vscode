@@ -336,7 +336,14 @@ export class Extension {
 
     this._completedSteps.clear();
     this._executionLinesChanged();
-    this._testRun = this._testController.createTestRun(request);
+
+    // Create a test run that potentially includes all the test items.
+    // This allows running setup tests that are outside of the scope of the
+    // selected test items.
+    const rootItems: vscodeTypes.TestItem[] = [];
+    this._testController.items.forEach(item => rootItems.push(item));
+    const requestWithDeps = new this._vscode.TestRunRequest(rootItems, [], request.profile);
+    this._testRun = this._testController.createTestRun(requestWithDeps);
 
     // Provisionally mark tests (not files and not suits) as enqueued to provide immediate feedback.
     for (const item of request.include || []) {
