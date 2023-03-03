@@ -300,7 +300,7 @@ export class Extension {
     usedProfiles.add(debugProfile);
   }
 
-  private async _scheduleTestRunRequest(configFile: string, projectName: string, isDebug: boolean, request: vscodeTypes.TestRunRequest) {
+  private _scheduleTestRunRequest(configFile: string, projectName: string, isDebug: boolean, request: vscodeTypes.TestRunRequest) {
     // Never run tests concurrently.
     if (this._testRun)
       return;
@@ -320,11 +320,16 @@ export class Extension {
     if (!this._projectsScheduledToRun) {
       this._projectsScheduledToRun = [];
       this._projectsScheduledToRun.push(project);
-      await Promise.resolve().then(async () => {
-        const selectedProjects = this._projectsScheduledToRun!;
+      // Make sure to run tests outside of this function's control flow
+      // so that we can create a new TestRunRequest and see its output.
+      // TODO: remove once this is fixed in VSCode (1.78?) and we
+      // can see test output without this hack.
+      setTimeout(async () => {
+        const selectedProjects = this._projectsScheduledToRun;
         this._projectsScheduledToRun = undefined;
-        await this._runMatchingTests({ selectedProjects, isDebug, request });
-      });
+        if (selectedProjects)
+          await this._runMatchingTests({ selectedProjects, isDebug, request });
+      }, 520);
     } else {
       // Subsequent requests will return right away.
       this._projectsScheduledToRun.push(project);
