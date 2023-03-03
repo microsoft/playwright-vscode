@@ -248,13 +248,18 @@ class TestRunProfile {
   }
 }
 
-class TestRunRequest {
+export class TestRunRequest {
   readonly token = new CancellationToken();
 
-  constructor(
-    readonly include?: TestItem[],
-    readonly exclude?: TestItem[],
-    readonly profile?: TestRunProfile) {}
+  include: TestItem[] | undefined;
+  exclude: TestItem[] | undefined;
+  profile: TestRunProfile | undefined;
+
+  constructor(include?: TestItem[], exclude?: TestItem[], profile?: TestRunProfile) {
+    this.include = include;
+    this.exclude = exclude;
+    this.profile = profile;
+  }
 }
 
 export class TestMessage {
@@ -671,6 +676,7 @@ export class VSCode {
   TestTag = TestTag;
   TestMessage = TestMessage;
   TestRunProfileKind = TestRunProfileKind;
+  TestRunRequest = TestRunRequest;
   Uri = Uri;
   commands: any = {};
   debug: Debug;
