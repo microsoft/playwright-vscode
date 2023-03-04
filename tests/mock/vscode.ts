@@ -230,6 +230,7 @@ class TestItem {
 
 class TestRunProfile {
   constructor(
+    private testController: TestController,
     readonly label: string,
     readonly kind: TestRunProfileKind,
     readonly runHandler: (request: TestRunRequest, token: CancellationToken) => Promise<void>,
@@ -238,9 +239,15 @@ class TestRunProfile {
     runProfiles.push(this);
   }
 
-  async run(include?: TestItem[], exclude?: TestItem[]) {
+  async run(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {
     const request = new TestRunRequest(include, exclude, this);
-    await this.runHandler(request, request.token);
+    const [testRun] = await Promise.all([
+      new Promise<TestRun>(f => this.testController.onDidCreateTestRun(testRun => {
+        testRun.onDidEnd(() => f(testRun));
+      })),
+      this.runHandler(request, request.token),
+    ]);
+    return testRun;
   }
 
   dispose() {
@@ -389,7 +396,7 @@ export class TestController {
   }
 
   createRunProfile(label: string, kind: TestRunProfileKind, runHandler: (request: TestRunRequest, token: CancellationToken) => Promise<void>, isDefault?: boolean): TestRunProfile {
-    return new TestRunProfile(label, kind, runHandler, !!isDefault, this.runProfiles);
+    return new TestRunProfile(this, label, kind, runHandler, !!isDefault, this.runProfiles);
   }
 
   createTestRun(request: TestRunRequest, name?: string, persist?: boolean): TestRun {
@@ -416,20 +423,12 @@ export class TestController {
 
   async run(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {
     const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Run)!;
-    const [testRun] = await Promise.all([
-      new Promise<TestRun>(f => this.onDidCreateTestRun(f)),
-      profile.run(include, exclude),
-    ]);
-    return testRun;
+    return profile.run(include, exclude);
   }
 
   async debug(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {
     const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Debug)!;
-    const [testRun] = await Promise.all([
-      new Promise<TestRun>(f => this.onDidCreateTestRun(f)),
-      profile.run(include, exclude),
-    ]);
-    return testRun;
+    return profile.run(include, exclude);
   }
 }
 
