@@ -240,9 +240,9 @@ export class Extension {
         continue;
       }
 
-      if (playwrightInfo.version < 1.19) {
+      if (playwrightInfo.version < 1.28) {
         if (showWarnings)
-          this._vscode.window.showWarningMessage('Playwright Test v1.19 or newer is required');
+          this._vscode.window.showWarningMessage('Playwright Test v1.28 or newer is required');
         continue;
       }
 
