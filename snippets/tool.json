@@ -1,0 +1,20 @@
+{
+	"Print to console": {
+		"scope": "javascript,typescript",
+		"prefix": "echo log",
+		"body": [
+			"console.log('$1');",
+			"$0"
+		],
+		"description": "Log output to console"
+	},
+    "wait to some time": {
+		"scope": "javascript,typescript",
+		"prefix": "wait",
+		"body": [
+			"await page.waitForTimeout(${1:1000});",
+			"$0"
+		],
+		"description": "forced to wait some time"
+	}
+}

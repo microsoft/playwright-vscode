@@ -83,7 +83,16 @@
           "name": "Playwright"
         }
       ]
-    }
+    },
+    "snippets": [
+      {
+        "language": "typescript",
+        "path": "./snippets/tool.json"
+      },{
+        "language": "javascript",
+        "path": "./snippets/tool.json"
+      }
+    ]
   },
   "scripts": {
     "version:beta": "npm version prerelease --preid=beta",
