@@ -9,6 +9,7 @@ This extension integrates Playwright into your VS Code workflow. Here is what it
   - [Run Multiple Tests](#run-multiple-tests)
   - [Show browsers](#show-browsers)
   - [Assert (Newly Added)](#assert-newly-added)
+  - [Wait (Newly Added)](#wait-newly-added)
   - [Pick locators](#pick-locators)
   - [Debug step-by-step, explore locators](#debug-step-by-step-explore-locators)
   - [Tune locators](#tune-locators)
@@ -65,6 +66,19 @@ Check the "show browsers" checkbox to run tests with the browser open so that yo
 Click the "Assert" button and hover over the browser to see the locators available. Clicking an element will pop up dialog with assertions, choosing one of them will generates assertion into the existing test at the current cursor position.
 
 ![assert](images/assert-picker.png)
+
+<br/>
+
+## Wait (Newly Added)
+
+Click the "Wait" button and enter the waiting time, then it will generates code into the existing test at the current cursor position.
+
+Or You can type wait, choose wait, and press ENTER, then the code will appear on the screen.
+
+
+![wait](images/wait-button.png)
+![wait](images/wait-snippets.png)
+
 
 <br/>
 

@@ -33,7 +33,7 @@ export class WaitingDialog {
       toolValue = inputValue?.trim() || '';
     }).then(async () => {
       const reg = /^[\d]+$/;
-      if (!toolValue ) {
+      if (!toolValue) {
         // 如果没有输入值或者取消输入，就不插入代码
         return;
       }
@@ -42,7 +42,7 @@ export class WaitingDialog {
         this._vscode.window.showWarningMessage(`请输入数字`);
         return;
       }
-      const codeText = `await page.waitForTimeout(${parseInt(toolValue || '0') * 1000});`;
+      const codeText = `await page.waitForTimeout(${Number(toolValue || '0') * 1000});`;
       this._vscode.env.clipboard.writeText(codeText);
       if (this._editor) {
         const targetIndentation = guessIndentation(this._editor);
