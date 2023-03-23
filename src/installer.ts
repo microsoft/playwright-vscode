@@ -97,7 +97,7 @@ export async function installBrowsers(vscode: vscodeTypes.VSCode, model: TestMod
   terminal.show();
 
   const args: string[] = [];
-  const installCommand = result.includes(installDepsItem) ? 'install-with-deps' : 'install';
+  const installCommand = result.includes(installDepsItem) ? 'install --with-deps' : 'install';
   if (result.includes(chromiumItem))
     args.push('chromium');
   if (result.includes(firefoxItem))
