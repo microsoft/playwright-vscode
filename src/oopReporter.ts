@@ -21,17 +21,20 @@ export type EntryType = 'project' | 'file' | 'suite' | 'test';
 export type Entry = {
   type: EntryType;
   title: string;
+  titlePath: string[];
   location: Location;
   children?: Entry[];
 };
 
 export type TestBeginParams = {
   title: string;
+  titlePath: string[];
   location: Location;
 };
 
 export type TestEndParams = {
   title: string;
+  titlePath: string[];
   location: Location;
   duration: number;
   errors: TestError[];
@@ -85,6 +88,7 @@ class OopReporter implements Reporter {
         const entry: Entry = {
           type,
           title: child.title,
+          titlePath: child.titlePath().slice(3),
           location: child.location || { file: '', line: 0, column: 0 },
           children: [],
         };
@@ -96,6 +100,7 @@ class OopReporter implements Reporter {
         const entry: Entry = {
           type: 'test',
           title: test.title,
+          titlePath: test.titlePath().slice(3),
           location: test.location,
         };
         collection.push(entry);
@@ -108,13 +113,18 @@ class OopReporter implements Reporter {
   }
 
   onTestBegin?(test: TestCase, result: TestResult): void {
-    const params: TestBeginParams = { title: test.title, location: test.location };
+    const params: TestBeginParams = {
+      title: test.title,
+      titlePath: test.titlePath().slice(3),
+      location: test.location
+    };
     this._emit('onTestBegin', params);
   }
 
   onTestEnd(test: TestCase, result: TestResult): void {
     const params: TestEndParams = {
       title: test.title,
+      titlePath: test.titlePath().slice(3),
       location: test.location,
       duration: result.duration,
       errors: result.errors,

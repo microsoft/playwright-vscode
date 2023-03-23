@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 import { PlaywrightTestConfig } from '@playwright/test';
-import { TestOptions } from './tests/utils';
+import { WorkerOptions } from './tests/utils';
 
-const config: PlaywrightTestConfig<TestOptions> = {
+const config: PlaywrightTestConfig<WorkerOptions> = {
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

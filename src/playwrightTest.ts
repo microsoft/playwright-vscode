@@ -64,7 +64,7 @@ export class PlaywrightTest {
         'try { const pwtIndex = require.resolve("@playwright/test"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ pwtIndex, version})); } catch { console.log("undefined"); }',
       ], path.dirname(configFilePath));
       const { pwtIndex, version } = JSON.parse(pwtInfo);
-      const v = parseFloat(version);
+      const v = parseFloat(version.replace(/-(next|beta)$/, ''));
 
       // We only depend on playwright-core in 1.15+, bail out.
       if (v < 1.19)
@@ -123,14 +123,18 @@ export class PlaywrightTest {
     }
   }
 
-  async listTests(config: TestConfig, files: string[], settingsEnv: NodeJS.ProcessEnv): Promise<Entry[]> {
-    let result: Entry[] = [];
+  async listTests(config: TestConfig, files: string[], settingsEnv: NodeJS.ProcessEnv): Promise<{ entries: Entry[], errors: TestError[] }> {
+    let entries: Entry[] = [];
+    const errors: TestError[] = [];
     await this._test(config, files, ['--list'], settingsEnv, {
       onBegin: params => {
-        result = params.projects as Entry[];
+        entries = params.projects as Entry[];
+      },
+      onError: params => {
+        errors.push(params.error);
       },
     }, 'list');
-    return result;
+    return { entries, errors };
   }
 
   private async _test(config: TestConfig, locations: string[], args: string[], settingsEnv: NodeJS.ProcessEnv, listener: TestListener, mode: 'list' | 'run', token?: vscodeTypes.CancellationToken): Promise<void> {
@@ -155,7 +159,9 @@ export class PlaywrightTest {
       '--repeat-each', '1',
       '--retries', '0',
     ];
-    if (this._isUnderTest || this._reusedBrowser.browserServerEnv(false) || args.includes('--headed'))
+    if (this._reusedBrowser.browserServerEnv(false) && !allArgs.includes('--headed') && !this._isUnderTest)
+      allArgs.push('--headed');
+    if (this._isUnderTest || args.includes('--headed'))
       allArgs.push('--workers', '1');
     // Disable original reporters when listing files.
     if (mode === 'list')
@@ -165,6 +171,7 @@ export class PlaywrightTest {
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
+        CI: this._isUnderTest ? undefined : process.env.CI,
         // Don't debug tests when running them.
         NODE_OPTIONS: undefined,
         ...settingsEnv,
@@ -217,6 +224,7 @@ export class PlaywrightTest {
         cwd: configFolder,
         env: {
           ...process.env,
+          CI: this._isUnderTest ? undefined : process.env.CI,
           ...settingsEnv,
           ...this._reusedBrowser.browserServerEnv(true),
           ...(await reporterServer.env()),

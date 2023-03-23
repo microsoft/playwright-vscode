@@ -34,7 +34,7 @@ export function createGuid(): string {
 export function ansiToHtml(text: string): string {
   let isOpen = false;
   let hasTags = false;
-  const tokens = [];
+  const tokens: string[] = [];
   for (let i = 0; i < text.length; ++i) {
     const c = text.charAt(i);
     if (c === '\u001b') {
@@ -142,7 +142,12 @@ export async function findNode(): Promise<string> {
   if (pathToNodeJS)
     return pathToNodeJS;
 
-  const node = await which('node');
+  let node = await which('node');
+  // When extension host boots, it does not have the right env set, so we might need to wait.
+  for (let i = 0; i < 5 && !node; ++i) {
+    await new Promise(f => setTimeout(f, 1000));
+    node = await which('node');
+  }
   if (!node)
     throw new Error('Unable to launch `node`, make sure it is in your PATH');
   pathToNodeJS = node;

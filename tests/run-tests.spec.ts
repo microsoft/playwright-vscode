@@ -32,11 +32,11 @@ test('should run all tests', async ({ activate }) => {
 
   const testRun = await testController.run();
   expect(testRun.renderLog()).toBe(`
-    should fail [2:0]
+    tests > test-2.spec.ts > should fail [2:0]
       enqueued
       started
       failed
-    should pass [2:0]
+    tests > test-1.spec.ts > should pass [2:0]
       enqueued
       started
       passed
@@ -62,7 +62,7 @@ test('should run one test', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    should pass [2:0]
+    tests > test.spec.ts > should pass [2:0]
       enqueued
       enqueued
       started
@@ -94,12 +94,12 @@ test('should run describe', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    one [3:0]
+    tests > test.spec.ts > describe > one [3:0]
       enqueued
       enqueued
       started
       passed
-    two [4:0]
+    tests > test.spec.ts > describe > two [4:0]
       enqueued
       enqueued
       started
@@ -122,11 +122,11 @@ test('should run file', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    one [2:0]
+    tests > test.spec.ts > one [2:0]
       enqueued
       started
       passed
-    two [3:0]
+    tests > test.spec.ts > two [3:0]
       enqueued
       started
       passed
@@ -156,11 +156,11 @@ test('should run folder', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    one [2:0]
+    tests > folder > test1.spec.ts > one [2:0]
       enqueued
       started
       passed
-    two [2:0]
+    tests > folder > test2.spec.ts > two [2:0]
       enqueued
       started
       passed
@@ -188,7 +188,7 @@ test('should show error message', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog({ messages: true })).toBe(`
-    should fail [2:0]
+    tests > test.spec.ts > should fail [2:0]
       enqueued
       enqueued
       started
@@ -196,7 +196,7 @@ test('should show error message', async ({ activate }) => {
         test.spec.ts:[3:18 - 3:18]
         Error: <span style='color:#666;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
         <br>
-        
+
         <br>
         Expected: <span style='color:#73c991;'>2</span>
         <br>
@@ -242,7 +242,7 @@ test('should show soft error messages', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog({ messages: true })).toBe(`
-    should fail [2:0]
+    tests > test.spec.ts > should fail [2:0]
       enqueued
       enqueued
       started
@@ -250,7 +250,7 @@ test('should show soft error messages', async ({ activate }) => {
         test.spec.ts:[3:23 - 3:23]
         Error: <span style='color:#666;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
         <br>
-        
+
         <br>
         Expected: <span style='color:#73c991;'>2</span>
         <br>
@@ -261,7 +261,7 @@ test('should show soft error messages', async ({ activate }) => {
         test.spec.ts:[4:23 - 4:23]
         Error: <span style='color:#666;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
         <br>
-        
+
         <br>
         Expected: <span style='color:#73c991;'>3</span>
         <br>
@@ -531,17 +531,17 @@ test('should run all parametrized tests', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    test-one [3:0]
+    tests > test.spec.ts > test-one [3:0]
       enqueued
       enqueued
       started
       passed
-    test-three [3:0]
+    tests > test.spec.ts > test-three [3:0]
       enqueued
       enqueued
       started
       passed
-    test-two [3:0]
+    tests > test.spec.ts > test-two [3:0]
       enqueued
       enqueued
       started
@@ -571,7 +571,7 @@ test('should run one parametrized test', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    test two [3:0]
+    tests > test.spec.ts > test two [3:0]
       enqueued
       enqueued
       started
@@ -604,12 +604,12 @@ test('should run one parametrized groups', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    test one in group three [4:0]
+    tests > test.spec.ts > group three > test one in group three [4:0]
       enqueued
       enqueued
       started
       passed
-    test two in group three [5:0]
+    tests > test.spec.ts > group three > test two in group three [5:0]
       enqueued
       enqueued
       started
@@ -620,6 +620,58 @@ test('should run one parametrized groups', async ({ activate }) => {
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list tests/test.spec.ts
     > playwright test -c playwright.config.js --grep=group three tests/test.spec.ts:4
+  `);
+});
+
+test('should run tests in parametrized groups', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test, expect } from '@playwright/test';
+      for (const foo of [1, 2]) {
+        test.describe('level ' + foo, () => {
+          test('should work', async () => {
+            expect(1).toBe(1);
+          });
+        });
+      }
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems1 = testController.findTestItems(/level 1/);
+  expect(testItems1.length).toBe(1);
+  const testRun = await testController.run(testItems1);
+  expect(testRun.renderLog()).toBe(`
+    tests > test.spec.ts > level 1 > should work [4:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+
+  expect(vscode.renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --grep=level 1 tests/test.spec.ts:4
+  `);
+
+  const testItems2 = testController.findTestItems(/level 2/);
+  expect(testItems2.length).toBe(1);
+  const testRun2 = await testController.run(testItems2);
+  expect(testRun2.renderLog()).toBe(`
+    tests > test.spec.ts > level 2 > should work [4:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+
+  expect(vscode.renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --grep=level 1 tests/test.spec.ts:4
+    > playwright test -c playwright.config.js --grep=level 2 tests/test.spec.ts:4
   `);
 });
 
@@ -668,7 +720,7 @@ test('should specify project', async ({ activate }) => {
   expect(testItems.length).toBe(2);
   const testRun = await testController.run(testItems);
   expect(testRun.renderLog()).toBe(`
-    one [2:0]
+    tests1 > test.spec.ts > one [2:0]
       enqueued
       started
       passed
@@ -731,7 +783,7 @@ test('should report project-specific failures', async ({ activate }) => {
   `);
 
   expect(testRun.renderLog({ messages: true })).toBe(`
-    should pass [2:0]
+    tests > test.spec.ts > should pass [2:0]
       enqueued
       enqueued
       enqueued
@@ -774,7 +826,7 @@ test('should discover tests after running one test', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    one [2:0]
+    tests > test1.spec.ts > one [2:0]
       enqueued
       enqueued
       started
@@ -801,7 +853,7 @@ test('should provisionally enqueue nested tests', async ({ activate }) => {
       test('2', async () => {});
       test.describe('group', () => {
         test('3', async () => {});
-        test('4', async () => {});  
+        test('4', async () => {});
       });
     `,
   });
@@ -811,22 +863,22 @@ test('should provisionally enqueue nested tests', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    1 [2:0]
+    tests > test.spec.ts > 1 [2:0]
       enqueued
       enqueued
       started
       passed
-    2 [3:0]
+    tests > test.spec.ts > 2 [3:0]
       enqueued
       enqueued
       started
       passed
-    3 [5:0]
+    tests > test.spec.ts > group > 3 [5:0]
       enqueued
       enqueued
       started
       passed
-    4 [6:0]
+    tests > test.spec.ts > group > 4 [6:0]
       enqueued
       enqueued
       started
@@ -847,7 +899,7 @@ test('should run tests for folders above root', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    one [2:0]
+    builder > playwright > tests > test.spec.ts > one [2:0]
       enqueued
       started
       passed
@@ -884,4 +936,61 @@ test('should show warning when tests do not belong to projects', async ({ activa
   `);
 
   expect(vscode.warnings[0]).toContain('Selected test is outside of the Default Profile (config)');
+});
+
+test('should produce output twice', async ({ activate }) => {
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = {
+      testDir: 'tests',
+      reporter: 'line',
+    }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {
+        console.log('some output');
+      });
+    `,
+  });
+
+  const testItems = testController.findTestItems(/test.spec.ts/);
+  expect(testItems.length).toBe(1);
+
+  const testRun1 = await testController.run(testItems);
+  expect(testRun1.renderLog({ output: true })).toBe(`
+    tests > test.spec.ts > one [2:0]
+      enqueued
+      started
+      passed
+    Output:
+
+    Running 1 test using 1 worker
+
+    [1/1] test.spec.ts:3:11 › one
+    test.spec.ts:3:11 › one
+    some output
+
+
+      1 passed (XXms)
+
+  `);
+
+  const testRun2 = await testController.run(testItems);
+  expect(testRun2.renderLog({ output: true })).toBe(`
+    tests > test.spec.ts > one [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+    Output:
+
+    Running 1 test using 1 worker
+
+    [1/1] test.spec.ts:3:11 › one
+    test.spec.ts:3:11 › one
+    some output
+
+
+      1 passed (XXms)
+
+  `);
 });

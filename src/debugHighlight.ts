@@ -17,11 +17,11 @@
 import { locatorForSourcePosition, pruneAstCaches } from './babelHighlightUtil';
 import { debugSessionName } from './debugSessionName';
 import { locatorMethodRegex } from './methodNames';
+import type { Location } from './reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import * as vscodeTypes from './vscodeTypes';
 
-export type DebuggerLocation = { path: string, line: number, column: number };
-export type DebuggerError = { error: string, location: DebuggerLocation };
+export type DebuggerError = { error: string, location: Location };
 
 const debugSessions = new Map<string, vscodeTypes.DebugSession>();
 
@@ -69,7 +69,7 @@ export class DebugHighlight {
           if (!isPlaywrightSession(session))
             return {};
 
-          let lastCatchLocation: DebuggerLocation | undefined;
+          let lastCatchLocation: Location | undefined;
           return {
             onDidSendMessage: async message => {
               if (!message.success)
@@ -78,7 +78,7 @@ export class DebugHighlight {
                 const catchBlock = message.body.scopes.find((scope: any) => scope.name === 'Catch Block');
                 if (catchBlock) {
                   lastCatchLocation = {
-                    path: catchBlock.source.path,
+                    file: catchBlock.source.path,
                     line: catchBlock.line,
                     column: catchBlock.column
                   };
@@ -141,12 +141,14 @@ async function locatorToHighlight(document: vscodeTypes.TextDocument, position: 
     const line = document.lineAt(position.line);
     if (!line.text.match(locatorMethodRegex))
       return;
-    const locatorExpression = locatorForSourcePosition(text, { pages: [], locators: [] }, fsPath, {
+    let locatorExpression = locatorForSourcePosition(text, { pages: [], locators: [] }, fsPath, {
       line: position.line + 1,
       column: position.character + 1
     });
-    // Only consider the locator expressions starting with page. because we know the base for them (root).
-    // Non-"page." locators can be relative.
+    // Translate locator expressions starting with "component." to be starting with "page.".
+    locatorExpression = locatorExpression?.replace(/^component\s*\./, `page.locator('#root').locator('internal:control=component').`);
+    // Only consider locator expressions starting with "page." because we know the base for them (root).
+    // Other locators can be relative.
     const match = locatorExpression?.match(/^page\s*\.([\s\S]*)/m);
     if (match) {
       // It is Ok to return the locator expression, not the selector because the highlight call is going to handle it
@@ -226,7 +228,9 @@ async function scopeVariables(session: vscodeTypes.DebugSession, stackFrame: Sta
 }
 
 async function computeLocatorForHighlight(session: vscodeTypes.DebugSession, frameId: string, locatorExpression: string): Promise<string> {
-  const expression = `(${locatorExpression})._selector`;
+  const innerExpression = `(${locatorExpression})._selector`;
+  const base64Encoded = Buffer.from(innerExpression).toString('base64');
+  const expression = `eval(Buffer.from("${base64Encoded}", "base64").toString())`;
   sessionsWithHighlight.add(session);
   return await session.customRequest('evaluate', {
     expression,

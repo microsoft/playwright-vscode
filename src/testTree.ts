@@ -158,7 +158,7 @@ export class TestTree {
       const firstEntry = entriesWithTag[0].entry;
       if (!testItem) {
         // We sort by id in tests, so start with location.
-        testItem = this._testController.createTestItem(this._id(firstEntry.location.file + ':' + firstEntry.location.line + '|' + firstEntry.title), firstEntry.title, this._vscode.Uri.file(firstEntry.location.file));
+        testItem = this._testController.createTestItem(this._id(firstEntry.location.file + ':' + firstEntry.location.line + '|' + firstEntry.titlePath.join('|')), firstEntry.title, this._vscode.Uri.file(firstEntry.location.file));
         (testItem as any)[itemTypeSymbol] = firstEntry.type;
         collection.add(testItem);
       }
@@ -205,7 +205,7 @@ export class TestTree {
     return folderItem;
   }
 
-  testItemForLocation(location: Location, title: string): vscodeTypes.TestItem | undefined {
+  testItemForLocation(location: Location, titlePath: string[]): vscodeTypes.TestItem | undefined {
     const fileItem = this._fileItems.get(location.file);
     if (!fileItem)
       return;
@@ -213,7 +213,7 @@ export class TestTree {
     const visitItem = (testItem: vscodeTypes.TestItem) => {
       if (result)
         return;
-      if (testItem.label === title && testItem.range?.start.line === location.line - 1) {
+      if (titleMatches(testItem, titlePath) && testItem.range?.start.line === location.line - 1) {
         result = testItem;
         return;
       }
@@ -270,6 +270,22 @@ export class TestTree {
     }
     return tag;
   }
+}
+
+function titleMatches(testItem: vscodeTypes.TestItem, titlePath: string[]) {
+  const left = [];
+  while (testItem) {
+    left.unshift(testItem.label);
+    testItem = testItem.parent!;
+  }
+  const right = titlePath.slice();
+  while (right.length) {
+    const leftPart = left.pop();
+    const rightPart = right.pop();
+    if (leftPart !== rightPart)
+      return false;
+  }
+  return true;
 }
 
 const signatureSymbol = Symbol('signatureSymbol');
