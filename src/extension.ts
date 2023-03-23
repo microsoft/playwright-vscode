@@ -167,6 +167,14 @@ export class Extension {
         }
         await this._reusedBrowser.inspectAssert(this._models);
       }),
+      // NOTICE: Modifications Copyright 2022.12.05 @Simmon12
+      vscode.commands.registerCommand('pw.extension.command.waiting', async () => {
+        if (!this._models.length) {
+          vscode.window.showWarningMessage('No Playwright tests found.');
+          return;
+        }
+        await this._reusedBrowser.waitSomeTime(this._models);
+      }),
       // NOTICE: End of Modifications
       vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
         if (!this._models.length) {
