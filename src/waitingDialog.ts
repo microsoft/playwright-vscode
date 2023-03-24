@@ -27,8 +27,8 @@ export class WaitingDialog {
   openDialog() {
     let toolValue = '';
     return this._vscode.window.showInputBox({
-      title: 'please enter the waiting time(s)',
-      value: '1', // 默认1s
+      title: 'please enter the waiting time(ms)',
+      value: '1000', // 默认1ms
     }).then(inputValue => {
       toolValue = inputValue?.trim() || '';
     }).then(async () => {
@@ -42,7 +42,7 @@ export class WaitingDialog {
         this._vscode.window.showWarningMessage(`请输入数字`);
         return;
       }
-      const codeText = `await page.waitForTimeout(${Number(toolValue || '0') * 1000});`;
+      const codeText = `await page.waitForTimeout(${Number(toolValue || '1000')});`;
       this._vscode.env.clipboard.writeText(codeText);
       if (this._editor) {
         const targetIndentation = guessIndentation(this._editor);

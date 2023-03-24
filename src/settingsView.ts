@@ -93,7 +93,7 @@ export class SettingsView implements vscodeTypes.WebviewViewProvider, vscodeType
       },
       {
         command: 'pw.extension.command.waiting',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M6.6 42q-1.2 0-2.1-.9-.9-.9-.9-2.1V9q0-1.2.9-2.1.9-.9 2.1-.9h34.8q1.2 0 2.1.9.9.9.9 2.1v30q0 1.2-.9 2.1-.9.9-2.1.9Zm0-3h34.8V9H6.6v30Zm3.4-5h10v-4H10Zm19.1-4 9.9-9.9-2.85-2.85-7.05 7.1-2.85-2.85-2.8 2.85ZM10 26h10v-4H10Zm0-8h10v-4H10ZM6.6 39V9v30Z"/></svg>`,
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" height="48" width="48"><!--! Font Awesome Pro 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2023 Fonticons, Inc. --><path d="M464 256A208 208 0 1 1 48 256a208 208 0 1 1 416 0zM0 256a256 256 0 1 0 512 0A256 256 0 1 0 0 256zM232 120V256c0 8 4 15.5 10.7 20l96 64c11 7.4 25.9 4.4 33.3-6.7s4.4-25.9-6.7-33.3L280 243.2V120c0-13.3-10.7-24-24-24s-24 10.7-24 24z"/></svg>`,
         text: 'Wait',
       },
       // NOTICE: End of Modifications
