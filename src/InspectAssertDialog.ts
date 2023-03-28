@@ -67,6 +67,42 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
 //   }
 // }
 {
+  // 确认ant-desing提供的select框包含提供的标签
+  label: 'toHaveSelectedLabel',
+  description: 'only for ant-design, Check if the selected dropdown options contain label',
+  needAssertValue: true,
+  genAssertCode: (selector: string, assertValue?: string) => {
+    const assert_snippets = `
+    /**断言select是否包含输入的标签值 开始***/
+    {
+      await page.${selector}?.click();
+      // 主动等待1s，避免其他下拉框还未回收影响新下拉框选择
+      await page.waitForTimeout(1000);
+      let dropdown = await page.waitForSelector('.ant-select-dropdown:not(.ant-select-dropdown-hidden)', {timeout:3000})
+                    .catch(() => {
+                        console.log('下拉框未出现，再次点击选择框，确保下拉框出现')
+                        return page.${selector}?.click().then(() => page.waitForSelector('.ant-select-dropdown:not(.ant-select-dropdown-hidden)'));
+                    });
+      let values = await dropdown.$$eval('.ant-select-item-option[aria-selected="true"] > .ant-select-item-option-content', 
+          options => options.map(option => option?.textContent?.trim())
+      ); 
+      console.log('下拉框中选中的标签:', values);
+      let inputValue = '${assertValue}';
+      let inputOptions = inputValue.split(/[,，]/).map(item => item.trim());
+      // 比较选中的标签和断言的标签是否一致
+      let result = inputOptions.every((itemA) =>
+          values.some((itemB) => itemB?.indexOf(itemA) !== -1)
+      );
+      expect(result).toBe(true);
+    }
+    /**断言select是否包含输入的标签值 结束***/
+
+    `;
+    // return `await expect(page.${selector}).not.toContainText(${JSON.stringify(assertValue)});`;
+    return assert_snippets;
+  }
+},
+{
   // 确认目标元素存在于页面上的某处。
   label: 'toBeVisible',
   detail: 'Check if an item is visible',
