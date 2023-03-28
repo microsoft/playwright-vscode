@@ -51,8 +51,10 @@ export class PlaywrightTest {
   private _testLog: string[] = [];
   private _isUnderTest: boolean;
   private _reusedBrowser: ReusedBrowser;
+  private _vscode: vscodeTypes.VSCode;
 
-  constructor(reusedBrowser: ReusedBrowser, isUnderTest: boolean) {
+  constructor(vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser, isUnderTest: boolean) {
+    this._vscode = vscode;
     this._reusedBrowser = reusedBrowser;
     this._isUnderTest = isUnderTest;
   }
@@ -106,7 +108,7 @@ export class PlaywrightTest {
     }
   }
 
-  async runTests(config: TestConfig, projectNames: string[], settingsEnv: NodeJS.ProcessEnv, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async runTests(config: TestConfig, projectNames: string[], settingsEnv: NodeJS.ProcessEnv, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     const locationArg = locations ? locations : [];
     const args = projectNames.filter(Boolean).map(p => `--project=${p}`);
     if (parametrizedTestTitle)
@@ -133,11 +135,11 @@ export class PlaywrightTest {
       onError: params => {
         errors.push(params.error);
       },
-    }, 'list');
+    }, 'list', new this._vscode.CancellationTokenSource().token);
     return { entries, errors };
   }
 
-  private async _test(config: TestConfig, locations: string[], args: string[], settingsEnv: NodeJS.ProcessEnv, listener: TestListener, mode: 'list' | 'run', token?: vscodeTypes.CancellationToken): Promise<void> {
+  private async _test(config: TestConfig, locations: string[], args: string[], settingsEnv: NodeJS.ProcessEnv, listener: TestListener, mode: 'list' | 'run', token: vscodeTypes.CancellationToken): Promise<void> {
     // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
     // Always use ws transport to mitigate it.
     const reporterServer = new ReporterServer();
@@ -190,7 +192,7 @@ export class PlaywrightTest {
     await reporterServer.wireTestListener(listener, token);
   }
 
-  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], settingsEnv: NodeJS.ProcessEnv, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], settingsEnv: NodeJS.ProcessEnv, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
     locations = locations || [];
