@@ -31,8 +31,10 @@ const config: PlaywrightTestConfig<WorkerOptions> = {
       testIgnore: '**/settings.spec.ts',
       use: {
         mode: 'reuse',
+        screenshot: 'only-on-failure', // 失败时截屏
+        trace: 'retain-on-failure' // 失败时跟踪记录
       }
     }
-  ]
+  ],
 };
 export default config;

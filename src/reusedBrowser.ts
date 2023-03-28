@@ -27,7 +27,7 @@ import { installBrowsers } from './installer';
 import { WebSocketTransport } from './transport';
 import { SettingsModel } from './settingsModel';
 import { InspectAssertDialog } from './InspectAssertDialog';
-import { WaitingDialog } from './waitingDialog';
+import { TooolDialog } from './toolDialog';
 
 export type Snapshot = {
   browsers: BrowserSnapshot[];
@@ -318,10 +318,21 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   async waitSomeTime(models: TestModel[]) {
     if (!this._checkVersion(models[0].config, 'forced to wait for some time'))
       return;
-    const toolBoxDialog = new WaitingDialog(this._vscode, this._vscode.window.activeTextEditor);
+    const toolBoxDialog = new TooolDialog('wait',this._vscode, this._vscode.window.activeTextEditor);
     toolBoxDialog.openDialog();
   }
-  
+
+  /**
+   * Forced to wait for some time
+   * NOTICE: Modifications Copyright 2023.03.22 @Simmon12
+   */
+  async titleAssert(models: TestModel[]) {
+    if (!this._checkVersion(models[0].config, 'title Assert'))
+      return;
+    const toolBoxDialog = new TooolDialog('title', this._vscode, this._vscode.window.activeTextEditor);
+    toolBoxDialog.openDialog();
+  }
+
   canRecord() {
     return !this._isRunningTests;
   }

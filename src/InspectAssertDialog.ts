@@ -41,7 +41,33 @@ interface ExtendQuickPickItem extends vscodeTypes.QuickPickItem {
 }
 
 const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
-  // 判断元素是否可见
+  // 确认元素的文本包含提供的值
+  label: 'toContain',
+  description: 'Check if an item contains a text',
+  needAssertValue: true,
+  genAssertCode: (selector: string, assertValue?: string) => {
+    return `await expect(page.${selector}).toContainText(${JSON.stringify(assertValue)});`;
+  }
+},{
+  // 确认元素的文本不包含提供的值
+  label: 'not.toContain',
+  description: 'Check if an item do not contains a text',
+  needAssertValue: true,
+  genAssertCode: (selector: string, assertValue?: string) => {
+    return `await expect(page.${selector}).not.toContainText(${JSON.stringify(assertValue)});`;
+  }
+},
+// {
+//   // 确认下拉元素中所选选项的value属性包含提供的值
+//   label: 'multi-select toHaveValues',
+//   description: 'Ensures the Locator points to multi-select/combobox the specified values are selected.',
+//   needAssertValue: false,
+//   genAssertCode: (selector: string, assertValue?: string) => {
+//     return `await expect(page.${selector}).toHaveValues(${JSON.stringify(assertValue)});`;
+//   }
+// }
+{
+  // 确认目标元素存在于页面上的某处。
   label: 'toBeVisible',
   detail: 'Check if an item is visible',
   needAssertValue: false,
@@ -49,25 +75,62 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
     // .toBeVisible 是 async 方法
     return `await expect(await page.${selector}).toBeVisible();`;
   }
-}, {
-  // 判断元素是否包含字符串
-  label: 'toContain',
-  detail: 'Check if an item contains a text',
-  needAssertValue: true,
-  genAssertCode: (selector: string, assertValue?: string) => {
-    return `expect(await page.${selector}.textContent()).toContain(${JSON.stringify(assertValue)});`;
+},
+// {
+//   // 确认目标元素不在页面上任何地方
+//   label: 'toBeHidden',
+//   detail: 'Check if an item is not in the page',
+//   needAssertValue: false,
+//   genAssertCode: (selector: string) => {
+//     // .toBeVisible 是 async 方法
+//     return `await expect(await page.${selector}).toBeHidden();`;
+//   }
+// },
+{
+  // 确认目标元素是可编辑的
+  label: 'toBeEditable',
+  detail: 'Check if an item editable',
+  needAssertValue: false,
+  genAssertCode: (selector: string) => {
+    // .toBeVisible 是 async 方法
+    return `await expect(await page.${selector}).toBeEditable();`;
   }
-}, {
-  // 截图
-  label: 'screenshot',
-  detail: 'Take a screenshot',
-  needAssertValue: true,
-  assertValueTitle: 'please input screenshot file name',
-  assertDefaultValue: 'screenshot.png',
-  genAssertCode: (selector: string, assertValue = 'screenshot.png') => {
-    return `await page.${selector}.screenshot({ path: ${JSON.stringify(assertValue)} });`;
+},
+// {
+//   // 确认目标元素是不可操作的
+//   label: 'toBeDisabled',
+//   detail: 'Check if an item is disabled',
+//   needAssertValue: false,
+//   genAssertCode: (selector: string) => {
+//     // .toBeVisible 是 async 方法
+//     return `await expect(await page.${selector}).toBeDisabled();`;
+//   }
+// }
+{
+  // 确认目标元素已被勾选
+  label: 'toBeChecked',
+  detail: 'Check if an item is checked',
+  needAssertValue: false,
+  genAssertCode: (selector: string) => {
+    // .toBeVisible 是 async 方法
+    return `await expect(await page.${selector}).toBeChecked();`;
   }
-}];
+},{
+  // 确认目标元素未被勾选
+  label: 'not.toBeChecked',
+  detail: 'Check if an item is not checked',
+  needAssertValue: false,
+  genAssertCode: (selector: string) => {
+    // .toBeVisible 是 async 方法
+    return `await expect(await page.${selector}).not.toBeChecked();`;
+  }
+},];
+
+// select含有标签
+// await expect(page
+//   .getByRole('listitem'))
+//   .toHaveText(['apple', 'banana', 'orange']);
+
 
 export class InspectAssertDialog {
   private _vscode: vscodeTypes.VSCode;
@@ -79,19 +142,21 @@ export class InspectAssertDialog {
   }
 
 
-  updateOrCancelInspectAssert(selector: string) {
+  async updateOrCancelInspectAssert(selector: string) {
     let assertType: ExtendQuickPickItem | undefined;
     let assertValue = '';
 
     return this._vscode.window.showQuickPick(ASSERT_ITEMS, {
       title: `Please select an assert type for ${selector}`,
+      placeHolder: 'Select an assert type',
     }).then(pickedItem => {
       assertType = pickedItem;
       console.log(assertType);
       if (assertType?.needAssertValue && assertType.label) {
         return this._vscode.window.showInputBox({
-          title: assertType.assertValueTitle || 'please input assert value',
+          title: assertType.assertValueTitle ||  `please input assert value for ${selector}`,
           value: assertType.assertDefaultValue,
+          prompt: 'Please input something',
         });
       }
     }).then(inputValue => {

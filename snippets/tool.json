@@ -8,7 +8,7 @@
 		],
 		"description": "Log output to console"
 	},
-    "wait to some time": {
+    "Wait to some time": {
 		"scope": "javascript,typescript",
 		"prefix": "wait",
 		"body": [
@@ -16,5 +16,14 @@
 			"$0"
 		],
 		"description": "forced to wait some time"
+	},
+	"Expect to HaveTitle": {
+		"scope": "javascript,typescript",
+		"prefix": "title assert",
+		"body": [
+			"await expect(page).toHaveTitle(`${1}`);",
+			"$0"
+		],
+		"description": "Ensures the page has the given title."
 	}
 }
