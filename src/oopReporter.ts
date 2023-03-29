@@ -64,7 +64,6 @@ class OopReporter implements Reporter {
       t.onmessage = message => {
         if (message.method === 'stop')
           process.emit('SIGINT' as any);
-
       };
       t.onclose = () => process.exit(0);
     });

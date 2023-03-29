@@ -31,8 +31,6 @@ test('should report duplicate test title', async ({ activate }) => {
   expect(testController.renderTestTree()).toBe(`
     - tests
       - test.spec.ts
-        - one [2:0]
-        - two [3:0]
   `);
   const diagnostics = vscode.languages.getDiagnostics();
   expect(diagnostics).toEqual([
@@ -65,8 +63,8 @@ test('should report error in global setup', async ({ activate }) => {
 
   const testRun = await testController.run();
   expect(testRun.renderLog({ messages: true })).toContain(`
-    tests > test.spec.ts > should pass [2:0]
-      enqueued
+    tests > test.spec.ts
+      started
       failed
         globalSetup.ts:[3:21 - 3:21]
         Error: <span style='color:#666;'>expect(</span>`);
