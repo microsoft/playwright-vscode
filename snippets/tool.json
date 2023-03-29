@@ -25,5 +25,14 @@
 			"$0"
 		],
 		"description": "Ensures the page has the given title."
+	},
+	"Basic Expect": {
+		"scope": "javascript,typescript",
+		"prefix": "basic assert",
+		"body": [
+			"await expect(${1}).toEqual(${2})",
+			"$0"
+		],
+		"description": "enter the basic assert"
 	}
 }

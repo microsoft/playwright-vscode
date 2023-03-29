@@ -15,12 +15,13 @@
  */
 import * as vscodeTypes from './vscodeTypes';
 
-type Tool = 'wait' | 'title';
+type Tool = 'wait' | 'title' | 'basic_assert';
 interface QuickPickItem  {
   inputTitle: string,
   inputDefaultValue?: string,
-  genCode: (inputValue: string) => string;
-  parameterCheck?: (inputValue: string, vscode: vscodeTypes.VSCode) => boolean
+  genCode: (inputValue: string, anotherInput?: string) => string;
+  parameterCheck?: (inputValue: string, vscode: vscodeTypes.VSCode) => boolean;
+  needAnotherInput?: boolean
 }
 
 const TOOL_MAP: Record<Tool, QuickPickItem> = {
@@ -45,6 +46,13 @@ const TOOL_MAP: Record<Tool, QuickPickItem> = {
       }
       return true;
     }
+  },
+  'basic_assert': {
+    inputTitle: 'please enter variable name',
+    genCode: (inputValue: string, anotherInput?: string) => {
+      return `await expect(${inputValue}).toEqual(${anotherInput})`;
+    },
+    needAnotherInput: true
   }
 };
 
@@ -69,7 +77,15 @@ export class TooolDialog {
       value: tool.inputDefaultValue || '', // 默认1ms
     }).then(inputValue => {
       toolValue = inputValue?.trim() || '';
-    }).then(async () => {
+    }).then(() => {
+      if (tool.needAnotherInput) {
+        return this._vscode.window.showInputBox({
+          title: 'please enter the expected value',
+          value: '',
+          prompt: 'Please input something',
+        });
+      }
+    }).then(async anotherInputValue => {
       if (!toolValue) {
         // 如果没有输入值或者取消输入，就不插入代码
         return false;
@@ -78,7 +94,8 @@ export class TooolDialog {
         // 校验不通过
         return;
       }
-      const codeText = tool.genCode(toolValue);
+      const anotherVal = anotherInputValue;
+      const codeText = tool.genCode(toolValue, anotherVal);
       this._vscode.env.clipboard.writeText(codeText);
       if (this._editor) {
         const targetIndentation = guessIndentation(this._editor);

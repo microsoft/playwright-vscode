@@ -167,7 +167,7 @@ export class Extension {
         }
         await this._reusedBrowser.inspectAssert(this._models);
       }),
-      // NOTICE: Modifications Copyright 2022.12.05 @Simmon12
+      // NOTICE: Modifications Copyright 2023.03.29 @Simmon12
       vscode.commands.registerCommand('pw.extension.command.waiting', async () => {
         if (!this._models.length) {
           vscode.window.showWarningMessage('No Playwright tests found.');
@@ -181,6 +181,13 @@ export class Extension {
           return;
         }
         await this._reusedBrowser.titleAssert(this._models);
+      }),
+      vscode.commands.registerCommand('pw.extension.command.basicAssert', async () => {
+        if (!this._models.length) {
+          vscode.window.showWarningMessage('No Playwright tests found.');
+          return;
+        }
+        await this._reusedBrowser.basicAssert(this._models);
       }),
       // NOTICE: End of Modifications
       vscode.commands.registerCommand('pw.extension.command.inspect', async () => {

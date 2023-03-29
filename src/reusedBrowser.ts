@@ -333,6 +333,17 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     toolBoxDialog.openDialog();
   }
 
+  /**
+   * Basic assert
+   * NOTICE: Modifications Copyright 2023.03.22 @Simmon12
+   */
+  async basicAssert(models: TestModel[]) {
+    if (!this._checkVersion(models[0].config, 'title Assert'))
+      return;
+    const toolBoxDialog = new TooolDialog('basic_assert', this._vscode, this._vscode.window.activeTextEditor);
+    toolBoxDialog.openDialog();
+  }
+
   canRecord() {
     return !this._isRunningTests;
   }
