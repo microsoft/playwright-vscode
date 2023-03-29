@@ -17,11 +17,12 @@
 import fs from 'fs';
 import glob from 'glob';
 import path from 'path';
-import { EventEmitter } from './events';
+import { Disposable, EventEmitter } from './events';
 import minimatch from 'minimatch';
 import { spawn } from 'child_process';
 import which from 'which';
 import { Browser, Page } from '@playwright/test';
+import { CancellationToken } from '../../src/vscodeTypes';
 
 export class Uri {
   scheme = 'file';
@@ -90,14 +91,25 @@ class Range {
 class Selection extends Range {
 }
 
-class CancellationToken {
-  isCancellationRequested: boolean;
+class CancellationTokenSource implements Disposable {
+  token: CancellationToken;
   readonly didCancel = new EventEmitter<void>();
-  onCancellationRequested = this.didCancel.event;
+
+  constructor() {
+    this.token = {
+      isCancellationRequested: false,
+      onCancellationRequested: this.didCancel.event,
+      source: this,
+    };
+  }
 
   cancel() {
-    this.isCancellationRequested = true;
+    this.token.isCancellationRequested = true;
     this.didCancel.fire();
+  }
+
+  dispose() {
+    this.cancel();
   }
 }
 
@@ -154,6 +166,10 @@ class TestItem {
       readonly id: string,
       readonly label: string,
       readonly uri?: Uri) {
+  }
+
+  get size() {
+    return this.map.size;
   }
 
   async expand() {
@@ -256,7 +272,7 @@ class TestRunProfile {
 }
 
 export class TestRunRequest {
-  readonly token = new CancellationToken();
+  readonly token = new CancellationTokenSource().token;
 
   include: TestItem[] | undefined;
   exclude: TestItem[] | undefined;
@@ -300,7 +316,7 @@ export class TestRun {
   readonly _didEnd = new EventEmitter<void>();
   readonly onDidEnd = this._didEnd.event;
   readonly entries = new Map<TestItem, LogEntry[]>();
-  readonly token = new CancellationToken();
+  readonly token = new CancellationTokenSource().token;
   private _output: { output: string, location?: Location, test?: TestItem }[] = [];
 
   constructor(
@@ -665,6 +681,7 @@ class DiagnosticsCollection {
 
 export class VSCode {
   isUnderTest = true;
+  CancellationTokenSource = CancellationTokenSource;
   DiagnosticSeverity = DiagnosticSeverity;
   EventEmitter = EventEmitter;
   Location = Location;
@@ -789,7 +806,7 @@ export class VSCode {
       const progress = {
         report: (data: any) => this.lastWithProgressData = data,
       };
-      await callback(progress, new CancellationToken());
+      await callback(progress, new CancellationTokenSource().token);
     };
     this.window.showTextDocument = (document: TextDocument) => {
       const editor = new TextEditor(document);

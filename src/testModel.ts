@@ -211,12 +211,10 @@ export class TestModel {
   }
 
   private _updateProjects(projectEntries: Entry[], requestedFiles: string[]) {
-    for (const projectEntry of projectEntries) {
-      const project = this.projects.get(projectEntry.title);
-      if (!project)
-        continue;
+    for (const [projectName, project] of this.projects) {
+      const projectEntry = projectEntries.find(e => e.title === projectName);
       const filesToDelete = new Set(requestedFiles);
-      for (const fileEntry of projectEntry.children || []) {
+      for (const fileEntry of projectEntry?.children || []) {
         filesToDelete.delete(fileEntry.location.file);
         const file = project.files.get(fileEntry.location.file);
         if (!file)
@@ -263,12 +261,12 @@ export class TestModel {
     }
   }
 
-  async runTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async runTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     locations = locations ? this._mapSourcesToFiles(locations) : [];
     await this._playwrightTest.runTests(this.config, projects.map(p => p.name), this._envProvider(), locations, testListener, parametrizedTestTitle, token);
   }
 
-  async debugTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async debugTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     locations = locations ? this._mapSourcesToFiles(locations) : [];
     await this._playwrightTest.debugTests(this._vscode, this.config, projects.map(p => p.name), projects.map(p => p.testDir), this._envProvider(), locations, testListener, parametrizedTestTitle, token);
   }

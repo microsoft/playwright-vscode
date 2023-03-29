@@ -111,5 +111,5 @@ test('should debug error', async ({ activate }, testInfo) => {
         Error on line 10
   `);
 
-  testRun.token.cancel();
+  testRun.token.source.cancel();
 });
