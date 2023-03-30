@@ -16,6 +16,7 @@
 
 import { expect, test } from './utils';
 import { TestRun } from './mock/vscode';
+import fs from 'fs';
 
 test('should run all tests', async ({ activate }) => {
   const { vscode, testController } = await activate({
@@ -1001,4 +1002,22 @@ test('should produce output twice', async ({ activate }) => {
       1 passed (XXms)
 
   `);
+});
+
+test('should disable tracing when reusing context', async ({ activate, mode }) => {
+  test.skip(mode !== 'reuse');
+
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests', use: { trace: 'on' } }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async ({ page }) => {});
+    `,
+  });
+
+  const testItems = testController.findTestItems(/test.spec.ts/);
+  expect(testItems.length).toBe(1);
+  await testController.run(testItems);
+
+  expect(fs.existsSync(test.info().outputPath('test-results', 'test-one', 'trace.zip'))).toBe(false);
 });
