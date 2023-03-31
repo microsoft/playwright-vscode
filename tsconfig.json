@@ -6,10 +6,9 @@
     "outDir": "out",
     "sourceMap": true,
     "strict": true,
-    "rootDir": "src",
+    "rootDir": ".",
     "esModuleInterop": true,
-    "noEmit": true
   },
-  "include": ["src", "vscode.d.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]
 }

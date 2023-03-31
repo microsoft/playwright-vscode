@@ -16,6 +16,7 @@
 
 import path from 'path';
 import StackUtils from 'stack-utils';
+import * as nls from 'vscode-nls';
 import { DebugHighlight } from './debugHighlight';
 import { installBrowsers, installPlaywright } from './installer';
 import { MultiMap } from './multimap';
@@ -30,6 +31,12 @@ import { TestTree } from './testTree';
 import { ansiToHtml } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
+
+nls.config({ messageFormat: nls.MessageFormat.bundle, bundleFormat: nls.BundleFormat.standalone })();
+// const localize: nls.LocalizeFunc = nls.loadMessageBundle();
+// const localize = nls.config({
+//   locale: process.env.VSCODE_NLS_CONFIG
+// })();
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'

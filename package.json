@@ -1,7 +1,7 @@
 {
   "name": "playwright",
   "displayName": "Playwright Test for VSCode",
-  "description": "Run Playwright Test tests in Visual Studio Code.",
+  "description": "%description%",
   "icon": "images/playwright-logo.png",
   "version": "1.0.9",
   "publisher": "ms-playwright",
@@ -19,45 +19,45 @@
     "workspaceContains:**/*playwright*.config.{ts,js,mjs}",
     "onCommand:pw.extension.install"
   ],
-  "main": "./out/extension.js",
+  "main": "./out/src/extension.js",
   "contributes": {
     "commands": [
       {
         "category": "Test",
         "command": "pw.extension.install",
-        "title": "Install Playwright"
+        "title": "%contributes.command.pw.extension.install%"
       },
       {
         "category": "Test",
         "command": "pw.extension.installBrowsers",
-        "title": "Install Playwright Browsers"
+        "title": "%contributes.command.pw.extension.installBrowsers%"
       },
       {
         "category": "Test",
         "command": "pw.extension.command.inspect",
-        "title": "Pick locator"
+        "title": "%contributes.command.pw.extension.command.inspect%"
       },
       {
         "category": "Test",
         "command": "pw.extension.command.closeBrowsers",
-        "title": "Close all Playwright browsers"
+        "title": "%contributes.command.pw.extension.command.closeBrowsers%"
       },
       {
         "category": "Test",
+        "icon": "$(record)",
         "command": "pw.extension.command.recordNew",
-        "icon": "$(record)",
-        "title": "Record new"
+        "title": "%contributes.command.pw.extension.command.recordNew%"
       },
       {
         "category": "Test",
-        "command": "pw.extension.command.recordAtCursor",
         "icon": "$(record)",
-        "title": "Record at cursor"
+        "command": "pw.extension.command.recordAtCursor",
+        "title": "%contributes.command.pw.extension.command.recordAtCursor%"
       },
       {
         "category": "Test",
         "command": "pw.extension.toggle.reuseBrowser",
-        "title": "Toggle Playwright Browser Reuse"
+        "title": "%contributes.command.pw.extension.toggle.reuseBrowser%"
       }
     ],
     "configuration": {
@@ -66,12 +66,12 @@
         "playwright.env": {
           "type": "object",
           "default": {},
-          "description": "Environment variables to pass to Playwright Test."
+          "description": "%configuration.playwright.env%"
         },
         "playwright.reuseBrowser": {
           "type": "boolean",
           "default": false,
-          "description": "Show & reuse browser between tests."
+          "description": "%configuration.playwright.reuseBrowser%"
         }
       }
     },
@@ -107,6 +107,7 @@
     "@types/glob": "^8.0.0",
     "@types/node": "^18.11.9",
     "@types/stack-utils": "^2.0.1",
+    "@types/vscode": "^1.77.0",
     "@types/which": "^2.0.1",
     "@types/ws": "^8.5.3",
     "@typescript-eslint/eslint-plugin": "^5.44.0",
@@ -115,10 +116,15 @@
     "eslint": "^8.28.0",
     "eslint-plugin-notice": "^0.9.10",
     "eslint-plugin-react-hooks": "^4.6.0",
+    "event-stream": "^4.0.1",
     "glob": "^8.0.3",
+    "gulp": "^4.0.2",
+    "gulp-sourcemaps": "^3.0.0",
+    "gulp-typescript": "^5.0.0",
     "typescript": "^4.9.3",
     "vsce": "^2.14.0",
-    "vscode-dts": "^0.3.3"
+    "vscode-dts": "^0.3.3",
+    "vscode-nls-dev": "^4.0.3"
   },
   "dependencies": {
     "@babel/core": "^7.20.2",
@@ -126,6 +132,7 @@
     "@babel/parser": "^7.20.3",
     "@babel/traverse": "^7.20.1",
     "stack-utils": "^2.0.6",
+    "vscode-nls": "^5.2.0",
     "which": "^3.0.0",
     "ws": "^8.11.0"
   }
