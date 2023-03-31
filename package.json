@@ -81,6 +81,11 @@
           "type": "webview",
           "id": "pw.extension.settingsView",
           "name": "Playwright"
+        },
+        {
+          "type": "webview",
+          "id": "apiAssert.apiAssertView",
+          "name": "Api Assert"
         }
       ]
     },

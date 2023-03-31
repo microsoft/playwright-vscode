@@ -31,6 +31,10 @@ import { ansiToHtml } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 
+import * as vscode from 'vscode';
+import { ApiAssertViewProvider } from './ApiAssertViewProvider';
+
+
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
 });
@@ -49,7 +53,7 @@ type TestRunInfo = {
 
 export async function activate(context: vscodeTypes.ExtensionContext) {
   // Do not await, quickly run the extension, schedule work.
-  new Extension(require('vscode')).activate(context);
+  new Extension(vscode).activate(context);
 }
 
 export class Extension {
@@ -79,6 +83,7 @@ export class Extension {
   private _reusedBrowser: ReusedBrowser;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
+  private _apiAssertView!: ApiAssertViewProvider;
   private _filesPendingListTests: {
     files: Set<string>,
     timer: NodeJS.Timeout,
@@ -135,6 +140,7 @@ export class Extension {
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
     this._settingsView = new SettingsView(vscode, this._settingsModel, this._reusedBrowser, context.extensionUri);
+    this._apiAssertView = new ApiAssertViewProvider(vscode, context.extensionUri);
     this._disposables = [
       this._debugHighlight,
       this._settingsModel,
@@ -144,6 +150,10 @@ export class Extension {
       vscode.window.onDidChangeVisibleTextEditors(() => {
         this._updateVisibleEditorItems();
       }),
+      // vscode.commands.registerCommand('pw.extension.insertText', async () => {
+      //   await this._reusedBrowser.insertApiTest(this._models);
+      // }),
+
       vscode.commands.registerCommand('pw.extension.install', async () => {
         await installPlaywright(this._vscode);
       }),
@@ -221,6 +231,7 @@ export class Extension {
         }
       }),
       this._settingsView,
+      this._apiAssertView,
       this._testController,
       this._workspaceObserver,
       this._reusedBrowser,
@@ -772,3 +783,5 @@ function parseLocationFromStack(stack: string | undefined, testItem?: vscodeType
     }
   }
 }
+
+

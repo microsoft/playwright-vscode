@@ -74,7 +74,7 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
 {
   // 确认目标元素存在于页面上的某处。
   label: 'toHaveSelectedLabel',
-  detail: 'Check if the selected dropdown options contain label',
+  description: 'Check if the selected dropdown options contain label',
   needAssertValue: true,
   genAssertCode: (selector: string, assertValue?: string) => {
     // .toBeVisible 是 async 方法
@@ -132,7 +132,7 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
 {
   // 确认目标元素存在于页面上的某处。
   label: 'toBeVisible',
-  detail: 'Check if an item is visible',
+  description: 'Check if an item is visible',
   needAssertValue: false,
   genAssertCode: (selector: string) => {
     // .toBeVisible 是 async 方法
@@ -142,7 +142,7 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
 // {
 //   // 确认目标元素不在页面上任何地方
 //   label: 'toBeHidden',
-//   detail: 'Check if an item is not in the page',
+//   description: 'Check if an item is not in the page',
 //   needAssertValue: false,
 //   genAssertCode: (selector: string) => {
 //     // .toBeVisible 是 async 方法
@@ -152,7 +152,7 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
 {
   // 确认目标元素是可编辑的
   label: 'toBeEditable',
-  detail: 'Check if an item editable',
+  description: 'Check if an item editable',
   needAssertValue: false,
   genAssertCode: (selector: string) => {
     // .toBeVisible 是 async 方法
@@ -162,7 +162,7 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
 // {
 //   // 确认目标元素是不可操作的
 //   label: 'toBeDisabled',
-//   detail: 'Check if an item is disabled',
+//   description: 'Check if an item is disabled',
 //   needAssertValue: false,
 //   genAssertCode: (selector: string) => {
 //     // .toBeVisible 是 async 方法
@@ -172,7 +172,7 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
 {
   // 确认目标元素已被勾选
   label: 'toBeChecked',
-  detail: 'Check if an item is checked',
+  description: 'Check if an item is checked',
   needAssertValue: false,
   genAssertCode: (selector: string) => {
     // .toBeVisible 是 async 方法
@@ -181,7 +181,7 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
 },{
   // 确认目标元素未被勾选
   label: 'not.toBeChecked',
-  detail: 'Check if an item is not checked',
+  description: 'Check if an item is not checked',
   needAssertValue: false,
   genAssertCode: (selector: string) => {
     // .toBeVisible 是 async 方法
@@ -190,7 +190,7 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
 },{
   // 检查输入框中的值
   label: 'toCheckInputValue',
-  detail: 'Check if an input text',
+  description: 'Check if an input text',
   needAssertValue: true,
   needInputXpath: true,
   genAssertCode: (selector: string, assertValue?: string, xPath?: string) => {
