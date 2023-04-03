@@ -204,8 +204,18 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
     /** 断言输入框的值结束 **/
     `;
     return assert_snippets;
+  },
+},{
+  // 截图对比
+  label: 'toHaveScreenshot',
+  description: 'produce and visually compare screenshots',
+  needAssertValue: true,
+  genAssertCode: (selector: string, assertValue?: string) => {
+    // 注意: 第一次运行这段代码时，测试用例会报 A snapshot doesn't exist 的错误，但是不用担心，这是符合预期的
+    // 此时文件夹下就会生成一个expected的截图，后续每次运行，都会和这个预先生成的截图进行对比
+    return `await expect(await page.${selector}).toHaveScreenshot('${assertValue}.png');`;
   }
-},];
+}];
 
 // select含有标签
 // await expect(page
