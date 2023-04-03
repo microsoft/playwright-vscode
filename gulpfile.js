@@ -20,6 +20,7 @@ const sourcemaps = require('gulp-sourcemaps');
 const ts = require('gulp-typescript');
 
 const tsProject = ts.createProject('./tsconfig.json');
+const OUT_DIR = 'out';
 
 const languages = [
   { id: 'zh-CN', folderName: 'chs' },
@@ -29,7 +30,8 @@ const languages = [
 // Generate package.nls.*.json files from: ./i18n/*/package.i18n.json
 // Outputs to root path, as these nls files need to be along side package.json
 const generatedAdditionalLocFiles = () => {
-  return gulp.src(['package.nls.json'])
+  return gulp
+      .src(['package.nls.json'])
       .pipe(nls.createAdditionalLanguageFiles(languages, 'i18n'))
       .pipe(gulp.dest('.'));
 };
@@ -38,18 +40,16 @@ const generatedAdditionalLocFiles = () => {
 // Localized strings are read from these files at runtime.
 const generatedSrcLocBundle = () => {
   // Transpile the TS to JS, and let vscode-nls-dev scan the files for calls to localize.
-  return tsProject.src()
+  return tsProject
+      .src()
       .pipe(sourcemaps.init())
-      .pipe(tsProject()).js
+      .pipe(tsProject())
+      .js
       .pipe(nls.rewriteLocalizeCalls())
       .pipe(nls.createAdditionalLanguageFiles(languages, 'i18n'))
-      .pipe(nls.bundleMetaDataFiles('ms-playwright.playwright', 'out'))
+      .pipe(nls.bundleMetaDataFiles('ms-playwright.playwright', OUT_DIR))
       .pipe(nls.bundleLanguageFiles())
-      .pipe(gulp.dest('out'));
+      .pipe(gulp.dest(OUT_DIR));
 };
 
-gulp.task('translations-generate', gulp.series(
-    generatedSrcLocBundle,
-    generatedAdditionalLocFiles,
-));
-
+gulp.task('translate', gulp.series(generatedSrcLocBundle, generatedAdditionalLocFiles));

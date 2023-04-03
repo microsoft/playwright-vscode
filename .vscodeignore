@@ -1,5 +1,8 @@
 **/*
-!out/*.js
+!node_modules
+!out/**/*.js
+!out/**/*.json
+!package.nls.*.json
 !images
 !media/*
 !LICENSE
