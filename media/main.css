@@ -2,28 +2,11 @@ body {
 	background-color: transparent;
 }
 
-.color-list {
-	list-style: none;
-	padding: 0;
+.api-container p {
+	margin-bottom: 5px;
 }
 
-.color-entry {
-	width: 100%;
-	display: flex;
-	margin-bottom: 0.4em;
-	border: 1px solid var(--vscode-input-border);
-}
-
-.color-preview {
-	width: 2em;
-	height: 2em;
-}
-
-.color-preview:hover {
-	outline: inset white;
-}
-
-.color-input {
+.api-test-input {
 	display: block;
 	flex: 1;
 	width: 100%;
@@ -33,8 +16,20 @@ body {
 	padding: 0 0.6em;
 }
 
-.add-color-button {
+.api-select {
+	display: block;
+	width: 100%;
+	border: none;
+	font-family: var(--vscode-font-family);
+	padding: var(--input-padding-vertical) var(--input-padding-horizontal);
+	color: var(--vscode-input-foreground);
+	outline-color: var(--vscode-input-border);
+	background-color: var(--vscode-input-background);
+}
+
+.generate-api-button {
 	display: block;
 	border: none;
 	margin: 0 auto;
+	margin-top:5px
 }

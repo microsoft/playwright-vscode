@@ -60,41 +60,42 @@ export class ApiAssertViewProvider implements vscodeTypes.WebviewViewProvider, v
 
     webviewView.webview.onDidReceiveMessage(data => {
       switch (data.type) {
-        case 'colorSelected':
+        case 'apiTestInsert':
         {
+          const method = data.method;
+          const url = data.url;
+          const json = data.params.replace(/s+/g, '');
+          let params = {};
+          try {
+            // 将JSON字符串解析成对象
+            params = JSON.parse(json);
+          } catch (e) {
+            vscode.window.showWarningMessage(`请输入合法的json参数传：报错详情${e}`);
+            return;
+          }
+          const reqData = method === 'get' ? {
+            params
+          } : {
+            data: params
+          };
 
-          const req = `const result = await request.get('www.baidu.com', {
-            params: ${data}
-        });`;
-          const codeText = `
-            {
-              ${req}
-              // 断言请求返回状态是否为ok
-              expect(result.ok()).toBeTruthy();
-              // resultBody为json后的返回内容，可resultBody.xx获取相应的字段值
-              const resultBody = await result.json();
-            }
-        `;
+          const apiTest = `test("apiTest: ${url}", async ({request}) => {
+  const response = await request.${method}('${url}',${JSON.stringify(reqData)}
+  );
+  // 断言请求结果返回状态是否为200
+  expect(response.ok()).toBeTruthy();
+  // resultBody为json后的返回内容，可resultBody.xx获取相应的字段值
+  const resultBody = await response.json();
+});`;
+          const snippet = new vscode.SnippetString(apiTest);
 
-          vscode.window.activeTextEditor?.insertSnippet(new vscode.SnippetString(`${codeText}`));
+          vscode.window.activeTextEditor?.insertSnippet(snippet);
           break;
         }
       }
     });
   }
 
-  public addColor() {
-    if (this._view) {
-      this._view.show?.(true); // `show` is not implemented in 1.49 but is for 1.50 insiders
-      this._view.webview.postMessage({ type: 'addColor' });
-    }
-  }
-
-  public clearColors() {
-    if (this._view)
-      this._view.webview.postMessage({ type: 'clearColors' });
-
-  }
 
   private _getHtmlForWebview(webview: vscodeTypes.Webview) {
     const vscode = this._vscode;
@@ -127,13 +128,27 @@ export class ApiAssertViewProvider implements vscodeTypes.WebviewViewProvider, v
 				<link href="${styleVSCodeUri}" rel="stylesheet">
 				<link href="${styleMainUri}" rel="stylesheet">
 
-				<title>Cat Colors</title>
+				<title>Api Test</title>
 			</head>
 			<body>
-				<ul class="color-list">
-				</ul>
-
-				<button class="add-color-button">Add Color</button>
+      <ul class="api-container">
+        <li>
+          <p>method:</p>
+          <select id="method" class="api-select">
+            <option value="get">get</option>
+            <option value="post">post</option>
+          </select>
+        </li>
+        <li>
+          <p>url:<p>
+          <input class="api-test-input" type="text" id="url">
+        </li>
+        <li>
+          <p>params:</p>
+          <textarea id="params" class="api-test-input"></textarea>
+        </li>
+				<button class="generate-api-button">Generate Api Test</button>
+      </ul>
 
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
