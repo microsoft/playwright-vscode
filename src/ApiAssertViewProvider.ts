@@ -86,6 +86,7 @@ export class ApiAssertViewProvider implements vscodeTypes.WebviewViewProvider, v
   expect(response.ok()).toBeTruthy();
   // resultBody为json后的返回内容，可resultBody.xx获取相应的字段值
   const resultBody = await response.json();
+  $1
 });`;
           const snippet = new vscode.SnippetString(apiTest);
 
@@ -149,7 +150,6 @@ export class ApiAssertViewProvider implements vscodeTypes.WebviewViewProvider, v
         </li>
 				<button class="generate-api-button">Generate Api Test</button>
       </ul>
-
 				<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
