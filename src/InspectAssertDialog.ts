@@ -209,6 +209,7 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
   // 截图对比
   label: 'toHaveScreenshot',
   description: 'produce and visually compare screenshots',
+  assertValueTitle: 'toHaveScreenshot: please input snapshot name',
   needAssertValue: true,
   genAssertCode: (selector: string, assertValue?: string) => {
     // 注意: 第一次运行这段代码时，测试用例会报 A snapshot doesn't exist 的错误，但是不用担心，这是符合预期的
@@ -245,7 +246,7 @@ export class InspectAssertDialog {
       console.log(assertType);
       if (assertType?.needAssertValue && assertType.label) {
         return this._vscode.window.showInputBox({
-          title: assertType.assertValueTitle ||  `please input assert value for ${selector}`,
+          title: assertType.assertValueTitle ||  `${assertType.label}: please input assert value for ${selector}`,
           value: assertType.assertDefaultValue,
           prompt: 'Please input something',
         });

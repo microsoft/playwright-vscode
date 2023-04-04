@@ -28,6 +28,7 @@ import { WebSocketTransport } from './transport';
 import { SettingsModel } from './settingsModel';
 import { InspectAssertDialog } from './InspectAssertDialog';
 import { TooolDialog } from './toolDialog';
+import { PickContentDialog } from './pickContentDialog';
 
 export type Snapshot = {
   browsers: BrowserSnapshot[];
@@ -342,6 +343,41 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     const toolBoxDialog = new TooolDialog('basic_assert', this._vscode, this._vscode.window.activeTextEditor);
     toolBoxDialog.openDialog();
+  }
+
+  /**
+   * pick dom content
+   * @returns
+   */
+  async pickContent(models: TestModel[]) {
+    if (!this._checkVersion(models[0].config, 'inspect and assert'))
+      return;
+
+
+    const pickDialog = new PickContentDialog(this._vscode, this._vscode.window.activeTextEditor);
+    const pickedItem = await pickDialog.selectPickType();
+    if (pickedItem?.label === 'locator') {
+      await this._startBackendIfNeeded(models[0].config);
+      try {
+        await this._backend?.setMode({ mode: 'inspecting' });
+      } catch (e) {
+        showExceptionAsUserError(this._vscode, models[0], e as Error);
+        return;
+      }
+      this._updateOrCancelInspecting = params => {
+        if (!params.cancel && params.selector) {
+          pickDialog.updateOrCancelInspectPick(params.selector)
+              .then(() => {
+                this._reset(false).catch(() => {});
+              // TODO: resume record
+              });
+        }
+      };
+
+    } else {
+      if (pickedItem) await pickDialog.pickPageContent(pickedItem);
+
+    }
   }
 
   canRecord() {

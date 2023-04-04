@@ -199,6 +199,14 @@ export class Extension {
         }
         await this._reusedBrowser.basicAssert(this._models);
       }),
+      vscode.commands.registerCommand('pw.extension.command.pickContent', async () => {
+        if (!this._models.length) {
+          vscode.window.showWarningMessage('No Playwright tests found.');
+          return;
+        }
+        await this._reusedBrowser.pickContent(this._models);
+      }),
+
       // NOTICE: End of Modifications
       vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
         if (!this._models.length) {
