@@ -163,7 +163,7 @@ export class PlaywrightTest {
     ];
     if (this._reusedBrowser.browserServerEnv(false) && !allArgs.includes('--headed') && !this._isUnderTest)
       allArgs.push('--headed');
-    if (this._isUnderTest || args.includes('--headed'))
+    if (args.includes('--headed'))
       allArgs.push('--workers', '1');
     // Disable original reporters when listing files.
     if (mode === 'list')

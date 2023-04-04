@@ -768,6 +768,7 @@ test('should report project-specific failures', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: 'tests',
+      workers: 1,
       projects: [
         { 'name': 'projectA' },
         { 'name': 'projectB' },
