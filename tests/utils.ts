@@ -15,7 +15,7 @@
  */
 
 import { expect, test as baseTest, Browser, chromium, Page } from '@playwright/test';
-import { Extension } from '../out/extension';
+import { Extension } from '../out/src/extension';
 import { TestController, VSCode, WorkspaceFolder } from './mock/vscode';
 import path from 'path';
 

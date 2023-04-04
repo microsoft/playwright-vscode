@@ -15,7 +15,7 @@
  */
 
 import { expect, test } from './utils';
-import { Extension } from '../out/extension';
+import { Extension } from '../out/src/extension';
 
 test('should list files', async ({ activate }) => {
   const { vscode, testController } = await activate({

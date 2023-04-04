@@ -15,6 +15,7 @@
  */
 
 import { spawn } from 'child_process';
+import * as nls from 'vscode-nls';
 import { TestConfig } from './playwrightTest';
 import { TestModel, TestProject } from './testModel';
 import { createGuid, findNode } from './utils';
@@ -26,6 +27,9 @@ import EventEmitter from 'events';
 import { installBrowsers } from './installer';
 import { WebSocketTransport } from './transport';
 import { SettingsModel } from './settingsModel';
+
+nls.config({ messageFormat: nls.MessageFormat.bundle, bundleFormat: nls.BundleFormat.standalone })();
+const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
 export type Snapshot = {
   browsers: BrowserSnapshot[];
@@ -265,9 +269,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }
 
     const selectorExplorerBox = this._vscode.window.createInputBox();
-    selectorExplorerBox.title = 'Pick locator';
+    selectorExplorerBox.title = localize('inspect.selectorExplorerBox.title', 'Pick locator');
     selectorExplorerBox.value = '';
-    selectorExplorerBox.prompt = 'Accept to copy locator into clipboard';
+    selectorExplorerBox.prompt = localize('inspect.selectorExplorerBox.prompt', 'Accept to copy locator into clipboard');
     selectorExplorerBox.ignoreFocusOut = true;
     selectorExplorerBox.onDidChangeValue(selector => {
       this._backend?.highlight({ selector }).catch(() => {});
@@ -298,7 +302,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     if (!this._checkVersion(models[0].config))
       return;
     if (!this.canRecord()) {
-      this._vscode.window.showWarningMessage(`Can't record while running tests`);
+      this._vscode.window.showWarningMessage(
+          localize('record.message.canNotRecord', `Can't record while running tests`)
+      );
       return;
     }
     await this._vscode.window.withProgress({
@@ -318,9 +324,14 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._onHighlightRequestedForTestEvent.fire('');
   }
 
-  private _checkVersion(config: TestConfig, message: string = 'this feature'): boolean {
+  private _checkVersion(
+    config: TestConfig,
+    message: string = localize('_checkVersion.args.thisFeature','this feature')
+  ): boolean {
     if (config.version < 1.25) {
-      this._vscode.window.showWarningMessage(`Playwright v1.25+ is required for ${message} to work, v${config.version} found`);
+      this._vscode.window.showWarningMessage(
+          localize('_checkVersion.message.versionLowerThan1_25', 'Playwright v1.25+ is required for {0} to work, v{1} found', message, config.version)
+      );
       return false;
     }
     return true;
@@ -413,7 +424,9 @@ test('test', async ({ page }) => {
 
   closeAllBrowsers() {
     if (!this.canClose()) {
-      this._vscode.window.showWarningMessage(`Can't close browsers while running tests`);
+      this._vscode.window.showWarningMessage(
+          localize('closeAllBrowsers.message.canNotClose', `Can't close browsers while running tests`)
+      );
       return;
     }
     this._reset(true).catch(() => {});
