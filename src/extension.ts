@@ -33,10 +33,7 @@ import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 
 nls.config({ messageFormat: nls.MessageFormat.bundle, bundleFormat: nls.BundleFormat.standalone })();
-// const localize: nls.LocalizeFunc = nls.loadMessageBundle();
-// const localize = nls.config({
-//   locale: process.env.VSCODE_NLS_CONFIG
-// })();
+const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -142,6 +139,7 @@ export class Extension {
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
     this._settingsView = new SettingsView(vscode, this._settingsModel, this._reusedBrowser, context.extensionUri);
+    const messageNoPlaywrightFound = localize('activate.message.noPlaywrightFound', 'No Playwright tests found.');
     this._disposables = [
       this._debugHighlight,
       this._settingsModel,
@@ -156,7 +154,7 @@ export class Extension {
       }),
       vscode.commands.registerCommand('pw.extension.installBrowsers', async () => {
         if (!this._models.length) {
-          vscode.window.showWarningMessage('No Playwright tests found.');
+          vscode.window.showWarningMessage(messageNoPlaywrightFound);
           return;
         }
         // Install each version only once.
@@ -168,7 +166,7 @@ export class Extension {
       }),
       vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
         if (!this._models.length) {
-          vscode.window.showWarningMessage('No Playwright tests found.');
+          vscode.window.showWarningMessage(messageNoPlaywrightFound);
           return;
         }
         await this._reusedBrowser.inspect(this._models);
@@ -178,14 +176,14 @@ export class Extension {
       }),
       vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
         if (!this._models.length) {
-          vscode.window.showWarningMessage('No Playwright tests found.');
+          vscode.window.showWarningMessage(messageNoPlaywrightFound);
           return;
         }
         await this._reusedBrowser.record(this._models, true);
       }),
       vscode.commands.registerCommand('pw.extension.command.recordAtCursor', async () => {
         if (!this._models.length) {
-          vscode.window.showWarningMessage('No Playwright tests found.');
+          vscode.window.showWarningMessage(messageNoPlaywrightFound);
           return;
         }
         await this._reusedBrowser.record(this._models, false);
@@ -242,14 +240,20 @@ export class Extension {
         continue;
       const playwrightInfo = await this._playwrightTest.getPlaywrightInfo(workspaceFolderPath, configFilePath);
       if (!playwrightInfo) {
-        if (showWarnings)
-          this._vscode.window.showWarningMessage('Please install Playwright Test via running `npm i --save-dev @playwright/test`');
+        if (showWarnings) {
+          this._vscode.window.showWarningMessage(
+              localize('_rebuildModel.message.installPlaywright', 'Please install Playwright Test via running `npm i --save-dev @playwright/test`')
+          );
+        }
         continue;
       }
 
       if (playwrightInfo.version < 1.28) {
-        if (showWarnings)
-          this._vscode.window.showWarningMessage('Playwright Test v1.28 or newer is required');
+        if (showWarnings) {
+          this._vscode.window.showWarningMessage(
+              localize('_rebuildModel.message.latestPlaywrightRequired', 'Playwright Test v1.28 or newer is required')
+          );
+        }
         continue;
       }
 

@@ -97,24 +97,24 @@ export class SettingsView implements vscodeTypes.WebviewViewProvider, vscodeType
       {
         command: 'pw.extension.command.recordNew',
         svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M22.65 34h3v-8.3H34v-3h-8.35V14h-3v8.7H14v3h8.65ZM24 44q-4.1 0-7.75-1.575-3.65-1.575-6.375-4.3-2.725-2.725-4.3-6.375Q4 28.1 4 23.95q0-4.1 1.575-7.75 1.575-3.65 4.3-6.35 2.725-2.7 6.375-4.275Q19.9 4 24.05 4q4.1 0 7.75 1.575 3.65 1.575 6.35 4.275 2.7 2.7 4.275 6.35Q44 19.85 44 24q0 4.1-1.575 7.75-1.575 3.65-4.275 6.375t-6.35 4.3Q28.15 44 24 44Zm.05-3q7.05 0 12-4.975T41 23.95q0-7.05-4.95-12T24 7q-7.05 0-12.025 4.95Q7 16.9 7 24q0 7.05 4.975 12.025Q16.95 41 24.05 41ZM24 24Z"/></svg>`,
-        text: 'Record new',
+        text: localize('contributes.command.pw.extension.command.recordNew', 'Record new'),
         disabled: !this._reusedBrowser.canRecord(),
       },
       {
         command: 'pw.extension.command.recordAtCursor',
         svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M9 39h2.2l22.15-22.15-2.2-2.2L9 36.8Zm30.7-24.3-6.4-6.4 2.1-2.1q.85-.85 2.1-.85t2.1.85l2.2 2.2q.85.85.85 2.1t-.85 2.1Zm-2.1 2.1L12.4 42H6v-6.4l25.2-25.2Zm-5.35-1.05-1.1-1.1 2.2 2.2Z"/></svg>`,
-        text: 'Record at cursor',
+        text: localize('contributes.command.pw.extension.command.recordAtCursor', 'Record at cursor'),
         disabled: !this._reusedBrowser.canRecord(),
       },
       {
         command: 'testing.showMostRecentOutput',
         svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M11.85 25.3H29.9v-3H11.85Zm0-6.45H29.9v-3H11.85ZM7 40q-1.2 0-2.1-.9Q4 38.2 4 37V11q0-1.2.9-2.1Q5.8 8 7 8h34q1.2 0 2.1.9.9.9.9 2.1v26q0 1.2-.9 2.1-.9.9-2.1.9Zm0-3h34V11H7v26Zm0 0V11v26Z"/></svg>`,
-        text: 'Reveal test output',
+        text: localize('contributes.command.pw.extension.command.revealTestOutput', 'Reveal test output'),
       },
       {
         command: 'pw.extension.command.closeBrowsers',
         svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path xmlns="http://www.w3.org/2000/svg" d="m12.45 37.65-2.1-2.1L21.9 24 10.35 12.45l2.1-2.1L24 21.9l11.55-11.55 2.1 2.1L26.1 24l11.55 11.55-2.1 2.1L24 26.1Z"/></svg>`,
-        text: 'Close all browsers',
+        text: localize('contributes.command.pw.extension.command.closeBrowsers', 'Close all browsers'),
         disabled: !this._reusedBrowser.canClose(),
       },
     ].filter(Boolean);
