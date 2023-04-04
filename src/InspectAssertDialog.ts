@@ -42,8 +42,27 @@ interface ExtendQuickPickItem extends vscodeTypes.QuickPickItem {
   /**
    * generate assert (and screenshot) code
    */
-  genAssertCode: (selector: string, assertValue?: string, xPath?: string) => string;
+  genAssertCode?: (selector: string, assertValue?: string, xPath?: string) => string;
 }
+
+const PICK_ITEMS: ExtendQuickPickItem[] = [{
+  // 页面title 断言
+  label: 'title assert',
+  description: 'Check the page if have the input title',
+  needAssertValue: true,
+}, {
+  // 基础断言
+  label: 'basic assert',
+  description: 'basic assert',
+  needAssertValue: true,
+},{
+  // 需要打开浏览器获取页面元素的断言
+  label: 'locator assert',
+  description: 'locator assert',
+  needAssertValue: true,
+},
+];
+
 
 const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
   // 确认元素的文本包含提供的值
@@ -212,9 +231,11 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
   assertValueTitle: 'toHaveScreenshot: please input snapshot name',
   needAssertValue: true,
   genAssertCode: (selector: string, assertValue?: string) => {
+    return `
     // 注意: 第一次运行这段代码时，测试用例会报 A snapshot doesn't exist 的错误，但是不用担心，这是符合预期的
-    // 此时文件夹下就会生成一个expected的截图，后续每次运行，都会和这个预先生成的截图进行对比
-    return `await expect(await page.${selector}).toHaveScreenshot('${assertValue}.png');`;
+    // 此时文件夹下就会生成一个以你输入的文件名作为前缀命名的截图，后续每次运行，都会和这个预先生成的截图进行对比
+    await expect(await page.${selector}).toHaveScreenshot('${assertValue}.png');
+    `;
   }
 }];
 
@@ -233,6 +254,14 @@ export class InspectAssertDialog {
     this._editor = editor;
   }
 
+  async selectPickType() {
+    return this._vscode.window.showQuickPick(PICK_ITEMS, {
+      title: `Please select assert type`,
+      placeHolder: 'Select assert type',
+    }).then(pickedItem => {
+      return pickedItem;
+    });
+  }
 
   async updateOrCancelInspectAssert(selector: string) {
     let assertType: ExtendQuickPickItem | undefined;
@@ -254,7 +283,7 @@ export class InspectAssertDialog {
     }).then(inputValue => {
       assertValue = inputValue || '';
     }).then(async () => {
-      if (assertType?.label) {
+      if (assertType?.label && assertType.genAssertCode) {
         const codeText = assertType.genAssertCode(selector, assertValue);
         this._vscode.env.clipboard.writeText(codeText);
         if (this._editor) {

@@ -292,24 +292,35 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     if (!this._checkVersion(models[0].config, 'inspect and assert'))
       return;
 
-    await this._startBackendIfNeeded(models[0].config);
-    try {
-      await this._backend?.setMode({ mode: 'inspecting' });
-    } catch (e) {
-      showExceptionAsUserError(this._vscode, models[0], e as Error);
-      return;
-    }
 
     const assertDialog = new InspectAssertDialog(this._vscode, this._vscode.window.activeTextEditor);
-    this._updateOrCancelInspecting = params => {
-      if (!params.cancel && params.selector) {
-        assertDialog.updateOrCancelInspectAssert(params.selector)
-            .then(() => {
-              this._reset(false).catch(() => {});
-              // TODO: resume record
-            });
+    const pickedItem = await assertDialog.selectPickType();
+
+    if (pickedItem?.label === 'locator assert') {
+      await this._startBackendIfNeeded(models[0].config);
+      try {
+        await this._backend?.setMode({ mode: 'inspecting' });
+      } catch (e) {
+        showExceptionAsUserError(this._vscode, models[0], e as Error);
+        return;
       }
-    };
+
+      this._updateOrCancelInspecting = params => {
+        if (!params.cancel && params.selector) {
+          assertDialog.updateOrCancelInspectAssert(params.selector)
+              .then(() => {
+                this._reset(false).catch(() => {});
+                // TODO: resume record
+              });
+        }
+      };
+
+    } else if (pickedItem?.label === 'title assert') {
+      this.titleAssert();
+    } else if (pickedItem?.label === 'basic assert') {
+      this.basicAssert();
+    }
+
   }
 
   /**
@@ -327,9 +338,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
    * Forced to wait for some time
    * NOTICE: Modifications Copyright 2023.03.22 @Simmon12
    */
-  async titleAssert(models: TestModel[]) {
-    if (!this._checkVersion(models[0].config, 'title Assert'))
-      return;
+  async titleAssert() {
     const toolBoxDialog = new TooolDialog('title', this._vscode, this._vscode.window.activeTextEditor);
     toolBoxDialog.openDialog();
   }
@@ -338,9 +347,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
    * Basic assert
    * NOTICE: Modifications Copyright 2023.03.22 @Simmon12
    */
-  async basicAssert(models: TestModel[]) {
-    if (!this._checkVersion(models[0].config, 'title Assert'))
-      return;
+  async basicAssert() {
     const toolBoxDialog = new TooolDialog('basic_assert', this._vscode, this._vscode.window.activeTextEditor);
     toolBoxDialog.openDialog();
   }
