@@ -109,7 +109,7 @@ export class Extension {
 
     this._settingsModel = new SettingsModel(vscode);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
-    this._playwrightTest = new PlaywrightTest(this._reusedBrowser, this._isUnderTest);
+    this._playwrightTest = new PlaywrightTest(this._reusedBrowser, this._isUnderTest, this._envProvider.bind(this));
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModel(true).then(() => {});
@@ -233,7 +233,7 @@ export class Extension {
       const workspaceFolderPath = workspaceFolder.uri.fsPath;
       if (configFilePath.includes('test-results') && !workspaceFolderPath.includes('test-results'))
         continue;
-      const playwrightInfo = await this._playwrightTest.getPlaywrightInfo(workspaceFolderPath, configFilePath, this._envProvider());
+      const playwrightInfo = await this._playwrightTest.getPlaywrightInfo(workspaceFolderPath, configFilePath);
       if (!playwrightInfo) {
         if (showWarnings)
           this._vscode.window.showWarningMessage('Please install Playwright Test via running `npm i --save-dev @playwright/test`');

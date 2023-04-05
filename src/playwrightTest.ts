@@ -51,19 +51,21 @@ export class PlaywrightTest {
   private _testLog: string[] = [];
   private _isUnderTest: boolean;
   private _reusedBrowser: ReusedBrowser;
+  private _envProvider: () => NodeJS.ProcessEnv;
 
-  constructor(reusedBrowser: ReusedBrowser, isUnderTest: boolean) {
+  constructor(reusedBrowser: ReusedBrowser, isUnderTest: boolean, envProvider: () => NodeJS.ProcessEnv) {
     this._reusedBrowser = reusedBrowser;
     this._isUnderTest = isUnderTest;
+    this._envProvider = envProvider;
   }
 
-  async getPlaywrightInfo(workspaceFolder: string, configFilePath: string, settingsEnv: NodeJS.ProcessEnv): Promise<{ version: number, cli: string } | null> {
+  async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, cli: string } | null> {
     try {
       const pwtInfo = await this._runNode([
         '-e',
         'try { const pwtIndex = require.resolve("@playwright/test"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ pwtIndex, version})); } catch { console.log("undefined"); }',
-      ], path.dirname(configFilePath), settingsEnv);
-      const { pwtIndex, version } = JSON.parse(pwtInfo);
+      ], path.dirname(configFilePath));
+      const { version } = JSON.parse(pwtInfo);
       const v = parseFloat(version);
 
       // We only depend on playwright-core in 1.15+, bail out.
@@ -73,7 +75,7 @@ export class PlaywrightTest {
       const cliInfo = await this._runNode([
         '-e',
         'try { const cli = require.resolve("@playwright/test/cli"); console.log(JSON.stringify({ cli })); } catch { console.log("undefined"); }',
-      ], path.dirname(configFilePath), settingsEnv);
+      ], path.dirname(configFilePath));
       let { cli } = JSON.parse(cliInfo);
 
       // Dogfood for 'ttest'
@@ -87,7 +89,7 @@ export class PlaywrightTest {
     return null;
   }
 
-  async listFiles(config: TestConfig, settingsEnv: NodeJS.ProcessEnv): Promise<ConfigListFilesReport | null> {
+  async listFiles(config: TestConfig): Promise<ConfigListFilesReport | null> {
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
     const allArgs = [config.cli, 'list-files', '-c', configFile];
@@ -95,7 +97,7 @@ export class PlaywrightTest {
       // For tests.
       this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright list-files -c ${configFile}`);
     }
-    const output = await this._runNode(allArgs, configFolder, settingsEnv);
+    const output = await this._runNode(allArgs, configFolder);
     try {
       return JSON.parse(output) as ConfigListFilesReport;
     } catch (e) {
@@ -104,7 +106,7 @@ export class PlaywrightTest {
     }
   }
 
-  async runTests(config: TestConfig, projectNames: string[], settingsEnv: NodeJS.ProcessEnv, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async runTests(config: TestConfig, projectNames: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
     const locationArg = locations ? locations : [];
     const args = projectNames.filter(Boolean).map(p => `--project=${p}`);
     if (parametrizedTestTitle)
@@ -115,16 +117,16 @@ export class PlaywrightTest {
     try {
       if (token?.isCancellationRequested)
         return;
-      await this._test(config, locationArg,  args, settingsEnv, listener, 'run', token);
+      await this._test(config, locationArg,  args, this._envProvider(), listener, 'run', token);
     } finally {
       await this._reusedBrowser.didRunTests(false);
     }
   }
 
-  async listTests(config: TestConfig, files: string[], settingsEnv: NodeJS.ProcessEnv): Promise<{ entries: Entry[], errors: TestError[] }> {
+  async listTests(config: TestConfig, files: string[]): Promise<{ entries: Entry[], errors: TestError[] }> {
     let entries: Entry[] = [];
     const errors: TestError[] = [];
-    await this._test(config, files, ['--list'], settingsEnv, {
+    await this._test(config, files, ['--list'], this._envProvider(), {
       onBegin: params => {
         entries = params.projects as Entry[];
       },
@@ -249,8 +251,8 @@ export class PlaywrightTest {
     return this._testLog.slice();
   }
 
-  private async _runNode(args: string[], cwd: string, settingsEnv: NodeJS.ProcessEnv): Promise<string> {
-    return await spawnAsync(await findNode(), args, cwd, settingsEnv);
+  private async _runNode(args: string[], cwd: string): Promise<string> {
+    return await spawnAsync(await findNode(), args, cwd, this._envProvider());
   }
 }
 

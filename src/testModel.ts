@@ -87,7 +87,7 @@ export class TestModel {
   }
 
   async listFiles() {
-    const report = await this._playwrightTest.listFiles(this.config, this._envProvider());
+    const report = await this._playwrightTest.listFiles(this.config);
     if (!report)
       return;
 
@@ -205,7 +205,7 @@ export class TestModel {
     if (!sourcesToLoad.length)
       return [];
 
-    const { entries, errors } = await this._playwrightTest.listTests(this.config, this._mapSourcesToFiles(sourcesToLoad), this._envProvider());
+    const { entries, errors } = await this._playwrightTest.listTests(this.config, this._mapSourcesToFiles(sourcesToLoad));
     this._updateProjects(entries, sourcesToLoad);
     return errors;
   }
@@ -265,7 +265,7 @@ export class TestModel {
 
   async runTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
     locations = locations ? this._mapSourcesToFiles(locations) : [];
-    await this._playwrightTest.runTests(this.config, projects.map(p => p.name), this._envProvider(), locations, testListener, parametrizedTestTitle, token);
+    await this._playwrightTest.runTests(this.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, token);
   }
 
   async debugTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
