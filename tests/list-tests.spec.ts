@@ -340,7 +340,6 @@ test('should forget tests after error before first test', async ({ activate }) =
   expect(testController.renderTestTree()).toBe(`
     - tests
       - test.spec.ts
-        - one [2:0]
   `);
 });
 

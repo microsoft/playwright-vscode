@@ -62,7 +62,7 @@ export class ReporterServer {
     return wsEndpoint;
   }
 
-  async wireTestListener(listener: TestListener, token?: vscodeTypes.CancellationToken) {
+  async wireTestListener(listener: TestListener, token: vscodeTypes.CancellationToken) {
     let timeout: NodeJS.Timeout | undefined;
     const transport = await this._waitForTransport();
 
@@ -78,12 +78,12 @@ export class ReporterServer {
       }
     };
 
-    token?.onCancellationRequested(() => killTestProcess());
-    if (token?.isCancellationRequested)
+    token.onCancellationRequested(killTestProcess);
+    if (token.isCancellationRequested)
       killTestProcess();
 
     transport.onmessage = message => {
-      if (token?.isCancellationRequested && message.method !== 'onEnd')
+      if (token.isCancellationRequested && message.method !== 'onEnd')
         return;
       switch (message.method) {
         case 'onBegin': listener.onBegin?.(message.params); break;

@@ -17,11 +17,12 @@
 import fs from 'fs';
 import glob from 'glob';
 import path from 'path';
-import { EventEmitter } from './events';
+import { Disposable, EventEmitter } from './events';
 import minimatch from 'minimatch';
 import { spawn } from 'child_process';
 import which from 'which';
 import { Browser, Page } from '@playwright/test';
+import { CancellationToken } from '../../src/vscodeTypes';
 
 export class Uri {
   scheme = 'file';
@@ -90,14 +91,25 @@ class Range {
 class Selection extends Range {
 }
 
-class CancellationToken {
-  isCancellationRequested: boolean;
+class CancellationTokenSource implements Disposable {
+  token: CancellationToken;
   readonly didCancel = new EventEmitter<void>();
-  onCancellationRequested = this.didCancel.event;
+
+  constructor() {
+    this.token = {
+      isCancellationRequested: false,
+      onCancellationRequested: this.didCancel.event,
+      source: this,
+    };
+  }
 
   cancel() {
-    this.isCancellationRequested = true;
+    this.token.isCancellationRequested = true;
     this.didCancel.fire();
+  }
+
+  dispose() {
+    this.cancel();
   }
 }
 
@@ -154,6 +166,10 @@ class TestItem {
       readonly id: string,
       readonly label: string,
       readonly uri?: Uri) {
+  }
+
+  get size() {
+    return this.map.size;
   }
 
   async expand() {
@@ -230,6 +246,7 @@ class TestItem {
 
 class TestRunProfile {
   constructor(
+    private testController: TestController,
     readonly label: string,
     readonly kind: TestRunProfileKind,
     readonly runHandler: (request: TestRunRequest, token: CancellationToken) => Promise<void>,
@@ -238,9 +255,15 @@ class TestRunProfile {
     runProfiles.push(this);
   }
 
-  async run(include?: TestItem[], exclude?: TestItem[]) {
+  async run(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {
     const request = new TestRunRequest(include, exclude, this);
-    await this.runHandler(request, request.token);
+    const [testRun] = await Promise.all([
+      new Promise<TestRun>(f => this.testController.onDidCreateTestRun(testRun => {
+        testRun.onDidEnd(() => f(testRun));
+      })),
+      this.runHandler(request, request.token),
+    ]);
+    return testRun;
   }
 
   dispose() {
@@ -248,13 +271,18 @@ class TestRunProfile {
   }
 }
 
-class TestRunRequest {
-  readonly token = new CancellationToken();
+export class TestRunRequest {
+  readonly token = new CancellationTokenSource().token;
 
-  constructor(
-    readonly include?: TestItem[],
-    readonly exclude?: TestItem[],
-    readonly profile?: TestRunProfile) {}
+  include: TestItem[] | undefined;
+  exclude: TestItem[] | undefined;
+  profile: TestRunProfile | undefined;
+
+  constructor(include?: TestItem[], exclude?: TestItem[], profile?: TestRunProfile) {
+    this.include = include;
+    this.exclude = exclude;
+    this.profile = profile;
+  }
 }
 
 export class TestMessage {
@@ -288,7 +316,7 @@ export class TestRun {
   readonly _didEnd = new EventEmitter<void>();
   readonly onDidEnd = this._didEnd.event;
   readonly entries = new Map<TestItem, LogEntry[]>();
-  readonly token = new CancellationToken();
+  readonly token = new CancellationTokenSource().token;
   private _output: { output: string, location?: Location, test?: TestItem }[] = [];
 
   constructor(
@@ -354,15 +382,11 @@ export class TestRun {
     }
     if (options.output) {
       result.push('  Output:');
-      if (this._output.length) {
-        for (const output of this._output) {
-          const lines = output.output.split('\n');
-          result.push(...lines.map(l => '  ' + l));
-        }
-      }
+      const output = this._output.map(o => o.output).join('');
+      const lines = output.split('\n');
+      result.push(...lines.map(l => '  ' + stripAnsi(l).replace(/\d+(\.\d+)?(ms|s)/, 'XXms')));
     }
-    result.push('');
-    return result.join(`\n${indent}`);
+    return trimLog(result.join(`\n${indent}`)) + `\n${indent}`;
   }
 }
 
@@ -388,7 +412,7 @@ export class TestController {
   }
 
   createRunProfile(label: string, kind: TestRunProfileKind, runHandler: (request: TestRunRequest, token: CancellationToken) => Promise<void>, isDefault?: boolean): TestRunProfile {
-    return new TestRunProfile(label, kind, runHandler, !!isDefault, this.runProfiles);
+    return new TestRunProfile(this, label, kind, runHandler, !!isDefault, this.runProfiles);
   }
 
   createTestRun(request: TestRunRequest, name?: string, persist?: boolean): TestRun {
@@ -415,20 +439,12 @@ export class TestController {
 
   async run(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {
     const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Run)!;
-    const [testRun] = await Promise.all([
-      new Promise<TestRun>(f => this.onDidCreateTestRun(f)),
-      profile.run(include, exclude),
-    ]);
-    return testRun;
+    return profile.run(include, exclude);
   }
 
   async debug(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {
     const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Debug)!;
-    const [testRun] = await Promise.all([
-      new Promise<TestRun>(f => this.onDidCreateTestRun(f)),
-      profile.run(include, exclude),
-    ]);
-    return testRun;
+    return profile.run(include, exclude);
   }
 }
 
@@ -495,8 +511,7 @@ class TextEditor {
       result.push('  --------------------------------------------------------------');
       result.push(...state.split('\n').map(s => '  ' + s));
     }
-    result.push('');
-    return result.join(`\n${indent}`);
+    return trimLog(result.join(`\n${indent}`)) + `\n${indent}`;
   }
 
   edit(editCallback) {
@@ -506,7 +521,9 @@ class TextEditor {
         this.selection = range;
         const lines = text.split('\n');
         const lastLine = lines[lines.length - 1];
-        this.selection.end = new Position(range.end.line + (lines.length - 1), lines.length > 1 ? lastLine.length : range.end.character + lastLine.length);
+        const endOfLastLine = new Position(range.end.line + (lines.length - 1), lines.length > 1 ? lastLine.length : range.end.character + lastLine.length);
+        this.selection.start = endOfLastLine;
+        this.selection.end = endOfLastLine;
       }
     });
   }
@@ -664,6 +681,7 @@ class DiagnosticsCollection {
 
 export class VSCode {
   isUnderTest = true;
+  CancellationTokenSource = CancellationTokenSource;
   DiagnosticSeverity = DiagnosticSeverity;
   EventEmitter = EventEmitter;
   Location = Location;
@@ -674,6 +692,7 @@ export class VSCode {
   TestTag = TestTag;
   TestMessage = TestMessage;
   TestRunProfileKind = TestRunProfileKind;
+  TestRunRequest = TestRunRequest;
   Uri = Uri;
   commands: any = {};
   debug: Debug;
@@ -787,7 +806,7 @@ export class VSCode {
       const progress = {
         report: (data: any) => this.lastWithProgressData = data,
       };
-      await callback(progress, new CancellationToken());
+      await callback(progress, new CancellationTokenSource().token);
     };
     this.window.showTextDocument = (document: TextDocument) => {
       const editor = new TextEditor(document);
@@ -946,7 +965,7 @@ export class VSCode {
     const log: string[] = [''];
     for (const extension of this.extensions)
       log.push(...extension.playwrightTestLog());
-    return unescapeRegex(log.join(`\n  ${indent}`) + `\n${indent}`).replace(/\\/g, '/');
+    return trimLog(unescapeRegex(log.join(`\n  ${indent}`)).replace(/\\/g, '/')) + `\n${indent}`;
   }
 }
 
@@ -957,4 +976,13 @@ export function stripAscii(str: string): string {
 
 function unescapeRegex(regex: string) {
   return regex.replace(/\\(.)/g, '$1');
+}
+
+function trimLog(log: string) {
+  return log.split('\n').map(line => line.trimEnd()).join('\n');
+}
+
+const ansiRegex = new RegExp('[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))', 'g');
+function stripAnsi(str: string): string {
+  return str.replace(ansiRegex, '');
 }

@@ -16,6 +16,7 @@
 
 import { expect, test } from './utils';
 import { TestRun } from './mock/vscode';
+import fs from 'fs';
 
 test('should run all tests', async ({ activate }) => {
   const { vscode, testController } = await activate({
@@ -196,7 +197,7 @@ test('should show error message', async ({ activate }) => {
         test.spec.ts:[3:18 - 3:18]
         Error: <span style='color:#666;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
         <br>
-        
+
         <br>
         Expected: <span style='color:#73c991;'>2</span>
         <br>
@@ -250,7 +251,7 @@ test('should show soft error messages', async ({ activate }) => {
         test.spec.ts:[3:23 - 3:23]
         Error: <span style='color:#666;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
         <br>
-        
+
         <br>
         Expected: <span style='color:#73c991;'>2</span>
         <br>
@@ -261,7 +262,7 @@ test('should show soft error messages', async ({ activate }) => {
         test.spec.ts:[4:23 - 4:23]
         Error: <span style='color:#666;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
         <br>
-        
+
         <br>
         Expected: <span style='color:#73c991;'>3</span>
         <br>
@@ -442,7 +443,10 @@ test('should stop', async ({ activate, mode }) => {
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
-      test('one', async () => { await new Promise(() => {})});
+      test('one', async () => {
+        await new Promise(f => process.stdout.write('RUNNING TEST', f));
+        await new Promise(() => {});
+      });
     `,
   });
 
@@ -450,8 +454,12 @@ test('should stop', async ({ activate, mode }) => {
   const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
   const runPromise = profile.run();
   const testRun = await testRunPromise;
-  await new Promise(f => setTimeout(f, 1000));
-  testRun.token.cancel();
+  let output = testRun.renderLog({ output: true });
+  while (!output.includes('RUNNING TEST')) {
+    output = testRun.renderLog({ output: true });
+    await new Promise(f => setTimeout(f, 100));
+  }
+  testRun.token.source.cancel();
   await runPromise;
 });
 
@@ -471,7 +479,10 @@ test('should tear down on stop', async ({ activate }) => {
     `,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
-      test('one', async () => { await new Promise(() => {})});
+      test('one', async () => {
+        await new Promise(f => process.stdout.write('RUNNING TEST', f));
+        await new Promise(() => {});
+      });
     `,
   });
 
@@ -481,12 +492,12 @@ test('should tear down on stop', async ({ activate }) => {
   const testRun = await testRunPromise;
 
   let output = testRun.renderLog({ output: true });
-  while (!output.includes('RUNNING SETUP')) {
+  while (!output.includes('RUNNING TEST')) {
     output = testRun.renderLog({ output: true });
     await new Promise(f => setTimeout(f, 100));
   }
 
-  testRun.token.cancel();
+  testRun.token.source.cancel();
   await runPromise;
   expect(testRun.renderLog({ output: true })).toContain('RUNNING TEARDOWN');
 });
@@ -757,6 +768,7 @@ test('should report project-specific failures', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: 'tests',
+      workers: 1,
       projects: [
         { 'name': 'projectA' },
         { 'name': 'projectB' },
@@ -853,7 +865,7 @@ test('should provisionally enqueue nested tests', async ({ activate }) => {
       test('2', async () => {});
       test.describe('group', () => {
         test('3', async () => {});
-        test('4', async () => {});  
+        test('4', async () => {});
       });
     `,
   });
@@ -936,4 +948,100 @@ test('should show warning when tests do not belong to projects', async ({ activa
   `);
 
   expect(vscode.warnings[0]).toContain('Selected test is outside of the Default Profile (config)');
+});
+
+test('should produce output twice', async ({ activate }) => {
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = {
+      testDir: 'tests',
+      reporter: 'line',
+    }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {
+        console.log('some output');
+      });
+    `,
+  });
+
+  const testItems = testController.findTestItems(/test.spec.ts/);
+  expect(testItems.length).toBe(1);
+
+  const testRun1 = await testController.run(testItems);
+  expect(testRun1.renderLog({ output: true })).toBe(`
+    tests > test.spec.ts > one [2:0]
+      enqueued
+      started
+      passed
+    Output:
+
+    Running 1 test using 1 worker
+
+    [1/1] test.spec.ts:3:11 › one
+    test.spec.ts:3:11 › one
+    some output
+
+      1 passed (XXms)
+
+  `);
+
+  const testRun2 = await testController.run(testItems);
+  expect(testRun2.renderLog({ output: true })).toBe(`
+    tests > test.spec.ts > one [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+    Output:
+
+    Running 1 test using 1 worker
+
+    [1/1] test.spec.ts:3:11 › one
+    test.spec.ts:3:11 › one
+    some output
+
+      1 passed (XXms)
+
+  `);
+});
+
+test('should disable tracing when reusing context', async ({ activate, mode }) => {
+  test.skip(mode !== 'reuse');
+
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests', use: { trace: 'on' } }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async ({ page }) => {});
+    `,
+  });
+
+  const testItems = testController.findTestItems(/test.spec.ts/);
+  expect(testItems.length).toBe(1);
+  await testController.run(testItems);
+
+  expect(fs.existsSync(test.info().outputPath('test-results', 'test-one', 'trace.zip'))).toBe(false);
+});
+
+test('should force workers=1 when reusing the browser', async ({ activate, mode }) => {
+  test.skip(mode !== 'reuse');
+
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests', workers: 2 }`,
+    'tests/test1.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async ({ page }) => {});
+    `,
+    'tests/test2.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async ({ page }) => {});
+    `,
+    'tests/test3.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async ({ page }) => {});
+    `,
+  });
+
+  const testRun = await testController.run();
+  expect(testRun.renderLog({ output: true })).toContain('Running 3 tests using 1 worker');
 });

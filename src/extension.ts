@@ -109,7 +109,7 @@ export class Extension {
 
     this._settingsModel = new SettingsModel(vscode);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
-    this._playwrightTest = new PlaywrightTest(this._reusedBrowser, this._isUnderTest, this._envProvider.bind(this));
+    this._playwrightTest = new PlaywrightTest(this._vscode, this._reusedBrowser, this._isUnderTest, this._envProvider.bind(this));
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModel(true).then(() => {});
@@ -240,9 +240,9 @@ export class Extension {
         continue;
       }
 
-      if (playwrightInfo.version < 1.19) {
+      if (playwrightInfo.version < 1.28) {
         if (showWarnings)
-          this._vscode.window.showWarningMessage('Playwright Test v1.19 or newer is required');
+          this._vscode.window.showWarningMessage('Playwright Test v1.28 or newer is required');
         continue;
       }
 
@@ -265,8 +265,7 @@ export class Extension {
       }
     }
 
-    const onlyLegacyConfigs = !!this._models.length && !this._models.find(m => m.config.version >= 1.28);
-    this._settingsView.updateActions(onlyLegacyConfigs);
+    this._settingsView.updateActions();
 
     this._testTree.finishedLoading();
     await this._updateVisibleEditorItems();
@@ -301,7 +300,7 @@ export class Extension {
     usedProfiles.add(debugProfile);
   }
 
-  private async _scheduleTestRunRequest(configFile: string, projectName: string, isDebug: boolean, request: vscodeTypes.TestRunRequest) {
+  private _scheduleTestRunRequest(configFile: string, projectName: string, isDebug: boolean, request: vscodeTypes.TestRunRequest) {
     // Never run tests concurrently.
     if (this._testRun)
       return;
@@ -321,11 +320,16 @@ export class Extension {
     if (!this._projectsScheduledToRun) {
       this._projectsScheduledToRun = [];
       this._projectsScheduledToRun.push(project);
-      await Promise.resolve().then(async () => {
-        const selectedProjects = this._projectsScheduledToRun!;
+      // Make sure to run tests outside of this function's control flow
+      // so that we can create a new TestRunRequest and see its output.
+      // TODO: remove once this is fixed in VSCode (1.78?) and we
+      // can see test output without this hack.
+      setTimeout(async () => {
+        const selectedProjects = this._projectsScheduledToRun;
         this._projectsScheduledToRun = undefined;
-        await this._runMatchingTests({ selectedProjects, isDebug, request });
-      });
+        if (selectedProjects)
+          await this._runMatchingTests({ selectedProjects, isDebug, request });
+      }, 520);
     } else {
       // Subsequent requests will return right away.
       this._projectsScheduledToRun.push(project);
@@ -337,7 +341,31 @@ export class Extension {
 
     this._completedSteps.clear();
     this._executionLinesChanged();
-    this._testRun = this._testController.createTestRun(request);
+
+    // Create a test run that potentially includes all the test items.
+    // This allows running setup tests that are outside of the scope of the
+    // selected test items.
+    const rootItems: vscodeTypes.TestItem[] = [];
+    this._testController.items.forEach(item => rootItems.push(item));
+    const requestWithDeps = new this._vscode.TestRunRequest(rootItems, [], request.profile);
+
+    // Global errors are attributed to the first test item in the request.
+    // If the request is global, find the first root test item (folder, file) that has
+    // children. It will be reveal with an error.
+    let testItemForGlobalErrors = request.include?.[0];
+    if (!testItemForGlobalErrors) {
+      for (const rootItem of rootItems) {
+        if (!rootItem.children.size)
+          continue;
+        rootItem.children.forEach(c => {
+          if (!testItemForGlobalErrors)
+            testItemForGlobalErrors = c;
+        });
+        if (testItemForGlobalErrors)
+          break;
+      }
+    }
+    this._testRun = this._testController.createTestRun(requestWithDeps);
 
     // Provisionally mark tests (not files and not suits) as enqueued to provide immediate feedback.
     for (const item of request.include || []) {
@@ -363,7 +391,7 @@ export class Extension {
         if (locations && !locations.length)
           continue;
         ranSomeTests = true;
-        await this._runTest(this._testRun, new Set(), model, isDebug, projects, locations, parametrizedTestTitle);
+        await this._runTest(this._testRun, testItemForGlobalErrors, new Set(), model, isDebug, projects, locations, parametrizedTestTitle);
       }
     } finally {
       this._activeSteps.clear();
@@ -436,24 +464,21 @@ located next to Run / Debug Tests toolbar buttons.`);
 
   private async _runTest(
     testRun: vscodeTypes.TestRun,
+    testItemForGlobalErrors: vscodeTypes.TestItem | undefined,
     testFailures: Set<vscodeTypes.TestItem>,
     model: TestModel,
     isDebug: boolean,
     projects: TestProject[],
     locations: string[] | null,
     parametrizedTestTitle: string | undefined) {
-    let testItemForGlobalError: vscodeTypes.TestItem | undefined;
     const testListener: TestListener = {
       onBegin: ({ projects }) => {
         model.updateFromRunningProjects(projects);
         const visit = (entry: Entry) => {
           if (entry.type === 'test') {
             const testItem = this._testTree.testItemForLocation(entry.location, entry.titlePath);
-            if (testItem) {
-              if (!testItemForGlobalError)
-                testItemForGlobalError = testItem;
+            if (testItem)
               testRun.enqueued(testItem);
-            }
           }
           (entry.children || []).forEach(visit);
         };
@@ -462,10 +487,8 @@ located next to Run / Debug Tests toolbar buttons.`);
 
       onTestBegin: params => {
         const testItem = this._testTree.testItemForLocation(params.location, params.titlePath);
-        if (testItem) {
+        if (testItem)
           testRun.started(testItem);
-          testItemForGlobalError = testItem;
-        }
         if (isDebug) {
           // Debugging is always single-workers.
           this._testItemUnderDebug = testItem;
@@ -534,8 +557,11 @@ located next to Run / Debug Tests toolbar buttons.`);
       onError: data => {
         // Global errors don't have associated tests, so we'll be allocating them
         // to the first item / current.
-        if (testItemForGlobalError)
-          testRun.failed(testItemForGlobalError, this._testMessageForTestError(data.error), 0);
+        if (testItemForGlobalErrors) {
+          // Force UI to reveal the item if that is a file that has never been started.
+          testRun.started(testItemForGlobalErrors);
+          testRun.failed(testItemForGlobalErrors, this._testMessageForTestError(data.error), 0);
+        }
       }
     };
 
