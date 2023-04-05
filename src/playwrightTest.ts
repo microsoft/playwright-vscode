@@ -119,7 +119,7 @@ export class PlaywrightTest {
     try {
       if (token?.isCancellationRequested)
         return;
-      await this._test(config, locationArg,  args, this._envProvider(), listener, 'run', token);
+      await this._test(config, locationArg,  args, listener, 'run', token);
     } finally {
       await this._reusedBrowser.didRunTests(false);
     }
@@ -128,7 +128,7 @@ export class PlaywrightTest {
   async listTests(config: TestConfig, files: string[]): Promise<{ entries: Entry[], errors: TestError[] }> {
     let entries: Entry[] = [];
     const errors: TestError[] = [];
-    await this._test(config, files, ['--list'], this._envProvider(), {
+    await this._test(config, files, ['--list'], {
       onBegin: params => {
         entries = params.projects as Entry[];
       },
@@ -139,7 +139,7 @@ export class PlaywrightTest {
     return { entries, errors };
   }
 
-  private async _test(config: TestConfig, locations: string[], args: string[], settingsEnv: NodeJS.ProcessEnv, listener: TestListener, mode: 'list' | 'run', token: vscodeTypes.CancellationToken): Promise<void> {
+  private async _test(config: TestConfig, locations: string[], args: string[], listener: TestListener, mode: 'list' | 'run', token: vscodeTypes.CancellationToken): Promise<void> {
     // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
     // Always use ws transport to mitigate it.
     const reporterServer = new ReporterServer();
@@ -177,7 +177,7 @@ export class PlaywrightTest {
         CI: this._isUnderTest ? undefined : process.env.CI,
         // Don't debug tests when running them.
         NODE_OPTIONS: undefined,
-        ...settingsEnv,
+        ...this._envProvider(),
         ...this._reusedBrowser.browserServerEnv(false),
         ...(await reporterServer.env()),
         // Reset VSCode's options that affect nested Electron.
