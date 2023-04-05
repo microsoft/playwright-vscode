@@ -72,6 +72,17 @@
           "type": "boolean",
           "default": false,
           "description": "Show & reuse browser between tests."
+        },
+        "playwright.packageManager": {
+          "type": "string",
+          "enum": ["npm", "yarn", "pnpm"],
+          "default": "npm",
+          "description": "Set yarn or pnpm. Default is npm."
+        },
+        "playwright.quiet": {
+          "type": "boolean",
+          "default": true,
+          "description": "Set --quiet for install"
         }
       }
     },
