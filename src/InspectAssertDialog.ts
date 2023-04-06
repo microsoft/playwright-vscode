@@ -232,9 +232,12 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
   needAssertValue: true,
   genAssertCode: (selector: string, assertValue?: string) => {
     return `
-    // 注意: 第一次运行这段代码时，测试用例会报 A snapshot doesn't exist 的错误，但是不用担心，这是符合预期的
+    // 注意: 第一次运行这段代码时，测试用例会报 A snapshot doesn't exist 的错误，但是不用担心，这是符合预期的, 
     // 此时文件夹下就会生成一个以你输入的文件名作为前缀命名的截图，后续每次运行，都会和这个预先生成的截图进行对比
-    await expect(await page.${selector}).toHaveScreenshot('${assertValue}.png');
+    // 你可以进行第二次运行，此时只要图片没有差异，即可运行通过
+    await expect(await page.${selector}).toHaveScreenshot('${assertValue}.png', {
+      maxDiffPixelRatio: 0.01 // 最大差异像素点比率：可手动调整此处的值
+    });
     `;
   }
 }];
