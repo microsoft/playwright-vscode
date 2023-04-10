@@ -91,12 +91,11 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
 //   }
 // }
 {
-  // 确认目标元素存在于页面上的某处。
+  // 确认选择框是否选中某些值。
   label: 'toHaveSelectedLabel',
   description: 'Check if the selected dropdown options contain label',
   needAssertValue: true,
   genAssertCode: (selector: string, assertValue?: string) => {
-    // .toBeVisible 是 async 方法
     const code_snippets = `
     /*** 断言select是否包含输入的标签值 开始 ***/
     {
@@ -154,7 +153,6 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
   description: 'Check if an item is visible',
   needAssertValue: false,
   genAssertCode: (selector: string) => {
-    // .toBeVisible 是 async 方法
     return `await expect(await page.${selector}).toBeVisible();`;
   }
 },
@@ -174,7 +172,6 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
   description: 'Check if an item editable',
   needAssertValue: false,
   genAssertCode: (selector: string) => {
-    // .toBeVisible 是 async 方法
     return `await expect(await page.${selector}).toBeEditable();`;
   }
 },
@@ -194,7 +191,6 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
   description: 'Check if an item is checked',
   needAssertValue: false,
   genAssertCode: (selector: string) => {
-    // .toBeVisible 是 async 方法
     return `await expect(await page.${selector}).toBeChecked();`;
   }
 },{
@@ -203,7 +199,6 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
   description: 'Check if an item is not checked',
   needAssertValue: false,
   genAssertCode: (selector: string) => {
-    // .toBeVisible 是 async 方法
     return `await expect(await page.${selector}).not.toBeChecked();`;
   }
 },{
@@ -213,7 +208,6 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
   needAssertValue: true,
   needInputXpath: true,
   genAssertCode: (selector: string, assertValue?: string, xPath?: string) => {
-    // .toBeVisible 是 async 方法
     const assert_snippets =  `
     /** 断言输入框中的值开始 **/
     {
@@ -241,11 +235,6 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
     `;
   }
 }];
-
-// select含有标签
-// await expect(page
-//   .getByRole('listitem'))
-//   .toHaveText(['apple', 'banana', 'orange']);
 
 
 export class InspectAssertDialog {
