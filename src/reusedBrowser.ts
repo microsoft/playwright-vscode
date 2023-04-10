@@ -27,7 +27,7 @@ import { installBrowsers } from './installer';
 import { WebSocketTransport } from './transport';
 import { SettingsModel } from './settingsModel';
 import { InspectAssertDialog } from './InspectAssertDialog';
-import { TooolDialog } from './toolDialog';
+import { ToolDialog } from './toolDialog';
 import { PickContentDialog } from './pickContentDialog';
 
 export type Snapshot = {
@@ -335,7 +335,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   async waitSomeTime(models: TestModel[]) {
     if (!this._checkVersion(models[0].config, 'forced to wait for some time'))
       return;
-    const toolBoxDialog = new TooolDialog('wait',this._vscode, this._vscode.window.activeTextEditor);
+    const toolBoxDialog = new ToolDialog('wait',this._vscode, this._vscode.window.activeTextEditor);
     toolBoxDialog.openDialog();
   }
 
@@ -344,7 +344,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
    * NOTICE: Modifications Copyright 2023.03.22 @Simmon12
    */
   async titleAssert() {
-    const toolBoxDialog = new TooolDialog('title', this._vscode, this._vscode.window.activeTextEditor);
+    const toolBoxDialog = new ToolDialog('title', this._vscode, this._vscode.window.activeTextEditor);
     toolBoxDialog.openDialog();
   }
 
@@ -353,7 +353,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
    * NOTICE: Modifications Copyright 2023.03.22 @Simmon12
    */
   async basicAssert() {
-    const toolBoxDialog = new TooolDialog('basic_assert', this._vscode, this._vscode.window.activeTextEditor);
+    const toolBoxDialog = new ToolDialog('basic_assert', this._vscode, this._vscode.window.activeTextEditor);
     toolBoxDialog.openDialog();
   }
 

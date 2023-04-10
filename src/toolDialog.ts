@@ -56,7 +56,7 @@ const TOOL_MAP: Record<Tool, QuickPickItem> = {
   }
 };
 
-export class TooolDialog {
+export class ToolDialog {
   private _vscode: vscodeTypes.VSCode;
   private _editor?: vscodeTypes.TextEditor;
   public tool: Tool;

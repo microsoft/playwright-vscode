@@ -30,7 +30,6 @@ import { TestTree } from './testTree';
 import { ansiToHtml } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
-
 import * as vscode from 'vscode';
 import { ApiAssertViewProvider } from './ApiAssertViewProvider';
 
@@ -190,14 +189,14 @@ export class Extension {
           vscode.window.showWarningMessage('No Playwright tests found.');
           return;
         }
-        await this._reusedBrowser.titleAssert(this._models);
+        await this._reusedBrowser.titleAssert();
       }),
       vscode.commands.registerCommand('pw.extension.command.basicAssert', async () => {
         if (!this._models.length) {
           vscode.window.showWarningMessage('No Playwright tests found.');
           return;
         }
-        await this._reusedBrowser.basicAssert(this._models);
+        await this._reusedBrowser.basicAssert();
       }),
       vscode.commands.registerCommand('pw.extension.command.pickContent', async () => {
         if (!this._models.length) {
