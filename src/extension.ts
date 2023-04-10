@@ -109,7 +109,7 @@ export class Extension {
 
     this._settingsModel = new SettingsModel(vscode);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
-    this._playwrightTest = new PlaywrightTest(this._vscode, this._reusedBrowser, this._isUnderTest);
+    this._playwrightTest = new PlaywrightTest(this._vscode, this._reusedBrowser, this._isUnderTest, this._envProvider.bind(this));
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModel(true).then(() => {});

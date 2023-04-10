@@ -768,6 +768,7 @@ test('should report project-specific failures', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: 'tests',
+      workers: 1,
       projects: [
         { 'name': 'projectA' },
         { 'name': 'projectB' },
@@ -1020,4 +1021,27 @@ test('should disable tracing when reusing context', async ({ activate, mode }) =
   await testController.run(testItems);
 
   expect(fs.existsSync(test.info().outputPath('test-results', 'test-one', 'trace.zip'))).toBe(false);
+});
+
+test('should force workers=1 when reusing the browser', async ({ activate, mode }) => {
+  test.skip(mode !== 'reuse');
+
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests', workers: 2 }`,
+    'tests/test1.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async ({ page }) => {});
+    `,
+    'tests/test2.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async ({ page }) => {});
+    `,
+    'tests/test3.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async ({ page }) => {});
+    `,
+  });
+
+  const testRun = await testController.run();
+  expect(testRun.renderLog({ output: true })).toContain('Running 3 tests using 1 worker');
 });
