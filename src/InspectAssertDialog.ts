@@ -48,7 +48,7 @@ interface ExtendQuickPickItem extends vscodeTypes.QuickPickItem {
 const PICK_ITEMS: ExtendQuickPickItem[] = [{
   // 页面title 断言
   label: 'title assert',
-  description: 'Check the page if have the input title',
+  description: 'Check the page title if have the input value',
   needAssertValue: true,
 }, {
   // 基础断言
