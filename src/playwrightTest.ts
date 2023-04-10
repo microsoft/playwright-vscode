@@ -51,10 +51,14 @@ export class PlaywrightTest {
   private _testLog: string[] = [];
   private _isUnderTest: boolean;
   private _reusedBrowser: ReusedBrowser;
+  private _envProvider: () => NodeJS.ProcessEnv;
+  private _vscode: vscodeTypes.VSCode;
 
-  constructor(reusedBrowser: ReusedBrowser, isUnderTest: boolean) {
+  constructor(vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser, isUnderTest: boolean, envProvider: () => NodeJS.ProcessEnv) {
+    this._vscode = vscode;
     this._reusedBrowser = reusedBrowser;
     this._isUnderTest = isUnderTest;
+    this._envProvider = envProvider;
   }
 
   async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, cli: string } | null> {
@@ -63,23 +67,21 @@ export class PlaywrightTest {
         '-e',
         'try { const pwtIndex = require.resolve("@playwright/test"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ pwtIndex, version})); } catch { console.log("undefined"); }',
       ], path.dirname(configFilePath));
-      const { pwtIndex, version } = JSON.parse(pwtInfo);
+      const { version } = JSON.parse(pwtInfo);
       const v = parseFloat(version.replace(/-(next|beta)$/, ''));
 
       // We only depend on playwright-core in 1.15+, bail out.
       if (v < 1.19)
         return { cli: '', version: v };
 
-      // Resolve playwright-core relative to @playwright/test.
-      const coreInfo = await this._runNode([
+      const cliInfo = await this._runNode([
         '-e',
-        'try { const coreIndex = require.resolve("playwright-core"); console.log(JSON.stringify({ coreIndex })); } catch { console.log("undefined"); }',
-      ], path.dirname(pwtIndex));
-      const { coreIndex } = JSON.parse(coreInfo);
-      let cli = path.resolve(coreIndex, '..', 'lib', 'cli', 'cli');
+        'try { const cli = require.resolve("@playwright/test/cli"); console.log(JSON.stringify({ cli })); } catch { console.log("undefined"); }',
+      ], path.dirname(configFilePath));
+      let { cli } = JSON.parse(cliInfo);
 
       // Dogfood for 'ttest'
-      if (cli.includes('packages/playwright-core') && configFilePath.includes('playwright-test'))
+      if (cli.includes('packages/playwright-test') && configFilePath.includes('playwright-test'))
         cli = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/playwright-core/lib/cli/cli');
 
       return { cli, version: v };
@@ -106,7 +108,7 @@ export class PlaywrightTest {
     }
   }
 
-  async runTests(config: TestConfig, projectNames: string[], settingsEnv: NodeJS.ProcessEnv, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async runTests(config: TestConfig, projectNames: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     const locationArg = locations ? locations : [];
     const args = projectNames.filter(Boolean).map(p => `--project=${p}`);
     if (parametrizedTestTitle)
@@ -117,27 +119,27 @@ export class PlaywrightTest {
     try {
       if (token?.isCancellationRequested)
         return;
-      await this._test(config, locationArg,  args, settingsEnv, listener, 'run', token);
+      await this._test(config, locationArg,  args, listener, 'run', token);
     } finally {
       await this._reusedBrowser.didRunTests(false);
     }
   }
 
-  async listTests(config: TestConfig, files: string[], settingsEnv: NodeJS.ProcessEnv): Promise<{ entries: Entry[], errors: TestError[] }> {
+  async listTests(config: TestConfig, files: string[]): Promise<{ entries: Entry[], errors: TestError[] }> {
     let entries: Entry[] = [];
     const errors: TestError[] = [];
-    await this._test(config, files, ['--list'], settingsEnv, {
+    await this._test(config, files, ['--list'], {
       onBegin: params => {
         entries = params.projects as Entry[];
       },
       onError: params => {
         errors.push(params.error);
       },
-    }, 'list');
+    }, 'list', new this._vscode.CancellationTokenSource().token);
     return { entries, errors };
   }
 
-  private async _test(config: TestConfig, locations: string[], args: string[], settingsEnv: NodeJS.ProcessEnv, listener: TestListener, mode: 'list' | 'run', token?: vscodeTypes.CancellationToken): Promise<void> {
+  private async _test(config: TestConfig, locations: string[], args: string[], listener: TestListener, mode: 'list' | 'run', token: vscodeTypes.CancellationToken): Promise<void> {
     // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
     // Always use ws transport to mitigate it.
     const reporterServer = new ReporterServer();
@@ -159,9 +161,10 @@ export class PlaywrightTest {
       '--repeat-each', '1',
       '--retries', '0',
     ];
-    if (this._reusedBrowser.browserServerEnv(false) && !allArgs.includes('--headed') && !this._isUnderTest)
+    const reusingBrowser = !!this._reusedBrowser.browserServerEnv(false);
+    if (reusingBrowser && !this._isUnderTest)
       allArgs.push('--headed');
-    if (this._isUnderTest || args.includes('--headed'))
+    if (reusingBrowser)
       allArgs.push('--workers', '1');
     // Disable original reporters when listing files.
     if (mode === 'list')
@@ -174,7 +177,7 @@ export class PlaywrightTest {
         CI: this._isUnderTest ? undefined : process.env.CI,
         // Don't debug tests when running them.
         NODE_OPTIONS: undefined,
-        ...settingsEnv,
+        ...this._envProvider(),
         ...this._reusedBrowser.browserServerEnv(false),
         ...(await reporterServer.env()),
         // Reset VSCode's options that affect nested Electron.
@@ -190,7 +193,7 @@ export class PlaywrightTest {
     await reporterServer.wireTestListener(listener, token);
   }
 
-  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], settingsEnv: NodeJS.ProcessEnv, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token?: vscodeTypes.CancellationToken) {
+  async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], settingsEnv: NodeJS.ProcessEnv, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
     locations = locations || [];
@@ -254,7 +257,7 @@ export class PlaywrightTest {
   }
 
   private async _runNode(args: string[], cwd: string): Promise<string> {
-    return await spawnAsync(await findNode(), args, cwd);
+    return await spawnAsync(await findNode(), args, cwd, this._envProvider());
   }
 }
 
