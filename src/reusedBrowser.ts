@@ -240,6 +240,11 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   browserServerEnv(debug: boolean): NodeJS.ProcessEnv | undefined {
     return (debug || this._shouldReuseBrowserForTests) && this._browserServerWS ? {
       PW_TEST_REUSE_CONTEXT: this._shouldReuseBrowserForTests ? '1' : undefined,
+      // "Show browser" mode forces context reuse that survives over multiple test runs.
+      // Playwright Test sets up `tracesDir` inside the `test-results` folder, so it will be removed between runs.
+      // When context is reused, its ongoing tracing will fail with ENOENT because trace files
+      // were suddenly removed. So we disable tracing in this case.
+      PW_TEST_DISABLE_TRACING: this._shouldReuseBrowserForTests ? '1' : undefined,
       PW_TEST_CONNECT_WS_ENDPOINT: this._browserServerWS,
     } : undefined;
   }
