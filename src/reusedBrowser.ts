@@ -483,7 +483,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
     await fs.promises.writeFile(file, `import { test, expect } from '@playwright/test';
 
-test('test', async ({ page }) => {
+test('test', async ({ page, request }) => {
   // Recording...
 });`);
 

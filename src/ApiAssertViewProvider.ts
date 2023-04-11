@@ -79,7 +79,9 @@ export class ApiAssertViewProvider implements vscodeTypes.WebviewViewProvider, v
             data: params
           };
 
-          const apiTest = `test("apiTest: ${url}", async ({request}) => {
+          const apiTest = `
+/*** API 断言开始 ***/
+{
   const response = await request.${method}('${url}',${JSON.stringify(reqData)}
   );
   // 断言请求结果返回状态是否为200
@@ -87,7 +89,9 @@ export class ApiAssertViewProvider implements vscodeTypes.WebviewViewProvider, v
   // resultBody为json后的返回内容，可resultBody.xx获取相应的字段值
   const resultBody = await response.json();
   $1
-});`;
+}
+/*** API 断言结束 ***/
+`;
           const snippet = new vscode.SnippetString(apiTest);
 
           vscode.window.activeTextEditor?.insertSnippet(snippet);
