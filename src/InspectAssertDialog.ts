@@ -23,7 +23,6 @@ import * as vscodeTypes from './vscodeTypes';
 interface ExtendQuickPickItem extends vscodeTypes.QuickPickItem {
   /**
    * if need to show an input field to get assert value after user picked an assert type
-   * also used for screenshot name
    */
   needAssertValue: boolean,
   /**
@@ -35,10 +34,6 @@ interface ExtendQuickPickItem extends vscodeTypes.QuickPickItem {
    */
   assertDefaultValue?: string,
 
-  /**
-   * if need to input Xpath
-   */
-  needInputXpath?: boolean
   /**
    * generate assert (and screenshot) code
    */
@@ -91,63 +86,6 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
 //   }
 // }
 {
-  // 确认选择框是否选中某些值。
-  label: 'toHaveSelectedLabel',
-  description: 'Check if the selected dropdown options contain label',
-  needAssertValue: true,
-  genAssertCode: (selector: string, assertValue?: string) => {
-    const code_snippets = `
-    /*** 断言select是否包含输入的标签值 开始 ***/
-    {
-      let inputValue = '${assertValue}';
-      let inputOptions = inputValue.split(/[,，]/).map(item => item.trim());
-      for (const item of inputOptions) {
-        await expect(page.${selector}).toContainText(item)
-      }
-
-    }
-    /*** 断言select是否包含输入的标签值 结束 ***/
-    `;
-    return code_snippets;
-  }
-},
-// {
-//   // 确认ant-desing提供的select框包含提供的标签
-//   label: 'toHaveSelectedLabel',
-//   description: 'only for ant-design, Check if the selected dropdown options contain label',
-//   needAssertValue: true,
-//   genAssertCode: (selector: string, assertValue?: string) => {
-//     const assert_snippets = `
-//     /**断言select是否包含输入的标签值 开始***/
-//     {
-//       await page.${selector}?.click();
-//       // 主动等待1s，避免其他下拉框还未回收影响新下拉框选择
-//       await page.waitForTimeout(1000);
-//       let dropdown = await page.waitForSelector('.ant-select-dropdown:not(.ant-select-dropdown-hidden)', {timeout:3000})
-//                     .catch(() => {
-//                         console.log('下拉框未出现，再次点击选择框，确保下拉框出现')
-//                         return page.${selector}?.click().then(() => page.waitForSelector('.ant-select-dropdown:not(.ant-select-dropdown-hidden)'));
-//                     });
-//       let values = await dropdown.$$eval('.ant-select-item-option[aria-selected="true"] > .ant-select-item-option-content',
-//           options => options.map(option => option?.textContent?.trim())
-//       );
-//       console.log('下拉框中选中的标签:', values);
-//       let inputValue = '${assertValue}';
-//       let inputOptions = inputValue.split(/[,，]/).map(item => item.trim());
-//       // 比较选中的标签和断言的标签是否一致
-//       let result = inputOptions.every((itemA) =>
-//           values.some((itemB) => itemB?.indexOf(itemA) !== -1)
-//       );
-//       expect(result).toBe(true);
-//     }
-//     /**断言select是否包含输入的标签值 结束***/
-
-//     `;
-//     // return `await expect(page.${selector}).not.toContainText(${JSON.stringify(assertValue)});`;
-//     return assert_snippets;
-//   }
-// },
-{
   // 确认目标元素存在于页面上的某处。
   label: 'toBeVisible',
   description: 'Check if an item is visible',
@@ -156,16 +94,6 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
     return `await expect(await page.${selector}).toBeVisible();`;
   }
 },
-// {
-//   // 确认目标元素不在页面上任何地方
-//   label: 'toBeHidden',
-//   description: 'Check if an item is not in the page',
-//   needAssertValue: false,
-//   genAssertCode: (selector: string) => {
-//     // .toBeVisible 是 async 方法
-//     return `await expect(await page.${selector}).toBeHidden();`;
-//   }
-// },
 {
   // 确认目标元素是可编辑的
   label: 'toBeEditable',
@@ -175,16 +103,6 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
     return `await expect(await page.${selector}).toBeEditable();`;
   }
 },
-// {
-//   // 确认目标元素是不可操作的
-//   label: 'toBeDisabled',
-//   description: 'Check if an item is disabled',
-//   needAssertValue: false,
-//   genAssertCode: (selector: string) => {
-//     // .toBeVisible 是 async 方法
-//     return `await expect(await page.${selector}).toBeDisabled();`;
-//   }
-// }
 {
   // 确认目标元素已被勾选
   label: 'toBeChecked',
@@ -206,17 +124,8 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
   label: 'toCheckInputValue',
   description: 'Check if an input text',
   needAssertValue: true,
-  needInputXpath: true,
   genAssertCode: (selector: string, assertValue?: string, xPath?: string) => {
-    const assert_snippets =  `
-    /** 断言输入框中的值开始 **/
-    {
-      let inputValue = await page.${selector}.inputValue();
-      expect(inputValue?.trim()).toBe('${assertValue?.trim()}')
-    }
-    /** 断言输入框的值结束 **/
-    `;
-    return assert_snippets;
+    return `expect(await page.${selector}.inputValue()).toBe('${assertValue}')`;
   },
 },{
   // 截图对比
