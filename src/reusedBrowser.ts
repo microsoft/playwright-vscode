@@ -340,7 +340,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   /**
-   * Forced to wait for some time
+   * Page title assert
    * NOTICE: Modifications Copyright 2023.03.22 @Simmon12
    */
   async titleAssert() {
