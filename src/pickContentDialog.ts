@@ -23,7 +23,6 @@ import * as vscodeTypes from './vscodeTypes';
 interface ExtendQuickPickItem extends vscodeTypes.QuickPickItem {
   /**
    * if need to show an input field to get pick value after user picked an pick type
-   * also used for screenshot name
    */
   needInputValue: boolean,
   /**
