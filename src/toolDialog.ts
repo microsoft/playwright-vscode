@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 import * as vscodeTypes from './vscodeTypes';
+import { guessIndentation } from './utils';
 
-type Tool = 'wait' | 'title' | 'basic_assert';
+type Tool = 'wait' | 'title' | 'basicAssert';
 type InputItem = {
   inputTitle: string,
   inputDefaultValue?: string,
@@ -52,7 +53,7 @@ const TOOL_MAP: Record<Tool, QuickPickItem> = {
     },
 
   },
-  'basic_assert': {
+  'basicAssert': {
     inputBox: [{
       inputTitle: 'please enter variable name',
     },{
@@ -61,7 +62,8 @@ const TOOL_MAP: Record<Tool, QuickPickItem> = {
     genCode: (inputValues: string[]) => {
       return `await expect(${inputValues[0]}).toEqual(${inputValues[1]})`;
     },
-  }
+  },
+
 };
 
 export class ToolDialog {
@@ -75,7 +77,6 @@ export class ToolDialog {
     this._editor = editor;
     this.tool = tool;
   }
-
 
   async openDialog() {
     const toolItem = TOOL_MAP[this.tool];
@@ -113,12 +114,3 @@ export class ToolDialog {
 }
 
 
-function guessIndentation(editor: vscodeTypes.TextEditor): number {
-  const lineNumber = editor.selection.start.line;
-  for (let i = lineNumber; i >= 0; --i) {
-    const line = editor.document.lineAt(i);
-    if (!line.isEmptyOrWhitespace)
-      return line.firstNonWhitespaceCharacterIndex;
-  }
-  return 0;
-}

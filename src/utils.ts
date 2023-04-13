@@ -20,6 +20,8 @@ import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
 import which from 'which';
+import * as vscodeTypes from './vscodeTypes';
+
 
 export function calculateSha1(buffer: Buffer | string): string {
   const hash = crypto.createHash('sha1');
@@ -152,4 +154,15 @@ export async function findNode(): Promise<string> {
     throw new Error('Unable to launch `node`, make sure it is in your PATH');
   pathToNodeJS = node;
   return node;
+}
+
+
+export function guessIndentation(editor: vscodeTypes.TextEditor): number {
+  const lineNumber = editor.selection.start.line;
+  for (let i = lineNumber; i >= 0; --i) {
+    const line = editor.document.lineAt(i);
+    if (!line.isEmptyOrWhitespace)
+      return line.firstNonWhitespaceCharacterIndex;
+  }
+  return 0;
 }

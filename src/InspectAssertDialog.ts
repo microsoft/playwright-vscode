@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 import * as vscodeTypes from './vscodeTypes';
+import { guessIndentation } from './utils';
 
 /**
  * Assert Type Pick Item
@@ -202,12 +203,3 @@ export class InspectAssertDialog {
 }
 
 
-function guessIndentation(editor: vscodeTypes.TextEditor): number {
-  const lineNumber = editor.selection.start.line;
-  for (let i = lineNumber; i >= 0; --i) {
-    const line = editor.document.lineAt(i);
-    if (!line.isEmptyOrWhitespace)
-      return line.firstNonWhitespaceCharacterIndex;
-  }
-  return 0;
-}

@@ -17,7 +17,7 @@
 import { spawn } from 'child_process';
 import { TestConfig } from './playwrightTest';
 import { TestModel, TestProject } from './testModel';
-import { createGuid, findNode } from './utils';
+import { createGuid, findNode, guessIndentation } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
 import fs from 'fs';
@@ -353,7 +353,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
    * NOTICE: Modifications Copyright 2023.03.22 @Simmon12
    */
   async basicAssert() {
-    const toolBoxDialog = new ToolDialog('basic_assert', this._vscode, this._vscode.window.activeTextEditor);
+    const toolBoxDialog = new ToolDialog('basicAssert', this._vscode, this._vscode.window.activeTextEditor);
     toolBoxDialog.openDialog();
   }
 
@@ -364,7 +364,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   async pickContent(models: TestModel[]) {
     if (!this._checkVersion(models[0].config, 'inspect and assert'))
       return;
-
 
     const pickDialog = new PickContentDialog(this._vscode, this._vscode.window.activeTextEditor);
     const pickedItem = await pickDialog.selectPickType();
@@ -390,6 +389,56 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       if (pickedItem) await pickDialog.pickPageContent(pickedItem);
 
     }
+  }
+
+  /**
+   * mouse Hover
+   * @returns
+   */
+  async mouseHover(models: TestModel[]) {
+    if (!this._checkVersion(models[0].config, 'mouse hover'))
+      return;
+
+    await this._startBackendIfNeeded(models[0].config);
+    try {
+      await this._backend?.setMode({ mode: 'inspecting' });
+    } catch (e) {
+      showExceptionAsUserError(this._vscode, models[0], e as Error);
+      return;
+    }
+
+    const mouseExplorerBox = this._vscode.window.createInputBox();
+    const activeTextEditor = this._vscode.window.activeTextEditor;
+    mouseExplorerBox.title = 'Mouse Hover';
+    mouseExplorerBox.value = '';
+    mouseExplorerBox.prompt = 'Accept to copy Mouse Hover script into clipboard';
+    mouseExplorerBox.ignoreFocusOut = true;
+    mouseExplorerBox.onDidChangeValue(selector => {
+      this._backend?.highlight({ selector }).catch(() => {});
+    });
+    mouseExplorerBox.onDidHide(() => this._reset(false).catch(() => {}));
+    mouseExplorerBox.onDidAccept(async () => {
+      this._vscode.env.clipboard.writeText(mouseExplorerBox!.value);
+
+      if (activeTextEditor) {
+        const targetIndentation = guessIndentation(activeTextEditor);
+        const range = new this._vscode.Range(activeTextEditor.selection.end, activeTextEditor.selection.end);
+        await activeTextEditor.edit(async editBuilder => {
+          editBuilder.replace(range, '\n' + ' '.repeat(targetIndentation) + mouseExplorerBox!.value + '\n');
+        });
+        activeTextEditor.selection = new this._vscode.Selection(activeTextEditor.selection.end, activeTextEditor.selection.end);
+      }
+      mouseExplorerBox.hide();
+    });
+    mouseExplorerBox.show();
+    this._updateOrCancelInspecting = params => {
+      if (params.cancel)
+        mouseExplorerBox.dispose();
+      else if (params.selector)
+        mouseExplorerBox.value = `await page.${params.selector}.hover();`;
+
+    };
+
   }
 
   canRecord() {
@@ -634,15 +683,6 @@ function showExceptionAsUserError(vscode: vscodeTypes.VSCode, model: TestModel, 
     vscode.window.showErrorMessage(error.message);
 }
 
-function guessIndentation(editor: vscodeTypes.TextEditor): number {
-  const lineNumber = editor.selection.start.line;
-  for (let i = lineNumber; i >= 0; --i) {
-    const line = editor.document.lineAt(i);
-    if (!line.isEmptyOrWhitespace)
-      return line.firstNonWhitespaceCharacterIndex;
-  }
-  return 0;
-}
 
 function indentBlock(block: string, indent: number) {
   const lines = block.split('\n');
