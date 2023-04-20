@@ -1,8 +1,0 @@
-{
-  "contributes.command.pw.extension.command.inspect": "拾取选择器",
-  "contributes.command.pw.extension.command.closeBrowsers": "关闭全部 Playwright 浏览器",
-  "contributes.command.pw.extension.command.recordNew": "录制新用例",
-  "contributes.command.pw.extension.command.recordAtCursor": "在当前光标处开始录制",
-  "contributes.command.pw.extension.command.revealTestOutput": "显示测试输出",
-  "contributes.command.pw.extension.toggle.reuseBrowser": "是否复用 Playwright 浏览器"
-}

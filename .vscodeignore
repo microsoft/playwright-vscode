@@ -1,7 +1,6 @@
 **/*
-!node_modules
-!out/**/*.js
-!out/**/*.json
+!out/*.js
+!l10n/*.json
 !package.nls.json
 !package.nls.*.json
 !images

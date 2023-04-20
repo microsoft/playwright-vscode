@@ -1,0 +1,15 @@
+{
+  "Pick locator": "拾取选择器",
+  "Record new": "录制新用例",
+  "Record at cursor": "在当前光标处开始录制",
+  "Reveal test output": "显示测试输出",
+  "Close all browsers": "关闭全部 Playwright 浏览器",
+  "Accept to copy locator into clipboard": "确认保存到剪贴板",
+  "Can't record while running tests": "运行测试时不能录制",
+  "this feature": "该功能",
+  "Playwright v1.25+ is required for {0} to work, v{1} found": "{0} 需要 Playwright v1.25 或以上的版本，当前版本 v{1}",
+  "Can't close browsers while running tests": "运行测试时不能关闭浏览器",
+  "No Playwright tests found.": "没有找到 Playwright Test",
+  "Please install Playwright Test via running `npm i --save-dev @playwright/test`": "请通过运行 `npm i --save-dev @playwright/test` 安装 Playwright Test",
+  "Playwright Test v1.28 or newer is required": "需要 v1.28 或以上版本的 Playwright Test"
+}

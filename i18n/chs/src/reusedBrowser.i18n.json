@@ -1,8 +1,0 @@
-{
-  "inspect.selectorExplorerBox.title": "拾取选择器",
-  "inspect.selectorExplorerBox.prompt": "确认保存到剪贴板",
-  "record.message.canNotRecord": "运行测试时不能录制",
-  "_checkVersion.args.thisFeature": "该功能",
-  "_checkVersion.message.versionLowerThan1_25": "{0} 需要 Playwright v1.25 或以上的版本，当前版本 v{1}",
-  "closeAllBrowsers.message.canNotClose": "运行测试时不能关闭浏览器"
-}

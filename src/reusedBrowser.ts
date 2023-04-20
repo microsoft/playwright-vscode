@@ -15,7 +15,7 @@
  */
 
 import { spawn } from 'child_process';
-import * as nls from 'vscode-nls';
+import { l10n } from 'vscode';
 import { TestConfig } from './playwrightTest';
 import { TestModel, TestProject } from './testModel';
 import { createGuid, findNode } from './utils';
@@ -27,9 +27,6 @@ import EventEmitter from 'events';
 import { installBrowsers } from './installer';
 import { WebSocketTransport } from './transport';
 import { SettingsModel } from './settingsModel';
-
-nls.config({ messageFormat: nls.MessageFormat.bundle, bundleFormat: nls.BundleFormat.standalone })();
-const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
 export type Snapshot = {
   browsers: BrowserSnapshot[];
@@ -269,9 +266,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }
 
     const selectorExplorerBox = this._vscode.window.createInputBox();
-    selectorExplorerBox.title = localize('inspect.selectorExplorerBox.title', 'Pick locator');
+    selectorExplorerBox.title = l10n.t('Pick locator');
     selectorExplorerBox.value = '';
-    selectorExplorerBox.prompt = localize('inspect.selectorExplorerBox.prompt', 'Accept to copy locator into clipboard');
+    selectorExplorerBox.prompt = l10n.t('Accept to copy locator into clipboard');
     selectorExplorerBox.ignoreFocusOut = true;
     selectorExplorerBox.onDidChangeValue(selector => {
       this._backend?.highlight({ selector }).catch(() => {});
@@ -303,7 +300,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     if (!this.canRecord()) {
       this._vscode.window.showWarningMessage(
-          localize('record.message.canNotRecord', `Can't record while running tests`)
+          l10n.t('Can\'t record while running tests')
       );
       return;
     }
@@ -326,11 +323,11 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   private _checkVersion(
     config: TestConfig,
-    message: string = localize('_checkVersion.args.thisFeature','this feature')
+    message: string = l10n.t('this feature')
   ): boolean {
     if (config.version < 1.25) {
       this._vscode.window.showWarningMessage(
-          localize('_checkVersion.message.versionLowerThan1_25', 'Playwright v1.25+ is required for {0} to work, v{1} found', message, config.version)
+          l10n.t('Playwright v1.25+ is required for {0} to work, v{1} found', message, config.version)
       );
       return false;
     }
@@ -425,7 +422,7 @@ test('test', async ({ page }) => {
   closeAllBrowsers() {
     if (!this.canClose()) {
       this._vscode.window.showWarningMessage(
-          localize('closeAllBrowsers.message.canNotClose', `Can't close browsers while running tests`)
+          l10n.t('Can\'t close browsers while running tests')
       );
       return;
     }

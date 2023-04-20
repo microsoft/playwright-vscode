@@ -1,5 +1,0 @@
-{
-  "activate.message.noPlaywrightFound": "没有找到 Playwright Test",
-  "_rebuildModel.message.installPlaywright": "请通过运行 `npm i --save-dev @playwright/test` 安装 Playwright Test",
-  "_rebuildModel.message.latestPlaywrightRequired": "需要 v1.28 或以上版本的 Playwright Test"
-}

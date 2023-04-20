@@ -16,7 +16,7 @@
 
 import path from 'path';
 import StackUtils from 'stack-utils';
-import * as nls from 'vscode-nls';
+import { l10n } from 'vscode';
 import { DebugHighlight } from './debugHighlight';
 import { installBrowsers, installPlaywright } from './installer';
 import { MultiMap } from './multimap';
@@ -31,9 +31,6 @@ import { TestTree } from './testTree';
 import { ansiToHtml } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
-
-nls.config({ messageFormat: nls.MessageFormat.bundle, bundleFormat: nls.BundleFormat.standalone })();
-const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -139,7 +136,7 @@ export class Extension {
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
     this._settingsView = new SettingsView(vscode, this._settingsModel, this._reusedBrowser, context.extensionUri);
-    const messageNoPlaywrightFound = localize('activate.message.noPlaywrightFound', 'No Playwright tests found.');
+    const messageNoPlaywrightFound = l10n.t('No Playwright tests found.');
     this._disposables = [
       this._debugHighlight,
       this._settingsModel,
@@ -242,7 +239,7 @@ export class Extension {
       if (!playwrightInfo) {
         if (showWarnings) {
           this._vscode.window.showWarningMessage(
-              localize('_rebuildModel.message.installPlaywright', 'Please install Playwright Test via running `npm i --save-dev @playwright/test`')
+              l10n.t('Please install Playwright Test via running `npm i --save-dev @playwright/test`')
           );
         }
         continue;
@@ -251,7 +248,7 @@ export class Extension {
       if (playwrightInfo.version < 1.28) {
         if (showWarnings) {
           this._vscode.window.showWarningMessage(
-              localize('_rebuildModel.message.latestPlaywrightRequired', 'Playwright Test v1.28 or newer is required')
+              l10n.t('Playwright Test v1.28 or newer is required')
           );
         }
         continue;
