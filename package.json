@@ -90,6 +90,7 @@
     "esbuild": "esbuild ./src/babelBundle.ts ./src/extension.ts ./src/oopReporter.ts ./src/debugTransform.ts --bundle --outdir=out --external:vscode --external:./babelBundle --external:./debugTransform --external:./oopReporter --format=cjs --platform=node --target=ES2019",
     "build": "npm run esbuild -- --minify",
     "watch": "npm run esbuild -- --sourcemap --watch",
+    "l10n": "npx @vscode/l10n-dev export -o ./l10n ./src",
     "vscode:prepublish": "npm run build",
     "lint": "tsc && eslint . --ext .ts,.tsx,.js",
     "download-api": "vscode-dts dev && vscode-dts main",
