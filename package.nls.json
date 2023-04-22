@@ -1,5 +1,5 @@
 {
-  "description": "Run Playwright Test tests in Visual Studio Code. from nls",
+  "description": "Run Playwright Test tests in Visual Studio Code.",
   "contributes.command.pw.extension.install": "Install Playwright",
   "contributes.command.pw.extension.installBrowsers": "Install Playwright Browsers",
   "contributes.command.pw.extension.command.inspect": "Pick locator",

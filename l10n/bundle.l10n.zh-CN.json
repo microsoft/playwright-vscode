@@ -11,5 +11,5 @@
   "Can't close browsers while running tests": "运行测试时不能关闭浏览器",
   "No Playwright tests found.": "没有找到 Playwright Test",
   "Please install Playwright Test via running `npm i --save-dev @playwright/test`": "请通过运行 `npm i --save-dev @playwright/test` 安装 Playwright Test",
-  "Playwright Test v1.28 or newer is required": "需要 v1.28 或以上版本的 Playwright Test"
+  "Playwright Test v{0} or newer is required": "需要 v{0} 或以上版本的 Playwright Test"
 }

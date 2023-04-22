@@ -16,7 +16,6 @@
 
 import path from 'path';
 import StackUtils from 'stack-utils';
-import { l10n } from 'vscode';
 import { DebugHighlight } from './debugHighlight';
 import { installBrowsers, installPlaywright } from './installer';
 import { MultiMap } from './multimap';
@@ -136,7 +135,7 @@ export class Extension {
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
     this._settingsView = new SettingsView(vscode, this._settingsModel, this._reusedBrowser, context.extensionUri);
-    const messageNoPlaywrightFound = l10n.t('No Playwright tests found.');
+    const messageNoPlaywrightTestsFound = this._vscode.l10n.t('No Playwright tests found.');
     this._disposables = [
       this._debugHighlight,
       this._settingsModel,
@@ -151,7 +150,7 @@ export class Extension {
       }),
       vscode.commands.registerCommand('pw.extension.installBrowsers', async () => {
         if (!this._models.length) {
-          vscode.window.showWarningMessage(messageNoPlaywrightFound);
+          vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
         // Install each version only once.
@@ -163,7 +162,7 @@ export class Extension {
       }),
       vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
         if (!this._models.length) {
-          vscode.window.showWarningMessage(messageNoPlaywrightFound);
+          vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
         await this._reusedBrowser.inspect(this._models);
@@ -173,14 +172,14 @@ export class Extension {
       }),
       vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
         if (!this._models.length) {
-          vscode.window.showWarningMessage(messageNoPlaywrightFound);
+          vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
         await this._reusedBrowser.record(this._models, true);
       }),
       vscode.commands.registerCommand('pw.extension.command.recordAtCursor', async () => {
         if (!this._models.length) {
-          vscode.window.showWarningMessage(messageNoPlaywrightFound);
+          vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
         await this._reusedBrowser.record(this._models, false);
@@ -239,16 +238,17 @@ export class Extension {
       if (!playwrightInfo) {
         if (showWarnings) {
           this._vscode.window.showWarningMessage(
-              l10n.t('Please install Playwright Test via running `npm i --save-dev @playwright/test`')
+              this._vscode.l10n.t('Please install Playwright Test via running `npm i --save-dev @playwright/test`')
           );
         }
         continue;
       }
 
-      if (playwrightInfo.version < 1.28) {
+      const minimumPlaywrightVersion = 1.28;
+      if (playwrightInfo.version < minimumPlaywrightVersion) {
         if (showWarnings) {
           this._vscode.window.showWarningMessage(
-              l10n.t('Playwright Test v1.28 or newer is required')
+              this._vscode.l10n.t('Playwright Test v{0} or newer is required', minimumPlaywrightVersion)
           );
         }
         continue;
