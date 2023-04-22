@@ -81,7 +81,7 @@
         {
           "type": "webview",
           "id": "pw.extension.settingsView",
-          "name": "Playwright"
+          "name": "%views.test.pw.extension.settingsView%"
         }
       ]
     }
