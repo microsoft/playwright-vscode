@@ -679,6 +679,14 @@ class DiagnosticsCollection {
   }
 }
 
+class L10n {
+  t(message: string, ...args: Array<string | number | boolean>): string {
+    return message.replace(/{(\d+)}/g, function(match: string, idx) {
+      return (args[parseInt(idx, 10)] ?? match) as string;
+    });
+  }
+}
+
 export class VSCode {
   isUnderTest = true;
   CancellationTokenSource = CancellationTokenSource;
@@ -727,6 +735,7 @@ export class VSCode {
   private _browser: Browser;
   readonly webViews = new Map<string, Page>();
   readonly commandLog: string[] = [];
+  readonly l10n = new L10n();
   lastWithProgressData = undefined;
 
   constructor(baseDir: string, browser: Browser) {

@@ -265,9 +265,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }
 
     const selectorExplorerBox = this._vscode.window.createInputBox();
-    selectorExplorerBox.title = 'Pick locator';
+    selectorExplorerBox.title = this._vscode.l10n.t('Pick locator');
     selectorExplorerBox.value = '';
-    selectorExplorerBox.prompt = 'Accept to copy locator into clipboard';
+    selectorExplorerBox.prompt = this._vscode.l10n.t('Accept to copy locator into clipboard');
     selectorExplorerBox.ignoreFocusOut = true;
     selectorExplorerBox.onDidChangeValue(selector => {
       this._backend?.highlight({ selector }).catch(() => {});
@@ -298,7 +298,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     if (!this._checkVersion(models[0].config))
       return;
     if (!this.canRecord()) {
-      this._vscode.window.showWarningMessage(`Can't record while running tests`);
+      this._vscode.window.showWarningMessage(
+          this._vscode.l10n.t('Can\'t record while running tests')
+      );
       return;
     }
     await this._vscode.window.withProgress({
@@ -318,9 +320,14 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._onHighlightRequestedForTestEvent.fire('');
   }
 
-  private _checkVersion(config: TestConfig, message: string = 'this feature'): boolean {
+  private _checkVersion(
+    config: TestConfig,
+    message: string = this._vscode.l10n.t('this feature')
+  ): boolean {
     if (config.version < 1.25) {
-      this._vscode.window.showWarningMessage(`Playwright v1.25+ is required for ${message} to work, v${config.version} found`);
+      this._vscode.window.showWarningMessage(
+          this._vscode.l10n.t('Playwright v1.25+ is required for {0} to work, v{1} found', message, config.version)
+      );
       return false;
     }
     return true;
@@ -413,7 +420,9 @@ test('test', async ({ page }) => {
 
   closeAllBrowsers() {
     if (!this.canClose()) {
-      this._vscode.window.showWarningMessage(`Can't close browsers while running tests`);
+      this._vscode.window.showWarningMessage(
+          this._vscode.l10n.t('Can\'t close browsers while running tests')
+      );
       return;
     }
     this._reset(true).catch(() => {});
