@@ -262,6 +262,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     await this._startBackendIfNeeded(models[0].config);
     try {
       await this._backend?.setMode({ mode: 'inspecting' });
+      // await this._backend?.setMode({ mode: 'inspecting', testIdAttributeName: models[0].config.testIdAttributeName });
     } catch (e) {
       showExceptionAsUserError(this._vscode, models[0], e as Error);
       return;

@@ -42,11 +42,6 @@ interface ExtendQuickPickItem extends vscodeTypes.QuickPickItem {
 }
 
 const PICK_ITEMS: ExtendQuickPickItem[] = [{
-  // 页面title 断言
-  label: 'title assert',
-  description: 'Check the page title if have the input value',
-  needAssertValue: true,
-}, {
   // 基础断言
   label: 'basic assert',
   description: 'basic assert',
@@ -55,6 +50,11 @@ const PICK_ITEMS: ExtendQuickPickItem[] = [{
   // 需要打开浏览器获取页面元素的断言
   label: 'locator assert',
   description: 'locator assert',
+  needAssertValue: true,
+},{
+  // 页面title 断言
+  label: 'title assert',
+  description: 'Check the page title if have the input value',
   needAssertValue: true,
 },
 ];
@@ -77,33 +77,6 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
     return `await expect(page.${selector}).not.toContainText(${JSON.stringify(assertValue)});`;
   }
 },
-// {
-//   // 确认下拉元素中所选选项的value属性包含提供的值
-//   label: 'multi-select toHaveValues',
-//   description: 'Ensures the Locator points to multi-select/combobox the specified values are selected.',
-//   needAssertValue: false,
-//   genAssertCode: (selector: string, assertValue?: string) => {
-//     return `await expect(page.${selector}).toHaveValues(${JSON.stringify(assertValue)});`;
-//   }
-// }
-{
-  // 确认目标元素存在于页面上的某处。
-  label: 'toBeVisible',
-  description: 'Check if an item is visible',
-  needAssertValue: false,
-  genAssertCode: (selector: string) => {
-    return `await expect(await page.${selector}).toBeVisible();`;
-  }
-},
-{
-  // 确认目标元素是可编辑的
-  label: 'toBeEditable',
-  description: 'Check if an item editable',
-  needAssertValue: false,
-  genAssertCode: (selector: string) => {
-    return `await expect(await page.${selector}).toBeEditable();`;
-  }
-},
 {
   // 确认目标元素已被勾选
   label: 'toBeChecked',
@@ -120,7 +93,35 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
   genAssertCode: (selector: string) => {
     return `await expect(await page.${selector}).not.toBeChecked();`;
   }
-},{
+},
+// {
+//   // 确认下拉元素中所选选项的value属性包含提供的值
+//   label: 'multi-select toHaveValues',
+//   description: 'Ensures the Locator points to multi-select/combobox the specified values are selected.',
+//   needAssertValue: false,
+//   genAssertCode: (selector: string, assertValue?: string) => {
+//     return `await expect(page.${selector}).toHaveValues(${JSON.stringify(assertValue)});`;
+//   }
+// }
+{
+  // 确认目标元素是可编辑的
+  label: 'toBeEditable',
+  description: 'Check if an item editable',
+  needAssertValue: false,
+  genAssertCode: (selector: string) => {
+    return `await expect(await page.${selector}).toBeEditable();`;
+  }
+},
+{
+  // 确认目标元素存在于页面上的某处。
+  label: 'toBeVisible',
+  description: 'Check if an item is visible',
+  needAssertValue: false,
+  genAssertCode: (selector: string) => {
+    return `await expect(await page.${selector}).toBeVisible();`;
+  }
+},
+{
   // 检查输入框中的值
   label: 'toCheckInputValue',
   description: 'Check if an input text',
@@ -128,7 +129,8 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
   genAssertCode: (selector: string, assertValue?: string, xPath?: string) => {
     return `expect(await page.${selector}.inputValue()).toBe('${assertValue}')`;
   },
-},{
+},
+{
   // 截图对比
   label: 'toHaveScreenshot',
   description: 'produce and visually compare screenshots',
@@ -144,7 +146,7 @@ const ASSERT_ITEMS: ExtendQuickPickItem[] = [{
     });
     `;
   }
-}];
+},];
 
 
 export class InspectAssertDialog {
