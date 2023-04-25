@@ -102,7 +102,7 @@
     "uncode-insiders": "code-insiders --uninstall-extension ms-playwright.playwright"
   },
   "devDependencies": {
-    "@playwright/test": "1.33.0-alpha-mar-30-2023",
+    "@playwright/test": "1.33.0-beta-1682374575000",
     "@types/babel__core": "^7.1.20",
     "@types/babel__helper-plugin-utils": "^7.10.0",
     "@types/babel__traverse": "^7.18.2",
