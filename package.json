@@ -1,16 +1,16 @@
 {
   "name": "playwright",
   "displayName": "Playwright Test for VSCode",
-  "description": "Run Playwright Test tests in Visual Studio Code.",
+  "description": "%description%",
   "icon": "images/playwright-logo.png",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "publisher": "ms-playwright",
   "repository": "https://github.com/microsoft/playwright-vscode",
   "bugs": {
     "url": "https://github.com/microsoft/playwright-vscode/issues"
   },
   "engines": {
-    "vscode": "^1.65.0"
+    "vscode": "^1.73.0"
   },
   "categories": [
     "Testing"
@@ -20,44 +20,45 @@
     "onCommand:pw.extension.install"
   ],
   "main": "./out/extension.js",
+  "l10n": "./l10n",
   "contributes": {
     "commands": [
       {
         "category": "Test",
         "command": "pw.extension.install",
-        "title": "Install Playwright"
+        "title": "%contributes.command.pw.extension.install%"
       },
       {
         "category": "Test",
         "command": "pw.extension.installBrowsers",
-        "title": "Install Playwright Browsers"
+        "title": "%contributes.command.pw.extension.installBrowsers%"
       },
       {
         "category": "Test",
         "command": "pw.extension.command.inspect",
-        "title": "Pick locator"
+        "title": "%contributes.command.pw.extension.command.inspect%"
       },
       {
         "category": "Test",
         "command": "pw.extension.command.closeBrowsers",
-        "title": "Close all Playwright browsers"
+        "title": "%contributes.command.pw.extension.command.closeBrowsers%"
       },
       {
         "category": "Test",
+        "icon": "$(record)",
         "command": "pw.extension.command.recordNew",
-        "icon": "$(record)",
-        "title": "Record new"
+        "title": "%contributes.command.pw.extension.command.recordNew%"
       },
       {
         "category": "Test",
-        "command": "pw.extension.command.recordAtCursor",
         "icon": "$(record)",
-        "title": "Record at cursor"
+        "command": "pw.extension.command.recordAtCursor",
+        "title": "%contributes.command.pw.extension.command.recordAtCursor%"
       },
       {
         "category": "Test",
         "command": "pw.extension.toggle.reuseBrowser",
-        "title": "Toggle Playwright Browser Reuse"
+        "title": "%contributes.command.pw.extension.toggle.reuseBrowser%"
       }
     ],
     "configuration": {
@@ -66,12 +67,12 @@
         "playwright.env": {
           "type": "object",
           "default": {},
-          "description": "Environment variables to pass to Playwright Test."
+          "description": "%configuration.playwright.env%"
         },
         "playwright.reuseBrowser": {
           "type": "boolean",
           "default": false,
-          "description": "Show & reuse browser between tests."
+          "description": "%configuration.playwright.reuseBrowser%"
         }
       }
     },
@@ -80,7 +81,7 @@
         {
           "type": "webview",
           "id": "pw.extension.settingsView",
-          "name": "Playwright"
+          "name": "%views.test.pw.extension.settingsView%"
         }
       ]
     }
@@ -89,6 +90,7 @@
     "esbuild": "esbuild ./src/babelBundle.ts ./src/extension.ts ./src/oopReporter.ts ./src/debugTransform.ts --bundle --outdir=out --external:vscode --external:./babelBundle --external:./debugTransform --external:./oopReporter --format=cjs --platform=node --target=ES2019",
     "build": "npm run esbuild -- --minify",
     "watch": "npm run esbuild -- --sourcemap --watch",
+    "l10n": "npx @vscode/l10n-dev export -o ./l10n ./src",
     "vscode:prepublish": "npm run build",
     "lint": "tsc && eslint . --ext .ts,.tsx,.js",
     "download-api": "vscode-dts dev && vscode-dts main",
@@ -100,7 +102,7 @@
     "uncode-insiders": "code-insiders --uninstall-extension ms-playwright.playwright"
   },
   "devDependencies": {
-    "@playwright/test": "1.33.0-alpha-mar-30-2023",
+    "@playwright/test": "1.33.0-beta-1682374575000",
     "@types/babel__core": "^7.1.20",
     "@types/babel__helper-plugin-utils": "^7.10.0",
     "@types/babel__traverse": "^7.18.2",
@@ -111,6 +113,7 @@
     "@types/ws": "^8.5.3",
     "@typescript-eslint/eslint-plugin": "^5.44.0",
     "@typescript-eslint/parser": "^5.44.0",
+    "@vscode/l10n-dev": "^0.0.24",
     "esbuild": "^0.15.15",
     "eslint": "^8.28.0",
     "eslint-plugin-notice": "^0.9.10",

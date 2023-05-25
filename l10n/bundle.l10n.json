@@ -1,0 +1,15 @@
+{
+  "Pick locator": "Pick locator",
+  "Record new": "Record new",
+  "Record at cursor": "Record at cursor",
+  "Reveal test output": "Reveal test output",
+  "Close all browsers": "Close all browsers",
+  "Accept to copy locator into clipboard": "Accept to copy locator into clipboard",
+  "Can't record while running tests": "Can't record while running tests",
+  "this feature": "this feature",
+  "Playwright v1.25+ is required for {0} to work, v{1} found": "Playwright v1.25+ is required for {0} to work, v{1} found",
+  "Can't close browsers while running tests": "Can't close browsers while running tests",
+  "No Playwright tests found.": "No Playwright tests found.",
+  "Please install Playwright Test via running `npm i --save-dev @playwright/test`": "Please install Playwright Test via running `npm i --save-dev @playwright/test`",
+  "Playwright Test v{0} or newer is required": "Playwright Test v{0} or newer is required"
+}

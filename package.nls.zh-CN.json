@@ -1,0 +1,13 @@
+{
+  "description": "在 Visual Studio Code 中运行 Playwright Test 测试用例.",
+  "contributes.command.pw.extension.install": "安装 Playwright222",
+  "contributes.command.pw.extension.installBrowsers": "安装 Playwright 浏览器",
+  "contributes.command.pw.extension.command.inspect": "拾取选择器",
+  "contributes.command.pw.extension.command.closeBrowsers": "关闭全部 Playwright 浏览器",
+  "contributes.command.pw.extension.command.recordNew": "录制新用例",
+  "contributes.command.pw.extension.command.recordAtCursor": "在当前光标处开始录制",
+  "contributes.command.pw.extension.toggle.reuseBrowser": "是否复用 Playwright 浏览器",
+  "configuration.playwright.env": "Playwright Test 运行环境变量",
+  "configuration.playwright.reuseBrowser": "在测试用例间显示并复用 Playwright 浏览器",
+  "views.test.pw.extension.settingsView": "Playwright"
+}
