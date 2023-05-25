@@ -24,6 +24,7 @@ export type Entry = {
   titlePath: string[];
   location: Location;
   children?: Entry[];
+  testId?: string;
 };
 
 export type TestBeginParams = {
@@ -101,6 +102,7 @@ class OopReporter implements Reporter {
           title: test.title,
           titlePath: test.titlePath().slice(3),
           location: test.location,
+          testId: test.id
         };
         collection.push(entry);
       }

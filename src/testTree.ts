@@ -171,6 +171,8 @@ export class TestTree {
       for (const { projectTag, entry } of entriesWithTag) {
         if (!testItem.tags.includes(projectTag))
           testItem.tags = [...testItem.tags, projectTag];
+        if (entry.testId)
+          addTestIdToTreeItem(testItem, entry.testId);
         for (const child of entry.children || [])
           childEntries.set(child.title, { entry: child, projectTag });
       }
@@ -180,6 +182,11 @@ export class TestTree {
 
     for (const testItem of itemsToDelete)
       collection.delete(testItem.id);
+  }
+
+  testIdsForTreeItem(treeItem: vscodeTypes.TreeItem) {
+    const set = (treeItem as any)[testIdsSymbol];
+    return set ? [...set] : [];
   }
 
   private _createInlineRootItem(uri: vscodeTypes.Uri): vscodeTypes.TestItem {
@@ -288,6 +295,13 @@ function titleMatches(testItem: vscodeTypes.TestItem, titlePath: string[]) {
   return true;
 }
 
+function addTestIdToTreeItem(testItem: vscodeTypes.TestItem, testId: string) {
+  const testIds = (testItem as any)[testIdsSymbol] || new Set<string>();
+  testIds.add(testId);
+  (testItem as any)[testIdsSymbol] = testIds;
+}
+
 const signatureSymbol = Symbol('signatureSymbol');
 const itemTypeSymbol = Symbol('itemTypeSymbol');
+const testIdsSymbol = Symbol('testIdsSymbol');
 const tagSymbol = Symbol('tagSymbol');
