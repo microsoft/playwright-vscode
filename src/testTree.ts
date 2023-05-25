@@ -66,7 +66,7 @@ export class TestTree {
       const rootItem = this._createInlineRootItem(this._vscode.workspace.workspaceFolders[0].uri);
       rootItem.children.replace([this._loadingItem]);
     } else {
-      const rootTreeItems = [];
+      const rootTreeItems: vscodeTypes.TestItem[] = [];
       for (const workspaceFolder of this._vscode.workspace.workspaceFolders || []) {
         const rootTreeItem = this._createRootFolderItem(workspaceFolder.uri.fsPath);
         rootTreeItems.push(rootTreeItem);
@@ -273,7 +273,7 @@ export class TestTree {
 }
 
 function titleMatches(testItem: vscodeTypes.TestItem, titlePath: string[]) {
-  const left = [];
+  const left: vscodeTypes.TestItem['label'][] = [];
   while (testItem) {
     left.unshift(testItem.label);
     testItem = testItem.parent!;

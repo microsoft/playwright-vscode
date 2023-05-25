@@ -1,0 +1,13 @@
+{
+  "description": "Run Playwright Test tests in Visual Studio Code.",
+  "contributes.command.pw.extension.install": "Install Playwright",
+  "contributes.command.pw.extension.installBrowsers": "Install Playwright Browsers",
+  "contributes.command.pw.extension.command.inspect": "Pick locator",
+  "contributes.command.pw.extension.command.closeBrowsers": "Close all Playwright browsers",
+  "contributes.command.pw.extension.command.recordNew": "Record new",
+  "contributes.command.pw.extension.command.recordAtCursor": "Record at cursor",
+  "contributes.command.pw.extension.toggle.reuseBrowser": "Toggle Playwright Browser Reuse",
+  "configuration.playwright.env": "Environment variables to pass to Playwright Test.",
+  "configuration.playwright.reuseBrowser": "Show & reuse browser between tests.",
+  "views.test.pw.extension.settingsView": "Playwright"
+}
