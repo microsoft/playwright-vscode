@@ -126,6 +126,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         ...process.env,
         ...this._envProvider(),
         PW_CODEGEN_NO_INSPECTOR: '1',
+        PW_EXTENSION_MODE: '1',
       },
     });
 
@@ -459,8 +460,8 @@ export class Backend extends EventEmitter {
   }
 
   async connect(wsEndpoint: string) {
-    this._transport = await WebSocketTransport.connect(wsEndpoint, {
-      'x-playwright-debug-controller': 'true'
+    this._transport = await WebSocketTransport.connect(wsEndpoint + '?debug-controller', {
+      'x-playwright-debug-controller': 'true' // Remove after v1.35
     });
     this._transport.onmessage = (message: any) => {
       if (!message.id) {
