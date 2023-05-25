@@ -17,7 +17,7 @@
 import path from 'path';
 import StackUtils from 'stack-utils';
 import { DebugHighlight } from './debugHighlight';
-import { installBrowsers, installPlaywright } from './installer';
+import { installBrowsers, installPlaywright, openUIMode } from './installer';
 import { MultiMap } from './multimap';
 import { Entry } from './oopReporter';
 import { PlaywrightTest, TestListener } from './playwrightTest';
@@ -169,6 +169,9 @@ export class Extension {
       }),
       vscode.commands.registerCommand('pw.extension.command.closeBrowsers', () => {
         this._reusedBrowser.closeAllBrowsers();
+      }),
+      vscode.commands.registerCommand('pw.extension.command.openUIMode', async () => {
+        await openUIMode(this._vscode);
       }),
       vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
         if (!this._models.length) {

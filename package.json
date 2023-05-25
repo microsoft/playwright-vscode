@@ -40,6 +40,11 @@
       },
       {
         "category": "Test",
+        "command": "pw.extension.command.openUIMode",
+        "title": "%contributes.command.pw.extension.command.openUIMode%"
+      },
+      {
+        "category": "Test",
         "command": "pw.extension.command.closeBrowsers",
         "title": "%contributes.command.pw.extension.command.closeBrowsers%"
       },

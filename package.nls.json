@@ -6,6 +6,7 @@
   "contributes.command.pw.extension.command.closeBrowsers": "Close all Playwright browsers",
   "contributes.command.pw.extension.command.recordNew": "Record new",
   "contributes.command.pw.extension.command.recordAtCursor": "Record at cursor",
+  "contributes.command.pw.extension.command.openUIMode": "Open UI Mode",
   "contributes.command.pw.extension.toggle.reuseBrowser": "Toggle Playwright Browser Reuse",
   "configuration.playwright.env": "Environment variables to pass to Playwright Test.",
   "configuration.playwright.reuseBrowser": "Show & reuse browser between tests.",

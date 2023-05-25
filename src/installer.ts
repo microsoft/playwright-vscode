@@ -111,6 +111,20 @@ export async function installBrowsers(vscode: vscodeTypes.VSCode, model: TestMod
     terminal.sendText(`npx playwright install-deps`, true);
 }
 
+export async function openUIMode(vscode: vscodeTypes.VSCode) {
+  const [workspaceFolder] = vscode.workspace.workspaceFolders || [];
+  if (!workspaceFolder)
+    return;
+  const terminal = vscode.window.createTerminal({
+    name: 'Open UI Mode',
+    cwd: workspaceFolder.uri.fsPath,
+    env: process.env,
+  });
+
+  terminal.show();
+  terminal.sendText(`npx playwright test --ui`, true);
+}
+
 const chromiumItem: vscodeTypes.QuickPickItem = {
   label: 'Chromium',
   picked: true,
