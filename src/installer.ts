@@ -113,8 +113,11 @@ export async function installBrowsers(vscode: vscodeTypes.VSCode, model: TestMod
 
 export async function openUIMode(vscode: vscodeTypes.VSCode) {
   const [workspaceFolder] = vscode.workspace.workspaceFolders || [];
-  if (!workspaceFolder)
+  if (!workspaceFolder) {
+    const noWorkspaceMessage = vscode.l10n.t('Please open a folder in VS Code to run Playwright in UI Mode');
+    vscode.window.showErrorMessage(noWorkspaceMessage);
     return;
+  }
   const terminal = vscode.window.createTerminal({
     name: 'Open UI Mode',
     cwd: workspaceFolder.uri.fsPath,
