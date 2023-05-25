@@ -60,6 +60,7 @@ export class TestFile {
 export type TestProject = {
   name: string;
   testDir: string;
+  outputDir: string;
   model: TestModel;
   isFirst: boolean;
   files: Map<string, TestFile>;
