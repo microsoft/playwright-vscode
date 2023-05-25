@@ -19,7 +19,6 @@
 export type ProjectConfigWithFiles = {
   name: string;
   testDir: string;
-  outputDir: string;
   use: { testIdAttribute?: string };
   files: string[];
 };

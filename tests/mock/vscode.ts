@@ -863,6 +863,7 @@ export class VSCode {
     const settings = {
       'playwright.env': {},
       'playwright.reuseBrowser': false,
+      'playwright.showTrace': false,
     };
     this.workspace.getConfiguration = scope => {
       return {
