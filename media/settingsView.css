@@ -67,6 +67,7 @@ label {
   display: flex;
   align-items: center;
   cursor: inherit;
+  flex: auto;
 }
 
 div.separator {
