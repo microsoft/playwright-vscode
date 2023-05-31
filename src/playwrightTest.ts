@@ -82,7 +82,7 @@ export class PlaywrightTest {
 
       // Dogfood for 'ttest'
       if (cli.includes('/playwright/packages/playwright-test/') && configFilePath.includes('playwright-test'))
-        cli = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/playwright-core/lib/cli/cli');
+        cli = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/@playwright/test/cli.js');
 
       return { cli, version: v };
     } catch (e) {
