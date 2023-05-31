@@ -7,7 +7,9 @@
   "contributes.command.pw.extension.command.recordNew": "Record new",
   "contributes.command.pw.extension.command.recordAtCursor": "Record at cursor",
   "contributes.command.pw.extension.toggle.reuseBrowser": "Toggle Playwright Browser Reuse",
+  "contributes.command.pw.extension.toggle.showTrace": "Toggle Playwright Trace Viewer",
   "configuration.playwright.env": "Environment variables to pass to Playwright Test.",
   "configuration.playwright.reuseBrowser": "Show & reuse browser between tests.",
+  "configuration.playwright.showTrace": "Show Trace Viewer.",
   "views.test.pw.extension.settingsView": "Playwright"
 }

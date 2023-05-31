@@ -30,6 +30,7 @@ import { TestTree } from './testTree';
 import { ansiToHtml } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
+import { TraceViewer } from './traceViewer';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -77,6 +78,7 @@ export class Extension {
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
   private _reusedBrowser: ReusedBrowser;
+  private _traceViewer: TraceViewer;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
   private _filesPendingListTests: {
@@ -86,6 +88,7 @@ export class Extension {
     finishedCallback: () => void
   } | undefined;
   private _diagnostics: vscodeTypes.DiagnosticCollection;
+  private _treeItemObserver: TreeItemObserver;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -109,7 +112,8 @@ export class Extension {
 
     this._settingsModel = new SettingsModel(vscode);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
-    this._playwrightTest = new PlaywrightTest(this._vscode, this._reusedBrowser, this._isUnderTest, this._envProvider.bind(this));
+    this._traceViewer = new TraceViewer(this._vscode, this._settingsModel, this._envProvider.bind(this));
+    this._playwrightTest = new PlaywrightTest(this._vscode, this._settingsModel, this._reusedBrowser, this._isUnderTest, this._envProvider.bind(this));
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModel(true).then(() => {});
@@ -118,6 +122,7 @@ export class Extension {
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
     this._diagnostics = this._vscode.languages.createDiagnosticCollection('pw.diagnostics');
+    this._treeItemObserver = new TreeItemObserver(this._vscode);
   }
 
   reusedBrowserForTest(): ReusedBrowser {
@@ -190,11 +195,13 @@ export class Extension {
           this._executionLinesChanged();
         }
       }),
+      this._treeItemObserver.onTreeItemSelected(item => this._treeItemSelected(item)),
       this._settingsView,
       this._testController,
       this._workspaceObserver,
       this._reusedBrowser,
       this._diagnostics,
+      this._treeItemObserver,
     ];
     await this._rebuildModel(false);
 
@@ -374,11 +381,14 @@ export class Extension {
       }
     }
     this._testRun = this._testController.createTestRun(requestWithDeps);
+    const enqueuedTests: vscodeTypes.TestItem[] = [];
 
     // Provisionally mark tests (not files and not suits) as enqueued to provide immediate feedback.
     for (const item of request.include || []) {
-      for (const test of this._testTree.collectTestsInside(item))
+      for (const test of this._testTree.collectTestsInside(item)) {
         this._testRun.enqueued(test);
+        enqueuedTests.push(test);
+      }
     }
 
     // Run tests with different configs sequentially, group by config.
@@ -399,7 +409,7 @@ export class Extension {
         if (locations && !locations.length)
           continue;
         ranSomeTests = true;
-        await this._runTest(this._testRun, testItemForGlobalErrors, new Set(), model, isDebug, projects, locations, parametrizedTestTitle);
+        await this._runTest(this._testRun, testItemForGlobalErrors, new Set(), model, isDebug, projects, locations, parametrizedTestTitle, enqueuedTests.length === 1);
       }
     } finally {
       this._activeSteps.clear();
@@ -478,7 +488,8 @@ located next to Run / Debug Tests toolbar buttons.`);
     isDebug: boolean,
     projects: TestProject[],
     locations: string[] | null,
-    parametrizedTestTitle: string | undefined) {
+    parametrizedTestTitle: string | undefined,
+    enqueuedSingleTest: boolean) {
     const testListener: TestListener = {
       onBegin: ({ projects }) => {
         model.updateFromRunningProjects(projects);
@@ -495,8 +506,14 @@ located next to Run / Debug Tests toolbar buttons.`);
 
       onTestBegin: params => {
         const testItem = this._testTree.testItemForLocation(params.location, params.titlePath);
-        if (testItem)
+        if (testItem) {
           testRun.started(testItem);
+          const traceUrl = `${params.outputDir}/.playwright-artifacts-${params.workerIndex}/traces/${params.testId}.json`;
+          (testItem as any)[traceUrlSymbol] = traceUrl;
+        }
+
+        if (testItem && enqueuedSingleTest)
+          this._showTrace(testItem);
         if (isDebug) {
           // Debugging is always single-workers.
           this._testItemUnderDebug = testItem;
@@ -511,6 +528,11 @@ located next to Run / Debug Tests toolbar buttons.`);
         const testItem = this._testTree.testItemForLocation(params.location, params.titlePath);
         if (!testItem)
           return;
+
+        (testItem as any)[traceUrlSymbol] = params.trace || '';
+        if (enqueuedSingleTest)
+          this._showTrace(testItem);
+
         if (params.status === params.expectedStatus) {
           if (!testFailures.has(testItem)) {
             if (params.status === 'skipped')
@@ -746,6 +768,18 @@ located next to Run / Debug Tests toolbar buttons.`);
   browserServerWSForTest() {
     return this._reusedBrowser.browserServerWSForTest();
   }
+
+  private _showTrace(testItem: vscodeTypes.TestItem) {
+    const traceUrl = (testItem as any)[traceUrlSymbol];
+    const testModel = this._models[0];
+    this._traceViewer.open(traceUrl, testModel.config);
+  }
+
+  private _treeItemSelected(treeItem: vscodeTypes.TreeItem | null) {
+    const traceUrl = (treeItem as any)[traceUrlSymbol] || '';
+    const testModel = this._models[0];
+    this._traceViewer.open(traceUrl, testModel.config);
+  }
 }
 
 function parseLocationFromStack(stack: string | undefined, testItem?: vscodeTypes.TestItem): Location | undefined {
@@ -764,3 +798,39 @@ function parseLocationFromStack(stack: string | undefined, testItem?: vscodeType
     }
   }
 }
+
+class TreeItemObserver implements vscodeTypes.Disposable{
+  private _vscode: vscodeTypes.VSCode;
+  private _treeItemSelected: vscodeTypes.EventEmitter<vscodeTypes.TreeItem | null>;
+  readonly onTreeItemSelected: vscodeTypes.Event<vscodeTypes.TreeItem | null>;
+  private _selectedTreeItem: vscodeTypes.TreeItem | null = null;
+  private _timeout: NodeJS.Timeout | undefined;
+
+  constructor(vscode: vscodeTypes.VSCode) {
+    this._vscode = vscode;
+    this._treeItemSelected = new vscode.EventEmitter();
+    this.onTreeItemSelected = this._treeItemSelected.event;
+    this._poll().catch(() => {});
+  }
+
+  dispose() {
+    clearTimeout(this._timeout);
+  }
+
+  selectedTreeItem(): vscodeTypes.TreeItem | null {
+    return this._selectedTreeItem;
+  }
+
+  private async _poll() {
+    clearTimeout(this._timeout);
+    const result = await this._vscode.commands.executeCommand('testing.getExplorerSelection') as { include: vscodeTypes.TreeItem[] };
+    const item = result.include.length === 1 ? result.include[0] : null;
+    if (item !== this._selectedTreeItem) {
+      this._selectedTreeItem = item;
+      this._treeItemSelected.fire(item);
+    }
+    this._timeout = setTimeout(() => this._poll().catch(() => {}), 250);
+  }
+}
+
+const traceUrlSymbol = Symbol('traceUrl');
