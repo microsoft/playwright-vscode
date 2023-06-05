@@ -62,5 +62,5 @@ test('should open test results', async ({ activate }) => {
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
   await webView.getByText('Reveal test output').click();
-  expect(vscode.commandLog.filter(f => f !== 'testing.getExplorerSelection')).toEqual(['testing.showMostRecentOutput']);
+  expect(vscode.commandLog).toEqual(['testing.showMostRecentOutput']);
 });

@@ -59,11 +59,6 @@
         "category": "Test",
         "command": "pw.extension.toggle.reuseBrowser",
         "title": "%contributes.command.pw.extension.toggle.reuseBrowser%"
-      },
-      {
-        "category": "Test",
-        "command": "pw.extension.toggle.showTrace",
-        "title": "%contributes.command.pw.extension.toggle.showTrace%"
       }
     ],
     "configuration": {
@@ -78,11 +73,6 @@
           "type": "boolean",
           "default": false,
           "description": "%configuration.playwright.reuseBrowser%"
-        },
-        "playwright.showTrace": {
-          "type": "boolean",
-          "default": false,
-          "description": "%configuration.playwright.showTrace%"
         }
       }
     },

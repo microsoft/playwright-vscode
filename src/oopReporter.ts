@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { FullConfig, FullProject, FullResult, Location, Reporter, Suite, TestCase, TestError, TestResult, TestStatus, TestStep } from './reporter';
+import type { FullConfig, FullResult, Location, Reporter, Suite, TestCase, TestError, TestResult, TestStatus, TestStep } from './reporter';
 import { ConnectionTransport, WebSocketTransport } from './transport';
 
 export type EntryType = 'project' | 'file' | 'suite' | 'test';
@@ -28,16 +28,12 @@ export type Entry = {
 };
 
 export type TestBeginParams = {
-  testId: string;
   title: string;
   titlePath: string[];
   location: Location;
-  outputDir: string;
-  workerIndex: number;
 };
 
 export type TestEndParams = {
-  testId: string;
   title: string;
   titlePath: string[];
   location: Location;
@@ -45,7 +41,6 @@ export type TestEndParams = {
   errors: TestError[];
   expectedStatus: TestStatus;
   status: TestStatus;
-  trace?: string;
 };
 
 export type StepBeginParams = {
@@ -119,27 +114,16 @@ class OopReporter implements Reporter {
   }
 
   onTestBegin?(test: TestCase, result: TestResult): void {
-    let project: FullProject | undefined;
-    let suite: Suite | undefined = test.parent;
-    while (!project && suite) {
-      project = suite.project();
-      suite = suite.parent;
-    }
-
     const params: TestBeginParams = {
-      testId: test.id,
       title: test.title,
       titlePath: test.titlePath().slice(3),
-      location: test.location,
-      workerIndex: result.workerIndex,
-      outputDir: project?.outputDir || '',
+      location: test.location
     };
     this._emit('onTestBegin', params);
   }
 
   onTestEnd(test: TestCase, result: TestResult): void {
     const params: TestEndParams = {
-      testId: test.id,
       title: test.title,
       titlePath: test.titlePath().slice(3),
       location: test.location,
@@ -147,7 +131,6 @@ class OopReporter implements Reporter {
       errors: result.errors,
       expectedStatus: test.expectedStatus,
       status: result.status,
-      trace: result.attachments.find(a => a.name === 'trace')?.path,
     };
     this._emit('onTestEnd', params);
   }

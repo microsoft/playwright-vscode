@@ -21,7 +21,6 @@ export type TestStatus = 'passed' | 'failed' | 'timedOut' | 'skipped';
 export type FullConfig = {};
 export type FullProject = {
   name: string;
-  outputDir: string;
 };
 
 /**

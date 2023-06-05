@@ -139,13 +139,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             Show browser
           </label>
         </div>
-        <div>
-          <label>
-            <input type="checkbox" setting="showTrace"></input>
-            Show trace viewer
-          </label>
-        </div>
-      <div class="separator"></div>
+        <div class="separator"></div>
       </div>
       <div id="actions" class="list"></div>
     </body>
