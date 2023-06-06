@@ -38,6 +38,11 @@ export class TraceViewer implements vscodeTypes.Disposable {
     }));
   }
 
+  async willRunTests(config: TestConfig) {
+    if (this._settingsModel.showTrace.get())
+      await this._startIfNeeded(config, '');
+  }
+
   async open(file: string, config: TestConfig) {
     if (!this._settingsModel.showTrace.get())
       return;
