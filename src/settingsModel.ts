@@ -22,33 +22,33 @@ export class SettingsModel implements vscodeTypes.Disposable {
   readonly onChange: vscodeTypes.Event<void>;
   private _onChange: vscodeTypes.EventEmitter<void>;
   private _disposables: vscodeTypes.Disposable[] = [];
+  reuseBrowser: Setting<boolean>;
+  showTrace: Setting<boolean>;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
     this._onChange = new vscode.EventEmitter();
     this.onChange = this._onChange.event;
 
-    this.createSetting('reuseBrowser');
+    this.reuseBrowser = this._createSetting('reuseBrowser');
+    this.showTrace = this._createSetting('showTrace');
+
+    this.reuseBrowser.onChange(enabled => {
+      if (enabled && this.showTrace.get())
+        this.showTrace.set(false);
+    });
+    this.showTrace.onChange(enabled => {
+      if (enabled && this.reuseBrowser.get())
+        this.reuseBrowser.set(false);
+    });
   }
 
-  createSetting<T>(settingName: string): Setting<T> {
+  private _createSetting<T>(settingName: string): Setting<T> {
     const setting = new Setting<T>(this._vscode, settingName);
     this._disposables.push(setting);
     this._disposables.push(setting.onChange(() => this._onChange.fire()));
     this._settings.set(settingName, setting);
     return setting;
-  }
-
-  setting<T>(settingName: string): Setting<T> {
-    return this._settings.get(settingName)!;
-  }
-
-  get<T>(settingName: string): T {
-    return this._settings.get(settingName)!.get();
-  }
-
-  set<T>(settingName: string, value: T) {
-    return this._settings.get(settingName)!.set(value);
   }
 
   json(): Record<string, boolean | string> {

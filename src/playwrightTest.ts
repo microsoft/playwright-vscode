@@ -24,6 +24,7 @@ import { ReporterServer } from './reporterServer';
 import { ReusedBrowser } from './reusedBrowser';
 import { findNode, spawnAsync } from './utils';
 import * as vscodeTypes from './vscodeTypes';
+import { SettingsModel } from './settingsModel';
 
 export type TestConfig = {
   workspaceFolder: string;
@@ -53,9 +54,11 @@ export class PlaywrightTest {
   private _reusedBrowser: ReusedBrowser;
   private _envProvider: () => NodeJS.ProcessEnv;
   private _vscode: vscodeTypes.VSCode;
+  private _settingsModel: SettingsModel;
 
-  constructor(vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser, isUnderTest: boolean, envProvider: () => NodeJS.ProcessEnv) {
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, reusedBrowser: ReusedBrowser, isUnderTest: boolean, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
+    this._settingsModel = settingsModel;
     this._reusedBrowser = reusedBrowser;
     this._isUnderTest = isUnderTest;
     this._envProvider = envProvider;
@@ -166,6 +169,8 @@ export class PlaywrightTest {
       allArgs.push('--headed');
     if (reusingBrowser)
       allArgs.push('--workers', '1');
+    if (this._settingsModel.showTrace.get())
+      allArgs.push('--trace', 'on');
     // Disable original reporters when listing files.
     if (mode === 'list')
       allArgs.push('--reporter', 'null');
@@ -184,6 +189,7 @@ export class PlaywrightTest {
         ELECTRON_RUN_AS_NODE: undefined,
         FORCE_COLORS: '1',
         PW_TEST_HTML_REPORT_OPEN: 'never',
+        PW_TEST_NO_REMOVE_OUTPUT_DIRS: '1',
       }
     });
 
