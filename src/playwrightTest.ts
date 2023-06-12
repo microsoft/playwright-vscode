@@ -104,7 +104,14 @@ export class PlaywrightTest {
     }
     const output = await this._runNode(allArgs, configFolder);
     try {
-      return JSON.parse(output) as ConfigListFilesReport;
+      const result = JSON.parse(output) as ConfigListFilesReport;
+      if ((result as any).error) {
+        // TODO: show errors as diagnostics.
+        if (!this._isUnderTest)
+          console.error(`Error while listing files: ${allArgs.join(' ')}`, (result as any).error);
+        return null;
+      }
+      return result;
     } catch (e) {
       console.error(e);
       return null;
