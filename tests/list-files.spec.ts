@@ -365,3 +365,23 @@ test('should list files in multi-folder workspace', async ({ activate }, testInf
       - test.spec.ts
   `);
 });
+
+test('should ignore errors when listing files', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'playwright.config.ts': `throw new Error('oh my')`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  expect(testController.renderTestTree()).toBe(`
+    - tests
+      - test.spec.ts
+  `);
+  expect(vscode.renderExecLog('  ')).toBe(`
+    > playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.ts
+  `);
+});
