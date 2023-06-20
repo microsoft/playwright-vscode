@@ -38,6 +38,7 @@ svg {
   padding-left: 8px;
   display: flex;
   align-items: center;
+  box-sizing: border-box;
   width: 100%;
   white-space: nowrap;
   flex: 0;
