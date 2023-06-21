@@ -26,7 +26,7 @@ This extension works with [Playwright] version v1.19+ or newer.
 
 
 
-## Install Playwright
+## Install  Playwright
 
 If you don't have the Playwright NPM package installed in your project, or if you are starting with a new testing project, the "Install Playwright" action from the command panel will help you get started.
 
