@@ -750,11 +750,31 @@ located next to Run / Debug Tests toolbar buttons.`);
     return new this._vscode.TestMessage(markdownString);
   }
 
+  private _testMessageFromHtml(html: string): vscodeTypes.TestMessage {
+    // We need to trim each line on the left side so that Markdown will render it as HTML.
+    const trimmedLeft = html.split('\n').join('').trimStart();
+    const markdownString = new this._vscode.MarkdownString(trimmedLeft);
+    markdownString.isTrusted = true;
+    markdownString.supportHtml = true;
+    return new this._vscode.TestMessage(markdownString);
+  }
+
   private _testMessageForTestError(error: TestError, testItem?: vscodeTypes.TestItem): vscodeTypes.TestMessage {
-    let text = error.stack || error.message || error.value!;
-    if (text.includes('Looks like Playwright Test or Playwright'))
-      text = `Browser was not installed. Invoke 'Install Playwright Browsers' action to install missing browsers.`;
-    const testMessage = this._testMessageFromText(text);
+    const text = error.stack || error.message || error.value!;
+    let testMessage: vscodeTypes.TestMessage;
+    if (text.includes('Looks like Playwright Test or Playwright')) {
+      testMessage = this._testMessageFromHtml(`
+        <p>Playwright browser are not installed.</p>
+        <p>
+          Press
+          ${process.platform === 'darwin' ? '<kbd>Shift</kbd>+<kbd>Command</kbd>+<kbd>P</kbd>' : ''}
+          ${process.platform !== 'darwin' ? '<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>' : ''}
+          to open the Command Palette in VSCode, type 'Playwright' and select 'Install Playwright Browsers'.
+        </p>
+      `);
+    } else {
+      testMessage = this._testMessageFromText(text);
+    }
     const location = error.location || parseLocationFromStack(error.stack, testItem);
     if (location) {
       const position = new this._vscode.Position(location.line - 1, location.column - 1);
