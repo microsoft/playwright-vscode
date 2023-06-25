@@ -92,7 +92,7 @@ class Selection extends Range {
 }
 
 class CancellationTokenSource implements Disposable {
-  token: CancellationToken;
+  token: CancellationToken & { source: CancellationTokenSource };
   readonly didCancel = new EventEmitter<void>();
 
   constructor() {
@@ -687,6 +687,11 @@ class L10n {
   }
 }
 
+enum UIKind {
+  Desktop = 1,
+  Web = 2
+}
+
 export class VSCode {
   isUnderTest = true;
   CancellationTokenSource = CancellationTokenSource;
@@ -702,12 +707,16 @@ export class VSCode {
   TestRunProfileKind = TestRunProfileKind;
   TestRunRequest = TestRunRequest;
   Uri = Uri;
+  UIKind = UIKind;
   commands: any = {};
   debug: Debug;
   languages: any = {};
   tests: any = {};
   window: any = {};
   workspace: any = {};
+  env: any = {
+    uiKind: UIKind.Desktop
+  };
   ProgressLocation = { Notification: 1 };
 
   private _didChangeActiveTextEditor = new EventEmitter();
@@ -863,6 +872,7 @@ export class VSCode {
     const settings = {
       'playwright.env': {},
       'playwright.reuseBrowser': false,
+      'playwright.showTrace': false,
     };
     this.workspace.getConfiguration = scope => {
       return {

@@ -95,10 +95,12 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._onHighlightRequestedForTestEvent = new vscode.EventEmitter();
     this.onHighlightRequestedForTest = this._onHighlightRequestedForTestEvent.event;
 
-    this._disposables.push(settingsModel.setting<boolean>('reuseBrowser').onChange(value => {
+    this._disposables.push(settingsModel.reuseBrowser.onChange(value => {
       this._shouldReuseBrowserForTests = value;
+      if (!value)
+        this.closeAllBrowsers();
     }));
-    this._shouldReuseBrowserForTests = settingsModel.get<boolean>('reuseBrowser');
+    this._shouldReuseBrowserForTests = settingsModel.reuseBrowser.get();
   }
 
   dispose() {
@@ -129,6 +131,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         ...process.env,
         ...this._envProvider(),
         PW_CODEGEN_NO_INSPECTOR: '1',
+        PW_EXTENSION_MODE: '1',
       },
     });
 
@@ -486,6 +489,14 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       );
       return false;
     }
+
+    if (this._vscode.env.uiKind === this._vscode.UIKind.Web) {
+      this._vscode.window.showWarningMessage(
+          this._vscode.l10n.t('Show browser mode does not work in the Web mode')
+      );
+      return false;
+    }
+
     return true;
   }
 
@@ -615,8 +626,8 @@ export class Backend extends EventEmitter {
   }
 
   async connect(wsEndpoint: string) {
-    this._transport = await WebSocketTransport.connect(wsEndpoint, {
-      'x-playwright-debug-controller': 'true'
+    this._transport = await WebSocketTransport.connect(wsEndpoint + '?debug-controller', {
+      'x-playwright-debug-controller': 'true' // Remove after v1.35
     });
     this._transport.onmessage = (message: any) => {
       if (!message.id) {

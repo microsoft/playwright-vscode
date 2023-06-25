@@ -59,6 +59,11 @@
         "category": "Test",
         "command": "pw.extension.toggle.reuseBrowser",
         "title": "%contributes.command.pw.extension.toggle.reuseBrowser%"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.toggle.showTrace",
+        "title": "%contributes.command.pw.extension.toggle.showTrace%"
       }
     ],
     "configuration": {
@@ -73,6 +78,11 @@
           "type": "boolean",
           "default": false,
           "description": "%configuration.playwright.reuseBrowser%"
+        },
+        "playwright.showTrace": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.playwright.showTrace%"
         }
       }
     },
@@ -108,7 +118,6 @@
     "l10n": "npx @vscode/l10n-dev export -o ./l10n ./src",
     "vscode:prepublish": "npm run build",
     "lint": "tsc && eslint . --ext .ts,.tsx,.js",
-    "download-api": "vscode-dts dev && vscode-dts main",
     "test": "playwright test",
     "package": "vsce package",
     "code": "code --uninstall-extension ms-playwright.playwright && code --install-extension playwright-0.2.0.vsix",
@@ -117,13 +126,14 @@
     "uncode-insiders": "code-insiders --uninstall-extension ms-playwright.playwright"
   },
   "devDependencies": {
-    "@playwright/test": "1.33.0-beta-1682374575000",
+    "@playwright/test": "1.35.1-beta-1686781654000",
     "@types/babel__core": "^7.1.20",
     "@types/babel__helper-plugin-utils": "^7.10.0",
     "@types/babel__traverse": "^7.18.2",
     "@types/glob": "^8.0.0",
     "@types/node": "^18.11.9",
     "@types/stack-utils": "^2.0.1",
+    "@types/vscode": "1.73.0",
     "@types/which": "^2.0.1",
     "@types/ws": "^8.5.3",
     "@typescript-eslint/eslint-plugin": "^5.44.0",
@@ -135,8 +145,7 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "glob": "^8.0.3",
     "typescript": "^4.9.3",
-    "vsce": "^2.14.0",
-    "vscode-dts": "^0.3.3"
+    "vsce": "^2.14.0"
   },
   "dependencies": {
     "@babel/core": "^7.20.2",

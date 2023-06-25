@@ -8,6 +8,7 @@
   "Can't record while running tests": "运行测试时不能录制",
   "this feature": "该功能",
   "Playwright v1.25+ is required for {0} to work, v{1} found": "{0} 需要 Playwright v1.25 或以上的版本，当前版本 v{1}",
+  "Show browser mode does not work in the Web mode": "在网页模式中无法使用显示浏览器模式",
   "Can't close browsers while running tests": "运行测试时不能关闭浏览器",
   "No Playwright tests found.": "没有找到 Playwright Test",
   "Please install Playwright Test via running `npm i --save-dev @playwright/test`": "请通过运行 `npm i --save-dev @playwright/test` 安装 Playwright Test",

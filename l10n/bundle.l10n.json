@@ -8,6 +8,7 @@
   "Can't record while running tests": "Can't record while running tests",
   "this feature": "this feature",
   "Playwright v1.25+ is required for {0} to work, v{1} found": "Playwright v1.25+ is required for {0} to work, v{1} found",
+  "Show browser mode does not work in the Web mode": "Show browser mode does not work in the Web mode",
   "Can't close browsers while running tests": "Can't close browsers while running tests",
   "No Playwright tests found.": "No Playwright tests found.",
   "Please install Playwright Test via running `npm i --save-dev @playwright/test`": "Please install Playwright Test via running `npm i --save-dev @playwright/test`",
