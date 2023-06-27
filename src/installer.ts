@@ -41,7 +41,7 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
     title: 'Install Playwright',
     canPickMany: true,
   });
-  if (!result?.length)
+  if (result === undefined)
     return;
 
   const terminal = vscode.window.createTerminal({
