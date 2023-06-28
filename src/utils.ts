@@ -142,11 +142,11 @@ export async function findNode(): Promise<string> {
   if (pathToNodeJS)
     return pathToNodeJS;
 
-  let node = await which('node');
+  let node = await which('node').catch(e => undefined);
   // When extension host boots, it does not have the right env set, so we might need to wait.
   for (let i = 0; i < 5 && !node; ++i) {
     await new Promise(f => setTimeout(f, 1000));
-    node = await which('node');
+    node = await which('node').catch(e => undefined);
   }
   if (!node)
     throw new Error('Unable to launch `node`, make sure it is in your PATH');
