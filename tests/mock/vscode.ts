@@ -715,7 +715,8 @@ export class VSCode {
   window: any = {};
   workspace: any = {};
   env: any = {
-    uiKind: UIKind.Desktop
+    uiKind: UIKind.Desktop,
+    remoteName: undefined,
   };
   ProgressLocation = { Notification: 1 };
 

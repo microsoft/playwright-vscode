@@ -66,7 +66,7 @@ export class TraceViewer implements vscodeTypes.Disposable {
     if (this._traceViewerProcess)
       return;
     const allArgs = [config.cli, 'show-trace', `--stdin`];
-    if (this._vscode.env.uiKind === this._vscode.UIKind.Web) {
+    if (this._vscode.env.remoteName) {
       allArgs.push('--host', '0.0.0.0');
       allArgs.push('--port', '0');
     }
