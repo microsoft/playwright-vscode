@@ -334,7 +334,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return false;
     }
 
-    if (this._vscode.env.remoteName) {
+    if (this._vscode.env.uiKind === this._vscode.UIKind.Web) {
       this._vscode.window.showWarningMessage(
           this._vscode.l10n.t('Show browser mode does not work in remote vscode')
       );
