@@ -114,7 +114,8 @@ export class SettingsView implements vscodeTypes.WebviewViewProvider, vscodeType
         disabled: !this._reusedBrowser.canClose(),
       },
     ].filter(Boolean);
-    this._view!.webview.postMessage({ method: 'actions', params: { actions } });
+    if (this._view)
+      this._view.webview.postMessage({ method: 'actions', params: { actions } });
   }
 }
 
