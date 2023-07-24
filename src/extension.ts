@@ -798,6 +798,8 @@ located next to Run / Debug Tests toolbar buttons.`);
   }
 
   private _treeItemSelected(treeItem: vscodeTypes.TreeItem | null) {
+    if (!treeItem)
+      return;
     const traceUrl = (treeItem as any)[traceUrlSymbol] || '';
     const testModel = this._models[0];
     this._traceViewer.open(traceUrl, testModel.config);
