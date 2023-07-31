@@ -430,7 +430,7 @@ test('test', async ({ page }) => {
   }
 
   closeAllBrowsers() {
-    if (!this.canClose()) {
+    if (this._isRunningTests) {
       this._vscode.window.showWarningMessage(
           this._vscode.l10n.t('Can\'t close browsers while running tests')
       );
