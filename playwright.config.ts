@@ -21,7 +21,12 @@ const config: PlaywrightTestConfig<WorkerOptions> = {
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'line',
+  reporter: process.env.CI ? [
+    ['line'],
+    ['blob'],
+  ] : [
+    ['line']
+  ],
   projects: [
     {
       name: 'default',
