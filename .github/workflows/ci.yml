@@ -10,7 +10,7 @@ env:
   FORCE_COLOR: 1
 
 jobs:
-  build:
+  test:
     runs-on: ${{ matrix.os }}
     name: Run tests on ${{ matrix.os }}, Node ${{ matrix.node-version }}
     strategy:
@@ -40,3 +40,41 @@ jobs:
         name: vsc-extension
         path: "*.vsix"
         retention-days: 30
+  test-e2e:
+    runs-on: ${{ matrix.os }}
+    name: Run e2e tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest ]
+    env:
+      DEBUG: pw:browser
+    steps:
+    - uses: actions/checkout@v3
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18
+    - run: npm ci
+    - run: npx playwright install --with-deps chromium
+    - run: npm run build
+    - run: npm ci
+      working-directory: ./tests-integration
+    - run: xvfb-run npx playwright test
+      working-directory: ./tests-integration
+      if: matrix.os == 'ubuntu-latest'
+    - run: npx playwright test
+      working-directory: ./tests-integration
+      if: matrix.os != 'ubuntu-latest'
+    - uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: playwright-report-${{ matrix.os }}
+        path: tests-integration/playwright-report/
+        retention-days: 30
+    - uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: playwright-test-results-${{ matrix.os }}
+        path: tests-integration/test-results/
+        retention-days: 10

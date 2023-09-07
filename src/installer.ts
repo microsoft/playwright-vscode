@@ -41,7 +41,7 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
     title: 'Install Playwright',
     canPickMany: true,
   });
-  if (!result?.length)
+  if (result === undefined)
     return;
 
   const terminal = vscode.window.createTerminal({
@@ -59,6 +59,8 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
     args.push('--browser=firefox');
   if (result.includes(webkitItem))
     args.push('--browser=webkit');
+  if (!result.includes(chromiumItem) && !result.includes(firefoxItem) && !result.includes(webkitItem))
+    args.push('--no-browsers');
   if (result.includes(useJavaScriptItem))
     args.push('--lang=js');
   if (result.includes(addActionItem))

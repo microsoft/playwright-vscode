@@ -13,33 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { PlaywrightTestConfig } from '@playwright/test';
-import { WorkerOptions } from './tests/utils';
+import { defineConfig } from '@playwright/test';
+import { TestOptions } from './tests/baseTest';
 
-const config: PlaywrightTestConfig<WorkerOptions> = {
-  testDir: './tests',
-  fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? [
-    ['line'],
-    ['blob'],
-  ] : [
-    ['line']
-  ],
+export default defineConfig<void, TestOptions>({
+  reporter: process.env.CI ? 'html' : 'list',
+  timeout: 120_000,
+  workers: 1,
+  expect: {
+    timeout: 30_000,
+  },
+  globalSetup: './globalSetup',
   projects: [
     {
-      name: 'default',
-    },
-    {
-      name: 'reuse',
-      testIgnore: '**/settings.spec.ts',
+      name: 'VSCode insiders',
       use: {
-        mode: 'reuse',
-        screenshot: 'only-on-failure', // 失败时截屏
-        trace: 'retain-on-failure' // 失败时跟踪记录
+        vscodeVersion: 'insiders',
       }
     }
-  ],
-};
-export default config;
+  ]
+});

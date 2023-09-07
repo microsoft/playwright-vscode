@@ -146,7 +146,8 @@ export class SettingsView implements vscodeTypes.WebviewViewProvider, vscodeType
         disabled: !this._reusedBrowser.canClose(),
       },
     ].filter(Boolean);
-    this._view!.webview.postMessage({ method: 'actions', params: { actions } });
+    if (this._view)
+      this._view.webview.postMessage({ method: 'actions', params: { actions } });
   }
 }
 
@@ -166,7 +167,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
     <body>
       <div class="list">
         <div>
-          <label>
+          <label title="When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.">
             <input type="checkbox" setting="reuseBrowser"></input>
             Show browser
           </label>
