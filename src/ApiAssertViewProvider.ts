@@ -64,11 +64,10 @@ export class ApiAssertViewProvider implements vscodeTypes.WebviewViewProvider, v
         {
           const method = data.method;
           const url = data.url;
-          const json = data.params.replace(/s+/g, '');
           let params = {};
           try {
             // 将JSON字符串解析成对象
-            params = JSON.parse(json);
+            params = JSON.parse(data.params);
           } catch (e) {
             vscode.window.showWarningMessage(`请输入合法的json参数传：报错详情${e}`);
             return;
