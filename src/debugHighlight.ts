@@ -147,6 +147,8 @@ async function locatorToHighlight(document: vscodeTypes.TextDocument, position: 
     });
     // Translate locator expressions starting with "component." to be starting with "page.".
     locatorExpression = locatorExpression?.replace(/^component\s*\./, `page.locator('#root').locator('internal:control=component').`);
+    // Translate 'this.page', or 'this._page' to 'page' to have best-effort support for POMs.
+    locatorExpression = locatorExpression?.replace(/this\._?page\s*\./, 'page.');
     // Only consider locator expressions starting with "page." because we know the base for them (root).
     // Other locators can be relative.
     const match = locatorExpression?.match(/^page\s*\.([\s\S]*)/m);
