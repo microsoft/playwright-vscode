@@ -23,9 +23,8 @@ import * as vscodeTypes from './vscodeTypes';
 
 export type DebuggerError = { error: string, location: Location };
 
-const debugSessions = new Map<string, vscodeTypes.DebugSession>();
-
 export class DebugHighlight {
+  private _debugSessions = new Map<string, vscodeTypes.DebugSession>();
   private _errorInDebugger: vscodeTypes.EventEmitter<DebuggerError>;
   readonly onErrorInDebugger: vscodeTypes.Event<DebuggerError>;
   private _disposables: vscodeTypes.Disposable[] = [];
@@ -40,10 +39,10 @@ export class DebugHighlight {
     this._disposables = [
       vscode.debug.onDidStartDebugSession(session => {
         if (isPlaywrightSession(session))
-          debugSessions.set(session.id, session);
+          this._debugSessions.set(session.id, session);
       }),
       vscode.debug.onDidTerminateDebugSession(session => {
-        debugSessions.delete(session.id);
+        this._debugSessions.delete(session.id);
         self._hideHighlight();
       }),
       vscode.languages.registerHoverProvider('typescript', {
@@ -105,7 +104,7 @@ export class DebugHighlight {
   private async _highlightLocator(document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken) {
     if (!this._reusedBrowser.pageCount())
       return;
-    const result = await locatorToHighlight(document, position, token);
+    const result = await locatorToHighlight(this._debugSessions, document, position, token);
     if (result)
       this._reusedBrowser.highlight(result);
     else
@@ -132,7 +131,7 @@ export type StackFrame = {
 
 const sessionsWithHighlight = new Set<vscodeTypes.DebugSession>();
 
-async function locatorToHighlight(document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken): Promise<string | undefined> {
+async function locatorToHighlight(debugSessions: Map<string, vscodeTypes.DebugSession>, document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken): Promise<string | undefined> {
   const fsPath = document.uri.fsPath;
 
   if (!debugSessions.size) {
@@ -147,6 +146,8 @@ async function locatorToHighlight(document: vscodeTypes.TextDocument, position: 
     });
     // Translate locator expressions starting with "component." to be starting with "page.".
     locatorExpression = locatorExpression?.replace(/^component\s*\./, `page.locator('#root').locator('internal:control=component').`);
+    // Translate 'this.page', or 'this._page' to 'page' to have best-effort support for POMs.
+    locatorExpression = locatorExpression?.replace(/this\._?page\s*\./, 'page.');
     // Only consider locator expressions starting with "page." because we know the base for them (root).
     // Other locators can be relative.
     const match = locatorExpression?.match(/^page\s*\.([\s\S]*)/m);
