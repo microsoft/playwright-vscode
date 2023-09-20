@@ -78,8 +78,15 @@ test('should work', async ({ activate }) => {
       [[16, 30], page.getByRole('button', { name: 'two' })],
       [[17, 30], page.getByRole('button', { name: 'one' })],
     ] as const) {
-      vscode.languages.emitHoverEvent(language, vscode.window.activeTextEditor.document, new vscode.Position(line, column));
-      await expect.poll(() => page.locator('x-pw-highlight').boundingBox()).toEqual(expectedLocator ? await expectedLocator.boundingBox() : null);
+      await test.step(`should highlight ${language} ${line}:${column}`, async () => {
+        vscode.languages.emitHoverEvent(language, vscode.window.activeTextEditor.document, new vscode.Position(line, column));
+        await expect(async () => {
+          if (!expectedLocator)
+            await expect(page.locator('x-pw-highlight')).toBeHidden();
+          else
+            expect(await page.locator('x-pw-highlight').boundingBox()).toEqual(await expectedLocator.boundingBox());
+        }).toPass();
+      });
     }
   }
   await browser.close();
