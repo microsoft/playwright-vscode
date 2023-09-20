@@ -692,6 +692,10 @@ enum UIKind {
   Web = 2
 }
 
+type HoverProvider = {
+  provideHover?(document: Document, position: Position, token: CancellationToken): void
+};
+
 export class VSCode {
   isUnderTest = true;
   CancellationTokenSource = CancellationTokenSource;
@@ -747,6 +751,7 @@ export class VSCode {
   readonly commandLog: string[] = [];
   readonly l10n = new L10n();
   lastWithProgressData = undefined;
+  private _hoverProviders: Map<string, HoverProvider> = new Map();
 
   constructor(baseDir: string, browser: Browser) {
     this.context = { subscriptions: [], extensionUri: Uri.file(baseDir) };
@@ -764,7 +769,16 @@ export class VSCode {
     this.debug = new Debug();
 
     const diagnosticsCollections: DiagnosticsCollection[] = [];
-    this.languages.registerHoverProvider = () => disposable;
+    this.languages.registerHoverProvider = (language: string, provider: HoverProvider) => {
+      this._hoverProviders.set(language, provider);
+      return disposable;
+    };
+    this.languages.emitHoverEvent = (language: string, document: Document, position: Position, token: CancellationToken) => {
+      const provider = this._hoverProviders.get(language);
+      if (!provider)
+        return;
+      provider.provideHover?.(document, position, token);
+    };
     this.languages.getDiagnostics = () => {
       const result: Diagnostic[] = [];
       for (const collection of diagnosticsCollections) {
