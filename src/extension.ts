@@ -289,9 +289,10 @@ export class Extension {
   }
 
   private _envProvider(): NodeJS.ProcessEnv {
-    return {
-      ...this._vscode.workspace.getConfiguration('playwright').get('env', {}),
-    };
+    const env = this._vscode.workspace.getConfiguration('playwright').get('env', {});
+    return Object.fromEntries(Object.entries(env).map(entry => {
+      return typeof entry[1] === 'string' ? entry : [entry[0], JSON.stringify(entry[1])];
+    })) as NodeJS.ProcessEnv;
   }
 
   private async _createRunProfile(project: TestProject, usedProfiles: Set<vscodeTypes.TestRunProfile>) {
