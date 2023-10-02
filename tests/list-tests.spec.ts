@@ -161,6 +161,11 @@ test('should discover new tests with active editor', async ({ activate }) => {
     > playwright list-files -c playwright.config.js
   `);
 
+  await workspaceFolder.addFile('tests/test2.spec.ts', `
+    import { test } from '@playwright/test';
+    test('two', async () => {});
+  `);
+
   await Promise.all([
     new Promise<void>(f => {
       testController.onDidChangeTestItem(ti => {
@@ -168,10 +173,6 @@ test('should discover new tests with active editor', async ({ activate }) => {
           f();
       });
     }),
-    workspaceFolder.addFile('tests/test2.spec.ts', `
-      import { test } from '@playwright/test';
-      test('two', async () => {});
-    `),
     vscode.openEditors('**/test2.spec.ts'),
   ]);
 

@@ -897,7 +897,10 @@ export class VSCode {
           this._didChangeConfiguration.fire({
             affectsConfiguration: prefix => (scope + '.' + key).startsWith(prefix)
           });
-        }
+        },
+        inspect: key => {
+          return { defaultValue: false, globalValue: settings[scope + '.' + key] };
+        },
       };
     };
   }

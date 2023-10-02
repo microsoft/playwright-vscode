@@ -85,8 +85,7 @@ export class Setting<T> implements vscodeTypes.Disposable {
           this._onChange.fire(this.get());
       }),
       vscode.commands.registerCommand(`pw.extension.toggle.${settingName}`, async () => {
-        const configuration = this._vscode.workspace.getConfiguration('playwright');
-        await configuration.update(settingName, !this.get(), true);
+        this.set(!this.get() as T);
       }),
     ];
   }
@@ -98,6 +97,9 @@ export class Setting<T> implements vscodeTypes.Disposable {
 
   async set(value: T) {
     const configuration = this._vscode.workspace.getConfiguration('playwright');
+    const existsInWorkspace = configuration.inspect(this.settingName)?.workspaceValue !== undefined;
+    if (existsInWorkspace)
+      configuration.update(this.settingName, value, false);
     configuration.update(this.settingName, value, true);
   }
 
