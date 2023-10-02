@@ -64,3 +64,29 @@ test('should open test results', async ({ activate }) => {
   await webView.getByText('Reveal test output').click();
   expect(vscode.commandLog.filter(f => f !== 'testing.getExplorerSelection')).toEqual(['testing.showMostRecentOutput']);
 });
+
+test('should support playwright.env', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+    'example.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {
+        console.log('foo=' + process.env.FOO);
+        console.log('bar=' + process.env.BAR);
+      });
+    `,
+  });
+  const configuration = vscode.workspace.getConfiguration('playwright');
+  configuration.update('env', {
+    'FOO': 'foo-value',
+    'BAR': { prop: 'bar-value' },
+  });
+
+  const testItems = testController.findTestItems(/example.spec.ts/);
+  expect(testItems.length).toBe(1);
+
+  const testRun = await testController.run(testItems);
+  const output = testRun.renderLog({ output: true });
+  expect(output).toContain(`foo=foo-value`);
+  expect(output).toContain(`bar={"prop":"bar-value"}`);
+});
