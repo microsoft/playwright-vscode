@@ -16,7 +16,7 @@
 
 import { locatorForSourcePosition, pruneAstCaches } from './babelHighlightUtil';
 import { debugSessionName } from './debugSessionName';
-import { locatorMethodRegex } from './methodNames';
+import { replaceActionWithLocator, locatorMethodRegex } from './methodNames';
 import type { Location } from './reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import * as vscodeTypes from './vscodeTypes';
@@ -148,6 +148,8 @@ async function locatorToHighlight(debugSessions: Map<string, vscodeTypes.DebugSe
     locatorExpression = locatorExpression?.replace(/^component\s*\./, `page.locator('#root').locator('internal:control=component').`);
     // Translate 'this.page', or 'this._page' to 'page' to have best-effort support for POMs.
     locatorExpression = locatorExpression?.replace(/this\._?page\s*\./, 'page.');
+    // Translate page.click() to page.locator()
+    locatorExpression = locatorExpression ? replaceActionWithLocator(locatorExpression) : undefined;
     // Only consider locator expressions starting with "page." because we know the base for them (root).
     // Other locators can be relative.
     const match = locatorExpression?.match(/^page\s*\.([\s\S]*)/m);

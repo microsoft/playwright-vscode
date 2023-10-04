@@ -74,7 +74,15 @@ export const locatorMethods = [
   'first',
   'last',
   'nth',
-  'filter'
+  'filter',
+  'check',
+  'click',
+  'fill',
+  'type',
 ];
 
-export const locatorMethodRegex = /\.\s*(locator|getBy[\w]+|first|last|nth|filter)\(/;
+export const locatorMethodRegex = /\.\s*(check|click|fill|type|locator|getBy[\w]+|first|last|nth|filter)\(/;
+
+export function replaceActionWithLocator(expression: string) {
+  return expression.replace(/\.\s*(?:check|click|fill|type)\(([^,]+)(?:,\s*{.*})\)/, '.locator($1)');
+}

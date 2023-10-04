@@ -83,7 +83,7 @@ export function locatorForSourcePosition(text: string, vars: { pages: string[], 
         expressionNode = path.node.object.arguments[0];
 
 
-      // *.locator(), *.getBy*(), call
+      // *.locator(), *.getBy*(), *.click(), *.fill(), *.type() call
       if (t.isCallExpression(path.node) &&
           t.isMemberExpression(path.node.callee) &&
           t.isIdentifier(path.node.callee.property) &&
