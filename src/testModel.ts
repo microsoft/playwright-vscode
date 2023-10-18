@@ -146,7 +146,7 @@ export class TestModel {
 
   private _createFile(project: TestProject, file: string): TestFile {
     const testFile = new TestFile(project, file);
-    project.files.set(file, testFile);
+    project.files.set(this._vscode.Uri.file(file).fsPath, testFile);
     return testFile;
   }
 

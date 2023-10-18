@@ -207,13 +207,14 @@ export class TestTree {
   }
 
   private _createRootFolderItem(folder: string): vscodeTypes.TestItem {
-    const folderItem = this._testController.createTestItem(this._id(folder), path.basename(folder), this._vscode.Uri.file(folder));
-    this._folderItems.set(folder, folderItem);
+    const folderUri = this._vscode.Uri.file(folder);
+    const folderItem = this._testController.createTestItem(this._id(folder), path.basename(folder), folderUri);
+    this._folderItems.set(folderUri.fsPath, folderItem);
     return folderItem;
   }
 
   testItemForLocation(location: Location, titlePath: string[]): vscodeTypes.TestItem | undefined {
-    const fileItem = this._fileItems.get(location.file);
+    const fileItem = this._fileItems.get(this._vscode.Uri.file(location.file).fsPath);
     if (!fileItem)
       return;
     let result: vscodeTypes.TestItem | undefined;
@@ -238,7 +239,8 @@ export class TestTree {
   }
 
   getOrCreateFileItem(file: string): vscodeTypes.TestItem {
-    const result = this._fileItems.get(file);
+    const fileUri = this._vscode.Uri.file(file);
+    const result = this._fileItems.get(fileUri.fsPath);
     if (result)
       return result;
 
@@ -246,21 +248,22 @@ export class TestTree {
     const parentItem = this.getOrCreateFolderItem(parentFile);
     const fileItem = this._testController.createTestItem(this._id(file), path.basename(file), this._vscode.Uri.file(file));
     fileItem.canResolveChildren = true;
-    this._fileItems.set(file, fileItem);
+    this._fileItems.set(fileUri.fsPath, fileItem);
 
     parentItem.children.add(fileItem);
     return fileItem;
   }
 
   getOrCreateFolderItem(folder: string): vscodeTypes.TestItem {
-    const result = this._folderItems.get(folder);
+    const folderUri = this._vscode.Uri.file(folder);
+    const result = this._folderItems.get(folderUri.fsPath);
     if (result)
       return result;
 
     const parentFolder = path.dirname(folder);
     const parentItem = this.getOrCreateFolderItem(parentFolder);
     const folderItem = this._testController.createTestItem(this._id(folder), path.basename(folder), this._vscode.Uri.file(folder));
-    this._folderItems.set(folder, folderItem);
+    this._folderItems.set(folderUri.fsPath, folderItem);
     parentItem.children.add(folderItem);
     return folderItem;
   }
