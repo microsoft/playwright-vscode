@@ -136,7 +136,7 @@
     "@babel/core": "^7.20.2",
     "@babel/helper-plugin-utils": "^7.20.2",
     "@babel/parser": "^7.20.3",
-    "@babel/traverse": "^7.20.1",
+    "@babel/traverse": "^7.23.2",
     "stack-utils": "^2.0.6",
     "which": "^3.0.0",
     "ws": "^8.11.0"
