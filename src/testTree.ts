@@ -16,8 +16,7 @@
 
 import path from 'path';
 import { MultiMap } from './multimap';
-import { Entry, EntryType } from './oopReporter';
-import { Location } from './reporter';
+import type { Location, Entry, EntryType } from './oopReporter';
 import { TestModel, TestProject } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';

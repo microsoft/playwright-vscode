@@ -17,7 +17,9 @@
 import type { FullConfig, FullProject, FullResult, Location, Reporter, Suite, TestCase, TestError, TestResult, TestStatus, TestStep } from './reporter';
 import { ConnectionTransport, WebSocketTransport } from './transport';
 
+export type { TestError, Location } from './reporter';
 export type EntryType = 'project' | 'file' | 'suite' | 'test';
+
 export type Entry = {
   type: EntryType;
   title: string;
@@ -60,8 +62,6 @@ export type StepEndParams = {
 };
 
 class OopReporter implements Reporter {
-  config!: FullConfig;
-  suite!: Suite;
   private _transport: Promise<ConnectionTransport>;
 
   constructor() {

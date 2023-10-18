@@ -18,8 +18,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { debugSessionName } from './debugSessionName';
 import { ConfigListFilesReport } from './listTests';
-import { Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
-import type { TestError } from './reporter';
+import type { TestError, Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import { ReporterServer } from './reporterServer';
 import { ReusedBrowser } from './reusedBrowser';
 import { findNode, spawnAsync } from './utils';
@@ -152,7 +151,7 @@ export class PlaywrightTest {
   private async _test(config: TestConfig, locations: string[], args: string[], listener: TestListener, mode: 'list' | 'run', token: vscodeTypes.CancellationToken): Promise<void> {
     // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
     // Always use ws transport to mitigate it.
-    const reporterServer = new ReporterServer();
+    const reporterServer = new ReporterServer(this._vscode);
     const node = await findNode();
     if (token?.isCancellationRequested)
       return;
@@ -230,7 +229,7 @@ export class PlaywrightTest {
       this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> debug -c ${configFile}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
     }
 
-    const reporterServer = new ReporterServer();
+    const reporterServer = new ReporterServer(this._vscode);
     await this._reusedBrowser.willRunTests(config, true);
     try {
       await vscode.debug.startDebugging(undefined, {

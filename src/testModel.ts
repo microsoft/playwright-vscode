@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-import { Entry } from './oopReporter';
+import { Entry, TestError } from './oopReporter';
 import { PlaywrightTest, TestConfig, TestListener } from './playwrightTest';
 import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
 import { resolveSourceMap } from './utils';
 import { ProjectConfigWithFiles } from './listTests';
-import { TestError } from './reporter';
 
 /**
  * This class builds the Playwright Test model in Playwright terms.
