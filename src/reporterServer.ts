@@ -20,13 +20,16 @@ import { TestListener } from './playwrightTest';
 import { ConnectionTransport } from './transport';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
+import type { Location, TestError, Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 
 export class ReporterServer {
   private _clientSocketPromise: Promise<WebSocket>;
   private _clientSocketCallback!: (socket: WebSocket) => void;
   private _wsServer: WebSocketServer | undefined;
+  private _vscode: vscodeTypes.VSCode;
 
-  constructor() {
+  constructor(vscode: vscodeTypes.VSCode) {
+    this._vscode = vscode;
     this._clientSocketPromise = new Promise(f => this._clientSocketCallback = f);
   }
 
@@ -86,12 +89,16 @@ export class ReporterServer {
       if (token.isCancellationRequested && message.method !== 'onEnd')
         return;
       switch (message.method) {
-        case 'onBegin': listener.onBegin?.(message.params); break;
-        case 'onTestBegin': listener.onTestBegin?.(message.params); break;
-        case 'onTestEnd': listener.onTestEnd?.(message.params); break;
-        case 'onStepBegin': listener.onStepBegin?.(message.params); break;
-        case 'onStepEnd': listener.onStepEnd?.(message.params); break;
-        case 'onError': listener.onError?.(message.params); break;
+        case 'onBegin': {
+          (message.params as { projects: Entry[] }).projects.forEach((e: Entry) => patchLocation(this._vscode, e));
+          listener.onBegin?.(message.params);
+          break;
+        }
+        case 'onTestBegin': listener.onTestBegin?.(patchLocation(this._vscode, message.params as TestBeginParams)); break;
+        case 'onTestEnd': listener.onTestEnd?.(patchLocation(this._vscode, message.params as TestEndParams)); break;
+        case 'onStepBegin': listener.onStepBegin?.(patchLocation(this._vscode, message.params as StepBeginParams)); break;
+        case 'onStepEnd': listener.onStepEnd?.(patchLocation(this._vscode, message.params as StepEndParams)); break;
+        case 'onError': listener.onError?.(patchLocation(this._vscode, message.params as { error: TestError })); break;
         case 'onEnd': {
           listener.onEnd?.();
           transport.close();
@@ -136,5 +143,20 @@ export class ReporterServer {
     });
     return transport;
   }
+}
 
+function patchLocation<T extends { location?: Location, error?: TestError, errors?: TestError[] }>(vscode: vscodeTypes.VSCode, object: T): T {
+  // Normalize all the location.file values using the Uri.file().fsPath normalization.
+  // vscode will normalize Windows drive letter, etc.
+  if (object.location)
+    object.location.file = vscode.Uri.file(object.location.file).fsPath;
+  if (object.error?.location)
+    object.error.location.file = vscode.Uri.file(object.error.location.file).fsPath;
+  if (object.errors) {
+    object.errors.forEach(e => {
+      if (e.location)
+        e.location.file = vscode.Uri.file(e.location.file).fsPath;
+    });
+  }
+  return object;
 }
