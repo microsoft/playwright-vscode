@@ -111,10 +111,11 @@
     "uncode-insiders": "code-insiders --uninstall-extension ms-playwright.playwright"
   },
   "devDependencies": {
+    "@babel/preset-typescript": "^7.23.2",
     "@playwright/test": "1.39.0-beta-1697048429000",
-    "@types/babel__core": "^7.1.20",
-    "@types/babel__helper-plugin-utils": "^7.10.0",
-    "@types/babel__traverse": "^7.18.2",
+    "@types/babel__core": "^7.20.3",
+    "@types/babel__helper-plugin-utils": "^7.10.2",
+    "@types/babel__traverse": "^7.20.3",
     "@types/glob": "^8.0.0",
     "@types/node": "^18.11.9",
     "@types/stack-utils": "^2.0.1",
@@ -133,10 +134,10 @@
     "typescript": "^4.9.3"
   },
   "dependencies": {
-    "@babel/core": "^7.20.2",
-    "@babel/helper-plugin-utils": "^7.20.2",
-    "@babel/parser": "^7.20.3",
-    "@babel/traverse": "^7.20.1",
+    "@babel/core": "^7.23.2",
+    "@babel/helper-plugin-utils": "^7.22.5",
+    "@babel/parser": "^7.23.0",
+    "@babel/traverse": "^7.23.2",
     "stack-utils": "^2.0.6",
     "which": "^3.0.0",
     "ws": "^8.11.0"

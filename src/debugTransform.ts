@@ -29,7 +29,7 @@ export default declare(api => {
         if (!isAwaitExpression && !isCallExpression)
           return;
         // Prevent re-enterability without calling path.skip.
-        if (t.isBlockStatement(path.parentPath) && t.isTryStatement(path.parentPath.parentPath))
+        if (path.parentPath.isBlockStatement() && path.parentPath.parentPath.isTryStatement())
           return;
         if (isAwaitExpression && !t.isCallExpression(expression.argument))
           return;
