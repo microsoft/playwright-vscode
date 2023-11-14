@@ -148,7 +148,14 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     });
 
     this._backend.on('inspectRequested', params => {
+      if (!this._updateOrCancelInspecting)
+        this._showInspectingBox();
       this._updateOrCancelInspecting?.({ selector: params.locator || params.selector });
+    });
+
+    this._backend.on('setModeRequested', params => {
+      if (params.mode === 'standby')
+        this._reset(false);
     });
 
     this._backend.on('paused', async params => {
@@ -267,6 +274,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     }
 
+    this._showInspectingBox();
+  }
+
+  private _showInspectingBox() {
     const selectorExplorerBox = this._vscode.window.createInputBox();
     selectorExplorerBox.title = this._vscode.l10n.t('Pick locator');
     selectorExplorerBox.value = '';
