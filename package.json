@@ -3,7 +3,7 @@
   "displayName": "Playwright Test for VSCode",
   "description": "%description%",
   "icon": "images/playwright-logo.png",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "publisher": "ms-playwright",
   "repository": "https://github.com/microsoft/playwright-vscode",
   "bugs": {
