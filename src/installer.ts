@@ -22,8 +22,10 @@ import { TestModel } from './testModel';
 
 export async function installPlaywright(vscode: vscodeTypes.VSCode) {
   const [workspaceFolder] = vscode.workspace.workspaceFolders || [];
-  if (!workspaceFolder)
+  if (!workspaceFolder) {
+    await vscode.window.showErrorMessage('Please open a folder in VS Code to initialize Playwright. Either an empty folder or a folder with an existing package.json.');
     return;
+  }
   const hasQuickPickSeparator = parseFloat(vscode.version) >= 1.64;
   const options: vscodeTypes.QuickPickItem[] = [];
   if (hasQuickPickSeparator)
