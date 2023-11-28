@@ -193,7 +193,7 @@ export class PlaywrightTest {
         ...(await reporterServer.env()),
         // Reset VSCode's options that affect nested Electron.
         ELECTRON_RUN_AS_NODE: undefined,
-        FORCE_COLORS: '1',
+        FORCE_COLOR: '1',
         PW_TEST_HTML_REPORT_OPEN: 'never',
         PW_TEST_NO_REMOVE_OUTPUT_DIRS: '1',
       }
@@ -245,7 +245,7 @@ export class PlaywrightTest {
           ...(await reporterServer.env()),
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,
-          FORCE_COLORS: '1',
+          FORCE_COLOR: '1',
           PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
           PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
           PW_TEST_HTML_REPORT_OPEN: 'never',
