@@ -50,7 +50,7 @@ test('should list tests on expand', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list build/test.spec.js:0 tests/test.spec.ts
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 });
 
@@ -74,7 +74,7 @@ test('should list tests for visible editors', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list build/test.spec.js:0 tests/test.spec.ts
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 });
 
@@ -169,7 +169,7 @@ test('should discover new tests', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list build/test.spec.js:0 tests/test.spec.ts
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 
   await Promise.all([
@@ -189,8 +189,8 @@ test('should discover new tests', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list build/test.spec.js:0 tests/test.spec.ts
-    > playwright test -c playwright.config.js --list build/test.spec.js:0 tests/test.spec.ts
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
   `);
 });
 
@@ -242,8 +242,8 @@ test('should run one test', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list build/test.spec.js:0 tests/test.spec.ts
-    > playwright test -c playwright.config.js build/test.spec.js:0 tests/test.spec.ts:3
+    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js tests/test.spec.ts:3
   `);
 });
 

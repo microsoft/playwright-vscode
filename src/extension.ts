@@ -608,10 +608,10 @@ located next to Run / Debug Tests toolbar buttons.`);
     await this._listTestsInAllModels(files);
   }
 
-  private _listTestsInAllModels(files: string[]): Promise<void> {
+  private _listTestsInAllModels(inputFiles: string[]): Promise<void> {
     // Perform coalescing listTests calls to avoid multiple
     // 'list tests' processes running at the same time.
-    if (!files.length)
+    if (!inputFiles.length)
       return Promise.resolve();
 
     if (!this._filesPendingListTests) {
@@ -647,7 +647,7 @@ located next to Run / Debug Tests toolbar buttons.`);
       };
     }
 
-    for (const file of files)
+    for (const file of inputFiles)
       this._filesPendingListTests.files.add(file);
 
     return this._filesPendingListTests.promise;
