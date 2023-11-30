@@ -204,7 +204,7 @@ export class TestModel {
     if (!sourcesToLoad.length)
       return [];
 
-    const { entries, errors } = await this._playwrightTest.listTests(this.config, this._mapSourcesToFiles(sourcesToLoad));
+    const { entries, errors } = await this._playwrightTest.listTests(this.config, sourcesToLoad);
     this._updateProjects(entries, sourcesToLoad);
     return errors;
   }
@@ -261,40 +261,13 @@ export class TestModel {
   }
 
   async runTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
-    locations = locations ? this._mapSourcesToFiles(locations) : [];
+    locations = locations || [];
     await this._playwrightTest.runTests(this.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, token);
   }
 
   async debugTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
-    locations = locations ? this._mapSourcesToFiles(locations) : [];
+    locations = locations || [];
     await this._playwrightTest.debugTests(this._vscode, this.config, projects.map(p => p.name), projects.map(p => p.testDir), this._envProvider(), locations, testListener, parametrizedTestTitle, token);
-  }
-
-  private _mapSourcesToFiles(sources: string[]): string[] {
-    const result: string[] = [];
-
-    // When we see
-    //   src/foo.ts in the source,
-    // we want to pass
-    //   out/bundle.js:0 src/foo.ts
-    // This way we'll parse bundle.js and filter source-mapped tests by src/foo.ts
-
-    // When we see
-    //   src/foo.ts:14 in the source,
-    // we want to pass
-    //   out/bundle.js:0 src/foo.ts:14
-    // Same idea here, we'll parse bundle and filter by source-mapped location.
-    // It looks wrong, but it actually achieves the right result.
-
-    for (const source of sources) {
-      const match = source.match(/^(.*)([:]\d+)$/);
-      const sourceFile = match ? match[1] : source;
-      const bundleFile = this._sourceToFile.get(sourceFile);
-      if (bundleFile)
-        result.push(bundleFile + ':0');
-      result.push(source);
-    }
-    return result;
   }
 
   private _mapFilesToSources(files: Set<string>): Set<string> {
