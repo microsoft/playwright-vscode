@@ -73,12 +73,10 @@ export const locatorMethods = [
   'getByTitle',
   'first',
   'last',
+  'and',
+  'or',
   'nth',
   'filter',
-  'check',
-  'click',
-  'fill',
-  'type',
 ];
 
 export const locatorMethodRegex = /\.\s*(check|click|fill|type|locator|getBy[\w]+|first|last|nth|filter)\(/;
