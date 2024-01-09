@@ -62,7 +62,7 @@ export class TraceViewer implements vscodeTypes.Disposable {
   }
 
   private async _startIfNeeded(config: TestConfig, file: string) {
-    const node = await findNode();
+    const node = await findNode(this._vscode);
     if (this._traceViewerProcess)
       return;
     const allArgs = [config.cli, 'show-trace', `--stdin`];

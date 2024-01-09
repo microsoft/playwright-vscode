@@ -152,7 +152,7 @@ export class PlaywrightTest {
     // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
     // Always use ws transport to mitigate it.
     const reporterServer = new ReporterServer(this._vscode);
-    const node = await findNode();
+    const node = await findNode(this._vscode);
     if (token?.isCancellationRequested)
       return;
     const configFolder = path.dirname(config.configFile);
@@ -269,7 +269,7 @@ export class PlaywrightTest {
   }
 
   private async _runNode(args: string[], cwd: string): Promise<string> {
-    return await spawnAsync(await findNode(), args, cwd, this._envProvider());
+    return await spawnAsync(await findNode(this._vscode), args, cwd, this._envProvider());
   }
 }
 
