@@ -20,6 +20,7 @@ import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
 import which from 'which';
+import * as vscodeTypes from './vscodeTypes';
 
 export function calculateSha1(buffer: Buffer | string): string {
   const hash = crypto.createHash('sha1');
@@ -138,27 +139,27 @@ export async function resolveSourceMap(file: string, fileToSources: Map<string, 
 
 let pathToNodeJS: string | undefined;
 
-export async function findNode(vscode: typeof import('vscode')): Promise<string> {
+export async function findNode(vscode: vscodeTypes.VSCode): Promise<string> {
   if (pathToNodeJS)
     return pathToNodeJS;
 
-  // Stage 1: try to find node via process.env.PATH
+  // Stage 1: Try to find Node.js via process.env.PATH
   let node = await which('node').catch(e => undefined);
   // Stage 2: When extension host boots, it does not have the right env set, so we might need to wait.
   for (let i = 0; i < 5 && !node; ++i) {
     await new Promise(f => setTimeout(f, 200));
     node = await which('node').catch(e => undefined);
   }
-  // Stage 3: If we still haven't found node, try to find it via a subprocess.
+  // Stage 3: If we still haven't found Node.js, try to find it via a subprocess.
   // This evaluates shell rc/profile files and makes nvm work.
-  node ??= await findNodeViaSubProcess(vscode);
+  node ??= await findNodeViaShell(vscode);
   if (!node)
     throw new Error('Unable to launch `node`, make sure it is in your PATH');
   pathToNodeJS = node;
   return node;
 }
 
-async function findNodeViaSubProcess(vscode: typeof import('vscode')): Promise<string | undefined> {
+async function findNodeViaShell(vscode: vscodeTypes.VSCode): Promise<string | undefined> {
   if (process.platform === 'win32')
     return undefined;
   return new Promise<string | undefined>(resolve => {
