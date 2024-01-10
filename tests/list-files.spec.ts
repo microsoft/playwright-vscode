@@ -384,4 +384,5 @@ test('should ignore errors when listing files', async ({ activate }) => {
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.ts
   `);
+  expect(vscode.errors).toEqual(['There are errors in Playwright configuration files.']);
 });

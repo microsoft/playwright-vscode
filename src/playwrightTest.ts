@@ -93,7 +93,7 @@ export class PlaywrightTest {
     return null;
   }
 
-  async listFiles(config: TestConfig): Promise<ConfigListFilesReport | null> {
+  async listFiles(config: TestConfig): Promise<ConfigListFilesReport> {
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
     const allArgs = [config.cli, 'list-files', '-c', configFile];
@@ -101,19 +101,18 @@ export class PlaywrightTest {
       // For tests.
       this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright list-files -c ${configFile}`);
     }
-    const output = await this._runNode(allArgs, configFolder);
     try {
+      const output = await this._runNode(allArgs, configFolder);
       const result = JSON.parse(output) as ConfigListFilesReport;
-      if ((result as any).error) {
-        // TODO: show errors as diagnostics.
-        if (!this._isUnderTest)
-          console.error(`Error while listing files: ${allArgs.join(' ')}`, (result as any).error);
-        return null;
-      }
       return result;
-    } catch (e) {
-      console.error(e);
-      return null;
+    } catch (error: any) {
+      return {
+        error: {
+          location: { file: configFile, line: 0, column: 0 },
+          message: error.message,
+        },
+        projects: [],
+      };
     }
   }
 

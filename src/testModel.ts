@@ -85,10 +85,10 @@ export class TestModel {
     this.onUpdated = this._didUpdate.event;
   }
 
-  async listFiles() {
+  async listFiles(): Promise<TestError | undefined> {
     const report = await this._playwrightTest.listFiles(this.config);
-    if (!report)
-      return;
+    if (report.error)
+      return report.error;
 
     // Resolve files to sources when using source maps.
     for (const project of report.projects) {

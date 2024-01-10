@@ -743,6 +743,7 @@ export class VSCode {
   readonly testControllers: TestController[] = [];
   readonly fsWatchers = new Set<FileSystemWatcher>();
   readonly warnings: string[] = [];
+  readonly errors: string[] = [];
   readonly context: { subscriptions: any[]; extensionUri: Uri; };
   readonly extensions: any[] = [];
   private _webviewProviders = new Map<string, any>();
@@ -804,6 +805,7 @@ export class VSCode {
     this.window.onDidChangeActiveColorTheme = () => disposable;
     this.window.createTextEditorDecorationType = () => ++lastDecorationTypeId;
     this.window.showWarningMessage = (message: string) => this.warnings.push(message);
+    this.window.showErrorMessage = (message: string) => this.errors.push(message);
     this.window.visibleTextEditors = [];
     this.window.registerTreeDataProvider = () => disposable;
     this.window.registerWebviewViewProvider = (name: string, provider: any) => {

@@ -86,7 +86,7 @@ export class Extension {
     promise: Promise<void>,
     finishedCallback: () => void
   } | undefined;
-  private _diagnostics: vscodeTypes.DiagnosticCollection;
+  private _diagnostics: Record<'configErrors' | 'testErrors', vscodeTypes.DiagnosticCollection>;
   private _treeItemObserver: TreeItemObserver;
 
   constructor(vscode: vscodeTypes.VSCode) {
@@ -120,7 +120,10 @@ export class Extension {
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
-    this._diagnostics = this._vscode.languages.createDiagnosticCollection('pw.diagnostics');
+    this._diagnostics = {
+      testErrors: this._vscode.languages.createDiagnosticCollection('pw.testErrors.diagnostic'),
+      configErrors: this._vscode.languages.createDiagnosticCollection('pw.configErrors.diagnostic'),
+    };
     this._treeItemObserver = new TreeItemObserver(this._vscode);
   }
 
@@ -199,7 +202,7 @@ export class Extension {
       this._testController,
       this._workspaceObserver,
       this._reusedBrowser,
-      this._diagnostics,
+      ...Object.values(this._diagnostics),
       this._treeItemObserver,
     ];
     await this._rebuildModel(false);
@@ -230,6 +233,7 @@ export class Extension {
     // Reuse already created run profiles in order to retain their 'selected' status.
     const usedProfiles = new Set<vscodeTypes.TestRunProfile>();
 
+    const configErrors = new MultiMap<string, TestError>();
     for (const configFileUri of configFiles) {
       const configFilePath = configFileUri.fsPath;
       // TODO: parse .gitignore
@@ -263,7 +267,11 @@ export class Extension {
       const model = new TestModel(this._vscode, this._playwrightTest, workspaceFolderPath, configFileUri.fsPath, playwrightInfo, this._envProvider.bind(this));
       this._models.push(model);
       this._testTree.addModel(model);
-      await model.listFiles();
+      const configError = await model.listFiles();
+      if (configError) {
+        configErrors.set(configError.location?.file ?? configFilePath, configError);
+        continue;
+      }
 
       for (const project of model.projects.values()) {
         await this._createRunProfile(project, usedProfiles);
@@ -284,7 +292,35 @@ export class Extension {
     this._testTree.finishedLoading();
     await this._updateVisibleEditorItems();
 
+    this._reportConfigErrorsToUser(configErrors);
+
     return configFiles;
+  }
+
+  private _reportConfigErrorsToUser(configErrors: MultiMap<string, TestError>) {
+    this._updateDiagnostics('configErrors', configErrors);
+    if (!configErrors.size)
+      return;
+    (async () => {
+      const openProblems = this._vscode.l10n.t('Open Problems');
+      const choice = await this._vscode.window.showErrorMessage(this._vscode.l10n.t('There are errors in Playwright configuration files.'), openProblems);
+      if (choice === openProblems) {
+        // Show the document to the user.
+        const document = await this._vscode.workspace.openTextDocument([...configErrors.keys()][0]);
+        await this._vscode.window.showTextDocument(document);
+        const error = [...configErrors.values()][0];
+        // Reveal the error line.
+        if (error?.location) {
+          const range = new this._vscode.Range(
+              new this._vscode.Position(Math.max(error.location.line - 4, 0), 0),
+              new this._vscode.Position(error.location.line - 1, error.location.column - 1),
+          );
+          this._vscode.window.activeTextEditor?.revealRange(range);
+        }
+        // Focus problems view.
+        await this._vscode.commands.executeCommand('workbench.action.problems.focus');
+      }
+    })();
   }
 
   private _envProvider(): NodeJS.ProcessEnv {
@@ -635,7 +671,7 @@ located next to Run / Debug Tests toolbar buttons.`);
             errorsByFile.set(error.location?.file, error);
           }
         }
-        this._updateDiagnostics(errorsByFile);
+        this._updateDiagnostics('testErrors', errorsByFile);
         finishedCallback();
       }, 0);
 
@@ -653,8 +689,9 @@ located next to Run / Debug Tests toolbar buttons.`);
     return this._filesPendingListTests.promise;
   }
 
-  private _updateDiagnostics(errorsByFile: MultiMap<string, TestError>) {
-    this._diagnostics.clear();
+  private _updateDiagnostics(diagnosticsType: 'configErrors' | 'testErrors' , errorsByFile: MultiMap<string, TestError>) {
+    const diagnosticsCollection = this._diagnostics[diagnosticsType]!;
+    diagnosticsCollection.clear();
     for (const [file, errors] of errorsByFile) {
       const diagnostics: vscodeTypes.Diagnostic[] = [];
       for (const error of errors) {
@@ -665,7 +702,7 @@ located next to Run / Debug Tests toolbar buttons.`);
           message: error.message!,
         });
       }
-      this._diagnostics.set(this._vscode.Uri.file(file), diagnostics);
+      diagnosticsCollection.set(this._vscode.Uri.file(file), diagnostics);
     }
   }
 
