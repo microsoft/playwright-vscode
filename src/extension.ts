@@ -26,7 +26,7 @@ import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
 import { TestModel, TestProject } from './testModel';
 import { TestTree } from './testTree';
-import { ansiToHtml } from './utils';
+import { NodeJSNotFoundError, ansiToHtml } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { TraceViewer } from './traceViewer';
@@ -202,7 +202,7 @@ export class Extension {
       this._diagnostics,
       this._treeItemObserver,
     ];
-    await this._rebuildModel(false);
+    await this._rebuildModel(true);
 
     const fileSystemWatcher = this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mjs}');
     this._disposables.push(fileSystemWatcher);
@@ -240,13 +240,16 @@ export class Extension {
       const workspaceFolderPath = workspaceFolder.uri.fsPath;
       if (configFilePath.includes('test-results') && !workspaceFolderPath.includes('test-results'))
         continue;
-      const playwrightInfo = await this._playwrightTest.getPlaywrightInfo(workspaceFolderPath, configFilePath);
-      if (!playwrightInfo) {
+      let playwrightInfo = null;
+      try {
+        playwrightInfo = await this._playwrightTest.getPlaywrightInfo(workspaceFolderPath, configFilePath);
+      } catch (error) {
         if (showWarnings) {
           this._vscode.window.showWarningMessage(
-              this._vscode.l10n.t('Please install Playwright Test via running `npm i --save-dev @playwright/test`')
+              error instanceof NodeJSNotFoundError ? error.message : this._vscode.l10n.t('Please install Playwright Test via running `npm i --save-dev @playwright/test`')
           );
         }
+        console.error('[Playwright Test]:', (error as any)?.message, 1);
         continue;
       }
 
