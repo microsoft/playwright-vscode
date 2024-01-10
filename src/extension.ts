@@ -204,8 +204,12 @@ export class Extension {
     ];
     await this._rebuildModel(false);
 
-    const fileSystemWatcher = this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mjs}');
-    this._disposables.push(fileSystemWatcher);
+    const fileSystemWatchers = [
+      // Glob parser does not supported nested group, hence multiple watchers.
+      this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mjs}'),
+      this._vscode.workspace.createFileSystemWatcher('**/.env*'),
+    ];
+    this._disposables.push(...fileSystemWatchers);
     const rebuildModelForConfig = (uri: vscodeTypes.Uri) => {
       // TODO: parse .gitignore
       if (uri.fsPath.includes('node_modules'))
@@ -214,9 +218,9 @@ export class Extension {
         return;
       this._rebuildModel(false);
     };
-    fileSystemWatcher.onDidChange(rebuildModelForConfig);
-    fileSystemWatcher.onDidCreate(rebuildModelForConfig);
-    fileSystemWatcher.onDidDelete(rebuildModelForConfig);
+    fileSystemWatchers.map(w => w.onDidChange(rebuildModelForConfig));
+    fileSystemWatchers.map(w => w.onDidCreate(rebuildModelForConfig));
+    fileSystemWatchers.map(w => w.onDidDelete(rebuildModelForConfig));
     context.subscriptions.push(this);
   }
 
