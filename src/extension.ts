@@ -207,7 +207,7 @@ export class Extension {
     const fileSystemWatchers = [
       // Glob parser does not supported nested group, hence multiple watchers.
       this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mjs}'),
-      this._vscode.workspace.createFileSystemWatcher('**/.env*'),
+      this._vscode.workspace.createFileSystemWatcher('**/*.env*'),
     ];
     this._disposables.push(...fileSystemWatchers);
     const rebuildModelForConfig = (uri: vscodeTypes.Uri) => {
