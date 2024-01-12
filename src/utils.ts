@@ -137,6 +137,8 @@ export async function resolveSourceMap(file: string, fileToSources: Map<string, 
   return [file];
 }
 
+export class NodeJSNotFoundError extends Error {}
+
 let pathToNodeJS: string | undefined;
 
 export async function findNode(vscode: vscodeTypes.VSCode): Promise<string> {
@@ -154,7 +156,7 @@ export async function findNode(vscode: vscodeTypes.VSCode): Promise<string> {
   // This evaluates shell rc/profile files and makes nvm work.
   node ??= await findNodeViaShell(vscode);
   if (!node)
-    throw new Error('Unable to launch `node`, make sure it is in your PATH');
+    throw new NodeJSNotFoundError(`Unable to find 'node' executable.\nMake sure to have Node.js installed and available in your PATH.\nCurrent PATH: '${process.env.PATH}'.`);
   pathToNodeJS = node;
   return node;
 }

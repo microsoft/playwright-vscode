@@ -63,34 +63,29 @@ export class PlaywrightTest {
     this._envProvider = envProvider;
   }
 
-  async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, cli: string } | null> {
-    try {
-      const pwtInfo = await this._runNode([
-        '-e',
-        'try { const pwtIndex = require.resolve("@playwright/test"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ pwtIndex, version})); } catch { console.log("undefined"); }',
-      ], path.dirname(configFilePath));
-      const { version } = JSON.parse(pwtInfo);
-      const v = parseFloat(version.replace(/-(next|beta)$/, ''));
+  async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, cli: string }> {
+    const pwtInfo = await this._runNode([
+      '-e',
+      'try { const pwtIndex = require.resolve("@playwright/test"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ pwtIndex, version})); } catch { console.log("undefined"); }',
+    ], path.dirname(configFilePath));
+    const { version } = JSON.parse(pwtInfo);
+    const v = parseFloat(version.replace(/-(next|beta)$/, ''));
 
-      // We only depend on playwright-core in 1.15+, bail out.
-      if (v < 1.19)
-        return { cli: '', version: v };
+    // We only depend on playwright-core in 1.15+, bail out.
+    if (v < 1.19)
+      return { cli: '', version: v };
 
-      const cliInfo = await this._runNode([
-        '-e',
-        'try { const cli = require.resolve("@playwright/test/cli"); console.log(JSON.stringify({ cli })); } catch { console.log("undefined"); }',
-      ], path.dirname(configFilePath));
-      let { cli } = JSON.parse(cliInfo);
+    const cliInfo = await this._runNode([
+      '-e',
+      'try { const cli = require.resolve("@playwright/test/cli"); console.log(JSON.stringify({ cli })); } catch { console.log("undefined"); }',
+    ], path.dirname(configFilePath));
+    let { cli } = JSON.parse(cliInfo);
 
-      // Dogfood for 'ttest'
-      if (cli.includes('/playwright/packages/playwright-test/') && configFilePath.includes('playwright-test'))
-        cli = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/@playwright/test/cli.js');
+    // Dogfood for 'ttest'
+    if (cli.includes('/playwright/packages/playwright-test/') && configFilePath.includes('playwright-test'))
+      cli = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/@playwright/test/cli.js');
 
-      return { cli, version: v };
-    } catch (e) {
-      console.error(e);
-    }
-    return null;
+    return { cli, version: v };
   }
 
   async listFiles(config: TestConfig): Promise<ConfigListFilesReport | null> {
