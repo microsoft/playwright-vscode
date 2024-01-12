@@ -249,7 +249,7 @@ export class Extension {
               error instanceof NodeJSNotFoundError ? error.message : this._vscode.l10n.t('Please install Playwright Test via running `npm i --save-dev @playwright/test`')
           );
         }
-        console.error('[Playwright Test]:', (error as any)?.message, 1);
+        console.error('[Playwright Test]:', (error as any)?.message);
         continue;
       }
 
