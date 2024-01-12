@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import type { TestError } from './reporter';
+
 // This matches the structs in packages/playwright-test/src/runner/runner.ts.
 
 export type ProjectConfigWithFiles = {
@@ -25,4 +27,5 @@ export type ProjectConfigWithFiles = {
 
 export type ConfigListFilesReport = {
   projects: ProjectConfigWithFiles[];
+  error?: TestError
 };
