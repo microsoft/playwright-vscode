@@ -302,9 +302,9 @@ export class Extension {
     if (!configErrors.size)
       return;
     (async () => {
-      const openProblems = this._vscode.l10n.t('Open Problems');
-      const choice = await this._vscode.window.showErrorMessage(this._vscode.l10n.t('There are errors in Playwright configuration files.'), openProblems);
-      if (choice === openProblems) {
+      const showDetails = this._vscode.l10n.t('Show details');
+      const choice = await this._vscode.window.showErrorMessage(this._vscode.l10n.t('There are errors in Playwright configuration files.'), showDetails);
+      if (choice === showDetails) {
         // Show the document to the user.
         const document = await this._vscode.workspace.openTextDocument([...configErrors.keys()][0]);
         await this._vscode.window.showTextDocument(document);
