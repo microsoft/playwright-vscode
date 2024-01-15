@@ -167,9 +167,11 @@ async function findNodeViaShell(vscode: vscodeTypes.VSCode): Promise<string | un
   return new Promise<string | undefined>(resolve => {
     const startToken = '___START_PW_SHELL__';
     const endToken = '___END_PW_SHELL__';
+    const cwd = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0] : undefined;
     const childProcess = spawn(`${vscode.env.shell} -i -c 'echo ${startToken} && which node && echo ${endToken}'`, {
       stdio: 'pipe',
-      shell: true
+      shell: true,
+      cwd,
     });
     let output = '';
     childProcess.stdout.on('data', data => output += data.toString());
