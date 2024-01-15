@@ -1,6 +1,6 @@
 {
   "name": "tests-integration",
   "devDependencies": {
-    "@vscode/test-electron": "^2.3.3"
+    "@vscode/test-electron": "^2.3.8"
   }
 }
