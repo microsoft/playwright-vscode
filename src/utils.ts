@@ -141,7 +141,7 @@ export class NodeJSNotFoundError extends Error {}
 
 let pathToNodeJS: string | undefined;
 
-export async function findNode(vscode: vscodeTypes.VSCode): Promise<string> {
+export async function findNode(vscode: vscodeTypes.VSCode, cwd: string): Promise<string> {
   if (pathToNodeJS)
     return pathToNodeJS;
 
@@ -154,14 +154,14 @@ export async function findNode(vscode: vscodeTypes.VSCode): Promise<string> {
   }
   // Stage 3: If we still haven't found Node.js, try to find it via a subprocess.
   // This evaluates shell rc/profile files and makes nvm work.
-  node ??= await findNodeViaShell(vscode);
+  node ??= await findNodeViaShell(vscode, cwd);
   if (!node)
     throw new NodeJSNotFoundError(`Unable to find 'node' executable.\nMake sure to have Node.js installed and available in your PATH.\nCurrent PATH: '${process.env.PATH}'.`);
   pathToNodeJS = node;
   return node;
 }
 
-async function findNodeViaShell(vscode: vscodeTypes.VSCode): Promise<string | undefined> {
+async function findNodeViaShell(vscode: vscodeTypes.VSCode, cwd: string): Promise<string | undefined> {
   if (process.platform === 'win32')
     return undefined;
   return new Promise<string | undefined>(resolve => {
@@ -169,7 +169,8 @@ async function findNodeViaShell(vscode: vscodeTypes.VSCode): Promise<string | un
     const endToken = '___END_PW_SHELL__';
     const childProcess = spawn(`${vscode.env.shell} -i -c 'echo ${startToken} && which node && echo ${endToken}'`, {
       stdio: 'pipe',
-      shell: true
+      shell: true,
+      cwd,
     });
     let output = '';
     childProcess.stdout.on('data', data => output += data.toString());

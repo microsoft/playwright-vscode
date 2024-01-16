@@ -114,7 +114,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     }
 
-    const node = await findNode(this._vscode);
+    const node = await findNode(this._vscode, config.workspaceFolder);
     const allArgs = [
       config.cli,
       'run-server',

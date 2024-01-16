@@ -40,7 +40,7 @@ export class TraceViewer implements vscodeTypes.Disposable {
 
   async willRunTests(config: TestConfig) {
     if (this._settingsModel.showTrace.get())
-      await this._startIfNeeded(config, '');
+      await this._startIfNeeded(config);
   }
 
   async open(file: string, config: TestConfig) {
@@ -50,7 +50,7 @@ export class TraceViewer implements vscodeTypes.Disposable {
       return;
     if (!file && !this._traceViewerProcess)
       return;
-    await this._startIfNeeded(config, file);
+    await this._startIfNeeded(config);
     this._traceViewerProcess?.stdin?.write(file + '\n');
   }
 
@@ -61,8 +61,8 @@ export class TraceViewer implements vscodeTypes.Disposable {
     this._disposables = [];
   }
 
-  private async _startIfNeeded(config: TestConfig, file: string) {
-    const node = await findNode(this._vscode);
+  private async _startIfNeeded(config: TestConfig) {
+    const node = await findNode(this._vscode, config.workspaceFolder);
     if (this._traceViewerProcess)
       return;
     const allArgs = [config.cli, 'show-trace', `--stdin`];
