@@ -12,5 +12,8 @@
   "Can't close browsers while running tests": "Impossible de fermer les navigateurs pendant l'exécution des tests",
   "No Playwright tests found.": "Aucun test Playwright trouvé.",
   "Please install Playwright Test via running `npm i --save-dev @playwright/test`": "Veuillez installer Playwright Test en exécutant `npm i --save-dev @playwright/test`",
-  "Playwright Test v{0} or newer is required": "Playwright Test v{0} ou plus est nécessaire"
+  "Playwright Test v{0} or newer is required": "Playwright Test v{0} ou plus est nécessaire",
+  "Show browser": "Afficher le navigateur",
+  "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "Si cette option est activée, Playwright réutilisera l'instance du navigateur entre les tests. Cela désactivera l'exécution parallèle.",
+  "Show trace viewer": "Afficher le Trace Viewer"
 }
