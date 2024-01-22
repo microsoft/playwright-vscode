@@ -135,15 +135,15 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
     <body>
       <div class="list">
         <div>
-          <label title="When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.">
+          <label title="${vscode.l10n.t('When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.')}">
             <input type="checkbox" setting="reuseBrowser"></input>
-            Show browser
+            ${vscode.l10n.t('Show browser')}
           </label>
         </div>
         <div>
           <label>
             <input type="checkbox" setting="showTrace"></input>
-            Show trace viewer
+            ${vscode.l10n.t('Show trace viewer')}
           </label>
         </div>
       <div class="separator"></div>

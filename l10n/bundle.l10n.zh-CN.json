@@ -12,5 +12,8 @@
   "Can't close browsers while running tests": "运行测试时不能关闭浏览器",
   "No Playwright tests found.": "没有找到 Playwright Test",
   "Please install Playwright Test via running `npm i --save-dev @playwright/test`": "请通过运行 `npm i --save-dev @playwright/test` 安装 Playwright Test",
-  "Playwright Test v{0} or newer is required": "需要 v{0} 或以上版本的 Playwright Test"
+  "Playwright Test v{0} or newer is required": "需要 v{0} 或以上版本的 Playwright Test",
+  "Show browser": "显示浏览器",
+  "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "启用后，Playwright 将在测试之间重复使用浏览器实例。这将禁用并行执行。",
+  "Show trace viewer": "显示 Trace Viewer"
 }
