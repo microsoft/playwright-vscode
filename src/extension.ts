@@ -234,9 +234,6 @@ export class Extension {
 
     const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mjs}', '**/node_modules/**');
 
-    // Reuse already created run profiles in order to retain their 'selected' status.
-    const usedProfiles = new Set<vscodeTypes.TestRunProfile>();
-
     let isFirstProject = true;
     const configErrors = new MultiMap<string, TestError>();
     for (const configFileUri of configFiles) {
@@ -282,18 +279,10 @@ export class Extension {
       }
 
       for (const project of model.projects.values()) {
-        await this._createRunProfile(project, usedProfiles, isFirstProject);
+        await this._createRunProfile(project, isFirstProject);
         this._workspaceObserver.addWatchFolder(project.testDir);
         if (isFirstProject)
           isFirstProject = false;
-      }
-    }
-
-    // Clean up unused run profiles.
-    for (const [key, profile] of this._runProfiles) {
-      if (!usedProfiles.has(profile)) {
-        this._runProfiles.delete(key);
-        profile.dispose();
       }
     }
 
@@ -340,7 +329,7 @@ export class Extension {
     })) as NodeJS.ProcessEnv;
   }
 
-  private async _createRunProfile(project: TestProject, usedProfiles: Set<vscodeTypes.TestRunProfile>, isDefault: boolean) {
+  private async _createRunProfile(project: TestProject, isDefault: boolean) {
     const configFile = project.model.config.configFile;
     const configName = path.basename(configFile);
     const folderName = path.basename(path.dirname(configFile));
@@ -357,8 +346,6 @@ export class Extension {
       debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), isDefault, projectTag);
       this._runProfiles.set(keyPrefix + ':debug', debugProfile);
     }
-    usedProfiles.add(runProfile);
-    usedProfiles.add(debugProfile);
   }
 
   private _scheduleTestRunRequest(configFile: string, projectName: string, isDebug: boolean, request: vscodeTypes.TestRunRequest) {
