@@ -64,10 +64,20 @@ export class PlaywrightTest {
   }
 
   async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, cli: string }> {
+    try {
+      return await this._getPlaywrightInfoImpl(workspaceFolder, configFilePath, '@playwright/test');
+    } catch (error) {
+      return await this._getPlaywrightInfoImpl(workspaceFolder, configFilePath, '@playwright/experimental-ct-core');
+    }
+  }
+
+  private async _getPlaywrightInfoImpl(workspaceFolder: string, configFilePath: string, cliPackage: string): Promise<{ version: number, cli: string }> {
     const pwtInfo = await this._runNode([
       '-e',
-      'try { const pwtIndex = require.resolve("@playwright/test"); const version = require("@playwright/test/package.json").version; console.log(JSON.stringify({ pwtIndex, version})); } catch { console.log("undefined"); }',
+      `try { const pwtIndex = require.resolve("${cliPackage}"); const version = require("${cliPackage}/package.json").version; console.log(JSON.stringify({ pwtIndex, version})); } catch { console.log("null"); }`,
     ], path.dirname(configFilePath));
+    if (!pwtInfo)
+      throw new Error(`Cannot find Playwright Test package`);
     const { version } = JSON.parse(pwtInfo);
     const v = parseFloat(version.replace(/-(next|beta)$/, ''));
 
@@ -77,8 +87,10 @@ export class PlaywrightTest {
 
     const cliInfo = await this._runNode([
       '-e',
-      'try { const cli = require.resolve("@playwright/test/cli"); console.log(JSON.stringify({ cli })); } catch { console.log("undefined"); }',
+      `try { const path = require('path'); const cli = path.join(path.dirname(require.resolve("${cliPackage}")), 'cli.js'); console.log(JSON.stringify({ cli })); } catch { console.log("null"); }`,
     ], path.dirname(configFilePath));
+    if (!cliInfo)
+      throw new Error(`Cannot find Playwright Test CLI`);
     let { cli } = JSON.parse(cliInfo);
 
     // Dogfood for 'ttest'
