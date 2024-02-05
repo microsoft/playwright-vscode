@@ -237,6 +237,7 @@ export class Extension {
     // Reuse already created run profiles in order to retain their 'selected' status.
     const usedProfiles = new Set<vscodeTypes.TestRunProfile>();
 
+    let isFirstProject = true;
     const configErrors = new MultiMap<string, TestError>();
     for (const configFileUri of configFiles) {
       const configFilePath = configFileUri.fsPath;
@@ -281,8 +282,10 @@ export class Extension {
       }
 
       for (const project of model.projects.values()) {
-        await this._createRunProfile(project, usedProfiles);
+        await this._createRunProfile(project, usedProfiles, isFirstProject);
         this._workspaceObserver.addWatchFolder(project.testDir);
+        if (isFirstProject)
+          isFirstProject = false;
       }
     }
 
@@ -337,7 +340,7 @@ export class Extension {
     })) as NodeJS.ProcessEnv;
   }
 
-  private async _createRunProfile(project: TestProject, usedProfiles: Set<vscodeTypes.TestRunProfile>) {
+  private async _createRunProfile(project: TestProject, usedProfiles: Set<vscodeTypes.TestRunProfile>, isDefault: boolean) {
     const configFile = project.model.config.configFile;
     const configName = path.basename(configFile);
     const folderName = path.basename(path.dirname(configFile));
@@ -346,12 +349,12 @@ export class Extension {
     let runProfile = this._runProfiles.get(keyPrefix + ':run');
     const projectTag = this._testTree.projectTag(project);
     if (!runProfile) {
-      runProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), true, projectTag);
+      runProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), isDefault, projectTag);
       this._runProfiles.set(keyPrefix + ':run', runProfile);
     }
     let debugProfile = this._runProfiles.get(keyPrefix + ':debug');
     if (!debugProfile) {
-      debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), true, projectTag);
+      debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), isDefault, projectTag);
       this._runProfiles.set(keyPrefix + ':debug', debugProfile);
     }
     usedProfiles.add(runProfile);
