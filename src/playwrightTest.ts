@@ -67,7 +67,8 @@ export class PlaywrightTest {
     try {
       return await this._getPlaywrightInfoImpl(workspaceFolder, configFilePath, '@playwright/test');
     } catch (error) {
-      return await this._getPlaywrightInfoImpl(workspaceFolder, configFilePath, '@playwright/experimental-ct-core');
+      // In order to support component testing
+      return await this._getPlaywrightInfoImpl(workspaceFolder, configFilePath, 'playwright');
     }
   }
 
