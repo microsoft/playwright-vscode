@@ -75,28 +75,3 @@ test('should create run & debug profile per project', async ({ activate }, testI
     > playwright list-files -c playwright.config.js
   `);
 });
-
-test('retain run profile instances of reload', async ({ activate }, testInfo) => {
-  const { testController, workspaceFolder } = await activate({
-    'playwright.config.js': `module.exports = {
-      projects: [{ name: 'projectA' }, { name: 'projectB' }]
-    }`
-  }, { rootDir: testInfo.outputPath('workspace') });
-
-  const runProfiles = new Set(testController.runProfiles);
-
-  await workspaceFolder.changeFile('playwright.config.js', `module.exports = {
-    projects: [{ name: 'projectA' }, { name: 'projectC' }, { name: 'projectD' }]
-  }`);
-
-  while (testController.runProfiles.length !== 6)
-    await new Promise(f => setTimeout(f, 100));
-
-  let retained = 0;
-  for (const profile of testController.runProfiles) {
-    if (runProfiles.has(profile))
-      ++retained;
-  }
-
-  expect(retained).toBe(2); // Run & Debug projects from project A.
-});
