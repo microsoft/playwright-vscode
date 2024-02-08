@@ -17,14 +17,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
-        node-version: [ 16 ]
+        node-version: [ 20 ]
         include:
         - os: ubuntu-latest
           node-version: 18
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Use Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
     - run: npm ci
@@ -33,9 +33,9 @@ jobs:
     - run: npm run build
     - run: npm run test -- --workers=1
     - run: npx vsce package
-      if: matrix.os == 'ubuntu-latest' && matrix.node-version == '16'
+      if: matrix.os == 'ubuntu-latest' && matrix.node-version == '20'
     - uses: actions/upload-artifact@v3
-      if: matrix.os == 'ubuntu-latest' && matrix.node-version == '16'
+      if: matrix.os == 'ubuntu-latest' && matrix.node-version == '20'
       with:
         name: vsc-extension
         path: "*.vsix"
@@ -50,11 +50,11 @@ jobs:
     env:
       DEBUG: pw:browser
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Use Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
-        node-version: 18
+        node-version: 20
     - run: npm ci
     - run: npx playwright install --with-deps chromium
     - run: npm run build
@@ -66,13 +66,13 @@ jobs:
     - run: npx playwright test
       working-directory: ./tests-integration
       if: matrix.os != 'ubuntu-latest'
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: playwright-report-${{ matrix.os }}
         path: tests-integration/playwright-report/
         retention-days: 30
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: failure()
       with:
         name: playwright-test-results-${{ matrix.os }}
