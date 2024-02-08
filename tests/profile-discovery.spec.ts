@@ -33,11 +33,11 @@ test('should create run & debug profiles', async ({ activate }, testInfo) => {
 
   expect(runProfiles[0].label).toBe(profileTitle);
   expect(runProfiles[0].kind).toBe(vscode.TestRunProfileKind.Run);
-  expect(runProfiles[0].isDefault).toBeTruthy();
+  expect(runProfiles[0].isDefault).toBeFalsy();
 
   expect(runProfiles[1].label).toBe(profileTitle);
   expect(runProfiles[1].kind).toBe(vscode.TestRunProfileKind.Debug);
-  expect(runProfiles[1].isDefault).toBeTruthy();
+  expect(runProfiles[1].isDefault).toBeFalsy();
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
@@ -57,19 +57,19 @@ test('should create run & debug profile per project', async ({ activate }, testI
 
   expect(runProfiles[0].label).toBe('projectA — ' + configPath);
   expect(runProfiles[0].kind).toBe(vscode.TestRunProfileKind.Run);
-  expect(runProfiles[0].isDefault).toBeTruthy();
+  expect(runProfiles[0].isDefault).toBeFalsy();
 
   expect(runProfiles[1].label).toBe('projectA — ' + configPath);
   expect(runProfiles[1].kind).toBe(vscode.TestRunProfileKind.Debug);
-  expect(runProfiles[1].isDefault).toBeTruthy();
+  expect(runProfiles[1].isDefault).toBeFalsy();
 
   expect(runProfiles[2].label).toBe('projectB — ' + configPath);
   expect(runProfiles[2].kind).toBe(vscode.TestRunProfileKind.Run);
-  expect(runProfiles[1].isDefault).toBeTruthy();
+  expect(runProfiles[1].isDefault).toBeFalsy();
 
   expect(runProfiles[3].label).toBe('projectB — ' + configPath);
   expect(runProfiles[3].kind).toBe(vscode.TestRunProfileKind.Debug);
-  expect(runProfiles[1].isDefault).toBeTruthy();
+  expect(runProfiles[1].isDefault).toBeFalsy();
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
