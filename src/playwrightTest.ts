@@ -64,41 +64,16 @@ export class PlaywrightTest {
   }
 
   async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, cli: string }> {
-    try {
-      return await this._getPlaywrightInfoImpl(workspaceFolder, configFilePath, '@playwright/test');
-    } catch (error) {
-      // In order to support component testing
-      return await this._getPlaywrightInfoImpl(workspaceFolder, configFilePath, 'playwright');
-    }
-  }
-
-  private async _getPlaywrightInfoImpl(workspaceFolder: string, configFilePath: string, cliPackage: string): Promise<{ version: number, cli: string }> {
     const pwtInfo = await this._runNode([
-      '-e',
-      `try { const pwtIndex = require.resolve("${cliPackage}"); const version = require("${cliPackage}/package.json").version; console.log(JSON.stringify({ pwtIndex, version})); } catch { console.log("null"); }`,
+      require.resolve('./playwrightFinder'),
     ], path.dirname(configFilePath));
-    if (!pwtInfo)
-      throw new Error(`Cannot find Playwright Test package`);
-    const { version } = JSON.parse(pwtInfo);
-    const v = parseFloat(version.replace(/-(next|beta)$/, ''));
-
-    // We only depend on playwright-core in 1.15+, bail out.
-    if (v < 1.19)
-      return { cli: '', version: v };
-
-    const cliInfo = await this._runNode([
-      '-e',
-      `try { const path = require('path'); const cli = path.join(path.dirname(require.resolve("${cliPackage}")), 'cli.js'); console.log(JSON.stringify({ cli })); } catch { console.log("null"); }`,
-    ], path.dirname(configFilePath));
-    if (!cliInfo)
-      throw new Error(`Cannot find Playwright Test CLI`);
-    let { cli } = JSON.parse(cliInfo);
-
-    // Dogfood for 'ttest'
+    const { version, cli, error } = JSON.parse(pwtInfo) as { version: number, cli: string, error?: string };
+    if (error)
+      throw new Error(error);
+    let cliOverride = cli;
     if (cli.includes('/playwright/packages/playwright-test/') && configFilePath.includes('playwright-test'))
-      cli = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/@playwright/test/cli.js');
-
-    return { cli, version: v };
+      cliOverride = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/@playwright/test/cli.js');
+    return { cli: cliOverride, version };
   }
 
   async listFiles(config: TestConfig): Promise<ConfigListFilesReport> {
