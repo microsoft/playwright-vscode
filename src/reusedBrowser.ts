@@ -14,18 +14,15 @@
  * limitations under the License.
  */
 
-import { spawn } from 'child_process';
 import { TestConfig } from './playwrightTest';
 import { TestModel, TestProject } from './testModel';
-import { createGuid, findNode } from './utils';
+import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
 import fs from 'fs';
-import events from 'events';
-import EventEmitter from 'events';
 import { installBrowsers } from './installer';
-import { WebSocketTransport } from './transport';
 import { SettingsModel } from './settingsModel';
+import { BackendServer, BackendClient } from './backend';
 
 export type Snapshot = {
   browsers: BrowserSnapshot[];
@@ -62,7 +59,6 @@ export type Source = {
 
 export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
-  private _browserServerWS: string | undefined;
   private _shouldReuseBrowserForTests = false;
   private _backend: Backend | undefined;
   private _cancelRecording: (() => void) | undefined;
@@ -101,7 +97,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   dispose() {
-    this._reset(true).catch(() => {});
+    this._stop();
     for (const d of this._disposables)
       d.dispose();
     this._disposables = [];
@@ -110,42 +106,41 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private async _startBackendIfNeeded(config: TestConfig) {
     // Unconditionally close selector dialog, it might send inspect(enabled: false).
     if (this._backend) {
-      await this._reset(false);
+      this._resetNoWait();
       return;
     }
 
-    const node = await findNode(this._vscode, config.workspaceFolder);
-    const allArgs = [
+    const args = [
       config.cli,
       'run-server',
       `--path=/${createGuid()}`
     ];
-
-    const serverProcess = spawn(node, allArgs, {
-      cwd: config.workspaceFolder,
-      stdio: 'pipe',
-      env: {
-        ...process.env,
-        ...this._envProvider(),
-        PW_CODEGEN_NO_INSPECTOR: '1',
-        PW_EXTENSION_MODE: '1',
-      },
+    const cwd = config.workspaceFolder;
+    const envProvider = () => ({
+      ...this._envProvider(),
+      PW_CODEGEN_NO_INSPECTOR: '1',
+      PW_EXTENSION_MODE: '1',
     });
 
-    const backend = new Backend();
-    this._backend = backend;
-
-    serverProcess.stderr?.on('data', () => {});
-    serverProcess.on('exit', () => {
+    const backendServer = new BackendServer<Backend>(this._vscode, args, cwd, envProvider, () => new Backend(this._vscode));
+    const backend = await backendServer.start();
+    if (!backend)
+      return;
+    backend.onClose(() => {
       if (backend === this._backend) {
         this._backend = undefined;
-        this._reset(false);
+        this._resetNoWait();
       }
     });
-    serverProcess.on('error', error => {
-      this._vscode.window.showErrorMessage(error.message);
-      this._reset(true).catch(() => {});
+    backend.onError(e => {
+      if (backend === this._backend) {
+        this._vscode.window.showErrorMessage(e.message);
+        this._backend = undefined;
+        this._resetNoWait();
+      }
     });
+
+    this._backend = backend;
 
     this._backend.on('inspectRequested', params => {
       if (!this._updateOrCancelInspecting)
@@ -155,7 +150,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
     this._backend.on('setModeRequested', params => {
       if (params.mode === 'standby')
-        this._reset(false);
+        this._resetNoWait();
     });
 
     this._backend.on('paused', async params => {
@@ -163,7 +158,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         this._pausedOnPagePause = true;
         await this._vscode.window.showInformationMessage('Paused', { modal: false }, 'Resume');
         this._pausedOnPagePause = false;
-        this._backend?.resume();
+        this._backend?.resumeNoWait();
       }
     });
     this._backend.on('stateChanged', params => {
@@ -201,27 +196,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         }
       });
     });
-
-    let connectedCallback: (wsEndpoint: string) => void;
-    const wsEndpointPromise = new Promise<string>(f => connectedCallback = f);
-
-    serverProcess.stdout?.on('data', async data => {
-      const match = data.toString().match(/Listening on (.*)/);
-      if (!match)
-        return;
-      const wse = match[1];
-      await (this._backend as Backend).connect(wse);
-      await this._backend?.initialize();
-      connectedCallback(wse);
-    });
-
-    await Promise.race([
-      wsEndpointPromise.then(wse => {
-        this._browserServerWS = wse;
-        this._backend!.setReportStateChanged({ enabled: true });
-      }),
-      events.once(serverProcess, 'exit'),
-    ]);
   }
 
   private _scheduleEdit(callback: () => Promise<void>) {
@@ -243,23 +217,23 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     if (pageCount)
       return;
-    this._reset(true).catch(() => {});
+    this._stop();
   }
 
   browserServerEnv(debug: boolean): NodeJS.ProcessEnv | undefined {
-    return (debug || this._shouldReuseBrowserForTests) && this._browserServerWS ? {
+    return (debug || this._shouldReuseBrowserForTests) && this._backend?.wsEndpoint ? {
       PW_TEST_REUSE_CONTEXT: this._shouldReuseBrowserForTests ? '1' : undefined,
       // "Show browser" mode forces context reuse that survives over multiple test runs.
       // Playwright Test sets up `tracesDir` inside the `test-results` folder, so it will be removed between runs.
       // When context is reused, its ongoing tracing will fail with ENOENT because trace files
       // were suddenly removed. So we disable tracing in this case.
       PW_TEST_DISABLE_TRACING: this._shouldReuseBrowserForTests ? '1' : undefined,
-      PW_TEST_CONNECT_WS_ENDPOINT: this._browserServerWS,
+      PW_TEST_CONNECT_WS_ENDPOINT: this._backend?.wsEndpoint,
     } : undefined;
   }
 
   browserServerWSForTest() {
-    return this._browserServerWS;
+    return this._backend?.wsEndpoint;
   }
 
   async inspect(models: TestModel[]) {
@@ -286,7 +260,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     selectorExplorerBox.onDidChangeValue(selector => {
       this._backend?.highlight({ selector }).catch(() => {});
     });
-    selectorExplorerBox.onDidHide(() => this._reset(false).catch(() => {}));
+    selectorExplorerBox.onDidHide(() => this._resetNoWait());
     selectorExplorerBox.onDidAccept(() => {
       this._vscode.env.clipboard.writeText(selectorExplorerBox!.value);
       selectorExplorerBox.hide();
@@ -377,7 +351,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       await this._backend?.setMode({ mode: 'recording', testIdAttributeName: model.config.testIdAttributeName });
     } catch (e) {
       showExceptionAsUserError(this._vscode, model, e as Error);
-      await this._reset(true);
+      this._stop();
       return;
     }
 
@@ -387,7 +361,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       new Promise<void>(f => token.onCancellationRequested(f)),
       new Promise<void>(f => this._cancelRecording = f),
     ]);
-    await this._reset(false);
+    this._resetNoWait();
   }
 
   private async _createFileForNewTest(model: TestModel) {
@@ -425,16 +399,14 @@ test('test', async ({ page }) => {
     this._isRunningTests = true;
     this._onRunningTestsChangedEvent.fire(true);
     await this._startBackendIfNeeded(config);
-    await this._backend!.setAutoClose({ enabled: false });
   }
 
   async didRunTests(debug: boolean) {
     if (debug && !this._shouldReuseBrowserForTests) {
-      this._reset(true);
+      this._stop();
     } else {
-      this._backend?.setAutoClose({ enabled: true });
       if (!this._pageCount)
-        await this._reset(true);
+        this._stop();
     }
     this._isRunningTests = false;
     this._onRunningTestsChangedEvent.fire(false);
@@ -447,108 +419,86 @@ test('test', async ({ page }) => {
       );
       return;
     }
-    this._reset(true).catch(() => {});
+    this._stop();
   }
 
-  private async _reset(stop: boolean) {
-    // This won't wait for setMode(none).
+  private _resetExtensionState() {
     this._editor = undefined;
     this._insertedEditActionCount = 0;
     this._updateOrCancelInspecting?.({ cancel: true });
     this._updateOrCancelInspecting = undefined;
     this._cancelRecording?.();
     this._cancelRecording = undefined;
+  }
 
-    // This will though.
-    if (stop) {
-      this._backend?.kill();
-      this._backend = undefined;
-      this._browserServerWS = undefined;
-      this._pageCount = 0;
-    } else {
-      await this._backend?.setMode({ mode: 'none' });
-    }
+  private _resetNoWait() {
+    this._resetExtensionState();
+    this._backend?.resetRecorderModeNoWait();
+  }
+
+  private _stop() {
+    this._resetExtensionState();
+    this._backend?.requestGracefulTermination();
+    this._backend = undefined;
+    this._pageCount = 0;
   }
 }
 
-export class Backend extends EventEmitter {
-  private static _lastId = 0;
-  private _callbacks = new Map<number, { fulfill: (a: any) => void, reject: (e: Error) => void }>();
-  private _transport!: WebSocketTransport;
-
-  constructor() {
-    super();
+export class Backend extends BackendClient {
+  constructor(vscode: vscodeTypes.VSCode) {
+    super(vscode);
   }
 
-  async connect(wsEndpoint: string) {
-    this._transport = await WebSocketTransport.connect(wsEndpoint + '?debug-controller', {
+  override rewriteWsEndpoint(wsEndpoint: string): string {
+    return wsEndpoint + '?debug-controller';
+  }
+
+  override rewriteWsHeaders(headers: Record<string, string>): Record<string, string> {
+    return {
+      ...headers,
       'x-playwright-debug-controller': 'true' // Remove after v1.35
-    });
-    this._transport.onmessage = (message: any) => {
-      if (!message.id) {
-        this.emit(message.method, message.params);
-        return;
-      }
-      const pair = this._callbacks.get(message.id);
-      if (!pair)
-        return;
-      this._callbacks.delete(message.id);
-      if (message.error) {
-        const error = new Error(message.error.error?.message || message.error.value);
-        error.stack = message.error.error?.stack;
-        pair.reject(error);
-      } else {
-        pair.fulfill(message.result);
-      }
     };
   }
 
-  async initialize() {
-    await this._send('initialize', { codegenId: 'playwright-test', sdkLanguage: 'javascript' });
+  override async initialize() {
+    await this.send('initialize', { codegenId: 'playwright-test', sdkLanguage: 'javascript' });
+    await this.send('setReportStateChanged', { enabled: true });
+  }
+
+  override requestGracefulTermination() {
+    this.send('kill').catch(() => {});
   }
 
   async resetForReuse() {
-    await this._send('resetForReuse');
+    await this.send('resetForReuse');
+  }
+
+  resetRecorderModeNoWait() {
+    this.resetRecorderMode().catch(() => {});
+  }
+
+  async resetRecorderMode() {
+    await this.send('setRecorderMode', { mode: 'none' });
   }
 
   async navigate(params: { url: string }) {
-    await this._send('navigate', params);
+    await this.send('navigate', params);
   }
 
   async setMode(params: { mode: 'none' | 'inspecting' | 'recording', testIdAttributeName?: string }) {
-    await this._send('setRecorderMode', params);
-  }
-
-  async setReportStateChanged(params: { enabled: boolean }) {
-    await this._send('setReportStateChanged', params);
-  }
-
-  async setAutoClose(params: { enabled: boolean }) {
+    await this.send('setRecorderMode', params);
   }
 
   async highlight(params: { selector: string }) {
-    await this._send('highlight', params);
+    await this.send('highlight', params);
   }
 
   async hideHighlight() {
-    await this._send('hideHighlight');
+    await this.send('hideHighlight');
   }
 
-  async resume() {
-    this._send('resume');
-  }
-
-  async kill() {
-    this._send('kill');
-  }
-
-  private _send(method: string, params: any = {}): Promise<any> {
-    return new Promise((fulfill, reject) => {
-      const id = ++Backend._lastId;
-      const command = { id, guid: 'DebugController', method, params, metadata: {} };
-      this._transport.send(command as any);
-      this._callbacks.set(id, { fulfill, reject });
-    });
+  resumeNoWait() {
+    this.send('resume').catch(() => {});
   }
 }
 
