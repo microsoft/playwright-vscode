@@ -19,7 +19,7 @@ import StackUtils from 'stack-utils';
 import { DebugHighlight } from './debugHighlight';
 import { installBrowsers, installPlaywright } from './installer';
 import { MultiMap } from './multimap';
-import { PlaywrightTest, TestListener } from './playwrightTest';
+import { PlaywrightTest, RunHooks, TestConfig, TestListener } from './playwrightTest';
 import type { Location, TestError, Entry } from './oopReporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
@@ -42,9 +42,8 @@ type StepInfo = {
 };
 
 type TestRunInfo = {
-  selectedProjects: TestProject[];
-  isDebug: boolean;
-  request: vscodeTypes.TestRunRequest;
+  project: TestProject;
+  include: readonly vscodeTypes.TestItem[] | undefined;
 };
 
 export async function activate(context: vscodeTypes.ExtensionContext) {
@@ -52,7 +51,7 @@ export async function activate(context: vscodeTypes.ExtensionContext) {
   new Extension(require('vscode')).activate(context);
 }
 
-export class Extension {
+export class Extension implements RunHooks {
   private _vscode: vscodeTypes.VSCode;
   private _disposables: vscodeTypes.Disposable[] = [];
 
@@ -73,7 +72,7 @@ export class Extension {
   private _activeStepDecorationType: vscodeTypes.TextEditorDecorationType;
   private _completedStepDecorationType: vscodeTypes.TextEditorDecorationType;
   private _playwrightTest: PlaywrightTest;
-  private _projectsScheduledToRun: TestProject[] | undefined;
+  private _itemsScheduledToRun: TestRunInfo[] | undefined;
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
   private _reusedBrowser: ReusedBrowser;
@@ -112,7 +111,7 @@ export class Extension {
     this._settingsModel = new SettingsModel(vscode);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._traceViewer = new TraceViewer(this._vscode, this._settingsModel, this._envProvider.bind(this));
-    this._playwrightTest = new PlaywrightTest(this._vscode, this._settingsModel, this._reusedBrowser, this._isUnderTest, this._envProvider.bind(this));
+    this._playwrightTest = new PlaywrightTest(this._vscode, this._settingsModel, this, this._isUnderTest, this._envProvider.bind(this));
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModel(true).then(() => {});
@@ -125,6 +124,17 @@ export class Extension {
       configErrors: this._vscode.languages.createDiagnosticCollection('pw.configErrors.diagnostic'),
     };
     this._treeItemObserver = new TreeItemObserver(this._vscode);
+  }
+
+  async onWillRunTests(config: TestConfig, debug: boolean) {
+    await this._reusedBrowser.onWillRunTests(config, debug);
+    return {
+      connectWsEndpoint: this._reusedBrowser.browserServerWSEndpoint(),
+    };
+  }
+
+  async onDidRunTests(debug: boolean) {
+    await this._reusedBrowser.onDidRunTests(debug);
   }
 
   reusedBrowserForTest(): ReusedBrowser {
@@ -205,7 +215,7 @@ export class Extension {
       ...Object.values(this._diagnostics),
       this._treeItemObserver,
     ];
-    await this._rebuildModel(true);
+    await this._rebuildModel(false);
 
     const fileSystemWatchers = [
       // Glob parser does not supported nested group, hence multiple watchers.
@@ -334,13 +344,14 @@ export class Extension {
     const keyPrefix = configFile + ':' + project.name;
     let runProfile = this._runProfiles.get(keyPrefix + ':run');
     const projectTag = this._testTree.projectTag(project);
+    const isDefault = false;
     if (!runProfile) {
-      runProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), false, projectTag);
+      runProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), isDefault, projectTag);
       this._runProfiles.set(keyPrefix + ':run', runProfile);
     }
     let debugProfile = this._runProfiles.get(keyPrefix + ':debug');
     if (!debugProfile) {
-      debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), false, projectTag);
+      debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), isDefault, projectTag);
       this._runProfiles.set(keyPrefix + ':debug', debugProfile);
     }
   }
@@ -362,42 +373,43 @@ export class Extension {
     // VSCode will issue several test run requests (one per enabled run profile). Sometimes
     // these profiles belong to the same config and we only want to run tests once per config.
     // So we collect all requests and sort them out in the microtask.
-    if (!this._projectsScheduledToRun) {
-      this._projectsScheduledToRun = [];
-      this._projectsScheduledToRun.push(project);
+    if (!this._itemsScheduledToRun) {
+      this._itemsScheduledToRun = [];
+      this._itemsScheduledToRun.push({ project, include: request.include });
       // Make sure to run tests outside of this function's control flow
       // so that we can create a new TestRunRequest and see its output.
       // TODO: remove once this is fixed in VSCode (1.78?) and we
       // can see test output without this hack.
       setTimeout(async () => {
-        const selectedProjects = this._projectsScheduledToRun;
-        this._projectsScheduledToRun = undefined;
-        if (selectedProjects)
-          await this._runMatchingTests({ selectedProjects, isDebug, request });
+        const selectedItems = this._itemsScheduledToRun;
+        this._itemsScheduledToRun = undefined;
+        if (selectedItems)
+          await this._runMatchingTests(selectedItems, isDebug ? 'debug' : 'run');
       }, 520);
     } else {
       // Subsequent requests will return right away.
-      this._projectsScheduledToRun.push(project);
+      this._itemsScheduledToRun.push({ project, include: request.include });
     }
   }
 
-  private async _runMatchingTests(testRunInfo: TestRunInfo) {
-    const { selectedProjects, isDebug, request } = testRunInfo;
-
+  private async _runMatchingTests(testRunInfos: TestRunInfo[], mode: 'run' | 'debug') {
     this._completedSteps.clear();
     this._executionLinesChanged();
+
+    const projects = testRunInfos.map(info => info.project);
+    const include = testRunInfos.map(info => info.include || []).flat();
 
     // Create a test run that potentially includes all the test items.
     // This allows running setup tests that are outside of the scope of the
     // selected test items.
     const rootItems: vscodeTypes.TestItem[] = [];
     this._testController.items.forEach(item => rootItems.push(item));
-    const requestWithDeps = new this._vscode.TestRunRequest(rootItems, [], request.profile);
+    const requestWithDeps = new this._vscode.TestRunRequest(rootItems, [], undefined);
 
     // Global errors are attributed to the first test item in the request.
     // If the request is global, find the first root test item (folder, file) that has
     // children. It will be reveal with an error.
-    let testItemForGlobalErrors = request.include?.[0];
+    let testItemForGlobalErrors = include[0];
     if (!testItemForGlobalErrors) {
       for (const rootItem of rootItems) {
         if (!rootItem.children.size)
@@ -414,7 +426,7 @@ export class Extension {
     const enqueuedTests: vscodeTypes.TestItem[] = [];
 
     // Provisionally mark tests (not files and not suits) as enqueued to provide immediate feedback.
-    for (const item of request.include || []) {
+    for (const item of include) {
       for (const test of this._testTree.collectTestsInside(item)) {
         this._testRun.enqueued(test);
         enqueuedTests.push(test);
@@ -423,7 +435,7 @@ export class Extension {
 
     // Run tests with different configs sequentially, group by config.
     const projectsToRunByModel = new Map<TestModel, TestProject[]>();
-    for (const project of selectedProjects) {
+    for (const project of projects) {
       const projects = projectsToRunByModel.get(project.model) || [];
       projects.push(project);
       projectsToRunByModel.set(project.model, projects);
@@ -432,14 +444,14 @@ export class Extension {
     let ranSomeTests = false;
     try {
       for (const [model, projectsToRun] of projectsToRunByModel) {
-        const { projects, locations, parametrizedTestTitle } = this._narrowDownProjectsAndLocations(projectsToRun, request.include);
+        const { projects, locations, parametrizedTestTitle } = this._narrowDownProjectsAndLocations(projectsToRun, include);
         // Run if:
         //   !locations => run all tests
         //   locations.length => has matching items in project.
         if (locations && !locations.length)
           continue;
         ranSomeTests = true;
-        await this._runTest(this._testRun, testItemForGlobalErrors, new Set(), model, isDebug, projects, locations, parametrizedTestTitle, enqueuedTests.length === 1);
+        await this._runTest(this._testRun, testItemForGlobalErrors, new Set(), model, mode === 'debug', projects, locations, parametrizedTestTitle, enqueuedTests.length === 1);
       }
     } finally {
       this._activeSteps.clear();
@@ -455,8 +467,8 @@ located next to Run / Debug Tests toolbar buttons.`);
     }
   }
 
-  private _narrowDownProjectsAndLocations(projects: TestProject[], items: readonly vscodeTypes.TestItem[] | undefined): { projects: TestProject[], locations: string[] | null, parametrizedTestTitle: string | undefined } {
-    if (!items)
+  private _narrowDownProjectsAndLocations(projects: TestProject[], items: readonly vscodeTypes.TestItem[]): { projects: TestProject[], locations: string[] | null, parametrizedTestTitle: string | undefined } {
+    if (!items.length)
       return { projects, locations: null, parametrizedTestTitle: undefined };
 
     let parametrizedTestTitle: string | undefined;
@@ -507,7 +519,7 @@ located next to Run / Debug Tests toolbar buttons.`);
       await model.workspaceChanged(change);
     // Workspace change can be deferred, make sure editors are
     // decorated.
-    this._updateVisibleEditorItems();
+    await this._updateVisibleEditorItems();
   }
 
   private async _runTest(
@@ -819,7 +831,7 @@ located next to Run / Debug Tests toolbar buttons.`);
   }
 
   browserServerWSForTest() {
-    return this._reusedBrowser.browserServerWSForTest();
+    return this._reusedBrowser.browserServerWSEndpoint();
   }
 
   private _showTrace(testItem: vscodeTypes.TestItem) {
