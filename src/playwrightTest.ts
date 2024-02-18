@@ -20,7 +20,6 @@ import { debugSessionName } from './debugSessionName';
 import { ConfigListFilesReport } from './listTests';
 import type { TestError, Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import { ReporterServer } from './reporterServer';
-import { ReusedBrowser } from './reusedBrowser';
 import { findNode, spawnAsync } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { SettingsModel } from './settingsModel';
@@ -47,18 +46,29 @@ export interface TestListener {
 
 const pathSeparator = process.platform === 'win32' ? ';' : ':';
 
+export type PlaywrightTestOptions = {
+  projects?: string[];
+  grep?: string;
+  connectWsEndpoint?: string;
+};
+
+export interface RunHooks {
+  onWillRunTests(config: TestConfig, debug: boolean): Promise<{ connectWsEndpoint?: string }>;
+  onDidRunTests(debug: boolean): Promise<void>;
+}
+
 export class PlaywrightTest {
   private _testLog: string[] = [];
   private _isUnderTest: boolean;
-  private _reusedBrowser: ReusedBrowser;
+  private _runHooks: RunHooks;
   private _envProvider: () => NodeJS.ProcessEnv;
   private _vscode: vscodeTypes.VSCode;
   private _settingsModel: SettingsModel;
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, reusedBrowser: ReusedBrowser, isUnderTest: boolean, envProvider: () => NodeJS.ProcessEnv) {
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, runHooks: RunHooks, isUnderTest: boolean, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
     this._settingsModel = settingsModel;
-    this._reusedBrowser = reusedBrowser;
+    this._runHooks = runHooks;
     this._isUnderTest = isUnderTest;
     this._envProvider = envProvider;
   }
@@ -87,6 +97,10 @@ export class PlaywrightTest {
     try {
       const output = await this._runNode(allArgs, configFolder);
       const result = JSON.parse(output) as ConfigListFilesReport;
+      // TODO: merge getPlaywrightInfo and listFiles to avoid this.
+      // Override the cli entry point with the one obtained from the config.
+      if (result.cliEntryPoint)
+        config.cli = result.cliEntryPoint;
       return result;
     } catch (error: any) {
       return {
@@ -101,36 +115,37 @@ export class PlaywrightTest {
 
   async runTests(config: TestConfig, projectNames: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     const locationArg = locations ? locations : [];
-    const args = projectNames.filter(Boolean).map(p => `--project=${p}`);
-    if (parametrizedTestTitle)
-      args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
     if (token?.isCancellationRequested)
       return;
-    await this._reusedBrowser.willRunTests(config, false);
+    const testOptions = await this._runHooks.onWillRunTests(config, false);
     try {
       if (token?.isCancellationRequested)
         return;
-      await this._test(config, locationArg,  args, listener, 'run', token);
+      await this._test(config, locationArg, 'run', {
+        grep: parametrizedTestTitle,
+        projects: projectNames.filter(Boolean),
+        ...testOptions
+      }, listener, token);
     } finally {
-      await this._reusedBrowser.didRunTests(false);
+      await this._runHooks.onDidRunTests(false);
     }
   }
 
   async listTests(config: TestConfig, files: string[]): Promise<{ entries: Entry[], errors: TestError[] }> {
     let entries: Entry[] = [];
     const errors: TestError[] = [];
-    await this._test(config, files, ['--list'], {
+    await this._test(config, files, 'list', {}, {
       onBegin: params => {
         entries = params.projects as Entry[];
       },
       onError: params => {
         errors.push(params.error);
       },
-    }, 'list', new this._vscode.CancellationTokenSource().token);
+    }, new this._vscode.CancellationTokenSource().token);
     return { entries, errors };
   }
 
-  private async _test(config: TestConfig, locations: string[], args: string[], listener: TestListener, mode: 'list' | 'run', token: vscodeTypes.CancellationToken): Promise<void> {
+  private async _test(config: TestConfig, locations: string[], mode: 'list' | 'run', options: PlaywrightTestOptions, listener: TestListener, token: vscodeTypes.CancellationToken): Promise<void> {
     // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
     // Always use ws transport to mitigate it.
     const reporterServer = new ReporterServer(this._vscode);
@@ -140,6 +155,15 @@ export class PlaywrightTest {
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
     const escapedLocations = locations.map(escapeRegex);
+    const args = [];
+    if (mode === 'list')
+      args.push('--list', '--reporter=null');
+
+    if (options.projects)
+      options.projects.forEach(p => args.push(`--project=${p}`));
+    if (options.grep)
+      args.push(`--grep=${escapeRegex(options.grep)}`);
+
     {
       // For tests.
       const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex);
@@ -152,16 +176,22 @@ export class PlaywrightTest {
       '--repeat-each', '1',
       '--retries', '0',
     ];
-    const reusingBrowser = !!this._reusedBrowser.browserServerEnv(false);
-    if (reusingBrowser && !this._isUnderTest)
-      allArgs.push('--headed');
-    if (reusingBrowser)
-      allArgs.push('--workers', '1');
-    if (this._settingsModel.showTrace.get())
-      allArgs.push('--trace', 'on');
-    // Disable original reporters when listing files.
-    if (mode === 'list')
-      allArgs.push('--reporter', 'null');
+    const showBrowser = this._settingsModel.showBrowser.get() && !!options.connectWsEndpoint;
+    if (mode === 'run') {
+      if (showBrowser && !this._isUnderTest)
+        allArgs.push('--headed');
+      if (showBrowser)
+        allArgs.push('--workers', '1');
+      if (this._settingsModel.showTrace.get())
+        allArgs.push('--trace', 'on');
+      // "Show browser" mode forces context reuse that survives over multiple test runs.
+      // Playwright Test sets up `tracesDir` inside the `test-results` folder, so it will be removed between runs.
+      // When context is reused, its ongoing tracing will fail with ENOENT because trace files
+      // were suddenly removed. So we disable tracing in this case.
+      if (this._settingsModel.showBrowser.get())
+        allArgs.push('--trace', 'off');
+    }
+
     const childProcess = spawn(node, allArgs, {
       cwd: configFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
@@ -171,7 +201,8 @@ export class PlaywrightTest {
         // Don't debug tests when running them.
         NODE_OPTIONS: undefined,
         ...this._envProvider(),
-        ...this._reusedBrowser.browserServerEnv(false),
+        PW_TEST_REUSE_CONTEXT: showBrowser ? '1' : undefined,
+        PW_TEST_CONNECT_WS_ENDPOINT: showBrowser ? options.connectWsEndpoint : undefined,
         ...(await reporterServer.env()),
         // Reset VSCode's options that affect nested Electron.
         ELECTRON_RUN_AS_NODE: undefined,
@@ -212,7 +243,7 @@ export class PlaywrightTest {
     }
 
     const reporterServer = new ReporterServer(this._vscode);
-    await this._reusedBrowser.willRunTests(config, true);
+    const testOptions = await this._runHooks.onWillRunTests(config, true);
     try {
       await vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
@@ -223,7 +254,7 @@ export class PlaywrightTest {
           ...process.env,
           CI: this._isUnderTest ? undefined : process.env.CI,
           ...settingsEnv,
-          ...this._reusedBrowser.browserServerEnv(true),
+          PW_TEST_CONNECT_WS_ENDPOINT: testOptions.connectWsEndpoint,
           ...(await reporterServer.env()),
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,
@@ -238,7 +269,7 @@ export class PlaywrightTest {
       });
       await reporterServer.wireTestListener(listener, token);
     } finally {
-      await this._reusedBrowser.didRunTests(true);
+      await this._runHooks.onDidRunTests(true);
     }
   }
 

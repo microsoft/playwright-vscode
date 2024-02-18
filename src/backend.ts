@@ -124,12 +124,16 @@ export class BackendClient extends EventEmitter {
 
   requestGracefulTermination() { }
 
-  protected send(method: string, params: any = {}): Promise<any> {
+  send(method: string, params: any = {}): Promise<any> {
     return new Promise((fulfill, reject) => {
       const id = ++BackendClient._lastId;
       const command = { id, guid: 'DebugController', method, params, metadata: {} };
       this._transport.send(command as any);
       this._callbacks.set(id, { fulfill, reject });
     });
+  }
+
+  close() {
+    this._transport.close();
   }
 }

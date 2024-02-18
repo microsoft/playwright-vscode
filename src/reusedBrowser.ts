@@ -24,42 +24,8 @@ import { installBrowsers } from './installer';
 import { SettingsModel } from './settingsModel';
 import { BackendServer, BackendClient } from './backend';
 
-export type Snapshot = {
-  browsers: BrowserSnapshot[];
-};
-
-export type BrowserSnapshot = {
-  contexts: ContextSnapshot[];
-};
-
-export type ContextSnapshot = {
-  pages: PageSnapshot[];
-};
-
-export type PageSnapshot = {
-  url: string;
-};
-
-export type SourceHighlight = {
-  line: number;
-  type: 'running' | 'paused' | 'error';
-};
-
-export type Source = {
-  isRecorded: boolean;
-  id: string;
-  label: string;
-  text: string;
-  language: string;
-  highlight: SourceHighlight[];
-  revealLine?: number;
-  // used to group the language generators
-  group?: string;
-};
-
 export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
-  private _shouldReuseBrowserForTests = false;
   private _backend: Backend | undefined;
   private _cancelRecording: (() => void) | undefined;
   private _updateOrCancelInspecting: ((params: { selector?: string, cancel?: boolean }) => void) | undefined;
@@ -77,6 +43,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _onRunningTestsChangedEvent: vscodeTypes.EventEmitter<boolean>;
   private _editOperations = Promise.resolve();
   private _pausedOnPagePause = false;
+  private _settingsModel: SettingsModel;
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
@@ -87,13 +54,12 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this.onRunningTestsChanged = this._onRunningTestsChangedEvent.event;
     this._onHighlightRequestedForTestEvent = new vscode.EventEmitter();
     this.onHighlightRequestedForTest = this._onHighlightRequestedForTestEvent.event;
+    this._settingsModel = settingsModel;
 
-    this._disposables.push(settingsModel.reuseBrowser.onChange(value => {
-      this._shouldReuseBrowserForTests = value;
+    this._disposables.push(settingsModel.showBrowser.onChange(value => {
       if (!value)
         this.closeAllBrowsers();
     }));
-    this._shouldReuseBrowserForTests = settingsModel.reuseBrowser.get();
   }
 
   dispose() {
@@ -220,19 +186,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._stop();
   }
 
-  browserServerEnv(debug: boolean): NodeJS.ProcessEnv | undefined {
-    return (debug || this._shouldReuseBrowserForTests) && this._backend?.wsEndpoint ? {
-      PW_TEST_REUSE_CONTEXT: this._shouldReuseBrowserForTests ? '1' : undefined,
-      // "Show browser" mode forces context reuse that survives over multiple test runs.
-      // Playwright Test sets up `tracesDir` inside the `test-results` folder, so it will be removed between runs.
-      // When context is reused, its ongoing tracing will fail with ENOENT because trace files
-      // were suddenly removed. So we disable tracing in this case.
-      PW_TEST_DISABLE_TRACING: this._shouldReuseBrowserForTests ? '1' : undefined,
-      PW_TEST_CONNECT_WS_ENDPOINT: this._backend?.wsEndpoint,
-    } : undefined;
-  }
-
-  browserServerWSForTest() {
+  browserServerWSEndpoint() {
     return this._backend?.wsEndpoint;
   }
 
@@ -390,8 +344,8 @@ test('test', async ({ page }) => {
     return editor;
   }
 
-  async willRunTests(config: TestConfig, debug: boolean) {
-    if (!this._shouldReuseBrowserForTests && !debug)
+  async onWillRunTests(config: TestConfig, debug: boolean) {
+    if (!this._settingsModel.showBrowser.get() && !debug)
       return;
     if (!this._checkVersion(config, 'Show & reuse browser'))
       return;
@@ -401,8 +355,8 @@ test('test', async ({ page }) => {
     await this._startBackendIfNeeded(config);
   }
 
-  async didRunTests(debug: boolean) {
-    if (debug && !this._shouldReuseBrowserForTests) {
+  async onDidRunTests(debug: boolean) {
+    if (debug && !this._settingsModel.showBrowser.get()) {
       this._stop();
     } else {
       if (!this._pageCount)

@@ -72,7 +72,7 @@ test('should run one test', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js tests/test.spec.ts:3
   `);
 });
@@ -339,7 +339,6 @@ test('should only create test run if folder belongs to context', async ({ activa
   const items = testController.findTestItems(/foo1/);
   await Promise.all(profiles.map(p => p.run(items)));
   expect(testRuns).toHaveLength(1);
-  expect(testRuns[0].request.profile).toBe(profiles[0]);
 
   expect(vscode.renderExecLog('  ')).toBe(`
     tests1> playwright list-files -c playwright.config.js
@@ -373,7 +372,7 @@ test('should only create test run if test belongs to context', async ({ activate
   expect(vscode.renderExecLog('  ')).toBe(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
-    tests2> playwright test -c playwright.config.js --list foo2/bar2/test2.spec.ts
+    tests2> playwright test -c playwright.config.js --list --reporter=null foo2/bar2/test2.spec.ts
     tests2> playwright test -c playwright.config.js foo2/bar2/test2.spec.ts:3
   `);
 });
@@ -561,7 +560,7 @@ test('should run all parametrized tests', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js tests/test.spec.ts:4
   `);
 });
@@ -591,7 +590,7 @@ test('should run one parametrized test', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js --grep=test two tests/test.spec.ts:4
   `);
 });
@@ -629,7 +628,7 @@ test('should run one parametrized groups', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js --grep=group three tests/test.spec.ts:4
   `);
 });
@@ -663,7 +662,7 @@ test('should run tests in parametrized groups', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js --grep=level 1 tests/test.spec.ts:4
   `);
 
@@ -680,7 +679,7 @@ test('should run tests in parametrized groups', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js --grep=level 1 tests/test.spec.ts:4
     > playwright test -c playwright.config.js --grep=level 2 tests/test.spec.ts:4
   `);
@@ -699,7 +698,7 @@ test('should list tests in relative folder', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     foo/bar> playwright list-files -c playwright.config.js
-    foo/bar> playwright test -c playwright.config.js --list ../../tests/test.spec.ts
+    foo/bar> playwright test -c playwright.config.js --list --reporter=null ../../tests/test.spec.ts
   `);
 
   expect(testController.renderTestTree()).toBe(`

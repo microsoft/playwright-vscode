@@ -35,7 +35,7 @@ test('should list tests on expand', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
 });
 
@@ -65,7 +65,7 @@ test('should list tests for visible editors', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test1.spec.ts tests/test2.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test1.spec.ts tests/test2.spec.ts
   `);
 });
 
@@ -122,7 +122,7 @@ test('should discover new tests', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
 
   await Promise.all([
@@ -143,8 +143,8 @@ test('should discover new tests', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
 });
 
@@ -186,7 +186,7 @@ test('should discover new tests with active editor', async ({ activate }) => {
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test2.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test2.spec.ts
   `);
 });
 
@@ -222,8 +222,8 @@ test('should discover tests on add + change', async ({ activate }) => {
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list test.spec.ts
-    > playwright test -c playwright.config.js --list test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null test.spec.ts
   `);
 });
 
@@ -240,7 +240,7 @@ test('should discover new test at existing location', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
 
   await Promise.all([
@@ -259,8 +259,8 @@ test('should discover new test at existing location', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
 });
 
@@ -278,7 +278,7 @@ test('should remove deleted tests', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
 
   expect(testController.renderTestTree()).toBe(`
@@ -304,8 +304,8 @@ test('should remove deleted tests', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
 });
 
@@ -359,7 +359,7 @@ test('should regain tests after error is fixed', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
 
   expect(testController.renderTestTree()).toBe(`
@@ -385,8 +385,8 @@ test('should regain tests after error is fixed', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
-    > playwright test -c playwright.config.js --list tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
 });
 
@@ -418,8 +418,8 @@ test('should support multiple configs', async ({ activate }) => {
   expect(vscode.renderExecLog('  ')).toBe(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
-    tests1> playwright test -c playwright.config.js --list test.spec.ts
-    tests2> playwright test -c playwright.config.js --list test.spec.ts
+    tests1> playwright test -c playwright.config.js --list --reporter=null test.spec.ts
+    tests2> playwright test -c playwright.config.js --list --reporter=null test.spec.ts
   `);
 });
 
@@ -453,7 +453,7 @@ test('should support multiple projects', async ({ activate }) => {
 
   expect(vscode.renderExecLog('  ')).toBe(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list tests/test1.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test1.spec.ts
   `);
 });
 

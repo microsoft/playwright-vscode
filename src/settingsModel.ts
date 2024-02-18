@@ -22,7 +22,7 @@ export class SettingsModel implements vscodeTypes.Disposable {
   readonly onChange: vscodeTypes.Event<void>;
   private _onChange: vscodeTypes.EventEmitter<void>;
   private _disposables: vscodeTypes.Disposable[] = [];
-  reuseBrowser: Setting<boolean>;
+  showBrowser: Setting<boolean>;
   showTrace: Setting<boolean>;
 
   constructor(vscode: vscodeTypes.VSCode) {
@@ -30,16 +30,16 @@ export class SettingsModel implements vscodeTypes.Disposable {
     this._onChange = new vscode.EventEmitter();
     this.onChange = this._onChange.event;
 
-    this.reuseBrowser = this._createSetting('reuseBrowser');
+    this.showBrowser = this._createSetting('reuseBrowser');
     this.showTrace = this._createSetting('showTrace');
 
-    this.reuseBrowser.onChange(enabled => {
+    this.showBrowser.onChange(enabled => {
       if (enabled && this.showTrace.get())
         this.showTrace.set(false);
     });
     this.showTrace.onChange(enabled => {
-      if (enabled && this.reuseBrowser.get())
-        this.reuseBrowser.set(false);
+      if (enabled && this.showBrowser.get())
+        this.showBrowser.set(false);
     });
   }
 

@@ -62,7 +62,7 @@ export class WorkspaceObserver {
     }
     if (this._timeout)
       clearTimeout(this._timeout);
-    this._timeout = setTimeout(() => this._reportChange(), 500);
+    this._timeout = setTimeout(() => this._reportChange(), 50);
     return this._pendingChange;
   }
 
