@@ -28,7 +28,7 @@ test('should report duplicate test title', async ({ activate }) => {
   });
 
   await testController.expandTestItems(/test.spec.ts/);
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
   `);
@@ -69,7 +69,7 @@ test('should report error in global setup', async ({ activate }) => {
         globalSetup.ts:[3:21 - 3:21]
         Error: <span style='color:#666;'>expect(</span>`);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js
   `);

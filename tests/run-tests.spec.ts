@@ -43,7 +43,7 @@ test('should run all tests', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js
   `);
@@ -70,7 +70,7 @@ test('should run one test', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js tests/test.spec.ts:3
@@ -133,7 +133,7 @@ test('should run file', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js tests/test.spec.ts
   `);
@@ -167,7 +167,7 @@ test('should run folder', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js tests/folder
   `);
@@ -298,7 +298,7 @@ test('should only create test run if file belongs to context', async ({ activate
     expect(testRuns).toHaveLength(1);
   }
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
     tests1> playwright test -c playwright.config.js test1.spec.ts
@@ -311,7 +311,7 @@ test('should only create test run if file belongs to context', async ({ activate
     expect(testRuns).toHaveLength(1);
   }
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
     tests1> playwright test -c playwright.config.js test1.spec.ts
@@ -340,7 +340,7 @@ test('should only create test run if folder belongs to context', async ({ activa
   await Promise.all(profiles.map(p => p.run(items)));
   expect(testRuns).toHaveLength(1);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
     tests1> playwright test -c playwright.config.js foo1
@@ -369,7 +369,7 @@ test('should only create test run if test belongs to context', async ({ activate
   await Promise.all(profiles.map(p => p.run(items)));
   expect(testRuns).toHaveLength(1);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
     tests2> playwright test -c playwright.config.js --list --reporter=null foo2/bar2/test2.spec.ts
@@ -395,7 +395,7 @@ test('should run all projects at once', async ({ activate }) => {
   const profiles = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
   await Promise.all(profiles.map(p => p.run()));
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --project=projectOne --project=projectTwo
   `);
@@ -428,7 +428,7 @@ test('should group projects by config', async ({ activate }) => {
   const profiles = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
   await Promise.all(profiles.map(p => p.run()));
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
     tests1> playwright test -c playwright.config.js --project=projectOne --project=projectTwo
@@ -516,7 +516,7 @@ test('should not remove other tests when running focused test', async ({ activat
   const testItems = testController.findTestItems(/two/);
   await testController.run(testItems);
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
@@ -558,7 +558,7 @@ test('should run all parametrized tests', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js tests/test.spec.ts:4
@@ -588,7 +588,7 @@ test('should run one parametrized test', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js --grep=test two tests/test.spec.ts:4
@@ -626,7 +626,7 @@ test('should run one parametrized groups', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js --grep=group three tests/test.spec.ts:4
@@ -660,7 +660,7 @@ test('should run tests in parametrized groups', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js --grep=level 1 tests/test.spec.ts:4
@@ -677,7 +677,7 @@ test('should run tests in parametrized groups', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js --grep=level 1 tests/test.spec.ts:4
@@ -696,12 +696,12 @@ test('should list tests in relative folder', async ({ activate }) => {
 
   await testController.expandTestItems(/test.spec/);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     foo/bar> playwright list-files -c playwright.config.js
     foo/bar> playwright test -c playwright.config.js --list --reporter=null ../../tests/test.spec.ts
   `);
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
@@ -736,7 +736,7 @@ test('should specify project', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --project=project 1 tests1/test.spec.ts
   `);
@@ -757,7 +757,7 @@ test('should run tests concurrently', async ({ activate }) => {
   await Promise.all([profile.run(), profile.run(), profile.run()]);
   expect(runs).toHaveLength(1);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js
   `);
@@ -788,7 +788,7 @@ test('should report project-specific failures', async ({ activate }) => {
     ...profile.map(p => p.run()),
   ]);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --project=projectA --project=projectB --project=projectC
   `);
@@ -846,7 +846,7 @@ test('should discover tests after running one test', async ({ activate }) => {
 
   await testController.expandTestItems(/test2.spec.ts/);
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test1.spec.ts
         - one [2:0]
@@ -941,7 +941,7 @@ test('should show warning when tests do not belong to projects', async ({ activa
     await profile.run(items);
   }
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
   `);

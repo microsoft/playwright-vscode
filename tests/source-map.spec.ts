@@ -23,11 +23,11 @@ test('should list files', async ({ activate }) => {
     'build/test.spec.js': testSpecJs('test.spec'),
     'build/test.spec.js.map': testSpecJsMap('test.spec'),
   });
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
   `);
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 });
@@ -41,14 +41,14 @@ test('should list tests on expand', async ({ activate }) => {
   });
 
   await testController.expandTestItems(/test.spec.ts/);
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
         - two [3:0]
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
@@ -65,14 +65,14 @@ test('should list tests for visible editors', async ({ activate }) => {
   await vscode.openEditors('**/test.spec.ts');
   await new Promise(f => testController.onDidChangeTestItem(f));
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
         - two [3:0]
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
@@ -86,12 +86,12 @@ test('should pick new files', async ({ activate }) => {
     'build/test-1.spec.js.map': testSpecJsMap('test-1.spec'),
   });
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 
@@ -102,13 +102,13 @@ test('should pick new files', async ({ activate }) => {
     workspaceFolder.addFile('build/test-2.spec.js.map', testSpecJsMap('test-2.spec')),
   ]);
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
       - test-2.spec.ts
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.js
   `);
@@ -128,14 +128,14 @@ test('should remove deleted files', async ({ activate }) => {
     'build/test-3.spec.js.map': testSpecJsMap('test-3.spec'),
   });
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
       - test-2.spec.ts
       - test-3.spec.ts
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 
@@ -146,13 +146,13 @@ test('should remove deleted files', async ({ activate }) => {
     workspaceFolder.removeFile('build/test-2.spec.js.map'),
   ]);
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
       - test-3.spec.ts
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 });
@@ -167,7 +167,7 @@ test('should discover new tests', async ({ activate }) => {
 
   await testController.expandTestItems(/test.spec.ts/);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
@@ -179,7 +179,7 @@ test('should discover new tests', async ({ activate }) => {
     workspaceFolder.changeFile('build/test.spec.js.map', testSpecJsMapAfter),
   ]);
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - new [2:0]
@@ -187,7 +187,7 @@ test('should discover new tests', async ({ activate }) => {
         - two [4:0]
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
@@ -214,7 +214,7 @@ test('should run all tests', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js
   `);
@@ -240,7 +240,7 @@ test('should run one test', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js tests/test.spec.ts:3

@@ -26,11 +26,11 @@ test('should list files', async ({ activate }) => {
     `,
   });
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
   `);
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 });
@@ -44,10 +44,10 @@ test('should list files top level if no testDir', async ({ activate }, testInfo)
     `,
   }, { rootDir: testInfo.outputPath('myWorkspace') });
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - test.spec.ts
   `);
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 });
@@ -64,7 +64,7 @@ test('should list only test files', async ({ activate }) => {
     `,
   });
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
   `);
@@ -79,7 +79,7 @@ test('should list folders', async ({ activate }) => {
     'tests/a/b/c/d/test-c.spec.ts': ``,
   });
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - a
         - b
@@ -92,7 +92,7 @@ test('should list folders', async ({ activate }) => {
         - test-a.spec.ts
         - test-b.spec.ts
   `);
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 });
@@ -103,12 +103,12 @@ test('should pick new files', async ({ activate }) => {
     'tests/test-1.spec.ts': ``
   });
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 
@@ -117,13 +117,13 @@ test('should pick new files', async ({ activate }) => {
     workspaceFolder.addFile('tests/test-2.spec.ts', '')
   ]);
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
       - test-2.spec.ts
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.js
   `);
@@ -135,7 +135,7 @@ test('should not pick non-test files', async ({ activate }) => {
     'tests/test-1.spec.ts': ``
   });
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
   `);
@@ -146,7 +146,7 @@ test('should not pick non-test files', async ({ activate }) => {
     workspaceFolder.addFile('tests/test-2.spec.ts', ''),
   ]);
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
       - test-2.spec.ts
@@ -158,7 +158,7 @@ test('should tolerate missing testDir', async ({ activate }) => {
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
   });
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
   `);
 
   await Promise.all([
@@ -166,7 +166,7 @@ test('should tolerate missing testDir', async ({ activate }) => {
     workspaceFolder.addFile('tests/test.spec.ts', '')
   ]);
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
   `);
@@ -180,14 +180,14 @@ test('should remove deleted files', async ({ activate }) => {
     'tests/test-3.spec.ts': ``,
   });
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
       - test-2.spec.ts
       - test-3.spec.ts
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 
@@ -196,13 +196,13 @@ test('should remove deleted files', async ({ activate }) => {
     workspaceFolder.removeFile('tests/test-2.spec.ts')
   ]);
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
       - test-3.spec.ts
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 });
@@ -215,7 +215,7 @@ test('should do nothing for not loaded changed file', async ({ activate }) => {
     'tests/test-3.spec.ts': ``,
   });
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
       - test-2.spec.ts
@@ -242,14 +242,14 @@ test('should support multiple configs', async ({ activate }) => {
       test(two', async () => {});
     `,
   });
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests1
       - test.spec.ts
     - tests2
       - test.spec.ts
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
   `);
@@ -273,13 +273,13 @@ test('should support multiple projects', async ({ activate }) => {
       test(two', async () => {});
     `,
   });
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test1.spec.ts
       - test2.spec.ts
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 });
@@ -306,13 +306,13 @@ test('should support multiple projects with filter', async ({ activate }) => {
       test(three', async () => {});
     `,
   });
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test1.spec.ts
       - test2.spec.ts
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 });
@@ -325,11 +325,11 @@ test('should list files in relative folder', async ({ activate }) => {
       test('one', async () => {});
     `,
   });
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
   `);
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     foo/bar> playwright list-files -c playwright.config.js
   `);
 });
@@ -358,7 +358,7 @@ test('should list files in multi-folder workspace', async ({ activate }, testInf
   const context = { subscriptions: [] };
   await extension.activate(context);
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - folder1
       - test.spec.ts
     - folder2
@@ -376,11 +376,11 @@ test('should ignore errors when listing files', async ({ activate }) => {
     `,
   });
 
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
   `);
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.ts
   `);

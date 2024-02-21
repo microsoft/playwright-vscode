@@ -66,13 +66,15 @@ class OopReporter implements Reporter {
 
   constructor() {
     this._transport = WebSocketTransport.connect(process.env.PW_TEST_REPORTER_WS_ENDPOINT!);
-    this._transport.then(t => {
-      t.onmessage = message => {
-        if (message.method === 'stop')
-          process.emit('SIGINT' as any);
-      };
-      t.onclose = () => process.exit(0);
-    });
+    if (process.env.PW_TEST_REPORTER_SELF_DESTRUCT) {
+      this._transport.then(t => {
+        t.onmessage = message => {
+          if (message.method === 'stop')
+            process.emit('SIGINT' as any);
+        };
+        t.onclose = () => process.exit(0);
+      });
+    }
   }
 
   printsToStdio() {
@@ -177,7 +179,8 @@ class OopReporter implements Reporter {
   async onEnd(result: FullResult) {
     this._emit('onEnd', {});
     // Embedder is responsible for terminating the connection.
-    await new Promise(() => {});
+    if (process.env.PW_TEST_REPORTER_SELF_DESTRUCT)
+      await new Promise(() => {});
   }
 
   private _emit(method: string, params: Object) {

@@ -55,7 +55,7 @@ test('should mark test as skipped', async ({ activate }) => {
       skipped
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js
   `);

@@ -23,6 +23,7 @@ import { ReporterServer } from './reporterServer';
 import { findNode, spawnAsync } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { SettingsModel } from './settingsModel';
+import { TestServerController } from './testServerController';
 
 export type TestConfig = {
   workspaceFolder: string;
@@ -47,8 +48,12 @@ export interface TestListener {
 const pathSeparator = process.platform === 'win32' ? ';' : ':';
 
 export type PlaywrightTestOptions = {
+  headed?: boolean,
+  oneWorker?: boolean,
+  trace?: 'on' | 'off',
   projects?: string[];
   grep?: string;
+  reuseContext?: boolean,
   connectWsEndpoint?: string;
 };
 
@@ -64,12 +69,14 @@ export class PlaywrightTest {
   private _envProvider: () => NodeJS.ProcessEnv;
   private _vscode: vscodeTypes.VSCode;
   private _settingsModel: SettingsModel;
+  private _testServerController: TestServerController;
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, runHooks: RunHooks, isUnderTest: boolean, envProvider: () => NodeJS.ProcessEnv) {
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, runHooks: RunHooks, isUnderTest: boolean, testServerController: TestServerController, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
     this._settingsModel = settingsModel;
     this._runHooks = runHooks;
     this._isUnderTest = isUnderTest;
+    this._testServerController = testServerController;
     this._envProvider = envProvider;
   }
 
@@ -117,15 +124,33 @@ export class PlaywrightTest {
     const locationArg = locations ? locations : [];
     if (token?.isCancellationRequested)
       return;
-    const testOptions = await this._runHooks.onWillRunTests(config, false);
+    const externalOptions = await this._runHooks.onWillRunTests(config, false);
+    const showBrowser = this._settingsModel.showBrowser.get() && !!externalOptions.connectWsEndpoint;
+
+    let trace: 'on' | 'off' | undefined;
+    if (this._settingsModel.showTrace.get())
+      trace = 'on';
+    // "Show browser" mode forces context reuse that survives over multiple test runs.
+    // Playwright Test sets up `tracesDir` inside the `test-results` folder, so it will be removed between runs.
+    // When context is reused, its ongoing tracing will fail with ENOENT because trace files
+    // were suddenly removed. So we disable tracing in this case.
+    if (this._settingsModel.showBrowser.get())
+      trace = 'off';
+
+    const options: PlaywrightTestOptions = {
+      grep: parametrizedTestTitle,
+      projects: projectNames.length ? projectNames.filter(Boolean) : undefined,
+      headed: showBrowser && !this._isUnderTest,
+      oneWorker: showBrowser,
+      trace,
+      reuseContext: showBrowser,
+      connectWsEndpoint: showBrowser ? externalOptions.connectWsEndpoint : undefined,
+    };
+
     try {
       if (token?.isCancellationRequested)
         return;
-      await this._test(config, locationArg, 'run', {
-        grep: parametrizedTestTitle,
-        projects: projectNames.filter(Boolean),
-        ...testOptions
-      }, listener, token);
+      await this._test(config, locationArg, 'run', options, listener, token);
     } finally {
       await this._runHooks.onDidRunTests(false);
     }
@@ -146,6 +171,13 @@ export class PlaywrightTest {
   }
 
   private async _test(config: TestConfig, locations: string[], mode: 'list' | 'run', options: PlaywrightTestOptions, listener: TestListener, token: vscodeTypes.CancellationToken): Promise<void> {
+    if (process.env.PWTEST_VSCODE_SERVER)
+      await this._testWithServer(config, locations, mode, options, listener, token);
+    else
+      await this._testWithCLI(config, locations, mode, options, listener, token);
+  }
+
+  private async _testWithCLI(config: TestConfig, locations: string[], mode: 'list' | 'run', options: PlaywrightTestOptions, listener: TestListener, token: vscodeTypes.CancellationToken): Promise<void> {
     // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
     // Always use ws transport to mitigate it.
     const reporterServer = new ReporterServer(this._vscode);
@@ -176,21 +208,13 @@ export class PlaywrightTest {
       '--repeat-each', '1',
       '--retries', '0',
     ];
-    const showBrowser = this._settingsModel.showBrowser.get() && !!options.connectWsEndpoint;
-    if (mode === 'run') {
-      if (showBrowser && !this._isUnderTest)
-        allArgs.push('--headed');
-      if (showBrowser)
-        allArgs.push('--workers', '1');
-      if (this._settingsModel.showTrace.get())
-        allArgs.push('--trace', 'on');
-      // "Show browser" mode forces context reuse that survives over multiple test runs.
-      // Playwright Test sets up `tracesDir` inside the `test-results` folder, so it will be removed between runs.
-      // When context is reused, its ongoing tracing will fail with ENOENT because trace files
-      // were suddenly removed. So we disable tracing in this case.
-      if (this._settingsModel.showBrowser.get())
-        allArgs.push('--trace', 'off');
-    }
+
+    if (options.headed)
+      allArgs.push('--headed');
+    if (options.oneWorker)
+      allArgs.push('--workers', '1');
+    if (options.trace)
+      allArgs.push('--trace', options.trace);
 
     const childProcess = spawn(node, allArgs, {
       cwd: configFolder,
@@ -201,9 +225,9 @@ export class PlaywrightTest {
         // Don't debug tests when running them.
         NODE_OPTIONS: undefined,
         ...this._envProvider(),
-        PW_TEST_REUSE_CONTEXT: showBrowser ? '1' : undefined,
-        PW_TEST_CONNECT_WS_ENDPOINT: showBrowser ? options.connectWsEndpoint : undefined,
-        ...(await reporterServer.env()),
+        PW_TEST_REUSE_CONTEXT: options.reuseContext ? '1' : undefined,
+        PW_TEST_CONNECT_WS_ENDPOINT: options.connectWsEndpoint,
+        ...(await reporterServer.env({ selfDestruct: true })),
         // Reset VSCode's options that affect nested Electron.
         ELECTRON_RUN_AS_NODE: undefined,
         FORCE_COLOR: '1',
@@ -215,6 +239,33 @@ export class PlaywrightTest {
     const stdio = childProcess.stdio;
     stdio[1].on('data', data => listener.onStdOut?.(data));
     stdio[2].on('data', data => listener.onStdErr?.(data));
+    await reporterServer.wireTestListener(listener, token);
+  }
+
+  private async _testWithServer(config: TestConfig, locations: string[], mode: 'list' | 'run', options: PlaywrightTestOptions, listener: TestListener, token: vscodeTypes.CancellationToken): Promise<void> {
+    const reporterServer = new ReporterServer(this._vscode);
+    const testServer = await this._testServerController.testServerFor(config);
+    if (!testServer)
+      return;
+    if (token?.isCancellationRequested)
+      return;
+    const env = await reporterServer.env({ selfDestruct: false });
+    const reporter = reporterServer.reporterFile();
+    if (mode === 'list')
+      testServer.list({ locations, reporter, env });
+    if (mode === 'run') {
+      testServer.test({ locations, reporter, env, options });
+      token.onCancellationRequested(() => {
+        testServer.stop();
+      });
+      testServer.on('stdio', params => {
+        if (params.type === 'stdout')
+          listener.onStdOut?.(unwrapString(params));
+        if (params.type === 'stderr')
+          listener.onStdErr?.(unwrapString(params));
+      });
+    }
+
     await reporterServer.wireTestListener(listener, token);
   }
 
@@ -255,7 +306,7 @@ export class PlaywrightTest {
           CI: this._isUnderTest ? undefined : process.env.CI,
           ...settingsEnv,
           PW_TEST_CONNECT_WS_ENDPOINT: testOptions.connectWsEndpoint,
-          ...(await reporterServer.env()),
+          ...(await reporterServer.env({ selfDestruct: true })),
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,
           FORCE_COLOR: '1',
@@ -288,4 +339,8 @@ export class PlaywrightTest {
 
 function escapeRegex(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function unwrapString(params: { text?: string, buffer?: string }): string | Buffer {
+  return params.buffer ? Buffer.from(params.buffer, 'base64') : params.text || '';
 }

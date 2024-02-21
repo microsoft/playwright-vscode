@@ -42,7 +42,7 @@ test('should debug all tests', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > debug -c playwright.config.js
   `);
@@ -69,7 +69,7 @@ test('should debug one test', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > debug -c playwright.config.js tests/test.spec.ts:3

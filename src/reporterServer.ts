@@ -33,11 +33,16 @@ export class ReporterServer {
     this._clientSocketPromise = new Promise(f => this._clientSocketCallback = f);
   }
 
-  async env() {
+  reporterFile() {
+    return require.resolve('./oopReporter');
+  }
+
+  async env(options: { selfDestruct: boolean }) {
     const wsEndpoint = await this._listen();
     return {
-      PW_TEST_REPORTER: require.resolve('./oopReporter'),
+      PW_TEST_REPORTER: this.reporterFile(),
       PW_TEST_REPORTER_WS_ENDPOINT: wsEndpoint,
+      PW_TEST_REPORTER_SELF_DESTRUCT: options.selfDestruct ? '1' : '',
     };
   }
 
