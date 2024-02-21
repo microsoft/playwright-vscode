@@ -18,6 +18,7 @@ import { WorkerOptions } from './tests/utils';
 
 const config: PlaywrightTestConfig<WorkerOptions> = {
   testDir: './tests',
+  outputDir: './test-results/inner',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   workers: process.env.CI ? 1 : undefined,

@@ -18,7 +18,7 @@ import { expect, test } from './utils';
 
 test('should load first config', async ({ activate }) => {
   const { vscode, testController, workspaceFolder } = await activate({});
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
   `);
 
   workspaceFolder.addFile('playwright.config.js', `module.exports = { testDir: 'tests' }`);
@@ -33,7 +33,7 @@ test('should load first config', async ({ activate }) => {
   `;
   while (testController.renderTestTree() !== golden) await new Promise(f => setTimeout(f, 200));
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 });
@@ -46,7 +46,7 @@ test('should load second config', async ({ activate }) => {
       test('one', async () => {});
     `,
   });
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests1
       - test.spec.ts
   `);
@@ -65,7 +65,7 @@ test('should load second config', async ({ activate }) => {
   `;
   while (testController.renderTestTree() !== golden) await new Promise(f => setTimeout(f, 200));
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright1.config.js
     > playwright list-files -c playwright1.config.js
     > playwright list-files -c playwright2.config.js
@@ -85,7 +85,7 @@ test('should remove model for config', async ({ activate }) => {
       test('one', async () => {});
     `,
   });
-  expect(testController.renderTestTree()).toBe(`
+  expect(testController).toHaveTestTree(`
     - tests1
       - test.spec.ts
     - tests2
@@ -100,7 +100,7 @@ test('should remove model for config', async ({ activate }) => {
   `;
   while (testController.renderTestTree() !== golden) await new Promise(f => setTimeout(f, 200));
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright1.config.js
     > playwright list-files -c playwright2.config.js
     > playwright list-files -c playwright2.config.js

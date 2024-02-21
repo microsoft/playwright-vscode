@@ -39,7 +39,7 @@ test('should create run & debug profiles', async ({ activate }, testInfo) => {
   expect(runProfiles[1].kind).toBe(vscode.TestRunProfileKind.Debug);
   expect(runProfiles[1].isDefault).toBeFalsy();
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 });
@@ -71,7 +71,7 @@ test('should create run & debug profile per project', async ({ activate }, testI
   expect(runProfiles[3].kind).toBe(vscode.TestRunProfileKind.Debug);
   expect(runProfiles[1].isDefault).toBeFalsy();
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 });

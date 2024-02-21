@@ -30,6 +30,7 @@ import { NodeJSNotFoundError, ansiToHtml } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { TraceViewer } from './traceViewer';
+import { TestServerController } from './testServerController';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -87,6 +88,7 @@ export class Extension implements RunHooks {
   } | undefined;
   private _diagnostics: Record<'configErrors' | 'testErrors', vscodeTypes.DiagnosticCollection>;
   private _treeItemObserver: TreeItemObserver;
+  private _testServerController: TestServerController;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -111,7 +113,8 @@ export class Extension implements RunHooks {
     this._settingsModel = new SettingsModel(vscode);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._traceViewer = new TraceViewer(this._vscode, this._settingsModel, this._envProvider.bind(this));
-    this._playwrightTest = new PlaywrightTest(this._vscode, this._settingsModel, this, this._isUnderTest, this._envProvider.bind(this));
+    this._testServerController = new TestServerController(this._vscode, this._envProvider.bind(this));
+    this._playwrightTest = new PlaywrightTest(this._vscode, this._settingsModel, this, this._isUnderTest, this._testServerController, this._envProvider.bind(this));
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModel(true).then(() => {});
@@ -214,6 +217,7 @@ export class Extension implements RunHooks {
       this._reusedBrowser,
       ...Object.values(this._diagnostics),
       this._treeItemObserver,
+      this._testServerController,
     ];
     await this._rebuildModel(false);
 

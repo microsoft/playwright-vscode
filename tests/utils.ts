@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { expect, test as baseTest, Browser, chromium, Page } from '@playwright/test';
+import { expect as baseExpect, test as baseTest, Browser, chromium, Page } from '@playwright/test';
 import { Extension } from '../out/extension';
 import { TestController, VSCode, WorkspaceFolder } from './mock/vscode';
 import path from 'path';
@@ -33,7 +33,37 @@ export type WorkerOptions = {
   mode: 'default' | 'reuse';
 };
 
-export { expect } from '@playwright/test';
+// Make sure connect tests work with the locally-rolled version.
+process.env.PW_VERSION_OVERRIDE = require('@playwright/test/package.json').version;
+
+export const expect = baseExpect.extend({
+  toHaveTestTree(testController: TestController, expectedTree: string) {
+    try {
+      expect(testController.renderTestTree()).toBe(expectedTree);
+      return { pass: true, message: () => '' };
+    } catch (e) {
+      return {
+        pass: false,
+        message: () => e.toString()
+      };
+    }
+  },
+
+  toHaveExecLog(vscode: VSCode, expectedLog: string) {
+    if (process.env.PWTEST_VSCODE_SERVER)
+      return { pass: true, message: () => '' };
+    try {
+      expect(vscode.renderExecLog('  ')).toBe(expectedLog);
+      return { pass: true, message: () => '' };
+    } catch (e) {
+      return {
+        pass: false,
+        message: () => e.toString()
+      };
+    }
+  }
+});
+
 export const test = baseTest.extend<TestFixtures, WorkerOptions>({
   mode: ['default', { option: true, scope: 'worker' }],
 

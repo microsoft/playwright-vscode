@@ -20,41 +20,47 @@ import * as vscodeTypes from './vscodeTypes';
 import EventEmitter from 'events';
 import { WebSocketTransport } from './transport';
 
+export type BackendServerOptions<T extends BackendClient> = {
+  args: string[],
+  cwd: string,
+  envProvider: () => NodeJS.ProcessEnv,
+  clientFactory: () => T,
+  dumpIO?: boolean,
+};
+
 export class BackendServer<T extends BackendClient> {
   private _vscode: vscodeTypes.VSCode;
-  private _args: string[];
-  private _cwd: string;
-  private _envProvider: () => NodeJS.ProcessEnv;
-  private _clientFactory: () => T;
+  private _options: BackendServerOptions<T>;
 
-  constructor(vscode: vscodeTypes.VSCode, args: string[], cwd: string, envProvider: () => NodeJS.ProcessEnv, clientFactory: () => T) {
+  constructor(vscode: vscodeTypes.VSCode, options: BackendServerOptions<T>) {
     this._vscode = vscode;
-    this._args = args;
-    this._cwd = cwd;
-    this._envProvider = envProvider;
-    this._clientFactory = clientFactory;
+    this._options = options;
   }
 
   async start(): Promise<T | null> {
-    const node = await findNode(this._vscode, this._cwd);
-    const serverProcess = spawn(node, this._args, {
-      cwd: this._cwd,
+    const node = await findNode(this._vscode, this._options.cwd);
+    const serverProcess = spawn(node, this._options.args, {
+      cwd: this._options.cwd,
       stdio: 'pipe',
       env: {
         ...process.env,
-        ...this._envProvider(),
+        ...this._options.envProvider(),
       },
     });
 
-    const client = this._clientFactory();
+    const client = this._options.clientFactory();
 
-    serverProcess.stderr?.on('data', () => {});
+    serverProcess.stderr?.on('data', data => {
+      if (this._options.dumpIO)
+        console.log('[server err]', data.toString());
+    });
     serverProcess.on('error', error => {
       client._onErrorEvent.fire(error);
     });
-
     return new Promise(fulfill => {
       serverProcess.stdout?.on('data', async data => {
+        if (this._options.dumpIO)
+          console.log('[server out]', data.toString());
         const match = data.toString().match(/Listening on (.*)/);
         if (!match)
           return;

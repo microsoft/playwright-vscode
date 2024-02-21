@@ -297,6 +297,7 @@ export class TestMessage {
       result.push(`${indent}${path.basename(this.location.uri.fsPath)}:${this.location.range.toString()}`);
     const message = this.message.render();
     for (let line of message.split('\n')) {
+      line = line.replace(/at .*\/test-results.*[/\\]tests(.*)\)/, 'at tests$1');
       if (this.location && line.includes('    at'))
         line = line.replace(/\\/g, '/');
       if (this.location && line.includes('&nbsp;&nbsp;&nbsp;&nbsp;at'))
