@@ -244,6 +244,7 @@ export class Extension implements RunHooks {
   private async _rebuildModel(showWarnings: boolean): Promise<vscodeTypes.Uri[]> {
     this._testTree.startedLoading();
     this._workspaceObserver.reset();
+    this._testServerController.reset();
     this._models = [];
 
     const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mjs}', '**/node_modules/**');

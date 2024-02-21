@@ -17,9 +17,9 @@
 import { chromium } from '@playwright/test';
 import { expect, test } from './utils';
 
-test.beforeEach(({ mode }) => {
+test.beforeEach(({ showBrowser }) => {
   // Locator highlighting is only relevant when the browser stays open.
-  test.skip(mode !== 'reuse');
+  test.skip(!showBrowser);
   // the x-pw-highlight element has otherwise a closed shadow root.
   process.env.PWTEST_UNDER_TEST = '1';
   process.env.PW_DEBUG_CONTROLLER_HEADLESS = '1';

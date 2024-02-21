@@ -171,7 +171,7 @@ export class PlaywrightTest {
   }
 
   private async _test(config: TestConfig, locations: string[], mode: 'list' | 'run', options: PlaywrightTestOptions, listener: TestListener, token: vscodeTypes.CancellationToken): Promise<void> {
-    if (process.env.PWTEST_VSCODE_SERVER)
+    if (config.version >= 1.43 || this._settingsModel.useTestServer.get())
       await this._testWithServer(config, locations, mode, options, listener, token);
     else
       await this._testWithCLI(config, locations, mode, options, listener, token);

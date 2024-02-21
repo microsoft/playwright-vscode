@@ -83,6 +83,10 @@
           "type": "boolean",
           "default": false,
           "description": "%configuration.playwright.showTrace%"
+        },
+        "playwright.useTestServer": {
+          "type": "boolean",
+          "default": false
         }
       }
     },

@@ -16,6 +16,10 @@
 
 import { expect, test } from './utils';
 
+test.beforeEach(async ({ showBrowser }) => {
+  test.skip(showBrowser);
+});
+
 test('should toggle settings', async ({ activate }) => {
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = {}`,

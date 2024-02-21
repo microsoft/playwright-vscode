@@ -36,7 +36,12 @@ export class TestServerController implements vscodeTypes.Disposable {
     const testServerBackend = new BackendServer<TestServer>(this._vscode, {
       args,
       cwd: config.workspaceFolder,
-      envProvider: this._envProvider,
+      envProvider: () => {
+        return {
+          ...this._envProvider(),
+          FORCE_COLOR: '1',
+        };
+      },
       clientFactory: () => new TestServer(this._vscode),
       dumpIO: false,
     });
@@ -48,6 +53,10 @@ export class TestServerController implements vscodeTypes.Disposable {
   }
 
   dispose() {
+    this.reset();
+  }
+
+  reset() {
     for (const backend of this._testServers.values())
       backend.close();
     this._testServers.clear();
