@@ -266,6 +266,12 @@ class TestRunProfile {
     return testRun;
   }
 
+  async watch(include?: TestItem[], exclude?: TestItem[]): Promise<TestRunRequest> {
+    const request = new TestRunRequest(include, exclude, this, true);
+    await this.runHandler(request, request.token);
+    return request;
+  }
+
   dispose() {
     this.runProfiles.splice(this.runProfiles.indexOf(this), 1);
   }
@@ -277,11 +283,13 @@ export class TestRunRequest {
   include: TestItem[] | undefined;
   exclude: TestItem[] | undefined;
   profile: TestRunProfile | undefined;
+  continuous?: boolean;
 
-  constructor(include?: TestItem[], exclude?: TestItem[], profile?: TestRunProfile) {
+  constructor(include?: TestItem[], exclude?: TestItem[], profile?: TestRunProfile, continuous?: boolean) {
     this.include = include;
     this.exclude = exclude;
     this.profile = profile;
+    this.continuous = continuous;
   }
 }
 
@@ -438,9 +446,14 @@ export class TestController {
     return [...this.allTestItems.values()].filter(t => label.exec(t.label));
   }
 
-  async run(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {
+  async run(include?: TestItem[], exclude?: TestItem[], continuous?: boolean): Promise<TestRun> {
     const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Run)!;
     return profile.run(include, exclude);
+  }
+
+  async watch(include?: TestItem[], exclude?: TestItem[], continuous?: boolean): Promise<TestRunRequest> {
+    const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Run)!;
+    return profile.watch(include, exclude);
   }
 
   async debug(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {

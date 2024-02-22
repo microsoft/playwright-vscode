@@ -17,7 +17,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import { debugSessionName } from './debugSessionName';
-import { ConfigListFilesReport } from './listTests';
+import { ConfigFindRelatedTestFilesReport, ConfigListFilesReport } from './listTests';
 import type { TestError, Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
 import { ReporterServer } from './reporterServer';
 import { findNode, spawnAsync } from './utils';
@@ -170,8 +170,12 @@ export class PlaywrightTest {
     return { entries, errors };
   }
 
+  private _useTestServer(config: TestConfig) {
+    return config.version >= 1.43 || this._settingsModel.useTestServer.get();
+  }
+
   private async _test(config: TestConfig, locations: string[], mode: 'list' | 'run', options: PlaywrightTestOptions, listener: TestListener, token: vscodeTypes.CancellationToken): Promise<void> {
-    if (config.version >= 1.43 || this._settingsModel.useTestServer.get())
+    if (this._useTestServer(config))
       await this._testWithServer(config, locations, mode, options, listener, token);
     else
       await this._testWithCLI(config, locations, mode, options, listener, token);
@@ -245,8 +249,10 @@ export class PlaywrightTest {
   private async _testWithServer(config: TestConfig, locations: string[], mode: 'list' | 'run', options: PlaywrightTestOptions, listener: TestListener, token: vscodeTypes.CancellationToken): Promise<void> {
     const reporterServer = new ReporterServer(this._vscode);
     const testServer = await this._testServerController.testServerFor(config);
-    if (!testServer)
+    if (token?.isCancellationRequested)
       return;
+    if (!testServer)
+      return this._testWithCLI(config, locations, mode, options, listener, token);
     if (token?.isCancellationRequested)
       return;
     const env = await reporterServer.env({ selfDestruct: false });
@@ -267,6 +273,43 @@ export class PlaywrightTest {
     }
 
     await reporterServer.wireTestListener(listener, token);
+  }
+
+  async findRelatedTestFiles(config: TestConfig, files: string[]): Promise<ConfigFindRelatedTestFilesReport> {
+    if (this._useTestServer(config))
+      return await this._findRelatedTestFilesServer(config, files);
+    else
+      return await this._findRelatedTestFilesCLI(config, files);
+  }
+
+  async _findRelatedTestFilesCLI(config: TestConfig, files: string[]): Promise<ConfigFindRelatedTestFilesReport> {
+    const configFolder = path.dirname(config.configFile);
+    const configFile = path.basename(config.configFile);
+    const allArgs = [config.cli, 'find-related-test-files', '-c', configFile, ...files];
+    {
+      // For tests.
+      this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright find-related-test-files -c ${configFile}`);
+    }
+    try {
+      const output = await this._runNode(allArgs, configFolder);
+      const result = JSON.parse(output) as ConfigFindRelatedTestFilesReport;
+      return result;
+    } catch (error: any) {
+      return {
+        errors: [{
+          location: { file: configFile, line: 0, column: 0 },
+          message: error.message,
+        }],
+        testFiles: files,
+      };
+    }
+  }
+
+  async _findRelatedTestFilesServer(config: TestConfig, files: string[]): Promise<ConfigFindRelatedTestFilesReport> {
+    const testServer = await this._testServerController.testServerFor(config);
+    if (!testServer)
+      return await this._findRelatedTestFilesCLI(config, files);
+    return await testServer.findRelatedTestFiles({ files });
   }
 
   async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], settingsEnv: NodeJS.ProcessEnv, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {

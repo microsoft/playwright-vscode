@@ -26,6 +26,7 @@ type ActivateResult = {
 };
 
 type TestFixtures = {
+  vscode: VSCode,
   activate: (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][] }) => Promise<ActivateResult>;
 };
 
@@ -69,10 +70,13 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
   useTestServer: [false, { option: true, scope: 'worker' }],
   showBrowser: [false, { option: true, scope: 'worker' }],
 
-  activate: async ({ browser, showBrowser, useTestServer }, use, testInfo) => {
+  vscode: async ({ browser }, use) => {
+    await use(new VSCode(path.resolve(__dirname, '..'), browser));
+  },
+
+  activate: async ({ vscode, showBrowser, useTestServer }, use, testInfo) => {
     const instances: VSCode[] = [];
     await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][] }) => {
-      const vscode = new VSCode(path.resolve(__dirname, '..'), browser);
       if (options?.workspaceFolders) {
         for (const wf of options?.workspaceFolders)
           await vscode.addWorkspaceFolder(wf[0], wf[1]);
