@@ -436,8 +436,8 @@ test('should group projects by config', async ({ activate }) => {
   `);
 });
 
-test('should stop', async ({ activate, mode }) => {
-  test.fixme(mode === 'reuse', 'Times out');
+test('should stop', async ({ activate, showBrowser }) => {
+  test.fixme(showBrowser, 'Times out');
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
@@ -1004,8 +1004,8 @@ test('should produce output twice', async ({ activate }) => {
   `);
 });
 
-test('should disable tracing when reusing context', async ({ activate, mode }) => {
-  test.skip(mode !== 'reuse');
+test('should disable tracing when reusing context', async ({ activate, showBrowser }) => {
+  test.skip(!showBrowser);
 
   const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests', use: { trace: 'on' } }`,
@@ -1022,8 +1022,8 @@ test('should disable tracing when reusing context', async ({ activate, mode }) =
   expect(fs.existsSync(test.info().outputPath('test-results', 'test-one', 'trace.zip'))).toBe(false);
 });
 
-test('should force workers=1 when reusing the browser', async ({ activate, mode }) => {
-  test.skip(mode !== 'reuse');
+test('should force workers=1 when reusing the browser', async ({ activate, showBrowser }) => {
+  test.skip(!showBrowser);
 
   const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests', workers: 2 }`,

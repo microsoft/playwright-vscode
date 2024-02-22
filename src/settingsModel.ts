@@ -24,6 +24,7 @@ export class SettingsModel implements vscodeTypes.Disposable {
   private _disposables: vscodeTypes.Disposable[] = [];
   showBrowser: Setting<boolean>;
   showTrace: Setting<boolean>;
+  useTestServer: Setting<boolean>;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -32,6 +33,7 @@ export class SettingsModel implements vscodeTypes.Disposable {
 
     this.showBrowser = this._createSetting('reuseBrowser');
     this.showTrace = this._createSetting('showTrace');
+    this.useTestServer = this._createSetting('useTestServer');
 
     this.showBrowser.onChange(enabled => {
       if (enabled && this.showTrace.get())

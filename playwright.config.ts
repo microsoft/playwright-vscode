@@ -30,15 +30,33 @@ const config: PlaywrightTestConfig<WorkerOptions> = {
   ],
   projects: [
     {
-      name: 'default',
+      name: 'cli',
+      use: {
+        useTestServer: false,
+        showBrowser: false,
+      }
     },
     {
-      name: 'reuse',
-      testIgnore: '**/settings.spec.ts',
+      name: 'cli-reuse',
       use: {
-        mode: 'reuse',
+        useTestServer: false,
+        showBrowser: true,
       }
-    }
+    },
+    {
+      name: 'server',
+      use: {
+        useTestServer: true,
+        showBrowser: false,
+      }
+    },
+    {
+      name: 'server-reuse',
+      use: {
+        useTestServer: true,
+        showBrowser: true,
+      }
+    },
   ]
 };
 export default config;

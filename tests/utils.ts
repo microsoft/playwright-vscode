@@ -30,7 +30,8 @@ type TestFixtures = {
 };
 
 export type WorkerOptions = {
-  mode: 'default' | 'reuse';
+  useTestServer: boolean;
+  showBrowser: boolean;
 };
 
 // Make sure connect tests work with the locally-rolled version.
@@ -50,7 +51,7 @@ export const expect = baseExpect.extend({
   },
 
   toHaveExecLog(vscode: VSCode, expectedLog: string) {
-    if (process.env.PWTEST_VSCODE_SERVER)
+    if (vscode.extensions[0]._settingsModel.useTestServer.get())
       return { pass: true, message: () => '' };
     try {
       expect(vscode.renderExecLog('  ')).toBe(expectedLog);
@@ -65,9 +66,10 @@ export const expect = baseExpect.extend({
 });
 
 export const test = baseTest.extend<TestFixtures, WorkerOptions>({
-  mode: ['default', { option: true, scope: 'worker' }],
+  useTestServer: [false, { option: true, scope: 'worker' }],
+  showBrowser: [false, { option: true, scope: 'worker' }],
 
-  activate: async ({ browser, mode }, use, testInfo) => {
+  activate: async ({ browser, showBrowser, useTestServer }, use, testInfo) => {
     const instances: VSCode[] = [];
     await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][] }) => {
       const vscode = new VSCode(path.resolve(__dirname, '..'), browser);
@@ -81,9 +83,13 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
       vscode.extensions.push(extension);
       await vscode.activate();
 
-      if (mode === 'reuse') {
+      if (showBrowser) {
         const configuration = vscode.workspace.getConfiguration('playwright');
         configuration.update('reuseBrowser', true);
+      }
+      if (useTestServer) {
+        const configuration = vscode.workspace.getConfiguration('playwright');
+        configuration.update('useTestServer', true);
       }
 
       instances.push(vscode);
