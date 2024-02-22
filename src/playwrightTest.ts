@@ -258,11 +258,11 @@ export class PlaywrightTest {
     const env = await reporterServer.env({ selfDestruct: false });
     const reporter = reporterServer.reporterFile();
     if (mode === 'list')
-      testServer.list({ locations, reporter, env });
+      testServer.list({ configFile: config.configFile, locations, reporter, env });
     if (mode === 'run') {
-      testServer.test({ locations, reporter, env, options });
+      testServer.test({ configFile: config.configFile, locations, reporter, env, ...options });
       token.onCancellationRequested(() => {
-        testServer.stop();
+        testServer.stop({ configFile: config.configFile });
       });
       testServer.on('stdio', params => {
         if (params.type === 'stdout')
@@ -309,7 +309,7 @@ export class PlaywrightTest {
     const testServer = await this._testServerController.testServerFor(config);
     if (!testServer)
       return await this._findRelatedTestFilesCLI(config, files);
-    return await testServer.findRelatedTestFiles({ files });
+    return await testServer.findRelatedTestFiles({ configFile: config.configFile, files });
   }
 
   async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], settingsEnv: NodeJS.ProcessEnv, locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
