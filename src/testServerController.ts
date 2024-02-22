@@ -17,13 +17,12 @@
 import { BackendClient, BackendServer } from './backend';
 import { ConfigFindRelatedTestFilesReport } from './listTests';
 import { TestConfig } from './playwrightTest';
-import type { TestError } from './reporter';
+import type { TestServerEvents, TestServerInterface } from './testServerInterface';
 import * as vscodeTypes from './vscodeTypes';
 
 export class TestServerController implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
   private _instancePromise: Promise<TestServer | null> | undefined;
-  private _instance: TestServer | null = null;
   private _envProvider: () => NodeJS.ProcessEnv;
 
   constructor(vscode: vscodeTypes.VSCode, envProvider: () => NodeJS.ProcessEnv) {
@@ -53,7 +52,6 @@ export class TestServerController implements vscodeTypes.Disposable {
       dumpIO: false,
     });
     const testServer = await testServerBackend.start();
-    this._instance = testServer;
     return testServer;
   }
 
@@ -65,54 +63,19 @@ export class TestServerController implements vscodeTypes.Disposable {
     if (this._instancePromise)
       this._instancePromise.then(server => server?.closeGracefully());
     this._instancePromise = undefined;
-    this._instance = null;
   }
-}
-
-interface TestServerInterface {
-  list(params: {
-    configFile: string;
-    locations: string[];
-    reporter: string;
-    env: NodeJS.ProcessEnv;
-  }): Promise<void>;
-
-  test(params: {
-    configFile: string;
-    locations: string[];
-    reporter: string;
-    env: NodeJS.ProcessEnv;
-    headed?: boolean;
-    oneWorker?: boolean;
-    trace?: 'on' | 'off';
-    projects?: string[];
-    grep?: string;
-    reuseContext?: boolean;
-    connectWsEndpoint?: string;
-  }): Promise<void>;
-
-  findRelatedTestFiles(params: {
-    configFile: string;
-    files: string[];
-  }): Promise<{ testFiles: string[]; errors?: TestError[]; }>;
-
-  stop(params: {
-    configFile: string;
-  }): Promise<void>;
-
-  closeGracefully(): Promise<void>;
-}
-
-interface TestServerEvents {
-  on(event: 'stdio', listener: (params: { type: 'stdout' | 'stderr', text?: string, buffer?: string }) => void): void;
 }
 
 class TestServer extends BackendClient implements TestServerInterface, TestServerEvents {
   override async initialize(): Promise<void> {
   }
 
-  async list(params: any) {
-    await this.send('list', params);
+  async listFiles(params: any) {
+    return await this.send('listFiles', params);
+  }
+
+  async listTests(params: any) {
+    await this.send('listTests', params);
   }
 
   findRelatedTestFiles(params: { files: string[]; }): Promise<ConfigFindRelatedTestFilesReport> {

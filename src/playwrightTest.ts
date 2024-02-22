@@ -94,16 +94,12 @@ export class PlaywrightTest {
   }
 
   async listFiles(config: TestConfig): Promise<ConfigListFilesReport> {
-    const configFolder = path.dirname(config.configFile);
-    const configFile = path.basename(config.configFile);
-    const allArgs = [config.cli, 'list-files', '-c', configFile];
-    {
-      // For tests.
-      this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright list-files -c ${configFile}`);
-    }
     try {
-      const output = await this._runNode(allArgs, configFolder);
-      const result = JSON.parse(output) as ConfigListFilesReport;
+      let result: ConfigListFilesReport;
+      if (this._useTestServer(config))
+        result = await this._listFilesServer(config);
+      else
+        result = await this._listFilesCLI(config);
       // TODO: merge getPlaywrightInfo and listFiles to avoid this.
       // Override the cli entry point with the one obtained from the config.
       if (result.cliEntryPoint)
@@ -112,12 +108,32 @@ export class PlaywrightTest {
     } catch (error: any) {
       return {
         error: {
-          location: { file: configFile, line: 0, column: 0 },
+          location: { file: config.configFile, line: 0, column: 0 },
           message: error.message,
         },
         projects: [],
       };
     }
+  }
+
+  private async _listFilesCLI(config: TestConfig): Promise<ConfigListFilesReport> {
+    const configFolder = path.dirname(config.configFile);
+    const configFile = path.basename(config.configFile);
+    const allArgs = [config.cli, 'list-files', '-c', configFile];
+    {
+      // For tests.
+      this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright list-files -c ${configFile}`);
+    }
+    const output = await this._runNode(allArgs, configFolder);
+    const result = JSON.parse(output) as ConfigListFilesReport;
+    return result;
+  }
+
+  private async _listFilesServer(config: TestConfig): Promise<ConfigListFilesReport> {
+    const testServer = await this._testServerController.testServerFor(config);
+    if (!testServer)
+      throw new Error('Internal error: unable to connect to the test server');
+    return await testServer.listFiles({ configFile: config.configFile });
   }
 
   async runTests(config: TestConfig, projectNames: string[], locations: string[] | null, listener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
@@ -252,13 +268,11 @@ export class PlaywrightTest {
     if (token?.isCancellationRequested)
       return;
     if (!testServer)
-      return this._testWithCLI(config, locations, mode, options, listener, token);
-    if (token?.isCancellationRequested)
       return;
     const env = await reporterServer.env({ selfDestruct: false });
     const reporter = reporterServer.reporterFile();
     if (mode === 'list')
-      testServer.list({ configFile: config.configFile, locations, reporter, env });
+      testServer.listTests({ configFile: config.configFile, locations, reporter, env });
     if (mode === 'run') {
       testServer.test({ configFile: config.configFile, locations, reporter, env, ...options });
       token.onCancellationRequested(() => {
@@ -308,7 +322,7 @@ export class PlaywrightTest {
   async _findRelatedTestFilesServer(config: TestConfig, files: string[]): Promise<ConfigFindRelatedTestFilesReport> {
     const testServer = await this._testServerController.testServerFor(config);
     if (!testServer)
-      return await this._findRelatedTestFilesCLI(config, files);
+      return { testFiles: files, errors: [{ message: 'Internal error: unable to connect to the test server' }] };
     return await testServer.findRelatedTestFiles({ configFile: config.configFile, files });
   }
 
