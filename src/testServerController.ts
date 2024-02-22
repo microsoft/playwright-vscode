@@ -15,6 +15,7 @@
  */
 
 import { BackendClient, BackendServer } from './backend';
+import { ConfigFindRelatedTestFilesReport } from './listTests';
 import { TestConfig } from './playwrightTest';
 import * as vscodeTypes from './vscodeTypes';
 
@@ -69,6 +70,10 @@ class TestServer extends BackendClient {
 
   async list(params: any) {
     await this.send('list', params);
+  }
+
+  findRelatedTestFiles(params: { files: string[]; }): Promise<ConfigFindRelatedTestFilesReport> {
+    return this.send('findRelatedTestFiles', params);
   }
 
   async test(params: any) {

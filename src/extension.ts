@@ -31,6 +31,7 @@ import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { TraceViewer } from './traceViewer';
 import { TestServerController } from './testServerController';
+import { type Watch, WatchSupport } from './watchSupport';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -80,6 +81,7 @@ export class Extension implements RunHooks {
   private _traceViewer: TraceViewer;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
+  private _watchSupport: WatchSupport;
   private _filesPendingListTests: {
     files: Set<string>,
     timer: NodeJS.Timeout,
@@ -89,6 +91,7 @@ export class Extension implements RunHooks {
   private _diagnostics: Record<'configErrors' | 'testErrors', vscodeTypes.DiagnosticCollection>;
   private _treeItemObserver: TreeItemObserver;
   private _testServerController: TestServerController;
+  private _watchQueue = Promise.resolve();
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -127,6 +130,7 @@ export class Extension implements RunHooks {
       configErrors: this._vscode.languages.createDiagnosticCollection('pw.configErrors.diagnostic'),
     };
     this._treeItemObserver = new TreeItemObserver(this._vscode);
+    this._watchSupport = new WatchSupport(this._vscode, this._playwrightTest, this._testTree, watchData => this._watchesTriggered(watchData));
   }
 
   async onWillRunTests(config: TestConfig, debug: boolean) {
@@ -350,20 +354,21 @@ export class Extension implements RunHooks {
     let runProfile = this._runProfiles.get(keyPrefix + ':run');
     const projectTag = this._testTree.projectTag(project);
     const isDefault = false;
+    const supportsContinuousRun = this._settingsModel.allowWatchingFiles.get();
     if (!runProfile) {
-      runProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), isDefault, projectTag);
+      runProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), isDefault, projectTag, supportsContinuousRun);
       this._runProfiles.set(keyPrefix + ':run', runProfile);
     }
     let debugProfile = this._runProfiles.get(keyPrefix + ':debug');
     if (!debugProfile) {
-      debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), isDefault, projectTag);
+      debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), isDefault, projectTag, supportsContinuousRun);
       this._runProfiles.set(keyPrefix + ':debug', debugProfile);
     }
   }
 
-  private _scheduleTestRunRequest(configFile: string, projectName: string, isDebug: boolean, request: vscodeTypes.TestRunRequest) {
+  private _scheduleTestRunRequest(configFile: string, projectName: string, isDebug: boolean, request: vscodeTypes.TestRunRequest, cancellationToken?: vscodeTypes.CancellationToken) {
     // Never run tests concurrently.
-    if (this._testRun)
+    if (this._testRun && !request.continuous)
       return;
 
     // We can't dispose projects (and bind them to TestProject instances) because otherwise VS Code would forget its selection state.
@@ -374,6 +379,11 @@ export class Extension implements RunHooks {
     const project = model.projects.get(projectName);
     if (!project)
       return;
+
+    if (request.continuous) {
+      this._watchSupport.addToWatch(project, request.include, cancellationToken!);
+      return;
+    }
 
     // VSCode will issue several test run requests (one per enabled run profile). Sometimes
     // these profiles belong to the same config and we only want to run tests once per config.
@@ -397,7 +407,7 @@ export class Extension implements RunHooks {
     }
   }
 
-  private async _runMatchingTests(testRunInfos: TestRunInfo[], mode: 'run' | 'debug') {
+  private async _runMatchingTests(testRunInfos: TestRunInfo[], mode: 'run' | 'debug' | 'watch') {
     this._completedSteps.clear();
     this._executionLinesChanged();
 
@@ -409,7 +419,7 @@ export class Extension implements RunHooks {
     // selected test items.
     const rootItems: vscodeTypes.TestItem[] = [];
     this._testController.items.forEach(item => rootItems.push(item));
-    const requestWithDeps = new this._vscode.TestRunRequest(rootItems, [], undefined);
+    const requestWithDeps = new this._vscode.TestRunRequest(rootItems, [], undefined, mode === 'watch');
 
     // Global errors are attributed to the first test item in the request.
     // If the request is global, find the first root test item (folder, file) that has
@@ -525,6 +535,11 @@ located next to Run / Debug Tests toolbar buttons.`);
     // Workspace change can be deferred, make sure editors are
     // decorated.
     await this._updateVisibleEditorItems();
+    await this._watchSupport.workspaceChanged(change);
+  }
+
+  private _watchesTriggered(watches: Watch[]) {
+    this._watchQueue = this._watchQueue.then(() => this._runMatchingTests(watches, 'watch'));
   }
 
   private async _runTest(
