@@ -17,11 +17,13 @@
 import { BackendClient, BackendServer } from './backend';
 import { ConfigFindRelatedTestFilesReport } from './listTests';
 import { TestConfig } from './playwrightTest';
+import type { TestError } from './reporter';
 import * as vscodeTypes from './vscodeTypes';
 
 export class TestServerController implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
-  private _testServers = new Map<TestConfig, TestServer>();
+  private _instancePromise: Promise<TestServer | null> | undefined;
+  private _instance: TestServer | null = null;
   private _envProvider: () => NodeJS.ProcessEnv;
 
   constructor(vscode: vscodeTypes.VSCode, envProvider: () => NodeJS.ProcessEnv) {
@@ -29,10 +31,14 @@ export class TestServerController implements vscodeTypes.Disposable {
     this._envProvider = envProvider;
   }
 
-  async testServerFor(config: TestConfig): Promise<TestServer | null> {
-    const existing = this._testServers.get(config);
-    if (existing)
-      return existing;
+  async testServerFor(config: TestConfig): Promise<TestServerInterface & TestServerEvents | null> {
+    if (this._instancePromise)
+      return this._instancePromise;
+    this._instancePromise = this._createTestServer(config);
+    return this._instancePromise;
+  }
+
+  private async _createTestServer(config: TestConfig): Promise<TestServer | null> {
     const args = [config.cli, 'test-server'];
     const testServerBackend = new BackendServer<TestServer>(this._vscode, {
       args,
@@ -47,9 +53,7 @@ export class TestServerController implements vscodeTypes.Disposable {
       dumpIO: false,
     });
     const testServer = await testServerBackend.start();
-    if (!testServer)
-      return null;
-    this._testServers.set(config, testServer);
+    this._instance = testServer;
     return testServer;
   }
 
@@ -58,13 +62,52 @@ export class TestServerController implements vscodeTypes.Disposable {
   }
 
   reset() {
-    for (const backend of this._testServers.values())
-      backend.close();
-    this._testServers.clear();
+    if (this._instancePromise)
+      this._instancePromise.then(server => server?.closeGracefully());
+    this._instancePromise = undefined;
+    this._instance = null;
   }
 }
 
-class TestServer extends BackendClient {
+interface TestServerInterface {
+  list(params: {
+    configFile: string;
+    locations: string[];
+    reporter: string;
+    env: NodeJS.ProcessEnv;
+  }): Promise<void>;
+
+  test(params: {
+    configFile: string;
+    locations: string[];
+    reporter: string;
+    env: NodeJS.ProcessEnv;
+    headed?: boolean;
+    oneWorker?: boolean;
+    trace?: 'on' | 'off';
+    projects?: string[];
+    grep?: string;
+    reuseContext?: boolean;
+    connectWsEndpoint?: string;
+  }): Promise<void>;
+
+  findRelatedTestFiles(params: {
+    configFile: string;
+    files: string[];
+  }): Promise<{ testFiles: string[]; errors?: TestError[]; }>;
+
+  stop(params: {
+    configFile: string;
+  }): Promise<void>;
+
+  closeGracefully(): Promise<void>;
+}
+
+interface TestServerEvents {
+  on(event: 'stdio', listener: (params: { type: 'stdout' | 'stderr', text?: string, buffer?: string }) => void): void;
+}
+
+class TestServer extends BackendClient implements TestServerInterface, TestServerEvents {
   override async initialize(): Promise<void> {
   }
 
@@ -82,5 +125,10 @@ class TestServer extends BackendClient {
 
   async stop() {
     await this.send('stop', {});
+  }
+
+  async closeGracefully() {
+    await this.send('closeGracefully', {});
+    this.close();
   }
 }
