@@ -214,6 +214,10 @@ export class Extension implements RunHooks {
           this._executionLinesChanged();
         }
       }),
+      vscode.workspace.onDidChangeConfiguration(event => {
+        if (event.affectsConfiguration('playwright.env'))
+          this._rebuildModel(false);
+      }),
       this._treeItemObserver.onTreeItemSelected(item => this._treeItemSelected(item)),
       this._settingsView,
       this._testController,
