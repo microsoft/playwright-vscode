@@ -69,13 +69,25 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._disposables = [];
   }
 
-  private async _startBackendIfNeeded(config: TestConfig) {
-    // Unconditionally close selector dialog, it might send inspect(enabled: false).
-    if (this._backend) {
-      this._resetNoWait();
+  private async _checkAndReturnWSEndpoint(endpoint?: string) {
+    if (!endpoint) return;
+    if (!endpoint.match(/^ws((s|\+unix)?:\/\/).*/)) {
+      this._vscode.window.showErrorMessage('Error: PW_REUSE_SERVER must be either ws: wss: or ws+unix:');
       return;
     }
+    return endpoint;
+  }
 
+  private async _connectOrStartBackend(config: TestConfig) {
+    const wsEndpoint = await this._checkAndReturnWSEndpoint(this._envProvider().PW_REUSE_SERVER);
+    // Connect to the existing server
+    if (wsEndpoint) {
+      const backend = new Backend(this._vscode);
+      await backend._connect(wsEndpoint);
+      return backend;
+    }
+
+    // start a new server
     const args = [
       config.cli,
       'run-server',
@@ -94,7 +106,17 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       envProvider,
       clientFactory: () => new Backend(this._vscode)
     });
-    const backend = await backendServer.start();
+    return await backendServer.start();
+  }
+
+  private async _startBackendIfNeeded(config: TestConfig) {
+    // Unconditionally close selector dialog, it might send inspect(enabled: false).
+    if (this._backend) {
+      this._resetNoWait();
+      return;
+    }
+
+    const backend = await this._connectOrStartBackend(config);
     if (!backend)
       return;
     backend.onClose(() => {
