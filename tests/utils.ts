@@ -83,9 +83,6 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
       } else {
         await vscode.addWorkspaceFolder(options?.rootDir || testInfo.outputDir, files);
       }
-      const extension = new Extension(vscode);
-      vscode.extensions.push(extension);
-      await vscode.activate();
 
       if (showBrowser) {
         const configuration = vscode.workspace.getConfiguration('playwright');
@@ -95,6 +92,10 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
         const configuration = vscode.workspace.getConfiguration('playwright');
         configuration.update('useTestServer', true);
       }
+
+      const extension = new Extension(vscode);
+      vscode.extensions.push(extension);
+      await vscode.activate();
 
       instances.push(vscode);
       return {

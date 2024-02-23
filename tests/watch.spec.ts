@@ -88,7 +88,7 @@ test('should unwatch all tests', async ({ activate }) => {
 
   expect(testRuns).toHaveLength(0);
 
-  expect(vscode.renderExecLog('  ')).toBe(`
+  expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 });
