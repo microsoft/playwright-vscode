@@ -247,7 +247,7 @@ export class PlaywrightTest {
         ...this._envProvider(),
         PW_TEST_REUSE_CONTEXT: options.reuseContext ? '1' : undefined,
         PW_TEST_CONNECT_WS_ENDPOINT: options.connectWsEndpoint,
-        ...(await reporterServer.env({ selfDestruct: true })),
+        ...(await reporterServer.env()),
         // Reset VSCode's options that affect nested Electron.
         ELECTRON_RUN_AS_NODE: undefined,
         FORCE_COLOR: '1',
@@ -263,18 +263,16 @@ export class PlaywrightTest {
   }
 
   private async _testWithServer(config: TestConfig, locations: string[], mode: 'list' | 'run', options: PlaywrightTestOptions, listener: TestListener, token: vscodeTypes.CancellationToken): Promise<void> {
-    const reporterServer = new ReporterServer(this._vscode);
     const testServer = await this._testServerController.testServerFor(config);
     if (token?.isCancellationRequested)
       return;
     if (!testServer)
       return;
-    const env = await reporterServer.env({ selfDestruct: false });
-    const reporter = reporterServer.reporterFile();
+    const reporter = require.resolve('./oopReporter');
     if (mode === 'list')
-      testServer.listTests({ configFile: config.configFile, locations, reporter, env });
+      testServer.listTests({ configFile: config.configFile, locations, reporter });
     if (mode === 'run') {
-      testServer.test({ configFile: config.configFile, locations, reporter, env, ...options });
+      testServer.test({ configFile: config.configFile, locations, reporter, ...options });
       token.onCancellationRequested(() => {
         testServer.stop({ configFile: config.configFile });
       });
@@ -286,7 +284,7 @@ export class PlaywrightTest {
       });
     }
 
-    await reporterServer.wireTestListener(listener, token);
+    await testServer.wireTestListener(listener, token);
   }
 
   async findRelatedTestFiles(config: TestConfig, files: string[]): Promise<ConfigFindRelatedTestFilesReport> {
@@ -363,7 +361,7 @@ export class PlaywrightTest {
           CI: this._isUnderTest ? undefined : process.env.CI,
           ...settingsEnv,
           PW_TEST_CONNECT_WS_ENDPOINT: testOptions.connectWsEndpoint,
-          ...(await reporterServer.env({ selfDestruct: true })),
+          ...(await reporterServer.env()),
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,
           FORCE_COLOR: '1',

@@ -87,7 +87,7 @@ export class BackendClient extends EventEmitter {
   readonly onError: vscodeTypes.Event<Error>;
   readonly _onErrorEvent: vscodeTypes.EventEmitter<Error>;
 
-  constructor(vscode: vscodeTypes.VSCode) {
+  constructor(protected vscode: vscodeTypes.VSCode) {
     super();
     this._onCloseEvent = new vscode.EventEmitter();
     this.onClose = this._onCloseEvent.event;

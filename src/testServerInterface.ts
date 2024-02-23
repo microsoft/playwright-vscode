@@ -34,14 +34,12 @@ export interface TestServerInterface {
     configFile: string;
     locations: string[];
     reporter: string;
-    env: NodeJS.ProcessEnv;
   }): Promise<void>;
 
   test(params: {
     configFile: string;
     locations: string[];
     reporter: string;
-    env: NodeJS.ProcessEnv;
     headed?: boolean;
     oneWorker?: boolean;
     trace?: 'on' | 'off';

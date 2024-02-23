@@ -37,12 +37,11 @@ export class ReporterServer {
     return require.resolve('./oopReporter');
   }
 
-  async env(options: { selfDestruct: boolean }) {
+  async env() {
     const wsEndpoint = await this._listen();
     return {
       PW_TEST_REPORTER: this.reporterFile(),
       PW_TEST_REPORTER_WS_ENDPOINT: wsEndpoint,
-      PW_TEST_REPORTER_SELF_DESTRUCT: options.selfDestruct ? '1' : '',
     };
   }
 
@@ -90,27 +89,7 @@ export class ReporterServer {
     if (token.isCancellationRequested)
       killTestProcess();
 
-    transport.onmessage = message => {
-      if (token.isCancellationRequested && message.method !== 'onEnd')
-        return;
-      switch (message.method) {
-        case 'onBegin': {
-          (message.params as { projects: Entry[] }).projects.forEach((e: Entry) => patchLocation(this._vscode, e));
-          listener.onBegin?.(message.params);
-          break;
-        }
-        case 'onTestBegin': listener.onTestBegin?.(patchLocation(this._vscode, message.params as TestBeginParams)); break;
-        case 'onTestEnd': listener.onTestEnd?.(patchLocation(this._vscode, message.params as TestEndParams)); break;
-        case 'onStepBegin': listener.onStepBegin?.(patchLocation(this._vscode, message.params as StepBeginParams)); break;
-        case 'onStepEnd': listener.onStepEnd?.(patchLocation(this._vscode, message.params as StepEndParams)); break;
-        case 'onError': listener.onError?.(patchLocation(this._vscode, message.params as { error: TestError })); break;
-        case 'onEnd': {
-          listener.onEnd?.();
-          transport.close();
-          break;
-        }
-      }
-    };
+    transport.onmessage = message => translateMessage(this._vscode, message, listener, () => transport.close(), token);
     await new Promise<void>(f => transport.onclose = f);
     if (timeout)
       clearTimeout(timeout);
@@ -147,6 +126,28 @@ export class ReporterServer {
       transport.onclose?.();
     });
     return transport;
+  }
+}
+
+export function translateMessage(vscode: vscodeTypes.VSCode, message: any, listener: TestListener, onEnd: () => void, token: vscodeTypes.CancellationToken) {
+  if (token.isCancellationRequested && message.method !== 'onEnd')
+    return;
+  switch (message.method) {
+    case 'onBegin': {
+      (message.params as { projects: Entry[] }).projects.forEach((e: Entry) => patchLocation(vscode, e));
+      listener.onBegin?.(message.params);
+      break;
+    }
+    case 'onTestBegin': listener.onTestBegin?.(patchLocation(vscode, message.params as TestBeginParams)); break;
+    case 'onTestEnd': listener.onTestEnd?.(patchLocation(vscode, message.params as TestEndParams)); break;
+    case 'onStepBegin': listener.onStepBegin?.(patchLocation(vscode, message.params as StepBeginParams)); break;
+    case 'onStepEnd': listener.onStepEnd?.(patchLocation(vscode, message.params as StepEndParams)); break;
+    case 'onError': listener.onError?.(patchLocation(vscode, message.params as { error: TestError })); break;
+    case 'onEnd': {
+      listener.onEnd?.();
+      onEnd();
+      break;
+    }
   }
 }
 
