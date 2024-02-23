@@ -70,6 +70,32 @@ test('should open test results', async ({ activate }) => {
 });
 
 test('should support playwright.env', async ({ activate }) => {
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+    'example.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {
+        console.log('foo=' + process.env.FOO);
+        console.log('bar=' + process.env.BAR);
+      });
+    `,
+  }, {
+    env: {
+      'FOO': 'foo-value',
+      'BAR': { prop: 'bar-value' },
+    }
+  });
+
+  const testItems = testController.findTestItems(/example.spec.ts/);
+  expect(testItems.length).toBe(1);
+
+  const testRun = await testController.run(testItems);
+  const output = testRun.renderLog({ output: true });
+  expect(output).toContain(`foo=foo-value`);
+  expect(output).toContain(`bar={"prop":"bar-value"}`);
+});
+
+test('should reload when playwright.env changes', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {}`,
     'example.spec.ts': `
@@ -79,12 +105,23 @@ test('should support playwright.env', async ({ activate }) => {
         console.log('bar=' + process.env.BAR);
       });
     `,
+  }, {
+    env: {
+      'FOO': 'foo-value',
+      'BAR': { prop: 'bar-value' },
+    }
   });
+
   const configuration = vscode.workspace.getConfiguration('playwright');
   configuration.update('env', {
     'FOO': 'foo-value',
     'BAR': { prop: 'bar-value' },
   });
+
+  // Changes to settings will trigger async update.
+  await expect.poll(() => testController.findTestItems(/Loading/)).toHaveLength(1);
+  // That will finish.
+  await expect.poll(() => testController.findTestItems(/Loading/)).toHaveLength(0);
 
   const testItems = testController.findTestItems(/example.spec.ts/);
   expect(testItems.length).toBe(1);

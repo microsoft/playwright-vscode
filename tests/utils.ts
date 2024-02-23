@@ -27,7 +27,7 @@ type ActivateResult = {
 
 type TestFixtures = {
   vscode: VSCode,
-  activate: (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][] }) => Promise<ActivateResult>;
+  activate: (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][], env?: Record<string, any> }) => Promise<ActivateResult>;
 };
 
 export type WorkerOptions = {
@@ -76,7 +76,7 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
 
   activate: async ({ vscode, showBrowser, useTestServer }, use, testInfo) => {
     const instances: VSCode[] = [];
-    await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][] }) => {
+    await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][], env?: Record<string, any> }) => {
       if (options?.workspaceFolders) {
         for (const wf of options?.workspaceFolders)
           await vscode.addWorkspaceFolder(wf[0], wf[1]);
@@ -84,14 +84,13 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
         await vscode.addWorkspaceFolder(options?.rootDir || testInfo.outputDir, files);
       }
 
-      if (showBrowser) {
-        const configuration = vscode.workspace.getConfiguration('playwright');
+      const configuration = vscode.workspace.getConfiguration('playwright');
+      if (options?.env)
+        configuration.update('env', options.env);
+      if (showBrowser)
         configuration.update('reuseBrowser', true);
-      }
-      if (useTestServer) {
-        const configuration = vscode.workspace.getConfiguration('playwright');
+      if (useTestServer)
         configuration.update('useTestServer', true);
-      }
 
       const extension = new Extension(vscode);
       vscode.extensions.push(extension);
