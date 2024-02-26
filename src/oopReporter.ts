@@ -63,10 +63,18 @@ export type StepEndParams = {
 
 class OopReporter implements Reporter {
   private _transport: Promise<ConnectionTransport>;
+  private _hasSender: boolean;
 
-  constructor() {
-    this._transport = WebSocketTransport.connect(process.env.PW_TEST_REPORTER_WS_ENDPOINT!);
-    if (process.env.PW_TEST_REPORTER_SELF_DESTRUCT) {
+  constructor(sender: (message: any) => void) {
+    this._hasSender = !!sender;
+    if (sender) {
+      this._transport = Promise.resolve({
+        send: message => sender(message),
+        close: () => {},
+        isClosed: () => false,
+      });
+    } else {
+      this._transport = WebSocketTransport.connect(process.env.PW_TEST_REPORTER_WS_ENDPOINT!);
       this._transport.then(t => {
         t.onmessage = message => {
           if (message.method === 'stop')
@@ -179,7 +187,7 @@ class OopReporter implements Reporter {
   async onEnd(result: FullResult) {
     this._emit('onEnd', {});
     // Embedder is responsible for terminating the connection.
-    if (process.env.PW_TEST_REPORTER_SELF_DESTRUCT)
+    if (!this._hasSender)
       await new Promise(() => {});
   }
 

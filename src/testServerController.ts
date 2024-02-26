@@ -15,10 +15,11 @@
  */
 
 import { BackendClient, BackendServer } from './backend';
-import { ConfigFindRelatedTestFilesReport } from './listTests';
-import { TestConfig } from './playwrightTest';
+import type { ConfigFindRelatedTestFilesReport } from './listTests';
+import type { TestConfig, TestListener } from './playwrightTest';
+import { translateMessage } from './reporterServer';
 import type { TestServerEvents, TestServerInterface } from './testServerInterface';
-import * as vscodeTypes from './vscodeTypes';
+import type * as vscodeTypes from './vscodeTypes';
 
 export class TestServerController implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
@@ -30,7 +31,7 @@ export class TestServerController implements vscodeTypes.Disposable {
     this._envProvider = envProvider;
   }
 
-  async testServerFor(config: TestConfig): Promise<TestServerInterface & TestServerEvents | null> {
+  async testServerFor(config: TestConfig): Promise<TestServer | null> {
     if (this._instancePromise)
       return this._instancePromise;
     this._instancePromise = this._createTestServer(config);
@@ -70,28 +71,38 @@ class TestServer extends BackendClient implements TestServerInterface, TestServe
   override async initialize(): Promise<void> {
   }
 
-  async listFiles(params: any) {
+  async listFiles(params: Parameters<TestServerInterface['listFiles']>[0]) {
     return await this.send('listFiles', params);
   }
 
-  async listTests(params: any) {
+  async listTests(params: Parameters<TestServerInterface['listTests']>[0]) {
     await this.send('listTests', params);
   }
 
-  findRelatedTestFiles(params: { files: string[]; }): Promise<ConfigFindRelatedTestFilesReport> {
+  findRelatedTestFiles(params: Parameters<TestServerInterface['findRelatedTestFiles']>[0]): Promise<ConfigFindRelatedTestFilesReport> {
     return this.send('findRelatedTestFiles', params);
   }
 
-  async test(params: any) {
+  async test(params: Parameters<TestServerInterface['test']>[0]) {
     await this.send('test', params);
   }
 
-  async stop() {
+  async stop(params: Parameters<TestServerInterface['stop']>[0]) {
     await this.send('stop', {});
   }
 
   async closeGracefully() {
     await this.send('closeGracefully', {});
     this.close();
+  }
+
+  async wireTestListener(listener: TestListener, token: vscodeTypes.CancellationToken) {
+    return new Promise<void>(f => {
+      const reportHandler = (message: any) => translateMessage(this.vscode, message, listener, () => {
+        this.off('report', reportHandler);
+        f();
+      }, token);
+      this.on('report', reportHandler);
+    });
   }
 }
