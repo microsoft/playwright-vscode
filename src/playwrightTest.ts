@@ -187,7 +187,7 @@ export class PlaywrightTest {
   }
 
   private _useTestServer(config: TestConfig) {
-    return config.version >= 1.43 || this._settingsModel.useTestServer.get();
+    return this._settingsModel.useTestServer.get();
   }
 
   private async _test(config: TestConfig, locations: string[], mode: 'list' | 'run', options: PlaywrightTestOptions, listener: TestListener, token: vscodeTypes.CancellationToken): Promise<void> {
