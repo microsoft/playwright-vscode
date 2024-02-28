@@ -33,15 +33,16 @@ type TestFixtures = {
 export type WorkerOptions = {
   useTestServer: boolean;
   showBrowser: boolean;
+  vsCodeVersion: number;
 };
 
 // Make sure connect tests work with the locally-rolled version.
 process.env.PW_VERSION_OVERRIDE = require('@playwright/test/package.json').version;
 
 export const expect = baseExpect.extend({
-  toHaveTestTree(testController: TestController, expectedTree: string) {
+  async toHaveTestTree(testController: TestController, expectedTree: string) {
     try {
-      expect(testController.renderTestTree()).toBe(expectedTree);
+      await expect.poll(() => testController.renderTestTree()).toBe(expectedTree);
       return { pass: true, message: () => '' };
     } catch (e) {
       return {
@@ -69,9 +70,10 @@ export const expect = baseExpect.extend({
 export const test = baseTest.extend<TestFixtures, WorkerOptions>({
   useTestServer: [false, { option: true, scope: 'worker' }],
   showBrowser: [false, { option: true, scope: 'worker' }],
+  vsCodeVersion: [1.86, { option: true, scope: 'worker' }],
 
-  vscode: async ({ browser }, use) => {
-    await use(new VSCode(path.resolve(__dirname, '..'), browser));
+  vscode: async ({ browser, vsCodeVersion }, use) => {
+    await use(new VSCode(vsCodeVersion, path.resolve(__dirname, '..'), browser));
   },
 
   activate: async ({ vscode, showBrowser, useTestServer }, use, testInfo) => {

@@ -28,7 +28,7 @@ test('should report duplicate test title', async ({ activate }) => {
   });
 
   await testController.expandTestItems(/test.spec.ts/);
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
   `);

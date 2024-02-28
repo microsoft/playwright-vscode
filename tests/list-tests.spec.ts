@@ -27,7 +27,7 @@ test('should list tests on expand', async ({ activate }) => {
   });
 
   await testController.expandTestItems(/test.spec.ts/);
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
@@ -55,7 +55,7 @@ test('should list tests for visible editors', async ({ activate }) => {
   await vscode.openEditors('**/test*.spec.ts');
   await new Promise(f => testController.onDidChangeTestItem(f));
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test1.spec.ts
         - one [2:0]
@@ -92,7 +92,7 @@ test('should list suits', async ({ activate }) => {
   });
 
   await testController.expandTestItems(/test.spec.ts/);
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
@@ -134,7 +134,7 @@ test('should discover new tests', async ({ activate }) => {
     `)
   ]);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
@@ -176,7 +176,7 @@ test('should discover new tests with active editor', async ({ activate }) => {
     vscode.openEditors('**/test2.spec.ts'),
   ]);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test1.spec.ts
       - test2.spec.ts
@@ -200,7 +200,7 @@ test('should discover tests on add + change', async ({ activate }) => {
     workspaceFolder.addFile('test.spec.ts', ``)
   ]);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - test.spec.ts
   `);
 
@@ -214,7 +214,7 @@ test('should discover tests on add + change', async ({ activate }) => {
     `)
   ]);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - test.spec.ts
       - one [2:0]
   `);
@@ -251,7 +251,7 @@ test('should discover new test at existing location', async ({ activate }) => {
     `)
   ]);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - two [2:0]
@@ -281,7 +281,7 @@ test('should remove deleted tests', async ({ activate }) => {
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
@@ -296,7 +296,7 @@ test('should remove deleted tests', async ({ activate }) => {
     `)
   ]);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
@@ -321,7 +321,7 @@ test('should forget tests after error before first test', async ({ activate }) =
 
   await testController.expandTestItems(/test.spec.ts/);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
@@ -338,7 +338,7 @@ test('should forget tests after error before first test', async ({ activate }) =
     `)
   ]);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
   `);
@@ -362,7 +362,7 @@ test('should regain tests after error is fixed', async ({ activate }) => {
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
   `);
@@ -376,7 +376,7 @@ test('should regain tests after error is fixed', async ({ activate }) => {
     `)
   ]);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
@@ -404,9 +404,13 @@ test('should support multiple configs', async ({ activate }) => {
     `,
   });
 
+  const runProfiles = testController.runProfilesByKind(vscode.TestRunProfileKind.Run);
+  runProfiles[0].isDefault = true;
+  runProfiles[1].isDefault = true;
+
   await testController.expandTestItems(/test.spec/);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests1
       - test.spec.ts
         - one [2:0]
@@ -442,9 +446,13 @@ test('should support multiple projects', async ({ activate }) => {
     `,
   });
 
+  const runProfiles = testController.runProfilesByKind(vscode.TestRunProfileKind.Run);
+  runProfiles[0].isDefault = true;
+  runProfiles[1].isDefault = true;
+
   await testController.expandTestItems(/test1.spec/);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test1.spec.ts
         - one [2:0]
@@ -468,7 +476,7 @@ test('should list parametrized tests', async ({ activate }) => {
   });
 
   await testController.expandTestItems(/test.spec.ts/);
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [3:0]
@@ -491,7 +499,7 @@ test('should list tests in parametrized groups', async ({ activate }) => {
   });
 
   await testController.expandTestItems(/test.spec.ts/);
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - level 1 [3:0]
@@ -514,7 +522,7 @@ test('should not run config reporters', async ({ activate }, testInfo) => {
   });
 
   await testController.expandTestItems(/test.spec.ts/);
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
@@ -524,7 +532,7 @@ test('should not run config reporters', async ({ activate }, testInfo) => {
 });
 
 test('should list tests in multi-folder workspace', async ({ activate }, testInfo) => {
-  const { testController } = await activate({}, {
+  const { vscode, testController } = await activate({}, {
     workspaceFolders: [
       [testInfo.outputPath('folder1'), {
         'playwright.config.js': `module.exports = { testDir: './' }`,
@@ -543,8 +551,12 @@ test('should list tests in multi-folder workspace', async ({ activate }, testInf
     ]
   });
 
+  const runProfiles = testController.runProfilesByKind(vscode.TestRunProfileKind.Run);
+  runProfiles[0].isDefault = true;
+  runProfiles[1].isDefault = true;
+
   await testController.expandTestItems(/test.spec.ts/);
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - folder1
       - test.spec.ts
         - one [2:0]
@@ -555,7 +567,7 @@ test('should list tests in multi-folder workspace', async ({ activate }, testInf
 });
 
 test('should merge items from different projects', async ({ activate }, testInfo) => {
-  const { testController } = await activate({
+  const { vscode, testController } = await activate({
     'playwright.config.ts': `module.exports = {
       projects: [
         { name: 'desktop', grepInvert: /mobile|tablet/ },
@@ -572,6 +584,11 @@ test('should merge items from different projects', async ({ activate }, testInfo
         test('test 4', async () => {});
       });`,
   });
+
+  const runProfiles = testController.runProfilesByKind(vscode.TestRunProfileKind.Run);
+  runProfiles[0].isDefault = true;
+  runProfiles[1].isDefault = true;
+  runProfiles[2].isDefault = true;
 
   await testController.expandTestItems(/test.spec.ts/);
   await testController.expandTestItems(/group/);

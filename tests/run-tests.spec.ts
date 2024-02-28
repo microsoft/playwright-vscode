@@ -287,7 +287,8 @@ test('should only create test run if file belongs to context', async ({ activate
     `,
   });
 
-  const profiles = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
+  const profiles = testController.runProfilesByKind(vscode.TestRunProfileKind.Run);
+  profiles.forEach(p => p.isDefault = true);
   let testRuns: TestRun[] = [];
   testController.onDidCreateTestRun(run => testRuns.push(run));
 
@@ -344,36 +345,6 @@ test('should only create test run if folder belongs to context', async ({ activa
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
     tests1> playwright test -c playwright.config.js foo1
-  `);
-});
-
-test('should only create test run if test belongs to context', async ({ activate }) => {
-  const { vscode, testController } = await activate({
-    'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
-    'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
-    'tests1/foo1/bar1/test1.spec.ts': `
-      import { test } from '@playwright/test';
-      test('one', async () => {});
-    `,
-    'tests2/foo2/bar2/test2.spec.ts': `
-      import { test } from '@playwright/test';
-      test('two', async () => {});
-    `,
-  });
-
-  await testController.expandTestItems(/test2.spec.ts/);
-  const profiles = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
-  const testRuns: TestRun[] = [];
-  testController.onDidCreateTestRun(run => testRuns.push(run));
-  const items = testController.findTestItems(/two/);
-  await Promise.all(profiles.map(p => p.run(items)));
-  expect(testRuns).toHaveLength(1);
-
-  expect(vscode).toHaveExecLog(`
-    tests1> playwright list-files -c playwright.config.js
-    tests2> playwright list-files -c playwright.config.js
-    tests2> playwright test -c playwright.config.js --list --reporter=null foo2/bar2/test2.spec.ts
-    tests2> playwright test -c playwright.config.js foo2/bar2/test2.spec.ts:3
   `);
 });
 
@@ -516,7 +487,7 @@ test('should not remove other tests when running focused test', async ({ activat
   const testItems = testController.findTestItems(/two/);
   await testController.run(testItems);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
@@ -701,14 +672,14 @@ test('should list tests in relative folder', async ({ activate }) => {
     foo/bar> playwright test -c playwright.config.js --list --reporter=null ../../tests/test.spec.ts
   `);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
   `);
 });
 
-test('should specify project', async ({ activate }) => {
+test('should filter selected project', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
       projects: [
@@ -727,7 +698,7 @@ test('should specify project', async ({ activate }) => {
   });
 
   const testItems = testController.findTestItems(/test.spec/);
-  expect(testItems.length).toBe(2);
+  expect(testItems.length).toBe(1);
   const testRun = await testController.run(testItems);
   expect(testRun.renderLog()).toBe(`
     tests1 > test.spec.ts > one [2:0]
@@ -846,7 +817,7 @@ test('should discover tests after running one test', async ({ activate }) => {
 
   await testController.expandTestItems(/test2.spec.ts/);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test1.spec.ts
         - one [2:0]
@@ -915,38 +886,6 @@ test('should run tests for folders above root', async ({ activate }) => {
       started
       passed
   `);
-});
-
-test('should show warning when tests do not belong to projects', async ({ activate }) => {
-  const { vscode, testController } = await activate({
-    'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
-    'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
-    'tests1/test1.spec.ts': `
-      import { test } from '@playwright/test';
-      test('one', async () => {});
-    `,
-    'tests2/test2.spec.ts': `
-      import { test } from '@playwright/test';
-      test('two', async () => {});
-    `,
-  });
-
-  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run)!;
-  let testRuns: TestRun[] = [];
-  testController.onDidCreateTestRun(run => testRuns.push(run));
-
-  {
-    testRuns = [];
-    const items = testController.findTestItems(/test2.spec/);
-    await profile.run(items);
-  }
-
-  expect(vscode).toHaveExecLog(`
-    tests1> playwright list-files -c playwright.config.js
-    tests2> playwright list-files -c playwright.config.js
-  `);
-
-  expect(vscode.warnings[0]).toContain('Selected test is outside of the Default Profile (config)');
 });
 
 test('should produce output twice', async ({ activate }) => {

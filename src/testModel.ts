@@ -60,17 +60,16 @@ export type TestProject = {
   name: string;
   testDir: string;
   model: TestModel;
-  isFirst: boolean;
   files: Map<string, TestFile>;
+  isEnabled: boolean;
 };
 
 export class TestModel {
   private _vscode: vscodeTypes.VSCode;
   readonly config: TestConfig;
-  readonly projects = new Map<string, TestProject>();
+  private _projects = new Map<string, TestProject>();
   private _didUpdate: vscodeTypes.EventEmitter<void>;
   readonly onUpdated: vscodeTypes.Event<void>;
-  readonly allFiles = new Set<string>();
   private _playwrightTest: PlaywrightTest;
   private _fileToSources: Map<string, string[]> = new Map();
   private _sourceToFile: Map<string, string> = new Map();
@@ -83,6 +82,28 @@ export class TestModel {
     this._didUpdate = new vscode.EventEmitter();
     this._envProvider = envProvider;
     this.onUpdated = this._didUpdate.event;
+  }
+
+  setProjectEnabled(project: TestProject, enabled: boolean) {
+    project.isEnabled = enabled;
+    this._didUpdate.fire();
+  }
+
+  allProjects(): Map<string, TestProject> {
+    return this._projects;
+  }
+
+  enabledProjects(): TestProject[] {
+    return [...this._projects.values()].filter(p => p.isEnabled);
+  }
+
+  enabledFiles(): string[] {
+    const result: string[] = [];
+    for (const project of this.enabledProjects()) {
+      for (const file of project.files.keys())
+        result.push(file);
+    }
+    return result;
   }
 
   async listFiles(): Promise<TestError | undefined> {
@@ -102,29 +123,28 @@ export class TestModel {
     const projectsToKeep = new Set<string>();
     for (const projectReport of report.projects) {
       projectsToKeep.add(projectReport.name);
-      let project = this.projects.get(projectReport.name);
+      let project = this._projects.get(projectReport.name);
       if (!project)
-        project = this._createProject(projectReport, projectReport === report.projects[0]);
+        project = this._createProject(projectReport);
       this._updateProject(project, projectReport);
     }
 
-    for (const projectName of this.projects.keys()) {
+    for (const projectName of this._projects.keys()) {
       if (!projectsToKeep.has(projectName))
-        this.projects.delete(projectName);
+        this._projects.delete(projectName);
     }
 
-    this._recalculateAllFiles();
     this._didUpdate.fire();
   }
 
-  private _createProject(projectReport: ProjectConfigWithFiles, isFirst: boolean): TestProject {
+  private _createProject(projectReport: ProjectConfigWithFiles): TestProject {
     const project: TestProject = {
       model: this,
       ...projectReport,
-      isFirst,
       files: new Map(),
+      isEnabled: true,
     };
-    this.projects.set(project.name, project);
+    this._projects.set(project.name, project);
     return project;
   }
 
@@ -157,7 +177,7 @@ export class TestModel {
     change.deleted = this._mapFilesToSources(change.deleted);
 
     if (change.deleted.size) {
-      for (const project of this.projects.values()) {
+      for (const project of this._projects.values()) {
         for (const file of change.deleted) {
           if (project.files.has(file)) {
             project.files.delete(file);
@@ -169,7 +189,7 @@ export class TestModel {
 
     if (change.created.size) {
       let hasMatchingFiles = false;
-      for (const project of this.projects.values()) {
+      for (const project of this._projects.values()) {
         for (const file of change.created) {
           if (file.startsWith(project.testDir))
             hasMatchingFiles = true;
@@ -179,12 +199,9 @@ export class TestModel {
         await this.listFiles();
     }
 
-    if (change.created.size || change.deleted.size)
-      this._recalculateAllFiles();
-
     if (change.changed.size) {
       const filesToLoad = new Set<string>();
-      for (const project of this.projects.values()) {
+      for (const project of this._projects.values()) {
         for (const file of change.changed) {
           const testFile = project.files.get(file);
           if (!testFile || !testFile.entries())
@@ -200,17 +217,13 @@ export class TestModel {
   }
 
   async listTests(files: string[]): Promise<TestError[]> {
-    const sourcesToLoad = files.filter(f => this.allFiles.has(f));
-    if (!sourcesToLoad.length)
-      return [];
-
-    const { entries, errors } = await this._playwrightTest.listTests(this.config, sourcesToLoad);
-    this._updateProjects(entries, sourcesToLoad);
+    const { entries, errors } = await this._playwrightTest.listTests(this.config, files);
+    this._updateProjects(entries, files);
     return errors;
   }
 
   private _updateProjects(projectEntries: Entry[], requestedFiles: string[]) {
-    for (const [projectName, project] of this.projects) {
+    for (const [projectName, project] of this._projects) {
       const projectEntry = projectEntries.find(e => e.title === projectName);
       const filesToDelete = new Set(requestedFiles);
       for (const fileEntry of projectEntry?.children || []) {
@@ -232,7 +245,7 @@ export class TestModel {
 
   updateFromRunningProjects(projectEntries: Entry[]) {
     for (const projectEntry of projectEntries) {
-      const project = this.projects.get(projectEntry.title);
+      const project = this._projects.get(projectEntry.title);
       if (project)
         this._updateFromRunningProject(project, projectEntry);
     }
@@ -250,14 +263,6 @@ export class TestModel {
         file.setEntries(fileEntry.children);
     }
     this._didUpdate.fire();
-  }
-
-  private _recalculateAllFiles() {
-    this.allFiles.clear();
-    for (const project of this.projects.values()) {
-      for (const file of project.files.values())
-        this.allFiles.add(file.file);
-    }
   }
 
   async runTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
@@ -278,6 +283,17 @@ export class TestModel {
         sources.forEach(f => result.add(f));
       else
         result.add(file);
+    }
+    return result;
+  }
+
+  narrowDownFilesToEnabledProjects(fileNames: Set<string>) {
+    const result = new Set<string>();
+    for (const project of this.enabledProjects()) {
+      for (const fileName of fileNames) {
+        if (project.files.has(fileName))
+          result.add(fileName);
+      }
     }
     return result;
   }

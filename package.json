@@ -10,7 +10,7 @@
     "url": "https://github.com/microsoft/playwright-vscode/issues"
   },
   "engines": {
-    "vscode": "^1.78.0"
+    "vscode": "^1.86.0"
   },
   "categories": [
     "Testing"
@@ -128,13 +128,13 @@
     "@types/glob": "^8.0.0",
     "@types/node": "^18.11.9",
     "@types/stack-utils": "^2.0.1",
-    "@types/vscode": "1.78.0",
+    "@types/vscode": "1.86.0",
     "@types/which": "^2.0.1",
     "@types/ws": "^8.5.3",
     "@typescript-eslint/eslint-plugin": "^5.44.0",
     "@typescript-eslint/parser": "^5.44.0",
     "@vscode/l10n-dev": "^0.0.24",
-    "@vscode/vsce": "^2.20.1",
+    "@vscode/vsce": "^2.24.0",
     "esbuild": "^0.15.15",
     "eslint": "^8.28.0",
     "eslint-plugin-notice": "^0.9.10",
