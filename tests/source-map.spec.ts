@@ -23,7 +23,7 @@ test('should list files', async ({ activate }) => {
     'build/test.spec.js': testSpecJs('test.spec'),
     'build/test.spec.js.map': testSpecJsMap('test.spec'),
   });
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
   `);
@@ -41,7 +41,7 @@ test('should list tests on expand', async ({ activate }) => {
   });
 
   await testController.expandTestItems(/test.spec.ts/);
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
@@ -65,7 +65,7 @@ test('should list tests for visible editors', async ({ activate }) => {
   await vscode.openEditors('**/test.spec.ts');
   await new Promise(f => testController.onDidChangeTestItem(f));
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - one [2:0]
@@ -86,7 +86,7 @@ test('should pick new files', async ({ activate }) => {
     'build/test-1.spec.js.map': testSpecJsMap('test-1.spec'),
   });
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
   `);
@@ -102,7 +102,7 @@ test('should pick new files', async ({ activate }) => {
     workspaceFolder.addFile('build/test-2.spec.js.map', testSpecJsMap('test-2.spec')),
   ]);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
       - test-2.spec.ts
@@ -128,7 +128,7 @@ test('should remove deleted files', async ({ activate }) => {
     'build/test-3.spec.js.map': testSpecJsMap('test-3.spec'),
   });
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
       - test-2.spec.ts
@@ -146,7 +146,7 @@ test('should remove deleted files', async ({ activate }) => {
     workspaceFolder.removeFile('build/test-2.spec.js.map'),
   ]);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test-1.spec.ts
       - test-3.spec.ts
@@ -179,7 +179,7 @@ test('should discover new tests', async ({ activate }) => {
     workspaceFolder.changeFile('build/test.spec.js.map', testSpecJsMapAfter),
   ]);
 
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
         - new [2:0]

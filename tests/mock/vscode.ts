@@ -17,7 +17,7 @@
 import fs from 'fs';
 import glob from 'glob';
 import path from 'path';
-import { Disposable, EventEmitter } from './events';
+import { Disposable, EventEmitter, Event } from './events';
 import minimatch from 'minimatch';
 import { spawn } from 'child_process';
 import which from 'which';
@@ -245,14 +245,29 @@ class TestItem {
 }
 
 class TestRunProfile {
+  private _isDefault = true;
+  readonly didChangeDefault = new EventEmitter<boolean>();
+  readonly onDidChangeDefault: Event<boolean> | undefined;
+
   constructor(
     private testController: TestController,
     readonly label: string,
     readonly kind: TestRunProfileKind,
     readonly runHandler: (request: TestRunRequest, token: CancellationToken) => Promise<void>,
-    readonly isDefault: boolean,
+    isDefault: boolean,
     private runProfiles: TestRunProfile[]) {
     runProfiles.push(this);
+    this.onDidChangeDefault = this.didChangeDefault.event;
+    this._isDefault = isDefault;
+  }
+
+  get isDefault(): boolean | undefined {
+    return this._isDefault;
+  }
+
+  set isDefault(value: boolean) {
+    this._isDefault = value;
+    this.didChangeDefault.fire(value);
   }
 
   async run(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {
@@ -416,12 +431,22 @@ export class TestController {
     this.items = new TestItem(this, id, label);
   }
 
+  runProfilesByKind(kind: TestRunProfileKind): TestRunProfile[] {
+    return this.runProfiles.filter(p => p.kind === kind);
+  }
+
   createTestItem(id: string, label: string, uri?: Uri): TestItem {
     return new TestItem(this, id, label, uri);
   }
 
   createRunProfile(label: string, kind: TestRunProfileKind, runHandler: (request: TestRunRequest, token: CancellationToken) => Promise<void>, isDefault?: boolean): TestRunProfile {
-    return new TestRunProfile(this, label, kind, runHandler, !!isDefault, this.runProfiles);
+    // Enable first profile by default, lazily.
+    const isFirst = !this.runProfilesByKind(kind).length;
+    const profile = new TestRunProfile(this, label, kind, runHandler, !!isDefault, this.runProfiles);
+    setTimeout(() => {
+      profile.isDefault = isFirst;
+    }, 0);
+    return profile;
   }
 
   createTestRun(request: TestRunRequest, name?: string, persist?: boolean): TestRun {
@@ -767,8 +792,10 @@ export class VSCode {
   readonly l10n = new L10n();
   lastWithProgressData = undefined;
   private _hoverProviders: Map<string, HoverProvider> = new Map();
+  readonly version: string;
 
-  constructor(baseDir: string, browser: Browser) {
+  constructor(readonly versionNumber: number, baseDir: string, browser: Browser) {
+    this.version = String(versionNumber);
     this.context = { subscriptions: [], extensionUri: Uri.file(baseDir) };
     this._browser = browser;
 
@@ -939,7 +966,7 @@ export class VSCode {
           return;
         }
         initializedPage.evaluate((data: any) => {
-          const event = new Event('message');
+          const event = new globalThis.Event('message');
           (event as any).data = data;
           globalThis.dispatchEvent(event);
         }, data).catch(() => {});

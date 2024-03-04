@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
+import { TestRunProfileKind } from './mock/vscode';
 import { expect, test } from './utils';
 
 test('should load first config', async ({ activate }) => {
   const { vscode, testController, workspaceFolder } = await activate({});
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
   `);
 
   workspaceFolder.addFile('playwright.config.js', `module.exports = { testDir: 'tests' }`);
@@ -27,11 +28,10 @@ test('should load first config', async ({ activate }) => {
     test('one', async () => {});
   `);
 
-  const golden = `
+  await expect(testController).toHaveTestTree(`
     - tests
       - test.spec.ts
-  `;
-  while (testController.renderTestTree() !== golden) await new Promise(f => setTimeout(f, 200));
+  `);
 
   expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
@@ -46,7 +46,7 @@ test('should load second config', async ({ activate }) => {
       test('one', async () => {});
     `,
   });
-  expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     - tests1
       - test.spec.ts
   `);
@@ -57,13 +57,16 @@ test('should load second config', async ({ activate }) => {
     test('one', async () => {});
   `);
 
-  const golden = `
+  await expect.poll(() => testController.runProfilesByKind(TestRunProfileKind.Run)).toHaveLength(2);
+  const profiles = testController.runProfilesByKind(TestRunProfileKind.Run);
+  profiles.forEach(p => p.isDefault = true);
+
+  await expect(testController).toHaveTestTree(`
     - tests1
       - test.spec.ts
     - tests2
       - test.spec.ts
-  `;
-  while (testController.renderTestTree() !== golden) await new Promise(f => setTimeout(f, 200));
+  `);
 
   expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright1.config.js
@@ -85,7 +88,11 @@ test('should remove model for config', async ({ activate }) => {
       test('one', async () => {});
     `,
   });
-  expect(testController).toHaveTestTree(`
+
+  const profiles = testController.runProfilesByKind(TestRunProfileKind.Run);
+  profiles.forEach(p => p.isDefault = true);
+
+  await expect(testController).toHaveTestTree(`
     - tests1
       - test.spec.ts
     - tests2
@@ -94,11 +101,10 @@ test('should remove model for config', async ({ activate }) => {
 
   workspaceFolder.removeFile('playwright1.config.js');
 
-  const golden = `
+  await expect(testController).toHaveTestTree(`
     - tests2
       - test.spec.ts
-  `;
-  while (testController.renderTestTree() !== golden) await new Promise(f => setTimeout(f, 200));
+  `);
 
   expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright1.config.js

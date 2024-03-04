@@ -35,6 +35,7 @@ export class TestTree {
   private _testGeneration = '';
 
   // Global test item map location => fileItem that are files.
+  private _rootItems = new Map<string, vscodeTypes.TestItem>();
   private _folderItems = new Map<string, vscodeTypes.TestItem>();
   private _fileItems = new Map<string, vscodeTypes.TestItem>();
 
@@ -79,6 +80,7 @@ export class TestTree {
       this._loadingItem.parent.children.delete(this._loadingItem.id);
     else if (this._testController.items.get(this._loadingItem.id))
       this._testController.items.delete(this._loadingItem.id);
+    this._update();
   }
 
   addModel(model: TestModel) {
@@ -102,8 +104,7 @@ export class TestTree {
   private _update() {
     const allFiles = new Set<string>();
     for (const model of this._models)
-      model.allFiles.forEach(f => allFiles.add(f));
-
+      model.enabledFiles().forEach(f => allFiles.add(f));
     for (const file of allFiles) {
       if (!this._belongsToWorkspace(file))
         continue;
@@ -111,7 +112,7 @@ export class TestTree {
       const signature: string[] = [];
       const entriesByTitle: EntriesByTitle = new MultiMap();
       for (const model of this._models) {
-        for (const testProject of model.projects.values()) {
+        for (const testProject of model.enabledProjects()) {
           const testFile = testProject.files.get(file);
           if (!testFile || !testFile.entries())
             continue;
@@ -131,11 +132,26 @@ export class TestTree {
     }
 
     for (const [location, fileItem] of this._fileItems) {
-      if (!allFiles.has(location)) {
-        this._fileItems.delete(location);
-        fileItem.parent?.children.delete(fileItem.id);
-      }
+      if (!allFiles.has(location))
+        this._removeEmptyFileIfNeeded(location, fileItem);
     }
+  }
+
+  private _removeEmptyFileIfNeeded(location: string, fileItem: vscodeTypes.TestItem) {
+    this._fileItems.delete(location);
+    fileItem.parent?.children.delete(fileItem.id);
+    if (fileItem.parent && !fileItem.parent?.children.size)
+      this._removeEmptyFolderIfNeeded(path.dirname(location), fileItem.parent);
+  }
+
+  private _removeEmptyFolderIfNeeded(location: string, folderItem: vscodeTypes.TestItem) {
+    if (this._rootItems.has(location))
+      return;
+    this._folderItems.delete(location);
+    const children = folderItem.parent?.children || this._testController.items;
+    children.delete(folderItem.id);
+    if (folderItem.parent && !children.size)
+      this._removeEmptyFolderIfNeeded(path.dirname(location), folderItem.parent);
   }
 
   private _belongsToWorkspace(file: string) {
@@ -202,12 +218,14 @@ export class TestTree {
       error: undefined,
     };
     this._folderItems.set(uri.fsPath, testItem);
+    this._rootItems.set(uri.fsPath, testItem);
     return testItem;
   }
 
   private _createRootFolderItem(folder: string): vscodeTypes.TestItem {
     const folderItem = this._testController.createTestItem(this._id(folder), path.basename(folder), this._vscode.Uri.file(folder));
     this._folderItems.set(folder, folderItem);
+    this._rootItems.set(folder, folderItem);
     return folderItem;
   }
 

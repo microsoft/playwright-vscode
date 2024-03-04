@@ -292,17 +292,30 @@ export class Extension implements RunHooks {
       }
 
       const model = new TestModel(this._vscode, this._playwrightTest, workspaceFolderPath, configFileUri.fsPath, playwrightInfo, this._envProvider.bind(this));
-      this._models.push(model);
-      this._testTree.addModel(model);
       const configError = await model.listFiles();
       if (configError) {
         configErrors.set(configError.location?.file ?? configFilePath, configError);
         continue;
       }
 
-      for (const project of model.projects.values()) {
-        await this._createRunProfile(project);
-        this._workspaceObserver.addWatchFolder(project.testDir);
+      this._models.push(model);
+      this._testTree.addModel(model);
+    }
+
+    // Update list of run profiles.
+    {
+      // rebuildModel can run concurrently, swapping run profiles needs to be sync.
+      const existingProfiles = this._runProfiles;
+      this._runProfiles = new Map();
+      for (const model of this._models) {
+        for (const project of model.allProjects().values()) {
+          this._createRunProfile(project, existingProfiles);
+          this._workspaceObserver.addWatchFolder(project.testDir);
+        }
+      }
+      for (const [id, profile] of existingProfiles) {
+        if (!this._runProfiles.has(id))
+          profile.dispose();
       }
     }
 
@@ -332,7 +345,7 @@ export class Extension implements RunHooks {
         if (error?.location) {
           const range = new this._vscode.Range(
               new this._vscode.Position(Math.max(error.location.line - 4, 0), 0),
-              new this._vscode.Position(error.location.line - 1, error.location.column - 1),
+              new this._vscode.Position(Math.max(error.location.line - 1, 0), Math.max(error.location.column - 1, 0)),
           );
           this._vscode.window.activeTextEditor?.revealRange(range);
         }
@@ -349,25 +362,26 @@ export class Extension implements RunHooks {
     })) as NodeJS.ProcessEnv;
   }
 
-  private async _createRunProfile(project: TestProject) {
+  private _createRunProfile(project: TestProject, existingProfiles: Map<string, vscodeTypes.TestRunProfile>) {
     const configFile = project.model.config.configFile;
     const configName = path.basename(configFile);
     const folderName = path.basename(path.dirname(configFile));
     const projectPrefix = project.name ? `${project.name} — ` : '';
     const keyPrefix = configFile + ':' + project.name;
-    let runProfile = this._runProfiles.get(keyPrefix + ':run');
+    let runProfile = existingProfiles.get(keyPrefix + ':run');
     const projectTag = this._testTree.projectTag(project);
     const isDefault = false;
     const supportsContinuousRun = this._settingsModel.allowWatchingFiles.get();
-    if (!runProfile) {
+    if (!runProfile)
       runProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), isDefault, projectTag, supportsContinuousRun);
-      this._runProfiles.set(keyPrefix + ':run', runProfile);
-    }
-    let debugProfile = this._runProfiles.get(keyPrefix + ':debug');
-    if (!debugProfile) {
+    this._runProfiles.set(keyPrefix + ':run', runProfile);
+    let debugProfile = existingProfiles.get(keyPrefix + ':debug');
+    if (!debugProfile)
       debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), isDefault, projectTag, supportsContinuousRun);
-      this._runProfiles.set(keyPrefix + ':debug', debugProfile);
-    }
+    this._runProfiles.set(keyPrefix + ':debug', debugProfile);
+
+    runProfile.onDidChangeDefault(enabled => project.model.setProjectEnabled(project, enabled));
+    debugProfile.onDidChangeDefault(enabled => project.model.setProjectEnabled(project, enabled));
   }
 
   private _scheduleTestRunRequest(configFile: string, projectName: string, isDebug: boolean, request: vscodeTypes.TestRunRequest, cancellationToken?: vscodeTypes.CancellationToken) {
@@ -380,7 +394,7 @@ export class Extension implements RunHooks {
     const model = this._models.find(m => m.config.configFile === configFile);
     if (!model)
       return;
-    const project = model.projects.get(projectName);
+    const project = model.allProjects().get(projectName);
     if (!project)
       return;
 
@@ -690,7 +704,10 @@ located next to Run / Debug Tests toolbar buttons.`);
         const allErrors = new Set<string>();
         const errorsByFile = new MultiMap<string, TestError>();
         for (const model of this._models.slice()) {
-          const errors = await model.listTests([...files]).catch(e => console.log(e)) || [];
+          const filteredFiles = model.narrowDownFilesToEnabledProjects(files);
+          if (!filteredFiles.size)
+            continue;
+          const errors = await model.listTests([...filteredFiles]).catch(e => console.log(e)) || [];
           for (const error of errors) {
             if (!error.location || !error.message)
               continue;
@@ -728,7 +745,7 @@ located next to Run / Debug Tests toolbar buttons.`);
         diagnostics.push({
           severity: this._vscode.DiagnosticSeverity.Error,
           source: 'playwright',
-          range: new this._vscode.Range(error.location!.line - 1, error.location!.column - 1, error.location!.line, 0),
+          range: new this._vscode.Range(Math.max(error.location!.line - 1, 0), Math.max(error.location!.column - 1, 0), error.location!.line, 0),
           message: error.message!,
         });
       }

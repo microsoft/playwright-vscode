@@ -15,7 +15,7 @@
  */
 
 import { TestConfig } from './playwrightTest';
-import { TestModel, TestProject } from './testModel';
+import type { TestModel } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
@@ -324,7 +324,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   private async _createFileForNewTest(model: TestModel) {
-    const project = model.projects.values().next().value as TestProject;
+    const project = model.enabledProjects()[0];
     if (!project)
       return;
     let file;
