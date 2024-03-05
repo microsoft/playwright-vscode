@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
+import path from 'path';
 import * as http from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
-import { TestListener } from './playwrightTest';
 import { ConnectionTransport } from './transport';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
-import type { Location, TestError, Entry, StepBeginParams, StepEndParams, TestBeginParams, TestEndParams } from './oopReporter';
+import * as reporterTypes from './reporter';
+import { TeleReporterReceiver } from './upstream/teleReceiver';
 
 export class ReporterServer {
   private _clientSocketPromise: Promise<WebSocket>;
@@ -33,14 +34,10 @@ export class ReporterServer {
     this._clientSocketPromise = new Promise(f => this._clientSocketCallback = f);
   }
 
-  reporterFile() {
-    return require.resolve('./oopReporter');
-  }
-
   async env() {
     const wsEndpoint = await this._listen();
     return {
-      PW_TEST_REPORTER: this.reporterFile(),
+      PW_TEST_REPORTER: require.resolve('./oopReporter'),
       PW_TEST_REPORTER_WS_ENDPOINT: wsEndpoint,
     };
   }
@@ -69,7 +66,7 @@ export class ReporterServer {
     return wsEndpoint;
   }
 
-  async wireTestListener(listener: TestListener, token: vscodeTypes.CancellationToken) {
+  async wireTestListener(mode: 'test' | 'list', listener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
     let timeout: NodeJS.Timeout | undefined;
     const transport = await this._waitForTransport();
 
@@ -89,7 +86,20 @@ export class ReporterServer {
     if (token.isCancellationRequested)
       killTestProcess();
 
-    transport.onmessage = message => translateMessage(this._vscode, message, listener, () => transport.close(), token);
+    const teleReceiver = new TeleReporterReceiver(listener, {
+      mergeProjects: true,
+      mergeTestCases: true,
+      resolvePath: (rootDir: string, relativePath: string) => this._vscode.Uri.file(path.join(rootDir, relativePath)).fsPath,
+    });
+
+    transport.onmessage = message => {
+      if (token.isCancellationRequested && message.method !== 'onEnd')
+        return;
+      if (message.method === 'onEnd')
+        transport.close();
+      teleReceiver.dispatch(mode, message as any);
+    };
+
     await new Promise<void>(f => transport.onclose = f);
     if (timeout)
       clearTimeout(timeout);
@@ -127,42 +137,4 @@ export class ReporterServer {
     });
     return transport;
   }
-}
-
-export function translateMessage(vscode: vscodeTypes.VSCode, message: any, listener: TestListener, onEnd: () => void, token: vscodeTypes.CancellationToken) {
-  if (token.isCancellationRequested && message.method !== 'onEnd')
-    return;
-  switch (message.method) {
-    case 'onBegin': {
-      (message.params as { projects: Entry[] }).projects.forEach((e: Entry) => patchLocation(vscode, e));
-      listener.onBegin?.(message.params);
-      break;
-    }
-    case 'onTestBegin': listener.onTestBegin?.(patchLocation(vscode, message.params as TestBeginParams)); break;
-    case 'onTestEnd': listener.onTestEnd?.(patchLocation(vscode, message.params as TestEndParams)); break;
-    case 'onStepBegin': listener.onStepBegin?.(patchLocation(vscode, message.params as StepBeginParams)); break;
-    case 'onStepEnd': listener.onStepEnd?.(patchLocation(vscode, message.params as StepEndParams)); break;
-    case 'onError': listener.onError?.(patchLocation(vscode, message.params as { error: TestError })); break;
-    case 'onEnd': {
-      listener.onEnd?.();
-      onEnd();
-      break;
-    }
-  }
-}
-
-function patchLocation<T extends { location?: Location, error?: TestError, errors?: TestError[] }>(vscode: vscodeTypes.VSCode, object: T): T {
-  // Normalize all the location.file values using the Uri.file().fsPath normalization.
-  // vscode will normalize Windows drive letter, etc.
-  if (object.location)
-    object.location.file = vscode.Uri.file(object.location.file).fsPath;
-  if (object.error?.location)
-    object.error.location.file = vscode.Uri.file(object.error.location.file).fsPath;
-  if (object.errors) {
-    object.errors.forEach(e => {
-      if (e.location)
-        e.location.file = vscode.Uri.file(e.location.file).fsPath;
-    });
-  }
-  return object;
 }

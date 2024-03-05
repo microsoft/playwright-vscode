@@ -19,8 +19,8 @@ import StackUtils from 'stack-utils';
 import { DebugHighlight } from './debugHighlight';
 import { installBrowsers, installPlaywright } from './installer';
 import { MultiMap } from './multimap';
-import { PlaywrightTest, RunHooks, TestConfig, TestListener } from './playwrightTest';
-import type { Location, TestError, Entry } from './oopReporter';
+import { PlaywrightTest, RunHooks, TestConfig } from './playwrightTest';
+import * as reporterTypes from './reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
@@ -67,8 +67,8 @@ export class Extension implements RunHooks {
   private _workspaceObserver: WorkspaceObserver;
   private _testItemUnderDebug: vscodeTypes.TestItem | undefined;
 
-  private _activeSteps = new Map<string, StepInfo>();
-  private _completedSteps = new Map<string, StepInfo>();
+  private _activeSteps = new Map<reporterTypes.TestStep, StepInfo>();
+  private _completedSteps = new Map<reporterTypes.TestStep, StepInfo>();
   private _testRun: vscodeTypes.TestRun | undefined;
   private _models: TestModel[] = [];
   private _activeStepDecorationType: vscodeTypes.TextEditorDecorationType;
@@ -257,7 +257,7 @@ export class Extension implements RunHooks {
 
     const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mjs}', '**/node_modules/**');
 
-    const configErrors = new MultiMap<string, TestError>();
+    const configErrors = new MultiMap<string, reporterTypes.TestError>();
     for (const configFileUri of configFiles) {
       const configFilePath = configFileUri.fsPath;
       // TODO: parse .gitignore
@@ -329,7 +329,7 @@ export class Extension implements RunHooks {
     return configFiles;
   }
 
-  private _reportConfigErrorsToUser(configErrors: MultiMap<string, TestError>) {
+  private _reportConfigErrorsToUser(configErrors: MultiMap<string, reporterTypes.TestError>) {
     this._updateDiagnostics('configErrors', configErrors);
     if (!configErrors.size)
       return;
@@ -570,25 +570,23 @@ located next to Run / Debug Tests toolbar buttons.`);
     locations: string[] | null,
     parametrizedTestTitle: string | undefined,
     enqueuedSingleTest: boolean) {
-    const testListener: TestListener = {
-      onBegin: ({ projects }) => {
-        model.updateFromRunningProjects(projects);
-        const visit = (entry: Entry) => {
-          if (entry.type === 'test') {
-            const testItem = this._testTree.testItemForLocation(entry.location, entry.titlePath);
-            if (testItem)
-              testRun.enqueued(testItem);
-          }
-          (entry.children || []).forEach(visit);
+    const testListener: reporterTypes.ReporterV2 = {
+      onBegin: (rootSuite: reporterTypes.Suite) => {
+        model.updateFromRunningProjects(rootSuite.suites);
+        const visitTest = (test: reporterTypes.TestCase) => {
+          const testItem = this._testTree.testItemForLocation(test.location, test.titlePath().slice(3));
+          if (testItem)
+            testRun.enqueued(testItem);
         };
-        projects.forEach(visit);
+        rootSuite.allTests().forEach(visitTest);
       },
 
-      onTestBegin: params => {
-        const testItem = this._testTree.testItemForLocation(params.location, params.titlePath);
+      onTestBegin: (test: reporterTypes.TestCase, result: reporterTypes.TestResult) => {
+        const testItem = this._testTree.testItemForLocation(test.location, test.titlePath().slice(3));
         if (testItem) {
           testRun.started(testItem);
-          const traceUrl = `${params.outputDir}/.playwright-artifacts-${params.workerIndex}/traces/${params.testId}.json`;
+          const fullProject = ancestorProject(test);
+          const traceUrl = `${fullProject.outputDir}/.playwright-artifacts-${result.workerIndex}/traces/${test.id}.json`;
           (testItem as any)[traceUrlSymbol] = traceUrl;
         }
 
@@ -600,59 +598,62 @@ located next to Run / Debug Tests toolbar buttons.`);
         }
       },
 
-      onTestEnd: params => {
+      onTestEnd: (test: reporterTypes.TestCase, result: reporterTypes.TestResult) => {
         this._testItemUnderDebug = undefined;
         this._activeSteps.clear();
         this._executionLinesChanged();
 
-        const testItem = this._testTree.testItemForLocation(params.location, params.titlePath);
+        const testItem = this._testTree.testItemForLocation(test.location, test.titlePath().slice(3));
         if (!testItem)
           return;
 
-        (testItem as any)[traceUrlSymbol] = params.trace || '';
+        const trace = result.attachments.find(a => a.name === 'trace')?.path || '';
+        (testItem as any)[traceUrlSymbol] = trace;
         if (enqueuedSingleTest)
           this._showTrace(testItem);
 
-        if (params.status === params.expectedStatus) {
+        if (result.status === test.expectedStatus) {
           if (!testFailures.has(testItem)) {
-            if (params.status === 'skipped')
+            if (result.status === 'skipped')
               testRun.skipped(testItem);
             else
-              testRun.passed(testItem, params.duration);
+              testRun.passed(testItem, result.duration);
           }
           return;
         }
         testFailures.add(testItem);
-        testRun.failed(testItem, params.errors.map(error => this._testMessageForTestError(error, testItem)), params.duration);
+        testRun.failed(testItem, result.errors.map(error => this._testMessageForTestError(error, testItem)), result.duration);
       },
 
-      onStepBegin: params => {
-        const stepId = params.location.file + ':' + params.location.line;
-        let step = this._activeSteps.get(stepId);
+      onStepBegin: (test: reporterTypes.TestCase, result: reporterTypes.TestResult, testStep: reporterTypes.TestStep) => {
+        if (!testStep.location)
+          return;
+        let step = this._activeSteps.get(testStep);
         if (!step) {
           step = {
             location: new this._vscode.Location(
-                this._vscode.Uri.file(params.location.file),
-                new this._vscode.Position(params.location.line - 1, params.location.column - 1)),
+                this._vscode.Uri.file(testStep.location.file),
+                new this._vscode.Position(testStep.location.line - 1, testStep.location?.column - 1)),
             activeCount: 0,
             duration: 0,
           };
-          this._activeSteps.set(stepId, step);
+          this._activeSteps.set(testStep, step);
         }
         ++step.activeCount;
         this._executionLinesChanged();
       },
 
-      onStepEnd: params => {
-        const stepId = params.location.file + ':' + params.location.line;
-        const step = this._activeSteps.get(stepId)!;
+      onStepEnd: (test: reporterTypes.TestCase, result: reporterTypes.TestResult, testStep: reporterTypes.TestStep) => {
+        if (!testStep.location)
+          return;
+        const step = this._activeSteps.get(testStep);
         if (!step)
           return;
         --step.activeCount;
-        step.duration = params.duration;
-        this._completedSteps.set(stepId, step);
+        step.duration = testStep.duration;
+        this._completedSteps.set(testStep, step);
         if (step.activeCount === 0)
-          this._activeSteps.delete(stepId);
+          this._activeSteps.delete(testStep);
         this._executionLinesChanged();
       },
 
@@ -664,13 +665,13 @@ located next to Run / Debug Tests toolbar buttons.`);
         testRun.appendOutput(data.toString().replace(/\n/g, '\r\n'));
       },
 
-      onError: data => {
+      onError: (error: reporterTypes.TestError) => {
         // Global errors don't have associated tests, so we'll be allocating them
         // to the first item / current.
         if (testItemForGlobalErrors) {
           // Force UI to reveal the item if that is a file that has never been started.
           testRun.started(testItemForGlobalErrors);
-          testRun.failed(testItemForGlobalErrors, this._testMessageForTestError(data.error), 0);
+          testRun.failed(testItemForGlobalErrors, this._testMessageForTestError(error), 0);
         }
       }
     };
@@ -702,7 +703,7 @@ located next to Run / Debug Tests toolbar buttons.`);
       const timer = setTimeout(async () => {
         delete this._filesPendingListTests;
         const allErrors = new Set<string>();
-        const errorsByFile = new MultiMap<string, TestError>();
+        const errorsByFile = new MultiMap<string, reporterTypes.TestError>();
         for (const model of this._models.slice()) {
           const filteredFiles = model.narrowDownFilesToEnabledProjects(files);
           if (!filteredFiles.size)
@@ -736,7 +737,7 @@ located next to Run / Debug Tests toolbar buttons.`);
     return this._filesPendingListTests.promise;
   }
 
-  private _updateDiagnostics(diagnosticsType: 'configErrors' | 'testErrors' , errorsByFile: MultiMap<string, TestError>) {
+  private _updateDiagnostics(diagnosticsType: 'configErrors' | 'testErrors' , errorsByFile: MultiMap<string, reporterTypes.TestError>) {
     const diagnosticsCollection = this._diagnostics[diagnosticsType]!;
     diagnosticsCollection.clear();
     for (const [file, errors] of errorsByFile) {
@@ -753,7 +754,7 @@ located next to Run / Debug Tests toolbar buttons.`);
     }
   }
 
-  private _errorInDebugger(errorStack: string, location: Location) {
+  private _errorInDebugger(errorStack: string, location: reporterTypes.Location) {
     if (!this._testRun || !this._testItemUnderDebug)
       return;
     const testMessage = this._testMessageFromText(errorStack);
@@ -843,7 +844,7 @@ located next to Run / Debug Tests toolbar buttons.`);
     return new this._vscode.TestMessage(markdownString);
   }
 
-  private _testMessageForTestError(error: TestError, testItem?: vscodeTypes.TestItem): vscodeTypes.TestMessage {
+  private _testMessageForTestError(error: reporterTypes.TestError, testItem?: vscodeTypes.TestItem): vscodeTypes.TestMessage {
     const text = error.stack || error.message || error.value!;
     let testMessage: vscodeTypes.TestMessage;
     if (text.includes('Looks like Playwright Test or Playwright')) {
@@ -890,7 +891,7 @@ located next to Run / Debug Tests toolbar buttons.`);
   }
 }
 
-function parseLocationFromStack(stack: string | undefined, testItem?: vscodeTypes.TestItem): Location | undefined {
+function parseLocationFromStack(stack: string | undefined, testItem?: vscodeTypes.TestItem): reporterTypes.Location | undefined {
   const lines = stack?.split('\n') || [];
   for (const line of lines) {
     const frame = stackUtils.parseLine(line);
@@ -939,6 +940,13 @@ class TreeItemObserver implements vscodeTypes.Disposable{
     }
     this._timeout = setTimeout(() => this._poll().catch(() => {}), 250);
   }
+}
+
+function ancestorProject(test: reporterTypes.TestCase): reporterTypes.FullProject {
+  let suite: reporterTypes.Suite = test.parent;
+  while (!suite.project())
+    suite = suite.parent!;
+  return suite.project()!;
 }
 
 const traceUrlSymbol = Symbol('traceUrl');

@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-import { Entry, TestError } from './oopReporter';
-import { PlaywrightTest, TestConfig, TestListener } from './playwrightTest';
+import { PlaywrightTest, TestConfig } from './playwrightTest';
 import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
 import { resolveSourceMap } from './utils';
 import { ProjectConfigWithFiles } from './listTests';
+import * as reporterTypes from './reporter';
+
+export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
 /**
  * This class builds the Playwright Test model in Playwright terms.
@@ -34,7 +36,7 @@ import { ProjectConfigWithFiles } from './listTests';
 export class TestFile {
   readonly project: TestProject;
   readonly file: string;
-  private _entries: Entry[] | undefined;
+  private _entries: TestEntry[] | undefined;
   private _revision = 0;
 
   constructor(project: TestProject, file: string) {
@@ -42,11 +44,11 @@ export class TestFile {
     this.file = file;
   }
 
-  entries(): Entry[] | undefined {
+  entries(): TestEntry[] | undefined {
     return this._entries;
   }
 
-  setEntries(entries: Entry[]) {
+  setEntries(entries: TestEntry[]) {
     ++this._revision;
     this._entries = entries;
   }
@@ -106,7 +108,7 @@ export class TestModel {
     return result;
   }
 
-  async listFiles(): Promise<TestError | undefined> {
+  async listFiles(): Promise<reporterTypes.TestError | undefined> {
     const report = await this._playwrightTest.listFiles(this.config);
     if (report.error)
       return report.error;
@@ -216,22 +218,22 @@ export class TestModel {
       this._didUpdate.fire();
   }
 
-  async listTests(files: string[]): Promise<TestError[]> {
-    const { entries, errors } = await this._playwrightTest.listTests(this.config, files);
-    this._updateProjects(entries, files);
+  async listTests(files: string[]): Promise<reporterTypes.TestError[]> {
+    const { rootSuite, errors } = await this._playwrightTest.listTests(this.config, files);
+    this._updateProjects(rootSuite.suites, files);
     return errors;
   }
 
-  private _updateProjects(projectEntries: Entry[], requestedFiles: string[]) {
+  private _updateProjects(projectSuites: reporterTypes.Suite[], requestedFiles: string[]) {
     for (const [projectName, project] of this._projects) {
-      const projectEntry = projectEntries.find(e => e.title === projectName);
+      const projectSuite = projectSuites.find(e => e.project()!.name === projectName);
       const filesToDelete = new Set(requestedFiles);
-      for (const fileEntry of projectEntry?.children || []) {
-        filesToDelete.delete(fileEntry.location.file);
-        const file = project.files.get(fileEntry.location.file);
+      for (const fileSuite of projectSuite?.suites || []) {
+        filesToDelete.delete(fileSuite.location!.file);
+        const file = project.files.get(fileSuite.location!.file);
         if (!file)
           continue;
-        file.setEntries(fileEntry.children || []);
+        file.setEntries([...fileSuite.suites, ...fileSuite.tests]);
       }
       // We requested update for those, but got no entries.
       for (const file of filesToDelete) {
@@ -243,36 +245,36 @@ export class TestModel {
     this._didUpdate.fire();
   }
 
-  updateFromRunningProjects(projectEntries: Entry[]) {
-    for (const projectEntry of projectEntries) {
-      const project = this._projects.get(projectEntry.title);
+  updateFromRunningProjects(projectSuites: reporterTypes.Suite[]) {
+    for (const projectSuite of projectSuites) {
+      const project = this._projects.get(projectSuite.project()!.name);
       if (project)
-        this._updateFromRunningProject(project, projectEntry);
+        this._updateFromRunningProject(project, projectSuite);
     }
   }
 
-  private _updateFromRunningProject(project: TestProject, projectEntry: Entry) {
+  private _updateFromRunningProject(project: TestProject, projectSuite: reporterTypes.Suite) {
     // When running tests, don't remove existing entries.
-    for (const fileEntry of projectEntry.children || []) {
-      if (!fileEntry.children)
+    for (const fileSuite of projectSuite.suites) {
+      if (!fileSuite.allTests().length)
         continue;
-      let file = project.files.get(fileEntry.location.file);
+      let file = project.files.get(fileSuite.location!.file);
       if (!file)
-        file = this._createFile(project, fileEntry.location.file);
+        file = this._createFile(project, fileSuite.location!.file);
       if (!file.entries())
-        file.setEntries(fileEntry.children);
+        file.setEntries([...fileSuite.suites, ...fileSuite.tests]);
     }
     this._didUpdate.fire();
   }
 
-  async runTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
+  async runTests(projects: TestProject[], locations: string[] | null, reporter: reporterTypes.ReporterV2, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     locations = locations || [];
-    await this._playwrightTest.runTests(this.config, projects.map(p => p.name), locations, testListener, parametrizedTestTitle, token);
+    await this._playwrightTest.runTests(this.config, projects.map(p => p.name), locations, reporter, parametrizedTestTitle, token);
   }
 
-  async debugTests(projects: TestProject[], locations: string[] | null, testListener: TestListener, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
+  async debugTests(projects: TestProject[], locations: string[] | null, reporter: reporterTypes.ReporterV2, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     locations = locations || [];
-    await this._playwrightTest.debugTests(this._vscode, this.config, projects.map(p => p.name), projects.map(p => p.testDir), this._envProvider(), locations, testListener, parametrizedTestTitle, token);
+    await this._playwrightTest.debugTests(this._vscode, this.config, projects.map(p => p.name), projects.map(p => p.testDir), this._envProvider(), locations, reporter, parametrizedTestTitle, token);
   }
 
   private _mapFilesToSources(files: Set<string>): Set<string> {

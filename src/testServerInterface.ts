@@ -62,5 +62,6 @@ export interface TestServerInterface {
 }
 
 export interface TestServerEvents {
+  on(event: 'report', listener: (params: any) => void): void;
   on(event: 'stdio', listener: (params: { type: 'stdout' | 'stderr', text?: string, buffer?: string }) => void): void;
 }

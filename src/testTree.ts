@@ -16,12 +16,13 @@
 
 import path from 'path';
 import { MultiMap } from './multimap';
-import type { Location, Entry, EntryType } from './oopReporter';
-import { TestModel, TestProject } from './testModel';
+import { TestModel, TestProject, TestEntry } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
+import * as reporterTypes from './reporter';
 
-type EntriesByTitle = MultiMap<string, { entry: Entry, projectTag: vscodeTypes.TestTag }>;
+type EntriesByTitle = MultiMap<string, { entry: TestEntry, projectTag: vscodeTypes.TestTag }>;
+type EntryType = 'test' | 'suite';
 
 /**
  * This class maps a collection of TestModels into the UI terms, it merges
@@ -171,14 +172,15 @@ export class TestTree {
       // Process each testItem exactly once.
       let testItem = existingItems.get(title);
       const firstEntry = entriesWithTag[0].entry;
+      const entryLocation = firstEntry.location!;
       if (!testItem) {
         // We sort by id in tests, so start with location.
-        testItem = this._testController.createTestItem(this._id(firstEntry.location.file + ':' + firstEntry.location.line + '|' + firstEntry.titlePath.join('|')), firstEntry.title, this._vscode.Uri.file(firstEntry.location.file));
-        (testItem as any)[itemTypeSymbol] = firstEntry.type;
+        testItem = this._testController.createTestItem(this._id(entryLocation.file + ':' + entryLocation.line + '|' + firstEntry.titlePath().slice(3).join('|')), firstEntry.title, this._vscode.Uri.file(entryLocation.file));
+        (testItem as any)[itemTypeSymbol] = 'id' in firstEntry ? 'test' : 'suite';
         collection.add(testItem);
       }
-      if (!testItem.range || testItem.range.start.line + 1 !== firstEntry.location.line) {
-        const line = firstEntry.location.line;
+      if (!testItem.range || testItem.range.start.line + 1 !== entryLocation.line) {
+        const line = entryLocation.line;
         testItem.range = new this._vscode.Range(line - 1, 0, line, 0);
       }
 
@@ -186,10 +188,12 @@ export class TestTree {
       for (const { projectTag, entry } of entriesWithTag) {
         if (!testItem.tags.includes(projectTag))
           testItem.tags = [...testItem.tags, projectTag];
-        if (entry.testId)
-          addTestIdToTreeItem(testItem, entry.testId);
-        for (const child of entry.children || [])
-          childEntries.set(child.title, { entry: child, projectTag });
+        if ('id' in entry) {
+          addTestIdToTreeItem(testItem, entry.id);
+        } else {
+          for (const child of [...entry.suites, ...entry.tests])
+            childEntries.set(child.title, { entry: child, projectTag });
+        }
       }
       itemsToDelete.delete(testItem);
       this._updateTestItems(testItem.children, childEntries);
@@ -229,7 +233,7 @@ export class TestTree {
     return folderItem;
   }
 
-  testItemForLocation(location: Location, titlePath: string[]): vscodeTypes.TestItem | undefined {
+  testItemForLocation(location: reporterTypes.Location, titlePath: string[]): vscodeTypes.TestItem | undefined {
     const fileItem = this._fileItems.get(location.file);
     if (!fileItem)
       return;
