@@ -17,7 +17,7 @@
 import { locatorForSourcePosition, pruneAstCaches } from './babelHighlightUtil';
 import { debugSessionName } from './debugSessionName';
 import { replaceActionWithLocator, locatorMethodRegex } from './methodNames';
-import type { Location } from './oopReporter';
+import type { Location } from './reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import * as vscodeTypes from './vscodeTypes';
 

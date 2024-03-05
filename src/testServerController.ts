@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+import path from 'path';
 import { BackendClient, BackendServer } from './backend';
 import type { ConfigFindRelatedTestFilesReport } from './listTests';
-import type { TestConfig, TestListener } from './playwrightTest';
-import { translateMessage } from './reporterServer';
+import type { TestConfig } from './playwrightTest';
 import type { TestServerEvents, TestServerInterface } from './testServerInterface';
 import type * as vscodeTypes from './vscodeTypes';
+import type * as reporterTypes from './reporter';
+import { TeleReporterReceiver } from './upstream/teleReceiver';
 
 export class TestServerController implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
@@ -96,13 +97,23 @@ class TestServer extends BackendClient implements TestServerInterface, TestServe
     this.close();
   }
 
-  async wireTestListener(listener: TestListener, token: vscodeTypes.CancellationToken) {
+  async wireTestListener(mode: 'test' | 'list', reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
+    const teleReceiver = new TeleReporterReceiver(reporter, {
+      mergeProjects: true,
+      mergeTestCases: true,
+      resolvePath: (rootDir: string, relativePath: string) => this.vscode.Uri.file(path.join(rootDir, relativePath)).fsPath,
+    });
     return new Promise<void>(f => {
-      const reportHandler = (message: any) => translateMessage(this.vscode, message, listener, () => {
-        this.off('report', reportHandler);
-        f();
-      }, token);
-      this.on('report', reportHandler);
+      const handler = (message: any) => {
+        if (token.isCancellationRequested && message.method !== 'onEnd')
+          return;
+        teleReceiver.dispatch(mode, message);
+        if (message.method === 'onEnd') {
+          this.off('report', handler);
+          f();
+        }
+      };
+      this.on('report', handler);
     });
   }
 }
