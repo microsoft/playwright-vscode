@@ -319,8 +319,13 @@ export class Extension implements RunHooks {
       }
     }
 
-    this._settingsView.updateActions();
+    // VS Code has a bug, single profile is not marked as default.
+    if (this._models.length === 1 && this._models[0].allProjects().size === 1) {
+      const project = this._models[0].allProjects().values().next().value as TestProject;
+      project.isEnabled = true;
+    }
 
+    this._settingsView.updateActions();
     this._testTree.finishedLoading();
     await this._updateVisibleEditorItems();
 
@@ -372,11 +377,11 @@ export class Extension implements RunHooks {
     const isDefault = false;
     const supportsContinuousRun = this._settingsModel.allowWatchingFiles.get();
     if (!runProfile)
-      runProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), isDefault, undefined, supportsContinuousRun);
+      runProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), isDefault, project.tag, supportsContinuousRun);
     this._runProfiles.set(keyPrefix + ':run', runProfile);
     let debugProfile = existingProfiles.get(keyPrefix + ':debug');
     if (!debugProfile)
-      debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), isDefault, undefined, supportsContinuousRun);
+      debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), isDefault, project.tag, supportsContinuousRun);
     this._runProfiles.set(keyPrefix + ':debug', debugProfile);
 
     // Run profile has the current isEnabled value as per vscode.
@@ -471,7 +476,8 @@ export class Extension implements RunHooks {
     const enqueuedTests: vscodeTypes.TestItem[] = [];
 
     // Provisionally mark tests (not files and not suits) as enqueued to provide immediate feedback.
-    for (const item of include) {
+    const toEnqueue = include.length ? include : rootItems;
+    for (const item of toEnqueue) {
       for (const test of this._testTree.collectTestsInside(item)) {
         this._testRun.enqueued(test);
         enqueuedTests.push(test);
@@ -586,16 +592,15 @@ located next to Run / Debug Tests toolbar buttons.`);
     const testListener: reporterTypes.ReporterV2 = {
       onBegin: (rootSuite: reporterTypes.Suite) => {
         model.updateFromRunningProjects(rootSuite.suites);
-        const visitTest = (test: reporterTypes.TestCase) => {
-          const testItem = this._testTree.testItemForLocation(test.location, test.titlePath().slice(3));
+        for (const test of rootSuite.allTests()) {
+          const testItem = this._testTree.testItemForTest(test);
           if (testItem)
             testRun.enqueued(testItem);
-        };
-        rootSuite.allTests().forEach(visitTest);
+        }
       },
 
       onTestBegin: (test: reporterTypes.TestCase, result: reporterTypes.TestResult) => {
-        const testItem = this._testTree.testItemForLocation(test.location, test.titlePath().slice(3));
+        const testItem = this._testTree.testItemForTest(test);
         if (testItem) {
           testRun.started(testItem);
           const fullProject = ancestorProject(test);
@@ -616,7 +621,7 @@ located next to Run / Debug Tests toolbar buttons.`);
         this._activeSteps.clear();
         this._executionLinesChanged();
 
-        const testItem = this._testTree.testItemForLocation(test.location, test.titlePath().slice(3));
+        const testItem = this._testTree.testItemForTest(test);
         if (!testItem)
           return;
 

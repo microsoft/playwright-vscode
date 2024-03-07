@@ -210,7 +210,7 @@ export class PlaywrightTest {
 
     {
       // For tests.
-      const relativeLocations = escapedLocations.map(f => path.relative(configFolder, f));
+      const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex).sort();
       this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright test -c ${configFile}${args.length ? ' ' + args.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
     }
     const allArgs = [config.cli, 'test',
