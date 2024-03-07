@@ -158,7 +158,6 @@ class TestItem {
   readonly map = new Map<string, TestItem>();
   range: Range | undefined;
   parent: TestItem | undefined;
-  tags: TestTag[] = [];
   canResolveChildren = false;
 
   constructor(
@@ -216,11 +215,10 @@ class TestItem {
     return result.join('\n');
   }
 
-  innerToString(indent: string, result: string[], options?: { renderTags?: boolean }) {
-    const tags = options?.renderTags ? ' ' + this.tags.map(t => `[${t.name}]`).join('') : '';
-    result.push(`${indent}- ${this.treeTitle()}${tags}`);
+  innerToString(indent: string, result: string[]) {
+    result.push(`${indent}- ${this.treeTitle()}`);
     for (const id of [...this.children.map.keys()].sort())
-      this.children.map.get(id)!.innerToString(indent + '  ', result, options);
+      this.children.map.get(id)!.innerToString(indent + '  ', result);
   }
 
   treeTitle(): string {
@@ -455,10 +453,10 @@ export class TestController {
     return testRun;
   }
 
-  renderTestTree(options?: { renderTags?: boolean }) {
+  renderTestTree() {
     const result: string[] = [''];
     for (const item of this.items.map.values())
-      item.innerToString('    ', result, options);
+      item.innerToString('    ', result);
     result.push('  ');
     return result.join('\n');
   }

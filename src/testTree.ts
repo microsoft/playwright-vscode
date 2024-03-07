@@ -16,12 +16,12 @@
 
 import path from 'path';
 import { MultiMap } from './multimap';
-import { TestModel, TestProject, TestEntry } from './testModel';
+import { TestModel, TestEntry } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './reporter';
 
-type EntriesByTitle = MultiMap<string, { entry: TestEntry, projectTag: vscodeTypes.TestTag }>;
+type EntriesByTitle = MultiMap<string, TestEntry>;
 type EntryType = 'test' | 'suite';
 
 /**
@@ -110,26 +110,18 @@ export class TestTree {
       if (!this._belongsToWorkspace(file))
         continue;
       const fileItem = this.getOrCreateFileItem(file);
-      const signature: string[] = [];
       const entriesByTitle: EntriesByTitle = new MultiMap();
       for (const model of this._models) {
         for (const testProject of model.enabledProjects()) {
-          const testFile = testProject.files.get(file);
-          if (!testFile || !testFile.entries())
+          const fileSuites = testProject.suite.suites;
+          const fileSuite = fileSuites.find(s => s.location!.file === file);
+          if (!fileSuite || !fileSuite.allTests().length)
             continue;
-          const projectTag = this.projectTag(testProject);
-          this._tagFileItem(fileItem, projectTag);
-          signature.push(testProject.testDir + ':' + testProject.name + ':' + testFile.revision());
-          for (const entry of testFile.entries() || [])
-            entriesByTitle.set(entry.title, { entry, projectTag });
+          for (const entry of [...fileSuite.suites, ...fileSuite.tests])
+            entriesByTitle.set(entry.title, entry);
         }
       }
-
-      const signatureText = signature.join('|');
-      if ((fileItem as any)[signatureSymbol] !== signatureText) {
-        (fileItem as any)[signatureSymbol] = signatureText;
-        this._updateTestItems(fileItem.children, entriesByTitle);
-      }
+      this._updateTestItems(fileItem.children, entriesByTitle);
     }
 
     for (const [location, fileItem] of this._fileItems) {
@@ -171,7 +163,7 @@ export class TestTree {
     for (const [title, entriesWithTag] of entriesByTitle) {
       // Process each testItem exactly once.
       let testItem = existingItems.get(title);
-      const firstEntry = entriesWithTag[0].entry;
+      const firstEntry = entriesWithTag[0];
       const entryLocation = firstEntry.location!;
       if (!testItem) {
         // We sort by id in tests, so start with location.
@@ -185,14 +177,12 @@ export class TestTree {
       }
 
       const childEntries: EntriesByTitle = new MultiMap();
-      for (const { projectTag, entry } of entriesWithTag) {
-        if (!testItem.tags.includes(projectTag))
-          testItem.tags = [...testItem.tags, projectTag];
+      for (const entry of entriesWithTag) {
         if ('id' in entry) {
           addTestIdToTreeItem(testItem, entry.id);
         } else {
           for (const child of [...entry.suites, ...entry.tests])
-            childEntries.set(child.title, { entry: child, projectTag });
+            childEntries.set(child.title, child);
         }
       }
       itemsToDelete.delete(testItem);
@@ -251,13 +241,6 @@ export class TestTree {
     return result || fileItem;
   }
 
-  private _tagFileItem(fileItem: vscodeTypes.TestItem, projectTag: vscodeTypes.TestTag) {
-    for (let item: vscodeTypes.TestItem | undefined = fileItem; item; item = item.parent) {
-      if (!item.tags.includes(projectTag))
-        item.tags = [...item.tags, projectTag];
-    }
-  }
-
   getOrCreateFileItem(file: string): vscodeTypes.TestItem {
     const result = this._fileItems.get(file);
     if (result)
@@ -289,15 +272,6 @@ export class TestTree {
   private _id(location: string): string {
     return this._testGeneration + location;
   }
-
-  projectTag(project: TestProject): vscodeTypes.TestTag {
-    let tag = (project as any)[tagSymbol];
-    if (!tag) {
-      tag = new this._vscode.TestTag(project.model.config.configFile + ':' + project.name);
-      (project as any)[tagSymbol] = tag;
-    }
-    return tag;
-  }
 }
 
 function titleMatches(testItem: vscodeTypes.TestItem, titlePath: string[]) {
@@ -322,7 +296,5 @@ function addTestIdToTreeItem(testItem: vscodeTypes.TestItem, testId: string) {
   (testItem as any)[testIdsSymbol] = testIds;
 }
 
-const signatureSymbol = Symbol('signatureSymbol');
 const itemTypeSymbol = Symbol('itemTypeSymbol');
 const testIdsSymbol = Symbol('testIdsSymbol');
-const tagSymbol = Symbol('tagSymbol');

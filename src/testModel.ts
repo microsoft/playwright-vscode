@@ -20,49 +20,15 @@ import * as vscodeTypes from './vscodeTypes';
 import { resolveSourceMap } from './utils';
 import { ProjectConfigWithFiles } from './listTests';
 import * as reporterTypes from './reporter';
+import { TeleSuite } from './upstream/teleReceiver';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
-/**
- * This class builds the Playwright Test model in Playwright terms.
- * - TestModel maps to the Playwright config
- * - TestProject maps to the Playwright project
- * - TestFiles belong to projects and contain test entries.
- *
- * A single test in the source code, and a single test in VS Code UI can correspond to multiple entries
- * in different configs / projects. TestTree will perform model -> UI mapping and will represent
- * them as a single entity.
- */
-export class TestFile {
-  readonly project: TestProject;
-  readonly file: string;
-  private _entries: TestEntry[] | undefined;
-  private _revision = 0;
-
-  constructor(project: TestProject, file: string) {
-    this.project = project;
-    this.file = file;
-  }
-
-  entries(): TestEntry[] | undefined {
-    return this._entries;
-  }
-
-  setEntries(entries: TestEntry[]) {
-    ++this._revision;
-    this._entries = entries;
-  }
-
-  revision(): number {
-    return this._revision;
-  }
-}
-
 export type TestProject = {
-  name: string;
-  testDir: string;
   model: TestModel;
-  files: Map<string, TestFile>;
+  name: string;
+  suite: reporterTypes.Suite;
+  project: reporterTypes.FullProject;
   isEnabled: boolean;
 };
 
@@ -102,7 +68,8 @@ export class TestModel {
   enabledFiles(): string[] {
     const result: string[] = [];
     for (const project of this.enabledProjects()) {
-      for (const file of project.files.keys())
+      const files = projectFiles(project);
+      for (const file of files.keys())
         result.push(file);
     }
     return result;
@@ -140,11 +107,29 @@ export class TestModel {
   }
 
   private _createProject(projectReport: ProjectConfigWithFiles): TestProject {
+    const projectSuite = new TeleSuite(projectReport.name, 'project');
+    projectSuite._project = {
+      dependencies: [],
+      grep: '.*',
+      grepInvert: null,
+      metadata: {},
+      name: projectReport.name,
+      outputDir: '',
+      repeatEach: 0,
+      retries: 0,
+      snapshotDir: '',
+      testDir: projectReport.testDir,
+      testIgnore: [],
+      testMatch: '.*',
+      timeout: 0,
+      use: projectReport.use,
+    };
     const project: TestProject = {
       model: this,
-      ...projectReport,
-      files: new Map(),
-      isEnabled: true,
+      name: projectReport.name,
+      suite: projectSuite,
+      project: projectSuite._project,
+      isEnabled: false,
     };
     this._projects.set(project.name, project);
     return project;
@@ -152,70 +137,35 @@ export class TestModel {
 
   private _updateProject(project: TestProject, projectReport: ProjectConfigWithFiles) {
     const filesToKeep = new Set<string>();
+    const files = projectFiles(project);
     for (const file of projectReport.files) {
       filesToKeep.add(file);
-      const testFile = project.files.get(file);
-      if (!testFile)
-        this._createFile(project, file);
+      const testFile = files.get(file);
+      if (!testFile) {
+        const testFile = new TeleSuite(file, 'file');
+        testFile.location = { file, line: 0, column: 0 };
+        files.set(file, testFile);
+      }
     }
 
-    for (const file of project.files.keys()) {
+    for (const file of files.keys()) {
       if (!filesToKeep.has(file))
-        project.files.delete(file);
+        files.delete(file);
     }
-  }
-
-  private _createFile(project: TestProject, file: string): TestFile {
-    const testFile = new TestFile(project, file);
-    project.files.set(file, testFile);
-    return testFile;
+    project.suite.suites = [...files.values()];
   }
 
   async workspaceChanged(change: WorkspaceChange) {
-    let modelChanged = false;
-    // Translate source maps from files to sources.
-    change.changed = this._mapFilesToSources(change.changed);
-    change.created = this._mapFilesToSources(change.created);
-    change.deleted = this._mapFilesToSources(change.deleted);
+    const testDirs = [...new Set([...this._projects.values()].map(p => p.project.testDir))];
 
-    if (change.deleted.size) {
-      for (const project of this._projects.values()) {
-        for (const file of change.deleted) {
-          if (project.files.has(file)) {
-            project.files.delete(file);
-            modelChanged = true;
-          }
-        }
-      }
-    }
+    const changed = this._mapFilesToSources(testDirs, change.changed);
+    const created = this._mapFilesToSources(testDirs, change.created);
+    const deleted = this._mapFilesToSources(testDirs, change.deleted);
 
-    if (change.created.size) {
-      let hasMatchingFiles = false;
-      for (const project of this._projects.values()) {
-        for (const file of change.created) {
-          if (file.startsWith(project.testDir))
-            hasMatchingFiles = true;
-        }
-      }
-      if (hasMatchingFiles)
-        await this.listFiles();
-    }
-
-    if (change.changed.size) {
-      const filesToLoad = new Set<string>();
-      for (const project of this._projects.values()) {
-        for (const file of change.changed) {
-          const testFile = project.files.get(file);
-          if (!testFile || !testFile.entries())
-            continue;
-          filesToLoad.add(file);
-        }
-      }
-      if (filesToLoad.size)
-        await this.listTests([...filesToLoad]);
-    }
-    if (modelChanged)
-      this._didUpdate.fire();
+    if (created.length || deleted.length)
+      await this.listFiles();
+    if (changed.length)
+      await this.listTests(changed);
   }
 
   async listTests(files: string[]): Promise<reporterTypes.TestError[]> {
@@ -224,23 +174,23 @@ export class TestModel {
     return errors;
   }
 
-  private _updateProjects(projectSuites: reporterTypes.Suite[], requestedFiles: string[]) {
+  private _updateProjects(newProjectSuites: reporterTypes.Suite[], requestedFiles: string[]) {
     for (const [projectName, project] of this._projects) {
-      const projectSuite = projectSuites.find(e => e.project()!.name === projectName);
-      const filesToDelete = new Set(requestedFiles);
-      for (const fileSuite of projectSuite?.suites || []) {
-        filesToDelete.delete(fileSuite.location!.file);
-        const file = project.files.get(fileSuite.location!.file);
-        if (!file)
-          continue;
-        file.setEntries([...fileSuite.suites, ...fileSuite.tests]);
+      const files = projectFiles(project);
+      const newProjectSuite = newProjectSuites.find(e => e.project()!.name === projectName);
+      const filesToClear = new Set(requestedFiles);
+      for (const fileSuite of newProjectSuite?.suites || []) {
+        filesToClear.delete(fileSuite.location!.file);
+        files.set(fileSuite.location!.file, fileSuite);
       }
-      // We requested update for those, but got no entries.
-      for (const file of filesToDelete) {
-        const testFile = project.files.get(file);
-        if (testFile)
-          testFile.setEntries([]);
+      for (const file of filesToClear) {
+        const fileSuite = files.get(file);
+        if (fileSuite) {
+          fileSuite.suites = [];
+          fileSuite.tests = [];
+        }
       }
+      project.suite.suites = [...files.values()];
     }
     this._didUpdate.fire();
   }
@@ -255,15 +205,15 @@ export class TestModel {
 
   private _updateFromRunningProject(project: TestProject, projectSuite: reporterTypes.Suite) {
     // When running tests, don't remove existing entries.
+    const files = projectFiles(project);
     for (const fileSuite of projectSuite.suites) {
       if (!fileSuite.allTests().length)
         continue;
-      let file = project.files.get(fileSuite.location!.file);
-      if (!file)
-        file = this._createFile(project, fileSuite.location!.file);
-      if (!file.entries())
-        file.setEntries([...fileSuite.suites, ...fileSuite.tests]);
+      const existingFileSuite = files.get(fileSuite.location!.file);
+      if (!existingFileSuite || !existingFileSuite.allTests().length)
+        files.set(fileSuite.location!.file, fileSuite);
     }
+    project.suite.suites = [...files.values()];
     this._didUpdate.fire();
   }
 
@@ -274,29 +224,40 @@ export class TestModel {
 
   async debugTests(projects: TestProject[], locations: string[] | null, reporter: reporterTypes.ReporterV2, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     locations = locations || [];
-    await this._playwrightTest.debugTests(this._vscode, this.config, projects.map(p => p.name), projects.map(p => p.testDir), this._envProvider(), locations, reporter, parametrizedTestTitle, token);
+    const testDirs = projects.map(p => p.project.testDir);
+    await this._playwrightTest.debugTests(this._vscode, this.config, projects.map(p => p.name), testDirs, this._envProvider(), locations, reporter, parametrizedTestTitle, token);
   }
 
-  private _mapFilesToSources(files: Set<string>): Set<string> {
+  private _mapFilesToSources(testDirs: string[], files: Set<string>): string[] {
     const result = new Set<string>();
     for (const file of files) {
+      if (!testDirs.some(t => file.startsWith(t + '/')))
+        continue;
       const sources = this._fileToSources.get(file);
       if (sources)
         sources.forEach(f => result.add(f));
       else
         result.add(file);
     }
-    return result;
+    return [...result];
   }
 
   narrowDownFilesToEnabledProjects(fileNames: Set<string>) {
     const result = new Set<string>();
     for (const project of this.enabledProjects()) {
+      const files = projectFiles(project);
       for (const fileName of fileNames) {
-        if (project.files.has(fileName))
+        if (files.has(fileName))
           result.add(fileName);
       }
     }
     return result;
   }
+}
+
+export function projectFiles(project: TestProject): Map<string, reporterTypes.Suite> {
+  const files = new Map<string, reporterTypes.Suite>();
+  for (const fileSuite of project.suite.suites)
+    files.set(fileSuite.location!.file, fileSuite);
+  return files;
 }

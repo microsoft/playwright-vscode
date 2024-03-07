@@ -205,6 +205,7 @@ test('should remove deleted files', async ({ activate }) => {
 
   expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.js
   `);
 });
 

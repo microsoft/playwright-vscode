@@ -92,6 +92,10 @@ export class PlaywrightTest {
       // Override the cli entry point with the one obtained from the config.
       if (result.cliEntryPoint)
         config.cli = result.cliEntryPoint;
+      for (const project of result.projects)
+        project.files = project.files.map(f => this._vscode.Uri.file(f).fsPath);
+      if (result.error?.location)
+        result.error.location.file = this._vscode.Uri.file(result.error.location.file).fsPath;
       return result;
     } catch (error: any) {
       return {
@@ -194,7 +198,7 @@ export class PlaywrightTest {
       return;
     const configFolder = path.dirname(config.configFile);
     const configFile = path.basename(config.configFile);
-    const escapedLocations = locations.map(escapeRegex);
+    const escapedLocations = locations.map(escapeRegex).sort();
     const args = [];
     if (mode === 'list')
       args.push('--list', '--reporter=null');
@@ -206,7 +210,7 @@ export class PlaywrightTest {
 
     {
       // For tests.
-      const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex);
+      const relativeLocations = escapedLocations.map(f => path.relative(configFolder, f));
       this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright test -c ${configFile}${args.length ? ' ' + args.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
     }
     const allArgs = [config.cli, 'test',

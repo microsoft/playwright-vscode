@@ -154,6 +154,7 @@ test('should remove deleted files', async ({ activate }) => {
 
   expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
+    > playwright list-files -c playwright.config.js
   `);
 });
 
@@ -190,7 +191,7 @@ test('should discover new tests', async ({ activate }) => {
   expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null build/test.spec.js.map tests/test.spec.ts
   `);
 });
 

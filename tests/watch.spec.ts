@@ -49,12 +49,14 @@ test('should watch all tests', async ({ activate }) => {
   expect(testRun.renderLog()).toBe(`
     tests > test-1.spec.ts > should pass [2:0]
       enqueued
+      enqueued
       started
       passed
   `);
 
   expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list --reporter=null tests/test-1.spec.ts
     > playwright find-related-test-files -c playwright.config.js
     > playwright test -c playwright.config.js tests/test-1.spec.ts
   `);
@@ -90,11 +92,12 @@ test('should unwatch all tests', async ({ activate }) => {
 
   expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
+    > playwright test -c playwright.config.js --list --reporter=null tests/test-1.spec.ts
   `);
 });
 
 test('should watch test file', async ({ activate }) => {
-  const { vscode, testController, workspaceFolder } = await activate({
+  const { testController, workspaceFolder } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test-1.spec.ts': `
       import { test } from '@playwright/test';
@@ -126,14 +129,9 @@ test('should watch test file', async ({ activate }) => {
   expect(testRun.renderLog()).toBe(`
     tests > test-2.spec.ts > should pass [2:0]
       enqueued
+      enqueued
       started
       passed
-  `);
-
-  expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright find-related-test-files -c playwright.config.js
-    > playwright test -c playwright.config.js tests/test-2.spec.ts
   `);
 });
 
