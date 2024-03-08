@@ -329,7 +329,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     let file;
     for (let i = 1; i < 100; ++i) {
-      file = path.join(project.testDir, `test-${i}.spec.ts`);
+      file = path.join(project.project.testDir, `test-${i}.spec.ts`);
       if (fs.existsSync(file))
         continue;
       break;

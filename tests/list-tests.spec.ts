@@ -592,12 +592,12 @@ test('should merge items from different projects', async ({ activate }, testInfo
 
   await testController.expandTestItems(/test.spec.ts/);
   await testController.expandTestItems(/group/);
-  expect(testController.renderTestTree({ renderTags: true })).toBe(`
-    - test.spec.ts [desktop][mobile][tablet]
-      - group [2:0] [desktop][mobile]
-        - test 1 [3:0] [desktop]
-        - test 2 [@mobile] [4:0] [mobile]
-        - test 3 [@mobile] [5:0] [mobile]
-        - test 4 [6:0] [desktop]
+  expect(testController.renderTestTree()).toBe(`
+    - test.spec.ts
+      - group [2:0]
+        - test 1 [3:0]
+        - test 2 [@mobile] [4:0]
+        - test 3 [@mobile] [5:0]
+        - test 4 [6:0]
   `);
 });

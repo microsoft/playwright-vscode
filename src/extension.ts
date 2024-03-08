@@ -24,7 +24,7 @@ import * as reporterTypes from './reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
-import { TestModel, TestProject } from './testModel';
+import { TestModel, TestProject, projectFiles } from './testModel';
 import { TestTree } from './testTree';
 import { NodeJSNotFoundError, ansiToHtml } from './utils';
 import * as vscodeTypes from './vscodeTypes';
@@ -310,7 +310,7 @@ export class Extension implements RunHooks {
       for (const model of this._models) {
         for (const project of model.allProjects().values()) {
           this._createRunProfile(project, existingProfiles);
-          this._workspaceObserver.addWatchFolder(project.testDir);
+          this._workspaceObserver.addWatchFolder(project.project.testDir);
         }
       }
       for (const [id, profile] of existingProfiles) {
@@ -369,19 +369,31 @@ export class Extension implements RunHooks {
     const projectPrefix = project.name ? `${project.name} — ` : '';
     const keyPrefix = configFile + ':' + project.name;
     let runProfile = existingProfiles.get(keyPrefix + ':run');
-    const projectTag = this._testTree.projectTag(project);
     const isDefault = false;
     const supportsContinuousRun = this._settingsModel.allowWatchingFiles.get();
     if (!runProfile)
-      runProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), isDefault, projectTag, supportsContinuousRun);
+      runProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), isDefault, undefined, supportsContinuousRun);
     this._runProfiles.set(keyPrefix + ':run', runProfile);
     let debugProfile = existingProfiles.get(keyPrefix + ':debug');
     if (!debugProfile)
-      debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), isDefault, projectTag, supportsContinuousRun);
+      debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), isDefault, undefined, supportsContinuousRun);
     this._runProfiles.set(keyPrefix + ':debug', debugProfile);
 
-    runProfile.onDidChangeDefault(enabled => project.model.setProjectEnabled(project, enabled));
-    debugProfile.onDidChangeDefault(enabled => project.model.setProjectEnabled(project, enabled));
+    // Run profile has the current isEnabled value as per vscode.
+    project.isEnabled = runProfile.isDefault;
+
+    runProfile.onDidChangeDefault(enabled => {
+      if (project.isEnabled === enabled)
+        return;
+      project.model.setProjectEnabled(project, enabled);
+      this._updateVisibleEditorItems();
+    });
+    debugProfile.onDidChangeDefault(enabled => {
+      if (project.isEnabled === enabled)
+        return;
+      project.model.setProjectEnabled(project, enabled);
+      this._updateVisibleEditorItems();
+    });
   }
 
   private _scheduleTestRunRequest(configFile: string, projectName: string, isDebug: boolean, request: vscodeTypes.TestRunRequest, cancellationToken?: vscodeTypes.CancellationToken) {
@@ -526,7 +538,8 @@ located next to Run / Debug Tests toolbar buttons.`);
     for (const item of items) {
       const itemFsPath = item.uri!.fsPath;
       const projectsWithFile = projects.filter(project => {
-        for (const file of project.files.keys()) {
+        const files = projectFiles(project);
+        for (const file of files.keys()) {
           if (file.startsWith(itemFsPath))
             return true;
         }

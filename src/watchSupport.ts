@@ -34,7 +34,7 @@ export class WatchSupport {
 
   addToWatch(project: TestProject, include: readonly vscodeTypes.TestItem[] | undefined, cancellationToken: vscodeTypes.CancellationToken) {
     const watch: Watch = {
-      testDirFsPath: this.vscode.Uri.file(project.testDir).fsPath,
+      testDirFsPath: this.vscode.Uri.file(project.project.testDir).fsPath,
       project,
       include,
     };
