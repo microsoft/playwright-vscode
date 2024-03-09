@@ -21,6 +21,7 @@ import { resolveSourceMap } from './utils';
 import { ProjectConfigWithFiles } from './listTests';
 import * as reporterTypes from './reporter';
 import { TeleSuite } from './upstream/teleReceiver';
+import path from 'path';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
@@ -30,6 +31,7 @@ export type TestProject = {
   suite: reporterTypes.Suite;
   project: reporterTypes.FullProject;
   isEnabled: boolean;
+  tag: vscodeTypes.TestTag;
 };
 
 export class TestModel {
@@ -130,6 +132,7 @@ export class TestModel {
       suite: projectSuite,
       project: projectSuite._project,
       isEnabled: false,
+      tag: new this._vscode.TestTag(this.config.configFile + ':' + projectReport.name),
     };
     this._projects.set(project.name, project);
     return project;
@@ -231,7 +234,7 @@ export class TestModel {
   private _mapFilesToSources(testDirs: string[], files: Set<string>): string[] {
     const result = new Set<string>();
     for (const file of files) {
-      if (!testDirs.some(t => file.startsWith(t + '/')))
+      if (!testDirs.some(t => file.startsWith(t + path.sep)))
         continue;
       const sources = this._fileToSources.get(file);
       if (sources)

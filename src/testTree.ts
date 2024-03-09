@@ -15,14 +15,12 @@
  */
 
 import path from 'path';
-import { MultiMap } from './multimap';
-import { TestModel, TestEntry } from './testModel';
+import { TestModel } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './reporter';
-
-type EntriesByTitle = MultiMap<string, TestEntry>;
-type EntryType = 'test' | 'suite';
+import * as upstream from './upstream/testTree';
+import { TeleSuite } from './upstream/teleReceiver';
 
 /**
  * This class maps a collection of TestModels into the UI terms, it merges
@@ -37,13 +35,13 @@ export class TestTree {
 
   // Global test item map location => fileItem that are files.
   private _rootItems = new Map<string, vscodeTypes.TestItem>();
-  private _folderItems = new Map<string, vscodeTypes.TestItem>();
-  private _fileItems = new Map<string, vscodeTypes.TestItem>();
 
   private _testController: vscodeTypes.TestController;
   private _models: TestModel[] = [];
   private _disposables: vscodeTypes.Disposable[] = [];
   private _loadingItem: vscodeTypes.TestItem;
+  private _testItemByTestId = new Map<string, vscodeTypes.TestItem>();
+  private _testItemByFile = new Map<string, vscodeTypes.TestItem>();
 
   constructor(vscode: vscodeTypes.VSCode, testController: vscodeTypes.TestController) {
     this._vscode = vscode;
@@ -56,9 +54,9 @@ export class TestTree {
     this._disposables = [];
     this._models = [];
     this._testGeneration = createGuid() + ':';
-    this._fileItems.clear();
-    this._folderItems.clear();
     this._testController.items.replace([]);
+    this._testItemByTestId.clear();
+    this._testItemByFile.clear();
 
     if (!this._vscode.workspace.workspaceFolders?.length)
       return;
@@ -92,8 +90,8 @@ export class TestTree {
   collectTestsInside(rootItem: vscodeTypes.TestItem): vscodeTypes.TestItem[] {
     const result: vscodeTypes.TestItem[] = [];
     const visitItem = (testItem: vscodeTypes.TestItem) => {
-      const entryType = (testItem as any)[itemTypeSymbol] as EntryType;
-      if (entryType === 'test')
+      const testId = (testItem as any)[testIdSymbol];
+      if (testId)
         result.push(testItem);
       else
         testItem.children.forEach(visitItem);
@@ -103,104 +101,111 @@ export class TestTree {
   }
 
   private _update() {
-    const allFiles = new Set<string>();
-    for (const model of this._models)
-      model.enabledFiles().forEach(f => allFiles.add(f));
-    for (const file of allFiles) {
-      if (!this._belongsToWorkspace(file))
-        continue;
-      const fileItem = this.getOrCreateFileItem(file);
-      const entriesByTitle: EntriesByTitle = new MultiMap();
-      for (const model of this._models) {
-        for (const testProject of model.enabledProjects()) {
-          const fileSuites = testProject.suite.suites;
-          const fileSuite = fileSuites.find(s => s.location!.file === file);
-          if (!fileSuite || !fileSuite.allTests().length)
-            continue;
-          for (const entry of [...fileSuite.suites, ...fileSuite.tests])
-            entriesByTitle.set(entry.title, entry);
+    for (const [workspaceFolder, workspaceRootItem] of this._rootItems) {
+      const rootSuite = new TeleSuite('', 'root');
+      const projectTags = new Map<reporterTypes.FullProject, vscodeTypes.TestTag>();
+      for (const model of this._models.filter(m => m.config.workspaceFolder === workspaceFolder)) {
+        for (const project of model.enabledProjects()) {
+          projectTags.set(project.project, project.tag);
+          rootSuite.suites.push(project.suite as TeleSuite);
         }
       }
-      this._updateTestItems(fileItem.children, entriesByTitle);
+      const upstreamTree = new upstream.TestTree(workspaceFolder, rootSuite, [], undefined, path.sep);
+      upstreamTree.sortAndPropagateStatus();
+      upstreamTree.flattenForSingleProject();
+      this._syncSuite(upstreamTree.rootItem, workspaceRootItem, projectTags);
     }
-
-    for (const [location, fileItem] of this._fileItems) {
-      if (!allFiles.has(location))
-        this._removeEmptyFileIfNeeded(location, fileItem);
-    }
+    this._propagateTagsToGroups();
+    this._indexTree();
   }
 
-  private _removeEmptyFileIfNeeded(location: string, fileItem: vscodeTypes.TestItem) {
-    this._fileItems.delete(location);
-    fileItem.parent?.children.delete(fileItem.id);
-    if (fileItem.parent && !fileItem.parent?.children.size)
-      this._removeEmptyFolderIfNeeded(path.dirname(location), fileItem.parent);
-  }
+  private _syncSuite(uItem: upstream.TreeItem, vsItem: vscodeTypes.TestItem, projectTags: Map<reporterTypes.FullProject, vscodeTypes.TestTag>) {
+    const uChildren = uItem.children;
+    const vsChildren = vsItem.children;
+    const uChildrenById = new Map(uChildren.map(c => [c.id, c]));
+    const vsChildrenById = new Map<string, vscodeTypes.TestItem>();
+    vsChildren.forEach(c => {
+      if (c.id.startsWith(this._testGeneration))
+        vsChildrenById.set(c.id.substring(this._testGeneration.length), c);
+    });
 
-  private _removeEmptyFolderIfNeeded(location: string, folderItem: vscodeTypes.TestItem) {
-    if (this._rootItems.has(location))
-      return;
-    this._folderItems.delete(location);
-    const children = folderItem.parent?.children || this._testController.items;
-    children.delete(folderItem.id);
-    if (folderItem.parent && !children.size)
-      this._removeEmptyFolderIfNeeded(path.dirname(location), folderItem.parent);
-  }
-
-  private _belongsToWorkspace(file: string) {
-    for (const workspaceFolder of this._vscode.workspace.workspaceFolders || []) {
-      if (file.startsWith(workspaceFolder.uri.fsPath))
-        return true;
-    }
-    return false;
-  }
-
-  private _updateTestItems(collection: vscodeTypes.TestItemCollection, entriesByTitle: EntriesByTitle) {
-    const existingItems = new Map<string, vscodeTypes.TestItem>();
-    collection.forEach(test => existingItems.set(test.label, test));
-    const itemsToDelete = new Set<vscodeTypes.TestItem>(existingItems.values());
-
-    for (const [title, entriesWithTag] of entriesByTitle) {
-      // Process each testItem exactly once.
-      let testItem = existingItems.get(title);
-      const firstEntry = entriesWithTag[0];
-      const entryLocation = firstEntry.location!;
-      if (!testItem) {
-        // We sort by id in tests, so start with location.
-        testItem = this._testController.createTestItem(this._id(entryLocation.file + ':' + entryLocation.line + '|' + firstEntry.titlePath().slice(3).join('|')), firstEntry.title, this._vscode.Uri.file(entryLocation.file));
-        (testItem as any)[itemTypeSymbol] = 'id' in firstEntry ? 'test' : 'suite';
-        collection.add(testItem);
+    // Remove deleted children.
+    for (const id of vsChildrenById.keys()) {
+      if (!uChildrenById.has(id)) {
+        vsChildren.delete(this._idWithGeneration(id));
+        vsChildrenById.delete(id);
       }
-      if (!testItem.range || testItem.range.start.line + 1 !== entryLocation.line) {
-        const line = entryLocation.line;
-        testItem.range = new this._vscode.Range(line - 1, 0, line, 0);
-      }
+    }
 
-      const childEntries: EntriesByTitle = new MultiMap();
-      for (const entry of entriesWithTag) {
-        if ('id' in entry) {
-          addTestIdToTreeItem(testItem, entry.id);
-        } else {
-          for (const child of [...entry.suites, ...entry.tests])
-            childEntries.set(child.title, child);
+    // Add new children.
+    for (const [id, uChild] of uChildrenById) {
+      let vsChild = vsChildrenById.get(id);
+      if (!vsChild) {
+        vsChild = this._testController.createTestItem(this._idWithGeneration(id), uChild.title, this._vscode.Uri.file(uChild.location.file));
+        // Allow lazy-populating file items created via listFiles.
+        if (uChild.kind === 'group' && uChild.subKind === 'file' && !uChild.children.length)
+          vsChild.canResolveChildren = true;
+        // Every test must have its project tag for VSCode to function.
+        if ('project' in uChild && uChild.project)
+          vsChild.tags = [projectTags.get(uChild.project)!];
+        if (uChild.kind === 'case' || uChild.kind === 'test') {
+          if (uChild.test)
+            (vsChild as any)[testIdSymbol] = uChild.test.id;
         }
+        vsChildrenById.set(id, vsChild);
+        vsChildren.add(vsChild);
       }
-      itemsToDelete.delete(testItem);
-      this._updateTestItems(testItem.children, childEntries);
+      const hasLocation = uChild.location.line || uChild.location.column;
+      if (hasLocation && (!vsChild.range || vsChild.range.start.line + 1 !== uChild.location.line)) {
+        const line = uChild.location.line;
+        vsChild.range = new this._vscode.Range(Math.max(line - 1, 0), 0, line, 0);
+      } else if (hasLocation && !vsChild.range) {
+        vsChild.range = undefined;
+      }
     }
 
-    for (const testItem of itemsToDelete)
-      collection.delete(testItem.id);
+    // Sync children.
+    for (const [id, uChild] of uChildrenById) {
+      const vsChild = vsChildrenById.get(id);
+      this._syncSuite(uChild, vsChild!, projectTags);
+    }
   }
 
-  testIdsForTreeItem(treeItem: vscodeTypes.TreeItem) {
-    const set = (treeItem as any)[testIdsSymbol];
-    return set ? [...set] : [];
+  private _propagateTagsToGroups() {
+    const visit = (item: vscodeTypes.TestItem) => {
+      const tags = new Set<vscodeTypes.TestTag>(item.tags);
+      for (const [, child] of item.children)
+        visit(child);
+      for (const [,child] of item.children) {
+        for (const tag of child.tags)
+          tags.add(tag);
+      }
+      item.tags = [...tags];
+    };
+    for (const item of this._rootItems.values())
+      visit(item);
+  }
+
+  private _indexTree() {
+    this._testItemByTestId.clear();
+    this._testItemByFile.clear();
+    const visit = (item: vscodeTypes.TestItem) => {
+      if ((item as any)[testIdSymbol]) {
+        const testId = (item as any)[testIdSymbol];
+        this._testItemByTestId.set(testId, item);
+      }
+      for (const [, child] of item.children)
+        visit(child);
+      if (item.uri && !item.range)
+        this._testItemByFile.set(item.uri.fsPath, item);
+    };
+    for (const item of this._rootItems.values())
+      visit(item);
   }
 
   private _createInlineRootItem(uri: vscodeTypes.Uri): vscodeTypes.TestItem {
     const testItem: vscodeTypes.TestItem = {
-      id: this._id(uri.fsPath),
+      id: this._idWithGeneration(uri.fsPath),
       uri: uri,
       children: this._testController.items,
       parent: undefined,
@@ -211,90 +216,27 @@ export class TestTree {
       range: undefined,
       error: undefined,
     };
-    this._folderItems.set(uri.fsPath, testItem);
     this._rootItems.set(uri.fsPath, testItem);
     return testItem;
   }
 
   private _createRootFolderItem(folder: string): vscodeTypes.TestItem {
-    const folderItem = this._testController.createTestItem(this._id(folder), path.basename(folder), this._vscode.Uri.file(folder));
-    this._folderItems.set(folder, folderItem);
+    const folderItem = this._testController.createTestItem(this._idWithGeneration(folder), path.basename(folder), this._vscode.Uri.file(folder));
     this._rootItems.set(folder, folderItem);
     return folderItem;
   }
 
-  testItemForLocation(location: reporterTypes.Location, titlePath: string[]): vscodeTypes.TestItem | undefined {
-    const fileItem = this._fileItems.get(location.file);
-    if (!fileItem)
-      return;
-    let result: vscodeTypes.TestItem | undefined;
-    const visitItem = (testItem: vscodeTypes.TestItem) => {
-      if (result)
-        return;
-      if (titleMatches(testItem, titlePath) && testItem.range?.start.line === location.line - 1) {
-        result = testItem;
-        return;
-      }
-      testItem.children.forEach(visitItem);
-    };
-    fileItem.children.forEach(visitItem);
-    return result || fileItem;
+  testItemForTest(test: reporterTypes.TestCase): vscodeTypes.TestItem | undefined {
+    return this._testItemByTestId.get(test.id);
   }
 
-  getOrCreateFileItem(file: string): vscodeTypes.TestItem {
-    const result = this._fileItems.get(file);
-    if (result)
-      return result;
-
-    const parentFile = path.dirname(file);
-    const parentItem = this.getOrCreateFolderItem(parentFile);
-    const fileItem = this._testController.createTestItem(this._id(file), path.basename(file), this._vscode.Uri.file(file));
-    fileItem.canResolveChildren = true;
-    this._fileItems.set(file, fileItem);
-
-    parentItem.children.add(fileItem);
-    return fileItem;
+  testItemForFile(file: string): vscodeTypes.TestItem | undefined {
+    return this._testItemByFile.get(file);
   }
 
-  getOrCreateFolderItem(folder: string): vscodeTypes.TestItem {
-    const result = this._folderItems.get(folder);
-    if (result)
-      return result;
-
-    const parentFolder = path.dirname(folder);
-    const parentItem = this.getOrCreateFolderItem(parentFolder);
-    const folderItem = this._testController.createTestItem(this._id(folder), path.basename(folder), this._vscode.Uri.file(folder));
-    this._folderItems.set(folder, folderItem);
-    parentItem.children.add(folderItem);
-    return folderItem;
-  }
-
-  private _id(location: string): string {
-    return this._testGeneration + location;
+  private _idWithGeneration(id: string): string {
+    return this._testGeneration + id;
   }
 }
 
-function titleMatches(testItem: vscodeTypes.TestItem, titlePath: string[]) {
-  const left: vscodeTypes.TestItem['label'][] = [];
-  while (testItem) {
-    left.unshift(testItem.label);
-    testItem = testItem.parent!;
-  }
-  const right = titlePath.slice();
-  while (right.length) {
-    const leftPart = left.pop();
-    const rightPart = right.pop();
-    if (leftPart !== rightPart)
-      return false;
-  }
-  return true;
-}
-
-function addTestIdToTreeItem(testItem: vscodeTypes.TestItem, testId: string) {
-  const testIds = (testItem as any)[testIdsSymbol] || new Set<string>();
-  testIds.add(testId);
-  (testItem as any)[testIdsSymbol] = testIds;
-}
-
-const itemTypeSymbol = Symbol('itemTypeSymbol');
-const testIdsSymbol = Symbol('testIdsSymbol');
+const testIdSymbol = Symbol('testId');

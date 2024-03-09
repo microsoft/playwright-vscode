@@ -171,6 +171,10 @@ class TestItem {
     return this.map.size;
   }
 
+  [Symbol.iterator](): Iterator<[string, TestItem]> {
+    return this.map[Symbol.iterator]();
+  }
+
   async expand() {
     if (this.canResolveChildren)
       await this.testController.resolveHandler(this);
@@ -217,7 +221,7 @@ class TestItem {
 
   innerToString(indent: string, result: string[]) {
     result.push(`${indent}- ${this.treeTitle()}`);
-    for (const id of [...this.children.map.keys()].sort())
+    for (const id of this.children.map.keys())
       this.children.map.get(id)!.innerToString(indent + '  ', result);
   }
 

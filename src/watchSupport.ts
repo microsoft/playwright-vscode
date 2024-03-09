@@ -77,7 +77,9 @@ export class WatchSupport {
       for (const testFile of testFiles) {
         if (!watch.include) {
           // Everything is watched => add file.
-          matchingWatches.set(watch, this.testTree.getOrCreateFileItem(testFile));
+          const item = this.testTree.testItemForFile(testFile);
+          if (item)
+            matchingWatches.set(watch, item);
           continue;
         }
         for (const include of watch.include) {
@@ -85,7 +87,9 @@ export class WatchSupport {
             continue;
           // Folder is watched => add file.
           if (testFile.startsWith(include.uri.fsPath + '/')) {
-            matchingWatches.set(watch, this.testTree.getOrCreateFileItem(testFile));
+            const item = this.testTree.testItemForFile(testFile);
+            if (item)
+              matchingWatches.set(watch, item);
             continue;
           }
           // File or a test is watched, use that include as it might be more specific (test)

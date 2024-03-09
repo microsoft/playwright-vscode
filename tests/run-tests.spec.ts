@@ -15,7 +15,7 @@
  */
 
 import { expect, test } from './utils';
-import { TestRun } from './mock/vscode';
+import { TestRun, TestRunProfileKind } from './mock/vscode';
 import fs from 'fs';
 
 test('should run all tests', async ({ activate }) => {
@@ -753,10 +753,12 @@ test('should report project-specific failures', async ({ activate }) => {
     `,
   });
 
-  const profile = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
+  const profiles = testController.runProfilesByKind(TestRunProfileKind.Run);
+  profiles.forEach(p => p.isDefault = true);
+
   const [testRun] = await Promise.all([
     new Promise<TestRun>(f => testController.onDidCreateTestRun(f)),
-    ...profile.map(p => p.run()),
+    ...profiles.map(p => p.run()),
   ]);
 
   expect(vscode).toHaveExecLog(`
@@ -765,9 +767,7 @@ test('should report project-specific failures', async ({ activate }) => {
   `);
 
   expect(testRun.renderLog({ messages: true })).toBe(`
-    tests > test.spec.ts > should pass [2:0]
-      enqueued
-      enqueued
+    tests > test.spec.ts > should pass > projectA [2:0]
       enqueued
       started
       failed
@@ -775,12 +775,16 @@ test('should report project-specific failures', async ({ activate }) => {
         Error: projectA
         <br>
             at tests/test.spec.ts:4:15
+    tests > test.spec.ts > should pass > projectB [2:0]
+      enqueued
       started
       failed
         test.spec.ts:[3:14 - 3:14]
         Error: projectB
         <br>
             at tests/test.spec.ts:4:15
+    tests > test.spec.ts > should pass > projectC [2:0]
+      enqueued
       started
       failed
         test.spec.ts:[3:14 - 3:14]
