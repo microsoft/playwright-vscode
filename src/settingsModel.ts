@@ -14,20 +14,38 @@
  * limitations under the License.
  */
 
+import { DisposableBase } from './disposableBase';
 import * as vscodeTypes from './vscodeTypes';
 
-export class SettingsModel implements vscodeTypes.Disposable {
+export type ProjectSettings = {
+  name: string;
+  enabled: boolean;
+};
+
+export type ConfigSettings = {
+  relativeConfigFile: string;
+  projects: ProjectSettings[];
+  enabled: boolean;
+  selected: boolean;
+};
+
+export type WorkspaceSettings = {
+  configs?: ConfigSettings[];
+};
+
+export class SettingsModel extends DisposableBase {
   private _vscode: vscodeTypes.VSCode;
   private _settings = new Map<string, Setting<any>>();
   readonly onChange: vscodeTypes.Event<void>;
   private _onChange: vscodeTypes.EventEmitter<void>;
-  private _disposables: vscodeTypes.Disposable[] = [];
   showBrowser: Setting<boolean>;
   showTrace: Setting<boolean>;
   useTestServer: Setting<boolean>;
   allowWatchingFiles: Setting<boolean>;
+  workspaceSettings: Setting<WorkspaceSettings>;
 
   constructor(vscode: vscodeTypes.VSCode) {
+    super();
     this._vscode = vscode;
     this._onChange = new vscode.EventEmitter();
     this.onChange = this._onChange.event;
@@ -36,6 +54,7 @@ export class SettingsModel implements vscodeTypes.Disposable {
     this.showTrace = this._createSetting('showTrace');
     this.useTestServer = this._createSetting('useTestServer');
     this.allowWatchingFiles = this._createSetting('allowWatchingFiles');
+    this.workspaceSettings = this._createSetting('workspaceSettings', true);
 
     this.showBrowser.onChange(enabled => {
       if (enabled && this.showTrace.get())
@@ -47,8 +66,8 @@ export class SettingsModel implements vscodeTypes.Disposable {
     });
   }
 
-  private _createSetting<T>(settingName: string): Setting<T> {
-    const setting = new Setting<T>(this._vscode, settingName);
+  private _createSetting<T>(settingName: string, perWorkspace = false): Setting<T> {
+    const setting = new Setting<T>(this._vscode, settingName, perWorkspace);
     this._disposables.push(setting);
     this._disposables.push(setting.onChange(() => this._onChange.fire()));
     this._settings.set(settingName, setting);
@@ -61,24 +80,20 @@ export class SettingsModel implements vscodeTypes.Disposable {
       result[key] = setting.get();
     return result;
   }
-
-  dispose() {
-    for (const d of this._disposables.values())
-      d.dispose();
-    this._disposables = [];
-  }
 }
 
-export class Setting<T> implements vscodeTypes.Disposable {
+export class Setting<T> extends DisposableBase {
   readonly settingName: string;
   readonly onChange: vscodeTypes.Event<T>;
   private _onChange: vscodeTypes.EventEmitter<T>;
   private _vscode: vscodeTypes.VSCode;
-  private _disposables: vscodeTypes.Disposable[];
+  private _perWorkspace: boolean;
 
-  constructor(vscode: vscodeTypes.VSCode, settingName: string) {
+  constructor(vscode: vscodeTypes.VSCode, settingName: string, perWorkspace: boolean) {
+    super();
     this._vscode = vscode;
     this.settingName = settingName;
+    this._perWorkspace = perWorkspace;
     this._onChange = new vscode.EventEmitter<T>();
     this.onChange = this._onChange.event;
 
@@ -101,15 +116,16 @@ export class Setting<T> implements vscodeTypes.Disposable {
 
   async set(value: T) {
     const configuration = this._vscode.workspace.getConfiguration('playwright');
+    if (this._perWorkspace) {
+      // These are not dispatched :shrug:
+      configuration.update(this.settingName, value, false);
+      this._onChange.fire(value);
+      return;
+    }
     const existsInWorkspace = configuration.inspect(this.settingName)?.workspaceValue !== undefined;
     if (existsInWorkspace)
       configuration.update(this.settingName, value, false);
+    // Intentionally fall through.
     configuration.update(this.settingName, value, true);
-  }
-
-  dispose() {
-    for (const disposable of this._disposables)
-      disposable.dispose();
-    this._disposables = [];
   }
 }

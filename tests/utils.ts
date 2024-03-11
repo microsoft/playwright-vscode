@@ -64,6 +64,18 @@ export const expect = baseExpect.extend({
         message: () => e.toString()
       };
     }
+  },
+
+  async toHaveProjectTree(vscode: VSCode, expectedTree: string) {
+    try {
+      await expect.poll(() => vscode.renderProjectTree().then(s => s.trim().replace(/\\/, '/'))).toBe(expectedTree.trim());
+      return { pass: true, message: () => '' };
+    } catch (e) {
+      return {
+        pass: false,
+        message: () => e.toString()
+      };
+    }
   }
 });
 
@@ -126,4 +138,40 @@ export async function waitForPage(browser: Browser) {
     return pages.length;
   }).toBeTruthy();
   return pages[0];
+}
+
+export async function enableConfigs(vscode: VSCode, labels: string[]) {
+  let success = false;
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  while (!success) {
+    vscode.window.mockQuickPick = async items => {
+      let allFound = true;
+      for (const label of labels) {
+        if (!items.find(i => i.label === label))
+          allFound = false;
+      }
+      // Wait for all the selected options to become available, discard.
+      if (!allFound) {
+        await new Promise(f => setTimeout(f, 100));
+        return undefined;
+      }
+      success = true;
+      return items.filter(i => labels.includes(i.label));
+    };
+    await webView.getByTitle('Toggle Playwright Configs').click();
+  }
+}
+
+export async function selectConfig(vscode: VSCode, label: string) {
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await webView.locator('select').selectOption({ label });
+}
+
+export async function enableProjects(vscode: VSCode, projects: string[]) {
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  const projectLocators = await webView.getByTestId('projects').locator('div').locator('label').all();
+  for (const projectLocator of projectLocators) {
+    const name = await projectLocator.textContent();
+    await projectLocator.locator('input').setChecked(projects.includes(name!));
+  }
 }

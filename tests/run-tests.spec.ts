@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-import { expect, test } from './utils';
-import { TestRun, TestRunProfileKind } from './mock/vscode';
+import { enableConfigs, enableProjects, expect, selectConfig, test } from './utils';
+import { TestRun } from './mock/vscode';
 import fs from 'fs';
+import path from 'path';
 
 test('should run all tests', async ({ activate }) => {
   const { vscode, testController } = await activate({
@@ -287,15 +288,16 @@ test('should only create test run if file belongs to context', async ({ activate
     `,
   });
 
-  const profiles = testController.runProfilesByKind(vscode.TestRunProfileKind.Run);
-  profiles.forEach(p => p.isDefault = true);
+  const profile = testController.runProfile();
+  await enableConfigs(vscode, [`tests1${path.sep}playwright.config.js`, `tests2${path.sep}playwright.config.js`]);
+
   let testRuns: TestRun[] = [];
   testController.onDidCreateTestRun(run => testRuns.push(run));
 
   {
     testRuns = [];
     const items = testController.findTestItems(/test1.spec/);
-    await Promise.all(profiles.map(p => p.run(items)));
+    await profile.run(items);
     expect(testRuns).toHaveLength(1);
   }
 
@@ -308,7 +310,7 @@ test('should only create test run if file belongs to context', async ({ activate
   {
     testRuns = [];
     const items = testController.findTestItems(/test2.spec/);
-    await Promise.all(profiles.map(p => p.run(items)));
+    await profile.run(items);
     expect(testRuns).toHaveLength(1);
   }
 
@@ -334,12 +336,22 @@ test('should only create test run if folder belongs to context', async ({ activa
     `,
   });
 
-  const profiles = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
-  const testRuns: TestRun[] = [];
-  testController.onDidCreateTestRun(run => testRuns.push(run));
+  await enableConfigs(vscode, [`tests1${path.sep}playwright.config.js`, `tests2${path.sep}playwright.config.js`]);
+
+  await expect(testController).toHaveTestTree(`
+    - tests1
+      - foo1
+        - bar1
+          - test1.spec.ts
+    - tests2
+      - foo2
+        - bar2
+          - test2.spec.ts
+  `);
+
+  const profile = testController.runProfile();
   const items = testController.findTestItems(/foo1/);
-  await Promise.all(profiles.map(p => p.run(items)));
-  expect(testRuns).toHaveLength(1);
+  await profile.run(items);
 
   expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
@@ -363,8 +375,9 @@ test('should run all projects at once', async ({ activate }) => {
     `,
   });
 
-  const profiles = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
-  await Promise.all(profiles.map(p => p.run()));
+  await enableProjects(vscode, ['projectOne', 'projectTwo']);
+  const profile = testController.runProfile();
+  await profile.run();
 
   expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
@@ -396,20 +409,43 @@ test('should group projects by config', async ({ activate }) => {
     `,
   });
 
-  const profiles = testController.runProfiles.filter(p => p.kind === vscode.TestRunProfileKind.Run);
-  await Promise.all(profiles.map(p => p.run()));
+  await enableConfigs(vscode, [`tests1${path.sep}playwright.config.js`, `tests2${path.sep}playwright.config.js`]);
+  await enableProjects(vscode, ['projectOne', 'projectTwo']);
+  await expect(vscode).toHaveProjectTree(`
+    config: tests1/playwright.config.js
+    [x] projectOne
+    [x] projectTwo
+  `);
 
-  expect(vscode).toHaveExecLog(`
+  await selectConfig(vscode, `tests2${path.sep}playwright.config.js`);
+  await expect(vscode).toHaveProjectTree(`
+    config: tests2/playwright.config.js
+    [x] projectOne
+    [ ] projectTwo
+  `);
+
+  await enableProjects(vscode, ['projectOne', 'projectTwo']);
+  await expect(vscode).toHaveProjectTree(`
+    config: tests2/playwright.config.js
+    [x] projectOne
+    [x] projectTwo
+  `);
+
+  await testController.runProfile().run();
+
+  await expect(() => {
+    expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
     tests1> playwright test -c playwright.config.js --project=projectOne --project=projectTwo
     tests2> playwright test -c playwright.config.js --project=projectOne --project=projectTwo
   `);
+  }).toPass();
 });
 
 test('should stop', async ({ activate, showBrowser }) => {
   test.fixme(showBrowser, 'Times out');
-  const { vscode, testController } = await activate({
+  const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
@@ -420,7 +456,7 @@ test('should stop', async ({ activate, showBrowser }) => {
     `,
   });
 
-  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run)!;
+  const profile = testController.runProfile();
   const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
   const runPromise = profile.run();
   const testRun = await testRunPromise;
@@ -434,7 +470,7 @@ test('should stop', async ({ activate, showBrowser }) => {
 });
 
 test('should tear down on stop', async ({ activate }) => {
-  const { vscode, testController } = await activate({
+  const { testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: 'tests',
       globalSetup: './globalSetup.js',
@@ -456,7 +492,7 @@ test('should tear down on stop', async ({ activate }) => {
     `,
   });
 
-  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run)!;
+  const profile = testController.runProfile();
   const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
   const runPromise = profile.run();
   const testRun = await testRunPromise;
@@ -713,27 +749,6 @@ test('should filter selected project', async ({ activate }) => {
   `);
 });
 
-test('should run tests concurrently', async ({ activate }) => {
-  const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
-    'tests/test-1.spec.ts': `
-      import { test } from '@playwright/test';
-      test('should pass', async () => {});
-    `,
-  });
-
-  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Run)!;
-  const runs: any[] = [];
-  testController.onDidCreateTestRun(run => runs.push(run));
-  await Promise.all([profile.run(), profile.run(), profile.run()]);
-  expect(runs).toHaveLength(1);
-
-  expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js
-  `);
-});
-
 test('should report project-specific failures', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
@@ -753,20 +768,18 @@ test('should report project-specific failures', async ({ activate }) => {
     `,
   });
 
-  const profiles = testController.runProfilesByKind(TestRunProfileKind.Run);
-  profiles.forEach(p => p.isDefault = true);
-
-  const [testRun] = await Promise.all([
-    new Promise<TestRun>(f => testController.onDidCreateTestRun(f)),
-    ...profiles.map(p => p.run()),
-  ]);
+  await enableProjects(vscode, ['projectA', 'projectB', 'projectC']);
+  const profile = testController.runProfile();
+  const testRuns: TestRun[] = [];
+  testController.onDidCreateTestRun(run => testRuns.push(run));
+  await profile.run();
 
   expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --project=projectA --project=projectB --project=projectC
   `);
 
-  expect(testRun.renderLog({ messages: true })).toBe(`
+  expect(testRuns[0].renderLog({ messages: true })).toBe(`
     tests > test.spec.ts > should pass > projectA [2:0]
       enqueued
       started

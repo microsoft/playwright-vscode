@@ -24,7 +24,7 @@ import { TeleReporterReceiver } from './upstream/teleReceiver';
 
 export class TestServerController implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
-  private _instancePromise: Promise<TestServer | null> | undefined;
+  private _instancePromises = new Map<string, Promise<TestServer | null>>();
   private _envProvider: () => NodeJS.ProcessEnv;
 
   constructor(vscode: vscodeTypes.VSCode, envProvider: () => NodeJS.ProcessEnv) {
@@ -33,10 +33,19 @@ export class TestServerController implements vscodeTypes.Disposable {
   }
 
   async testServerFor(config: TestConfig): Promise<TestServer | null> {
-    if (this._instancePromise)
-      return this._instancePromise;
-    this._instancePromise = this._createTestServer(config);
-    return this._instancePromise;
+    let instancePromise = this._instancePromises.get(config.configFile);
+    if (instancePromise)
+      return instancePromise;
+    instancePromise = this._createTestServer(config);
+    this._instancePromises.set(config.configFile, instancePromise);
+    return instancePromise;
+  }
+
+  disposeTestServerFor(configFile: string) {
+    const result = this._instancePromises.get(configFile);
+    this._instancePromises.delete(configFile);
+    if (result)
+      result.then(server => server?.closeGracefully());
   }
 
   private async _createTestServer(config: TestConfig): Promise<TestServer | null> {
@@ -58,13 +67,8 @@ export class TestServerController implements vscodeTypes.Disposable {
   }
 
   dispose() {
-    this.reset();
-  }
-
-  reset() {
-    if (this._instancePromise)
-      this._instancePromise.then(server => server?.closeGracefully());
-    this._instancePromise = undefined;
+    for (const instancePromise of this._instancePromises.values())
+      instancePromise.then(server => server?.closeGracefully());
   }
 }
 

@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-import { expect, test } from './utils';
+import { enableConfigs, enableProjects, expect, test } from './utils';
 import fs from 'fs';
+import path from 'path';
 
 test('should list tests on expand', async ({ activate }) => {
   const { vscode, testController } = await activate({
@@ -404,9 +405,14 @@ test('should support multiple configs', async ({ activate }) => {
     `,
   });
 
-  const runProfiles = testController.runProfilesByKind(vscode.TestRunProfileKind.Run);
-  runProfiles[0].isDefault = true;
-  runProfiles[1].isDefault = true;
+  await enableConfigs(vscode, [`tests1${path.sep}playwright.config.js`, `tests2${path.sep}playwright.config.js`]);
+
+  await expect(testController).toHaveTestTree(`
+    - tests1
+      - test.spec.ts
+    - tests2
+      - test.spec.ts
+  `);
 
   await testController.expandTestItems(/test.spec/);
 
@@ -446,9 +452,13 @@ test('should support multiple projects', async ({ activate }) => {
     `,
   });
 
-  const runProfiles = testController.runProfilesByKind(vscode.TestRunProfileKind.Run);
-  runProfiles[0].isDefault = true;
-  runProfiles[1].isDefault = true;
+  await enableProjects(vscode, ['project 1', 'project 2']);
+
+  await expect(testController).toHaveTestTree(`
+    - tests
+      - test1.spec.ts
+      - test2.spec.ts
+  `);
 
   await testController.expandTestItems(/test1.spec/);
 
@@ -551,9 +561,14 @@ test('should list tests in multi-folder workspace', async ({ activate }, testInf
     ]
   });
 
-  const runProfiles = testController.runProfilesByKind(vscode.TestRunProfileKind.Run);
-  runProfiles[0].isDefault = true;
-  runProfiles[1].isDefault = true;
+  await enableConfigs(vscode, ['folder1/playwright.config.js', 'folder2/playwright.config.js']);
+
+  await expect(testController).toHaveTestTree(`
+    - folder1
+      - test.spec.ts
+    - folder2
+      - test.spec.ts
+  `);
 
   await testController.expandTestItems(/test.spec.ts/);
   await expect(testController).toHaveTestTree(`
@@ -585,19 +600,57 @@ test('should merge items from different projects', async ({ activate }, testInfo
       });`,
   });
 
-  const runProfiles = testController.runProfilesByKind(vscode.TestRunProfileKind.Run);
-  runProfiles[0].isDefault = true;
-  runProfiles[1].isDefault = true;
-  runProfiles[2].isDefault = true;
+  await enableProjects(vscode, ['desktop', 'mobile', 'tablet']);
 
   await testController.expandTestItems(/test.spec.ts/);
   await testController.expandTestItems(/group/);
-  expect(testController.renderTestTree()).toBe(`
+  await expect(testController).toHaveTestTree(`
     - test.spec.ts
       - group [2:0]
         - test 1 [3:0]
         - test 2 [@mobile] [4:0]
         - test 3 [@mobile] [5:0]
         - test 4 [6:0]
+  `);
+});
+
+test('should show project-specific tests', async ({ activate }, testInfo) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.ts': `module.exports = {
+      projects: [
+        { name: 'chromium' },
+        { name: 'firefox' },
+        { name: 'webkit' },
+      ]
+    }`,
+    'test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('test', async () => {});
+    `
+  });
+
+  await expect(testController).toHaveTestTree(`
+    - test.spec.ts
+  `);
+
+  await testController.expandTestItems(/test.spec.ts/);
+  await expect(testController).toHaveTestTree(`
+    - test.spec.ts
+      - test [2:0]
+  `);
+
+  await enableProjects(vscode, ['chromium', 'firefox', 'webkit']);
+  await expect(testController).toHaveTestTree(`
+    - test.spec.ts
+      - test [2:0]
+        - chromium [2:0]
+        - firefox [2:0]
+        - webkit [2:0]
+  `);
+
+  await enableProjects(vscode, ['webkit']);
+  await expect(testController).toHaveTestTree(`
+    - test.spec.ts
+      - test [2:0]
   `);
 });

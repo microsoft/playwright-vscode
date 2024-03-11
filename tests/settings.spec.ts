@@ -116,7 +116,7 @@ test('should reload when playwright.env changes', async ({ activate }) => {
   configuration.update('env', {
     'FOO': 'foo-value',
     'BAR': { prop: 'bar-value' },
-  });
+  }, true);
 
   // Changes to settings will trigger async update.
   await expect.poll(() => testController.findTestItems(/Loading/)).toHaveLength(1);

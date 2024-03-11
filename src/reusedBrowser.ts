@@ -15,7 +15,7 @@
  */
 
 import { TestConfig } from './playwrightTest';
-import type { TestModel } from './testModel';
+import type { TestModel, TestModelCollection } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
@@ -195,15 +195,16 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return this._backend?.wsEndpoint;
   }
 
-  async inspect(models: TestModel[]) {
-    if (!this._checkVersion(models[0].config, 'selector picker'))
+  async inspect(models: TestModelCollection) {
+    const selectedModel = models.selectedModel();
+    if (!selectedModel || !this._checkVersion(selectedModel.config, 'selector picker'))
       return;
 
-    await this._startBackendIfNeeded(models[0].config);
+    await this._startBackendIfNeeded(selectedModel.config);
     try {
       await this._backend?.setMode({ mode: 'inspecting' });
     } catch (e) {
-      showExceptionAsUserError(this._vscode, models[0], e as Error);
+      showExceptionAsUserError(this._vscode, selectedModel, e as Error);
       return;
     }
 
@@ -241,8 +242,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return !this._isRunningTests && !!this._pageCount;
   }
 
-  async record(models: TestModel[], recordNew: boolean) {
-    if (!this._checkVersion(models[0].config))
+  async record(models: TestModelCollection, recordNew: boolean) {
+    const selectedModel = models.selectedModel();
+    if (!selectedModel || !this._checkVersion(selectedModel.config))
       return;
     if (!this.canRecord()) {
       this._vscode.window.showWarningMessage(
@@ -254,7 +256,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       location: this._vscode.ProgressLocation.Notification,
       title: 'Playwright codegen',
       cancellable: true
-    }, async (progress, token) => this._doRecord(progress, models[0], recordNew, token));
+    }, async (progress, token) => this._doRecord(progress, selectedModel, recordNew, token));
   }
 
   highlight(selector: string) {

@@ -15,19 +15,20 @@
  */
 
 import path from 'path';
-import { TestModel } from './testModel';
+import { TestModelCollection } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './reporter';
 import * as upstream from './upstream/testTree';
 import { TeleSuite } from './upstream/teleReceiver';
+import { DisposableBase } from './disposableBase';
 
 /**
  * This class maps a collection of TestModels into the UI terms, it merges
  * multiple logical entities (for example, one per project) into a single UI entity
  * that can be executed at once.
  */
-export class TestTree {
+export class TestTree extends DisposableBase {
   private _vscode: vscodeTypes.VSCode;
 
   // We don't want tests to persist state between sessions, so we are using unique test id prefixes.
@@ -37,22 +38,23 @@ export class TestTree {
   private _rootItems = new Map<string, vscodeTypes.TestItem>();
 
   private _testController: vscodeTypes.TestController;
-  private _models: TestModel[] = [];
-  private _disposables: vscodeTypes.Disposable[] = [];
+  private _models: TestModelCollection;
   private _loadingItem: vscodeTypes.TestItem;
   private _testItemByTestId = new Map<string, vscodeTypes.TestItem>();
   private _testItemByFile = new Map<string, vscodeTypes.TestItem>();
 
-  constructor(vscode: vscodeTypes.VSCode, testController: vscodeTypes.TestController) {
+  constructor(vscode: vscodeTypes.VSCode, models: TestModelCollection, testController: vscodeTypes.TestController) {
+    super();
     this._vscode = vscode;
+    this._models = models;
     this._testController = testController;
     this._loadingItem = this._testController.createTestItem('loading', 'Loading\u2026');
+    this._disposables = [
+      models.onUpdated(() => this._update()),
+    ];
   }
 
   startedLoading() {
-    this._disposables.forEach(d => d.dispose());
-    this._disposables = [];
-    this._models = [];
     this._testGeneration = createGuid() + ':';
     this._testController.items.replace([]);
     this._testItemByTestId.clear();
@@ -79,12 +81,6 @@ export class TestTree {
       this._loadingItem.parent.children.delete(this._loadingItem.id);
     else if (this._testController.items.get(this._loadingItem.id))
       this._testController.items.delete(this._loadingItem.id);
-    this._update();
-  }
-
-  addModel(model: TestModel) {
-    this._models.push(model);
-    this._disposables.push(model.onUpdated(() => this._update()));
   }
 
   collectTestsInside(rootItem: vscodeTypes.TestItem): vscodeTypes.TestItem[] {
@@ -104,9 +100,9 @@ export class TestTree {
     for (const [workspaceFolder, workspaceRootItem] of this._rootItems) {
       const rootSuite = new TeleSuite('', 'root');
       const projectTags = new Map<reporterTypes.FullProject, vscodeTypes.TestTag>();
-      for (const model of this._models.filter(m => m.config.workspaceFolder === workspaceFolder)) {
+      for (const model of this._models.enabledModels().filter(m => m.config.workspaceFolder === workspaceFolder)) {
         for (const project of model.enabledProjects()) {
-          projectTags.set(project.project, project.tag);
+          projectTags.set(project.project, model.tag);
           rootSuite.suites.push(project.suite as TeleSuite);
         }
       }

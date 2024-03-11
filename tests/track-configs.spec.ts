@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import { TestRunProfileKind } from './mock/vscode';
-import { expect, test } from './utils';
+import { enableConfigs, expect, test } from './utils';
 
 test('should load first config', async ({ activate }) => {
   const { vscode, testController, workspaceFolder } = await activate({});
@@ -57,10 +56,7 @@ test('should load second config', async ({ activate }) => {
     test('one', async () => {});
   `);
 
-  await expect.poll(() => testController.runProfilesByKind(TestRunProfileKind.Run)).toHaveLength(2);
-  const profiles = testController.runProfilesByKind(TestRunProfileKind.Run);
-  profiles.forEach(p => p.isDefault = true);
-
+  await enableConfigs(vscode, ['playwright1.config.js', 'playwright2.config.js']);
   await expect(testController).toHaveTestTree(`
     - tests1
       - test.spec.ts
@@ -89,8 +85,7 @@ test('should remove model for config', async ({ activate }) => {
     `,
   });
 
-  const profiles = testController.runProfilesByKind(TestRunProfileKind.Run);
-  profiles.forEach(p => p.isDefault = true);
+  await enableConfigs(vscode, ['playwright1.config.js', 'playwright2.config.js']);
 
   await expect(testController).toHaveTestTree(`
     - tests1

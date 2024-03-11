@@ -24,6 +24,7 @@ svg {
   fill: var(--vscode-editor-foreground);
   margin: -18px;
   width: 56px;
+  pointer-events: none;
 }
 
 .list {
@@ -34,7 +35,7 @@ svg {
 .list > div {
   height: 22px;
   line-height: 22px;
-  padding-right: 12px;
+  padding-right: 2px;
   padding-left: 8px;
   display: flex;
   align-items: center;
@@ -56,11 +57,24 @@ input[type=checkbox] {
   cursor: pointer;
 }
 
-.list > div:hover {
+select {
+  background: transparent;
+  color: inherit;
+  outline: none !important;
+  border: none !important;
+  padding: 2px 0 2px;
+  width: 100%;
+  cursor: pointer;
+  background: var(--vscode-sideBar-background);
+}
+
+.list > div:hover,
+select:hover {
   background-color: #e8e8e8;
 }
 
-body[data-vscode-theme-kind=vscode-dark] .list > div:hover {
+body[data-vscode-theme-kind=vscode-dark] .list > div:hover,
+body[data-vscode-theme-kind=vscode-dark] select:hover {
   background-color: #2a2d2e;
 }
 

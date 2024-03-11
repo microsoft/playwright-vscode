@@ -19,12 +19,12 @@ import StackUtils from 'stack-utils';
 import { DebugHighlight } from './debugHighlight';
 import { installBrowsers, installPlaywright } from './installer';
 import { MultiMap } from './multimap';
-import { PlaywrightTest, RunHooks, TestConfig } from './playwrightTest';
+import { RunHooks, TestConfig, getPlaywrightInfo } from './playwrightTest';
 import * as reporterTypes from './reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
-import { TestModel, TestProject, projectFiles } from './testModel';
+import { TestModel, TestModelCollection, TestProject, projectFiles } from './testModel';
 import { TestTree } from './testTree';
 import { NodeJSNotFoundError, ansiToHtml } from './utils';
 import * as vscodeTypes from './vscodeTypes';
@@ -44,7 +44,8 @@ type StepInfo = {
 };
 
 type TestRunInfo = {
-  project: TestProject;
+  model: TestModel;
+  mode: 'run' | 'debug' | 'watch';
   include: readonly vscodeTypes.TestItem[] | undefined;
 };
 
@@ -60,9 +61,6 @@ export class Extension implements RunHooks {
   // Global test item map.
   private _testTree: TestTree;
 
-  // Each run profile is a config + project pair.
-  private _runProfiles = new Map<string, vscodeTypes.TestRunProfile>();
-
   private _testController: vscodeTypes.TestController;
   private _workspaceObserver: WorkspaceObserver;
   private _testItemUnderDebug: vscodeTypes.TestItem | undefined;
@@ -70,11 +68,9 @@ export class Extension implements RunHooks {
   private _activeSteps = new Map<reporterTypes.TestStep, StepInfo>();
   private _completedSteps = new Map<reporterTypes.TestStep, StepInfo>();
   private _testRun: vscodeTypes.TestRun | undefined;
-  private _models: TestModel[] = [];
+  private _models: TestModelCollection;
   private _activeStepDecorationType: vscodeTypes.TextEditorDecorationType;
   private _completedStepDecorationType: vscodeTypes.TextEditorDecorationType;
-  private _playwrightTest: PlaywrightTest;
-  private _itemsScheduledToRun: TestRunInfo[] | undefined;
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
   private _reusedBrowser: ReusedBrowser;
@@ -92,6 +88,9 @@ export class Extension implements RunHooks {
   private _treeItemObserver: TreeItemObserver;
   private _testServerController: TestServerController;
   private _watchQueue = Promise.resolve();
+  private _runProfile: vscodeTypes.TestRunProfile;
+  private _debugProfile: vscodeTypes.TestRunProfile;
+  private _playwrightTestLog: string[] = [];
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -114,14 +113,17 @@ export class Extension implements RunHooks {
     });
 
     this._settingsModel = new SettingsModel(vscode);
+    this._models = new TestModelCollection(vscode, this._settingsModel);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._traceViewer = new TraceViewer(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._testServerController = new TestServerController(this._vscode, this._envProvider.bind(this));
-    this._playwrightTest = new PlaywrightTest(this._vscode, this._settingsModel, this, this._isUnderTest, this._testServerController, this._envProvider.bind(this));
     this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
-    this._testController.refreshHandler = () => this._rebuildModel(true).then(() => {});
-    this._testTree = new TestTree(vscode, this._testController);
+    this._testController.refreshHandler = () => this._rebuildModels(true).then(() => {});
+    const supportsContinuousRun = this._settingsModel.allowWatchingFiles.get();
+    this._runProfile = this._testController.createRunProfile('playwright-run', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, false), true, undefined, supportsContinuousRun);
+    this._debugProfile = this._testController.createRunProfile('playwright-debug', this._vscode.TestRunProfileKind.Debug, this._handleTestRun.bind(this, true), true, undefined, supportsContinuousRun);
+    this._testTree = new TestTree(vscode, this._models, this._testController);
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
@@ -130,7 +132,7 @@ export class Extension implements RunHooks {
       configErrors: this._vscode.languages.createDiagnosticCollection('pw.configErrors.diagnostic'),
     };
     this._treeItemObserver = new TreeItemObserver(this._vscode);
-    this._watchSupport = new WatchSupport(this._vscode, this._playwrightTest, this._testTree, watchData => this._watchesTriggered(watchData));
+    this._watchSupport = new WatchSupport(this._vscode, this._testTree, watchData => this._watchesTriggered(watchData));
   }
 
   async onWillRunTests(config: TestConfig, debug: boolean) {
@@ -158,13 +160,13 @@ export class Extension implements RunHooks {
 
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
-    this._settingsView = new SettingsView(vscode, this._settingsModel, this._reusedBrowser, context.extensionUri);
+    this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, context.extensionUri);
     const messageNoPlaywrightTestsFound = this._vscode.l10n.t('No Playwright tests found.');
     this._disposables = [
       this._debugHighlight,
       this._settingsModel,
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
-        this._rebuildModel(false);
+        this._rebuildModels(false);
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         this._updateVisibleEditorItems();
@@ -173,19 +175,16 @@ export class Extension implements RunHooks {
         await installPlaywright(this._vscode);
       }),
       vscode.commands.registerCommand('pw.extension.installBrowsers', async () => {
-        if (!this._models.length) {
+        if (!this._models.hasEnabledModels()) {
           vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
-        // Install each version only once.
-        const versions = new Map<number, TestModel>();
-        for (const model of this._models)
-          versions.set(model.config.version, model);
+        const versions = this._models.versions();
         for (const model of versions.values())
           await installBrowsers(this._vscode, model);
       }),
       vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
-        if (!this._models.length) {
+        if (!this._models.hasEnabledModels()) {
           vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
@@ -195,18 +194,21 @@ export class Extension implements RunHooks {
         this._reusedBrowser.closeAllBrowsers();
       }),
       vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
-        if (!this._models.length) {
+        if (!this._models.hasEnabledModels()) {
           vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
         await this._reusedBrowser.record(this._models, true);
       }),
       vscode.commands.registerCommand('pw.extension.command.recordAtCursor', async () => {
-        if (!this._models.length) {
+        if (!this._models.hasEnabledModels()) {
           vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
         await this._reusedBrowser.record(this._models, false);
+      }),
+      vscode.commands.registerCommand('pw.extension.command.toggleModels', async () => {
+        this._settingsView.toggleModels();
       }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
@@ -216,61 +218,63 @@ export class Extension implements RunHooks {
       }),
       vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('playwright.env'))
-          this._rebuildModel(false);
+          this._rebuildModels(false);
       }),
+      this._models.onUpdated(() => this._modelsUpdated()),
       this._treeItemObserver.onTreeItemSelected(item => this._treeItemSelected(item)),
       this._settingsView,
       this._testController,
+      this._runProfile,
+      this._debugProfile,
       this._workspaceObserver,
       this._reusedBrowser,
       ...Object.values(this._diagnostics),
       this._treeItemObserver,
       this._testServerController,
     ];
-    await this._rebuildModel(false);
-
     const fileSystemWatchers = [
       // Glob parser does not supported nested group, hence multiple watchers.
       this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mjs}'),
       this._vscode.workspace.createFileSystemWatcher('**/*.env*'),
     ];
     this._disposables.push(...fileSystemWatchers);
+
     const rebuildModelForConfig = (uri: vscodeTypes.Uri) => {
       // TODO: parse .gitignore
       if (uri.fsPath.includes('node_modules'))
         return;
       if (!this._isUnderTest && uri.fsPath.includes('test-results'))
         return;
-      this._rebuildModel(false);
+      this._rebuildModels(false);
     };
+
+    await this._rebuildModels(false);
     fileSystemWatchers.map(w => w.onDidChange(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidCreate(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidDelete(rebuildModelForConfig));
     context.subscriptions.push(this);
   }
 
-  private async _rebuildModel(showWarnings: boolean): Promise<vscodeTypes.Uri[]> {
+  private async _rebuildModels(showWarnings: boolean): Promise<vscodeTypes.Uri[]> {
+    this._models.clear();
     this._testTree.startedLoading();
-    this._workspaceObserver.reset();
-    this._testServerController.reset();
-    this._models = [];
 
     const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mjs}', '**/node_modules/**');
-
-    const configErrors = new MultiMap<string, reporterTypes.TestError>();
     for (const configFileUri of configFiles) {
       const configFilePath = configFileUri.fsPath;
       // TODO: parse .gitignore
       if (!this._isUnderTest && configFilePath.includes('test-results'))
         continue;
-      // Dogfood support
+
+      // Dog-food support
       const workspaceFolder = this._vscode.workspace.getWorkspaceFolder(configFileUri)!;
       const workspaceFolderPath = workspaceFolder.uri.fsPath;
       if (configFilePath.includes('test-results') && !workspaceFolderPath.includes('test-results'))
         continue;
+
       let playwrightInfo = null;
       try {
-        playwrightInfo = await this._playwrightTest.getPlaywrightInfo(workspaceFolderPath, configFilePath);
+        playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider());
       } catch (error) {
         if (showWarnings) {
           this._vscode.window.showWarningMessage(
@@ -291,50 +295,37 @@ export class Extension implements RunHooks {
         continue;
       }
 
-      const model = new TestModel(this._vscode, this._playwrightTest, workspaceFolderPath, configFileUri.fsPath, playwrightInfo, this._envProvider.bind(this));
-      const configError = await model.listFiles();
-      if (configError) {
-        configErrors.set(configError.location?.file ?? configFilePath, configError);
-        continue;
-      }
-
-      this._models.push(model);
-      this._testTree.addModel(model);
+      const model = new TestModel(this._vscode, workspaceFolderPath, configFileUri.fsPath, playwrightInfo, {
+        playwrightTestLog: this._playwrightTestLog,
+        settingsModel: this._settingsModel,
+        runHooks: this,
+        isUnderTest: this._isUnderTest,
+        testServerController: this._testServerController,
+        envProvider: this._envProvider.bind(this),
+      });
+      await this._models.addModel(model);
     }
 
-    // Update list of run profiles.
-    {
-      // rebuildModel can run concurrently, swapping run profiles needs to be sync.
-      const existingProfiles = this._runProfiles;
-      this._runProfiles = new Map();
-      for (const model of this._models) {
-        for (const project of model.allProjects().values()) {
-          this._createRunProfile(project, existingProfiles);
-          this._workspaceObserver.addWatchFolder(project.project.testDir);
-        }
-      }
-      for (const [id, profile] of existingProfiles) {
-        if (!this._runProfiles.has(id))
-          profile.dispose();
-      }
-    }
-
-    // VS Code has a bug, single profile is not marked as default.
-    if (this._models.length === 1 && this._models[0].allProjects().size === 1) {
-      const project = this._models[0].allProjects().values().next().value as TestProject;
-      project.isEnabled = true;
-    }
-
-    this._settingsView.updateActions();
     this._testTree.finishedLoading();
-    await this._updateVisibleEditorItems();
-
-    this._reportConfigErrorsToUser(configErrors);
-
     return configFiles;
   }
 
-  private _reportConfigErrorsToUser(configErrors: MultiMap<string, reporterTypes.TestError>) {
+  private _modelsUpdated() {
+    this._workspaceObserver.reset();
+    this._updateVisibleEditorItems();
+    this._reportConfigErrors();
+    for (const testDir of this._models.testDirs())
+      this._workspaceObserver.addWatchFolder(testDir);
+  }
+
+  private _reportConfigErrors() {
+    const configErrors = new MultiMap<string, reporterTypes.TestError>();
+    for (const model of this._models.enabledModels()) {
+      const error = model.takeConfigError();
+      if (error)
+        configErrors.set(model.config.configFile, error);
+    }
+
     this._updateDiagnostics('configErrors', configErrors);
     if (!configErrors.size)
       return;
@@ -367,94 +358,35 @@ export class Extension implements RunHooks {
     })) as NodeJS.ProcessEnv;
   }
 
-  private _createRunProfile(project: TestProject, existingProfiles: Map<string, vscodeTypes.TestRunProfile>) {
-    const configFile = project.model.config.configFile;
-    const configName = path.basename(configFile);
-    const folderName = path.basename(path.dirname(configFile));
-    const projectPrefix = project.name ? `${project.name} — ` : '';
-    const keyPrefix = configFile + ':' + project.name;
-    let runProfile = existingProfiles.get(keyPrefix + ':run');
-    const isDefault = false;
-    const supportsContinuousRun = this._settingsModel.allowWatchingFiles.get();
-    if (!runProfile)
-      runProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Run, this._scheduleTestRunRequest.bind(this, configFile, project.name, false), isDefault, project.tag, supportsContinuousRun);
-    this._runProfiles.set(keyPrefix + ':run', runProfile);
-    let debugProfile = existingProfiles.get(keyPrefix + ':debug');
-    if (!debugProfile)
-      debugProfile = this._testController.createRunProfile(`${projectPrefix}${folderName}${path.sep}${configName}`, this._vscode.TestRunProfileKind.Debug, this._scheduleTestRunRequest.bind(this, configFile, project.name, true), isDefault, project.tag, supportsContinuousRun);
-    this._runProfiles.set(keyPrefix + ':debug', debugProfile);
-
-    // Run profile has the current isEnabled value as per vscode.
-    project.isEnabled = runProfile.isDefault;
-
-    runProfile.onDidChangeDefault(enabled => {
-      if (project.isEnabled === enabled)
-        return;
-      project.model.setProjectEnabled(project, enabled);
-      this._updateVisibleEditorItems();
-    });
-    debugProfile.onDidChangeDefault(enabled => {
-      if (project.isEnabled === enabled)
-        return;
-      project.model.setProjectEnabled(project, enabled);
-      this._updateVisibleEditorItems();
-    });
-  }
-
-  private _scheduleTestRunRequest(configFile: string, projectName: string, isDebug: boolean, request: vscodeTypes.TestRunRequest, cancellationToken?: vscodeTypes.CancellationToken) {
+  private async _handleTestRun(isDebug: boolean, request: vscodeTypes.TestRunRequest, cancellationToken?: vscodeTypes.CancellationToken) {
     // Never run tests concurrently.
     if (this._testRun && !request.continuous)
       return;
 
-    // We can't dispose projects (and bind them to TestProject instances) because otherwise VS Code would forget its selection state.
-    // So bind run profiles to config file + project name pair, dynamically resolve the project.
-    const model = this._models.find(m => m.config.configFile === configFile);
-    if (!model)
-      return;
-    const project = model.allProjects().get(projectName);
-    if (!project)
-      return;
-
     if (request.continuous) {
-      this._watchSupport.addToWatch(project, request.include, cancellationToken!);
+      for (const model of this._models.enabledModels())
+        this._watchSupport.addToWatch(model, request.include, cancellationToken!);
       return;
     }
 
-    // VSCode will issue several test run requests (one per enabled run profile). Sometimes
-    // these profiles belong to the same config and we only want to run tests once per config.
-    // So we collect all requests and sort them out in the microtask.
-    if (!this._itemsScheduledToRun) {
-      this._itemsScheduledToRun = [];
-      this._itemsScheduledToRun.push({ project, include: request.include });
-      // Make sure to run tests outside of this function's control flow
-      // so that we can create a new TestRunRequest and see its output.
-      // TODO: remove once this is fixed in VSCode (1.78?) and we
-      // can see test output without this hack.
-      setTimeout(async () => {
-        const selectedItems = this._itemsScheduledToRun;
-        this._itemsScheduledToRun = undefined;
-        if (selectedItems)
-          await this._runMatchingTests(selectedItems, isDebug ? 'debug' : 'run');
-      }, 520);
-    } else {
-      // Subsequent requests will return right away.
-      this._itemsScheduledToRun.push({ project, include: request.include });
+    for (const model of this._models.enabledModels()) {
+      const testRun: TestRunInfo = { model, include: request.include, mode: isDebug ? 'debug' : 'run' };
+      await this._runTests(testRun);
     }
   }
 
-  private async _runMatchingTests(testRunInfos: TestRunInfo[], mode: 'run' | 'debug' | 'watch') {
+  private async _runTests(runInfo: TestRunInfo) {
     this._completedSteps.clear();
     this._executionLinesChanged();
 
-    const projects = testRunInfos.map(info => info.project);
-    const include = testRunInfos.map(info => info.include || []).flat();
+    const include = runInfo.include || [];
 
     // Create a test run that potentially includes all the test items.
     // This allows running setup tests that are outside of the scope of the
     // selected test items.
     const rootItems: vscodeTypes.TestItem[] = [];
     this._testController.items.forEach(item => rootItems.push(item));
-    const requestWithDeps = new this._vscode.TestRunRequest(rootItems, [], undefined, mode === 'watch');
+    const requestWithDeps = new this._vscode.TestRunRequest(rootItems, [], undefined, runInfo.mode === 'watch');
 
     // Global errors are attributed to the first test item in the request.
     // If the request is global, find the first root test item (folder, file) that has
@@ -472,6 +404,10 @@ export class Extension implements RunHooks {
           break;
       }
     }
+    const { projects, locations, parametrizedTestTitle } = this._narrowDownProjectsAndLocations(runInfo.model, include);
+    if (locations && !locations.length)
+      return;
+
     this._testRun = this._testController.createTestRun(requestWithDeps);
     const enqueuedTests: vscodeTypes.TestItem[] = [];
 
@@ -484,43 +420,19 @@ export class Extension implements RunHooks {
       }
     }
 
-    // Run tests with different configs sequentially, group by config.
-    const projectsToRunByModel = new Map<TestModel, TestProject[]>();
-    for (const project of projects) {
-      const projects = projectsToRunByModel.get(project.model) || [];
-      projects.push(project);
-      projectsToRunByModel.set(project.model, projects);
-    }
-
-    let ranSomeTests = false;
     try {
-      for (const [model, projectsToRun] of projectsToRunByModel) {
-        const { projects, locations, parametrizedTestTitle } = this._narrowDownProjectsAndLocations(projectsToRun, include);
-        // Run if:
-        //   !locations => run all tests
-        //   locations.length => has matching items in project.
-        if (locations && !locations.length)
-          continue;
-        ranSomeTests = true;
-        await this._runTest(this._testRun, testItemForGlobalErrors, new Set(), model, mode === 'debug', projects, locations, parametrizedTestTitle, enqueuedTests.length === 1);
-      }
+      await this._runTest(this._testRun, testItemForGlobalErrors, new Set(), runInfo.model, runInfo.mode === 'debug', projects, locations, parametrizedTestTitle, enqueuedTests.length === 1);
     } finally {
       this._activeSteps.clear();
       this._executionLinesChanged();
       this._testRun.end();
       this._testRun = undefined;
     }
-
-    if (!ranSomeTests) {
-      this._vscode.window.showWarningMessage(`Selected test is outside of the Default Profile (config).
-Please make sure you select relevant Playwright projects in the "Select Configuration\u2026" drop down
-located next to Run / Debug Tests toolbar buttons.`);
-    }
   }
 
-  private _narrowDownProjectsAndLocations(projects: TestProject[], items: readonly vscodeTypes.TestItem[]): { projects: TestProject[], locations: string[] | null, parametrizedTestTitle: string | undefined } {
+  private _narrowDownProjectsAndLocations(model: TestModel, items: readonly vscodeTypes.TestItem[]): { projects: TestProject[], locations: string[] | null, parametrizedTestTitle: string | undefined } {
     if (!items.length)
-      return { projects, locations: null, parametrizedTestTitle: undefined };
+      return { projects: model.enabledProjects(), locations: null, parametrizedTestTitle: undefined };
 
     let parametrizedTestTitle: string | undefined;
     // When we are given one item, check if it is parametrized (more than 1 item on that line).
@@ -543,7 +455,7 @@ located next to Run / Debug Tests toolbar buttons.`);
     const projectsWithFiles: TestProject[] = [];
     for (const item of items) {
       const itemFsPath = item.uri!.fsPath;
-      const projectsWithFile = projects.filter(project => {
+      const projectsWithFile = model.enabledProjects().filter(project => {
         const files = projectFiles(project);
         for (const file of files.keys()) {
           if (file.startsWith(itemFsPath))
@@ -563,11 +475,11 @@ located next to Run / Debug Tests toolbar buttons.`);
   private async _resolveChildren(fileItem: vscodeTypes.TestItem | undefined): Promise<void> {
     if (!fileItem)
       return;
-    await this._listTestsInAllModels([fileItem!.uri!.fsPath]);
+    await this._ensureTestsInAllModels([fileItem!.uri!.fsPath]);
   }
 
   private async _workspaceChanged(change: WorkspaceChange) {
-    for (const model of this._models)
+    for (const model of this._models.enabledModels())
       await model.workspaceChanged(change);
     // Workspace change can be deferred, make sure editors are
     // decorated.
@@ -576,7 +488,10 @@ located next to Run / Debug Tests toolbar buttons.`);
   }
 
   private _watchesTriggered(watches: Watch[]) {
-    this._watchQueue = this._watchQueue.then(() => this._runMatchingTests(watches, 'watch'));
+    this._watchQueue = this._watchQueue.then(async () => {
+      for (const watch of watches)
+        await this._runTests(watch);
+    });
   }
 
   private async _runTest(
@@ -704,10 +619,10 @@ located next to Run / Debug Tests toolbar buttons.`);
 
   private async _updateVisibleEditorItems() {
     const files = this._vscode.window.visibleTextEditors.map(e => e.document.uri.fsPath);
-    await this._listTestsInAllModels(files);
+    await this._ensureTestsInAllModels(files);
   }
 
-  private _listTestsInAllModels(inputFiles: string[]): Promise<void> {
+  private _ensureTestsInAllModels(inputFiles: string[]): Promise<void> {
     // Perform coalescing listTests calls to avoid multiple
     // 'list tests' processes running at the same time.
     if (!inputFiles.length)
@@ -722,11 +637,11 @@ located next to Run / Debug Tests toolbar buttons.`);
         delete this._filesPendingListTests;
         const allErrors = new Set<string>();
         const errorsByFile = new MultiMap<string, reporterTypes.TestError>();
-        for (const model of this._models.slice()) {
+        for (const model of this._models.enabledModels()) {
           const filteredFiles = model.narrowDownFilesToEnabledProjects(files);
           if (!filteredFiles.size)
             continue;
-          const errors = await model.listTests([...filteredFiles]).catch(e => console.log(e)) || [];
+          const errors = await model.ensureTests([...filteredFiles]).catch(e => console.log(e)) || [];
           for (const error of errors) {
             if (!error.location || !error.message)
               continue;
@@ -887,7 +802,7 @@ located next to Run / Debug Tests toolbar buttons.`);
   }
 
   playwrightTestLog(): string[] {
-    return this._playwrightTest.testLog();
+    return this._playwrightTestLog;
   }
 
   browserServerWSForTest() {
@@ -896,16 +811,18 @@ located next to Run / Debug Tests toolbar buttons.`);
 
   private _showTrace(testItem: vscodeTypes.TestItem) {
     const traceUrl = (testItem as any)[traceUrlSymbol];
-    const testModel = this._models[0];
-    this._traceViewer.open(traceUrl, testModel.config);
+    const testModel = this._models.selectedModel();
+    if (testModel)
+      this._traceViewer.open(traceUrl, testModel.config);
   }
 
   private _treeItemSelected(treeItem: vscodeTypes.TreeItem | null) {
     if (!treeItem)
       return;
     const traceUrl = (treeItem as any)[traceUrlSymbol] || '';
-    const testModel = this._models[0];
-    this._traceViewer.open(traceUrl, testModel.config);
+    const testModel = this._models.selectedModel();
+    if (testModel)
+      this._traceViewer.open(traceUrl, testModel.config);
   }
 }
 

@@ -26,13 +26,10 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
     await vscode.window.showErrorMessage('Please open a folder in VS Code to initialize Playwright. Either an empty folder or a folder with an existing package.json.');
     return;
   }
-  const hasQuickPickSeparator = parseFloat(vscode.version) >= 1.64;
   const options: vscodeTypes.QuickPickItem[] = [];
-  if (hasQuickPickSeparator)
-    options.push({ label: 'Select browsers to install', kind: vscode.QuickPickItemKind.Separator });
+  options.push({ label: 'Select browsers to install', kind: vscode.QuickPickItemKind.Separator });
   options.push(chromiumItem, firefoxItem, webkitItem);
-  if (hasQuickPickSeparator)
-    options.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
+  options.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
   options.push(useJavaScriptItem);
   options.push(addActionItem);
   if (process.platform === 'linux') {
@@ -74,13 +71,10 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
 }
 
 export async function installBrowsers(vscode: vscodeTypes.VSCode, model: TestModel) {
-  const hasQuickPickSeparator = parseFloat(vscode.version) >= 1.64;
   const options: vscodeTypes.QuickPickItem[] = [];
-  if (hasQuickPickSeparator)
-    options.push({ label: 'Select browsers to install', kind: vscode.QuickPickItemKind.Separator });
+  options.push({ label: 'Select browsers to install', kind: vscode.QuickPickItemKind.Separator });
   options.push(chromiumItem, firefoxItem, webkitItem);
-  if (hasQuickPickSeparator)
-    options.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
+  options.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
   if (process.platform === 'linux') {
     updateInstallDepsPicked();
     options.push(installDepsItem);
