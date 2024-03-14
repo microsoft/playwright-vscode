@@ -99,23 +99,19 @@ export class TestTree extends DisposableBase {
   private _update() {
     for (const [workspaceFolder, workspaceRootItem] of this._rootItems) {
       const rootSuite = new TeleSuite('', 'root');
-      const projectTags = new Map<reporterTypes.FullProject, vscodeTypes.TestTag>();
       for (const model of this._models.enabledModels().filter(m => m.config.workspaceFolder === workspaceFolder)) {
-        for (const project of model.enabledProjects()) {
-          projectTags.set(project.project, model.tag);
+        for (const project of model.enabledProjects())
           rootSuite.suites.push(project.suite as TeleSuite);
-        }
       }
       const upstreamTree = new upstream.TestTree(workspaceFolder, rootSuite, [], undefined, path.sep);
       upstreamTree.sortAndPropagateStatus();
       upstreamTree.flattenForSingleProject();
-      this._syncSuite(upstreamTree.rootItem, workspaceRootItem, projectTags);
+      this._syncSuite(upstreamTree.rootItem, workspaceRootItem);
     }
-    this._propagateTagsToGroups();
     this._indexTree();
   }
 
-  private _syncSuite(uItem: upstream.TreeItem, vsItem: vscodeTypes.TestItem, projectTags: Map<reporterTypes.FullProject, vscodeTypes.TestTag>) {
+  private _syncSuite(uItem: upstream.TreeItem, vsItem: vscodeTypes.TestItem) {
     const uChildren = uItem.children;
     const vsChildren = vsItem.children;
     const uChildrenById = new Map(uChildren.map(c => [c.id, c]));
@@ -141,9 +137,6 @@ export class TestTree extends DisposableBase {
         // Allow lazy-populating file items created via listFiles.
         if (uChild.kind === 'group' && uChild.subKind === 'file' && !uChild.children.length)
           vsChild.canResolveChildren = true;
-        // Every test must have its project tag for VSCode to function.
-        if ('project' in uChild && uChild.project)
-          vsChild.tags = [projectTags.get(uChild.project)!];
         if (uChild.kind === 'case' || uChild.kind === 'test') {
           if (uChild.test)
             (vsChild as any)[testIdSymbol] = uChild.test.id;
@@ -163,23 +156,8 @@ export class TestTree extends DisposableBase {
     // Sync children.
     for (const [id, uChild] of uChildrenById) {
       const vsChild = vsChildrenById.get(id);
-      this._syncSuite(uChild, vsChild!, projectTags);
+      this._syncSuite(uChild, vsChild!);
     }
-  }
-
-  private _propagateTagsToGroups() {
-    const visit = (item: vscodeTypes.TestItem) => {
-      const tags = new Set<vscodeTypes.TestTag>(item.tags);
-      for (const [, child] of item.children)
-        visit(child);
-      for (const [,child] of item.children) {
-        for (const tag of child.tags)
-          tags.add(tag);
-      }
-      item.tags = [...tags];
-    };
-    for (const item of this._rootItems.values())
-      visit(item);
   }
 
   private _indexTree() {
