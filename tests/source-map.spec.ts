@@ -24,8 +24,8 @@ test('should list files', async ({ activate }) => {
     'build/test.spec.js.map': testSpecJsMap('test.spec'),
   });
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
+    -   tests
+      -   test.spec.ts
   `);
   expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
@@ -42,10 +42,10 @@ test('should list tests on expand', async ({ activate }) => {
 
   await testController.expandTestItems(/test.spec.ts/);
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - one [2:0]
-        - two [3:0]
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
+        -   two [3:0]
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -66,10 +66,10 @@ test('should list tests for visible editors', async ({ activate }) => {
   await new Promise(f => testController.onDidChangeTestItem(f));
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - one [2:0]
-        - two [3:0]
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
+        -   two [3:0]
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -87,8 +87,8 @@ test('should pick new files', async ({ activate }) => {
   });
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test-1.spec.ts
+    -   tests
+      -   test-1.spec.ts
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -103,9 +103,9 @@ test('should pick new files', async ({ activate }) => {
   ]);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test-1.spec.ts
-      - test-2.spec.ts
+    -   tests
+      -   test-1.spec.ts
+      -   test-2.spec.ts
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -129,10 +129,10 @@ test('should remove deleted files', async ({ activate }) => {
   });
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test-1.spec.ts
-      - test-2.spec.ts
-      - test-3.spec.ts
+    -   tests
+      -   test-1.spec.ts
+      -   test-2.spec.ts
+      -   test-3.spec.ts
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -147,9 +147,9 @@ test('should remove deleted files', async ({ activate }) => {
   ]);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test-1.spec.ts
-      - test-3.spec.ts
+    -   tests
+      -   test-1.spec.ts
+      -   test-3.spec.ts
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -181,11 +181,11 @@ test('should discover new tests', async ({ activate }) => {
   ]);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - one [3:0]
-        - two [4:0]
-        - new [2:0]
+    -   tests
+      -   test.spec.ts
+        -   one [3:0]
+        -   two [4:0]
+        -   new [2:0]
   `);
 
   expect(vscode).toHaveExecLog(`
