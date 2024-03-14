@@ -4,6 +4,8 @@
   "Record at cursor": "Record at cursor",
   "Reveal test output": "Reveal test output",
   "Close all browsers": "Close all browsers",
+  "Select Playwright Config": "Select Playwright Config",
+  "Toggle Playwright Configs": "Toggle Playwright Configs",
   "Accept to copy locator into clipboard": "Accept to copy locator into clipboard",
   "Can't record while running tests": "Can't record while running tests",
   "this feature": "this feature",

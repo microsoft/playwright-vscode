@@ -92,9 +92,10 @@ test('should debug error', async ({ activate }, testInfo) => {
   await testController.expandTestItems(/test.spec/);
   const testItems = testController.findTestItems(/fail/);
 
-  const profile = testController.runProfiles.find(p => p.kind === vscode.TestRunProfileKind.Debug)!;
+  const profile = testController.debugProfile();
+  const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
   profile.run(testItems);
-  const testRun = await new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
+  const testRun = await testRunPromise;
 
   while (!vscode.debug.output.includes('READY TO BREAK'))
     await new Promise(f => setTimeout(f, 100));

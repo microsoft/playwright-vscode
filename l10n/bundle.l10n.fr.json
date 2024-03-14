@@ -4,6 +4,8 @@
   "Record at cursor": "Enregistrer au niveau du curseur",
   "Reveal test output": "Afficher les résultats des tests",
   "Close all browsers": "Fermer tous les navigateurs",
+  "Select Playwright Config": "Sélectionner la configuration Playwright",
+  "Toggle Playwright Configs": "Basculer les configurations Playwright",
   "Accept to copy locator into clipboard": "Accepter pour copier le locator dans le presse-papiers",
   "Can't record while running tests": "Impossible d'enregistrer pendant l'exécution des tests",
   "this feature": "cette fonctionnalité",

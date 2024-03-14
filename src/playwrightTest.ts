@@ -35,7 +35,7 @@ export type TestConfig = {
 
 const pathSeparator = process.platform === 'win32' ? ';' : ':';
 
-export type PlaywrightTestOptions = {
+export type PlaywrightTestRunOptions = {
   headed?: boolean,
   oneWorker?: boolean,
   trace?: 'on' | 'off',
@@ -50,35 +50,27 @@ export interface RunHooks {
   onDidRunTests(debug: boolean): Promise<void>;
 }
 
-export class PlaywrightTest {
-  private _testLog: string[] = [];
-  private _isUnderTest: boolean;
-  private _runHooks: RunHooks;
-  private _envProvider: () => NodeJS.ProcessEnv;
-  private _vscode: vscodeTypes.VSCode;
-  private _settingsModel: SettingsModel;
-  private _testServerController: TestServerController;
+export type PlaywrightTestOptions = {
+  configFile: string;
+  settingsModel: SettingsModel;
+  runHooks: RunHooks;
+  isUnderTest: boolean;
+  testServerController: TestServerController;
+  playwrightTestLog: string[];
+  envProvider: () => NodeJS.ProcessEnv;
+};
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, runHooks: RunHooks, isUnderTest: boolean, testServerController: TestServerController, envProvider: () => NodeJS.ProcessEnv) {
+export class PlaywrightTest {
+  private _vscode: vscodeTypes.VSCode;
+  private _options: PlaywrightTestOptions;
+
+  constructor(vscode: vscodeTypes.VSCode, options: PlaywrightTestOptions) {
     this._vscode = vscode;
-    this._settingsModel = settingsModel;
-    this._runHooks = runHooks;
-    this._isUnderTest = isUnderTest;
-    this._testServerController = testServerController;
-    this._envProvider = envProvider;
+    this._options = options;
   }
 
-  async getPlaywrightInfo(workspaceFolder: string, configFilePath: string): Promise<{ version: number, cli: string }> {
-    const pwtInfo = await this._runNode([
-      require.resolve('./playwrightFinder'),
-    ], path.dirname(configFilePath));
-    const { version, cli, error } = JSON.parse(pwtInfo) as { version: number, cli: string, error?: string };
-    if (error)
-      throw new Error(error);
-    let cliOverride = cli;
-    if (cli.includes('/playwright/packages/playwright-test/') && configFilePath.includes('playwright-test'))
-      cliOverride = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/@playwright/test/cli.js');
-    return { cli: cliOverride, version };
+  reset() {
+    this._options.testServerController.disposeTestServerFor(this._options.configFile);
   }
 
   async listFiles(config: TestConfig): Promise<ConfigListFilesReport> {
@@ -122,7 +114,7 @@ export class PlaywrightTest {
   }
 
   private async _listFilesServer(config: TestConfig): Promise<ConfigListFilesReport> {
-    const testServer = await this._testServerController.testServerFor(config);
+    const testServer = await this._options.testServerController.testServerFor(config);
     if (!testServer)
       throw new Error('Internal error: unable to connect to the test server');
     return await testServer.listFiles({ configFile: config.configFile });
@@ -132,23 +124,23 @@ export class PlaywrightTest {
     const locationArg = locations ? locations : [];
     if (token?.isCancellationRequested)
       return;
-    const externalOptions = await this._runHooks.onWillRunTests(config, false);
-    const showBrowser = this._settingsModel.showBrowser.get() && !!externalOptions.connectWsEndpoint;
+    const externalOptions = await this._options.runHooks.onWillRunTests(config, false);
+    const showBrowser = this._options.settingsModel.showBrowser.get() && !!externalOptions.connectWsEndpoint;
 
     let trace: 'on' | 'off' | undefined;
-    if (this._settingsModel.showTrace.get())
+    if (this._options.settingsModel.showTrace.get())
       trace = 'on';
     // "Show browser" mode forces context reuse that survives over multiple test runs.
     // Playwright Test sets up `tracesDir` inside the `test-results` folder, so it will be removed between runs.
     // When context is reused, its ongoing tracing will fail with ENOENT because trace files
     // were suddenly removed. So we disable tracing in this case.
-    if (this._settingsModel.showBrowser.get())
+    if (this._options.settingsModel.showBrowser.get())
       trace = 'off';
 
-    const options: PlaywrightTestOptions = {
+    const options: PlaywrightTestRunOptions = {
       grep: parametrizedTestTitle,
       projects: projectNames.length ? projectNames.filter(Boolean) : undefined,
-      headed: showBrowser && !this._isUnderTest,
+      headed: showBrowser && !this._options.isUnderTest,
       oneWorker: showBrowser,
       trace,
       reuseContext: showBrowser,
@@ -160,7 +152,7 @@ export class PlaywrightTest {
         return;
       await this._test(config, locationArg, 'test', options, listener, token);
     } finally {
-      await this._runHooks.onDidRunTests(false);
+      await this._options.runHooks.onDidRunTests(false);
     }
   }
 
@@ -179,17 +171,17 @@ export class PlaywrightTest {
   }
 
   private _useTestServer(config: TestConfig) {
-    return this._settingsModel.useTestServer.get();
+    return this._options.settingsModel.useTestServer.get();
   }
 
-  private async _test(config: TestConfig, locations: string[], mode: 'list' | 'test', options: PlaywrightTestOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+  private async _test(config: TestConfig, locations: string[], mode: 'list' | 'test', options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     if (this._useTestServer(config))
       await this._testWithServer(config, locations, mode, options, reporter, token);
     else
       await this._testWithCLI(config, locations, mode, options, reporter, token);
   }
 
-  private async _testWithCLI(config: TestConfig, locations: string[], mode: 'list' | 'test', options: PlaywrightTestOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+  private async _testWithCLI(config: TestConfig, locations: string[], mode: 'list' | 'test', options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
     // Always use ws transport to mitigate it.
     const reporterServer = new ReporterServer(this._vscode);
@@ -233,10 +225,10 @@ export class PlaywrightTest {
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        CI: this._isUnderTest ? undefined : process.env.CI,
+        CI: this._options.isUnderTest ? undefined : process.env.CI,
         // Don't debug tests when running them.
         NODE_OPTIONS: undefined,
-        ...this._envProvider(),
+        ...this._options.envProvider(),
         PW_TEST_REUSE_CONTEXT: options.reuseContext ? '1' : undefined,
         PW_TEST_CONNECT_WS_ENDPOINT: options.connectWsEndpoint,
         ...(await reporterServer.env()),
@@ -254,8 +246,8 @@ export class PlaywrightTest {
     await reporterServer.wireTestListener(mode, reporter, token);
   }
 
-  private async _testWithServer(config: TestConfig, locations: string[], mode: 'list' | 'test', options: PlaywrightTestOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
-    const testServer = await this._testServerController.testServerFor(config);
+  private async _testWithServer(config: TestConfig, locations: string[], mode: 'list' | 'test', options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+    const testServer = await this._options.testServerController.testServerFor(config);
     if (token?.isCancellationRequested)
       return;
     if (!testServer)
@@ -309,8 +301,12 @@ export class PlaywrightTest {
     }
   }
 
+  private async _runNode(args: string[], cwd: string) {
+    return await runNode(this._vscode, args, cwd, this._options.envProvider());
+  }
+
   async _findRelatedTestFilesServer(config: TestConfig, files: string[]): Promise<ConfigFindRelatedTestFilesReport> {
-    const testServer = await this._testServerController.testServerFor(config);
+    const testServer = await this._options.testServerController.testServerFor(config);
     if (!testServer)
       return { testFiles: files, errors: [{ message: 'Internal error: unable to connect to the test server' }] };
     return await testServer.findRelatedTestFiles({ configFile: config.configFile, files });
@@ -341,7 +337,7 @@ export class PlaywrightTest {
     }
 
     const reporterServer = new ReporterServer(this._vscode);
-    const testOptions = await this._runHooks.onWillRunTests(config, true);
+    const testOptions = await this._options.runHooks.onWillRunTests(config, true);
     try {
       await vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
@@ -350,7 +346,7 @@ export class PlaywrightTest {
         cwd: configFolder,
         env: {
           ...process.env,
-          CI: this._isUnderTest ? undefined : process.env.CI,
+          CI: this._options.isUnderTest ? undefined : process.env.CI,
           ...settingsEnv,
           PW_TEST_CONNECT_WS_ENDPOINT: testOptions.connectWsEndpoint,
           ...(await reporterServer.env()),
@@ -367,20 +363,12 @@ export class PlaywrightTest {
       });
       await reporterServer.wireTestListener('test', reporter, token);
     } finally {
-      await this._runHooks.onDidRunTests(true);
+      await this._options.runHooks.onDidRunTests(true);
     }
   }
 
   private _log(line: string) {
-    this._testLog.push(line);
-  }
-
-  testLog(): string[] {
-    return this._testLog.slice();
-  }
-
-  private async _runNode(args: string[], cwd: string): Promise<string> {
-    return await spawnAsync(await findNode(this._vscode, cwd), args, cwd, this._envProvider());
+    this._options.playwrightTestLog.push(line);
   }
 }
 
@@ -390,4 +378,21 @@ function escapeRegex(text: string) {
 
 function unwrapString(params: { text?: string, buffer?: string }): string | Buffer {
   return params.buffer ? Buffer.from(params.buffer, 'base64') : params.text || '';
+}
+
+async function runNode(vscode: vscodeTypes.VSCode, args: string[], cwd: string, env: NodeJS.ProcessEnv): Promise<string> {
+  return await spawnAsync(await findNode(vscode, cwd), args, cwd, env);
+}
+
+export async function getPlaywrightInfo(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFilePath: string, env: NodeJS.ProcessEnv): Promise<{ version: number, cli: string }> {
+  const pwtInfo = await runNode(vscode, [
+    require.resolve('./playwrightFinder'),
+  ], path.dirname(configFilePath), env);
+  const { version, cli, error } = JSON.parse(pwtInfo) as { version: number, cli: string, error?: string };
+  if (error)
+    throw new Error(error);
+  let cliOverride = cli;
+  if (cli.includes('/playwright/packages/playwright-test/') && configFilePath.includes('playwright-test'))
+    cliOverride = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/@playwright/test/cli.js');
+  return { cli: cliOverride, version };
 }

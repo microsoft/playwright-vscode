@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-import { expect, test } from './utils';
-import { Extension } from '../out/extension';
-import { TestRunProfileKind } from './mock/vscode';
+import { enableConfigs, enableProjects, expect, test } from './utils';
 
 test('should list files', async ({ activate }) => {
   const { vscode, testController } = await activate({
@@ -231,43 +229,6 @@ test('should do nothing for not loaded changed file', async ({ activate }) => {
   expect(changed).toBeFalsy();
 });
 
-test('should switch between configs', async ({ activate }) => {
-  const { vscode, testController } = await activate({
-    'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
-    'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
-    'tests1/test.spec.ts': `
-      import { test } from '@playwright/test';
-      test('one', async () => {});
-    `,
-    'tests2/test.spec.ts': `
-      import { test } from '@playwright/test';
-      test(two', async () => {});
-    `,
-  });
-  await expect(testController).toHaveTestTree(`
-    - tests1
-      - test.spec.ts
-  `);
-
-  expect(vscode).toHaveExecLog(`
-    tests1> playwright list-files -c playwright.config.js
-    tests2> playwright list-files -c playwright.config.js
-  `);
-
-  const profiles = testController.runProfilesByKind(TestRunProfileKind.Run);
-  profiles[0].isDefault = false;
-  profiles[1].isDefault = true;
-
-  await expect(testController).toHaveTestTree(`
-    - tests2
-      - test.spec.ts
-  `);
-  expect(vscode).toHaveExecLog(`
-    tests1> playwright list-files -c playwright.config.js
-    tests2> playwright list-files -c playwright.config.js
-  `);
-});
-
 test('should support multiple projects', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
@@ -328,13 +289,23 @@ test('should switch between multiple projects with filter', async ({ activate })
     > playwright list-files -c playwright.config.js
   `);
 
-  const profiles = testController.runProfilesByKind(TestRunProfileKind.Run);
-  profiles[0].isDefault = false;
-  profiles[1].isDefault = true;
+  await expect(vscode).toHaveProjectTree(`
+    config: playwright.config.js
+    [x] project 1
+    [ ] project 2
+  `);
+
+  await enableProjects(vscode, ['project 2']);
 
   await expect(testController).toHaveTestTree(`
     - tests
       - test2.spec.ts
+  `);
+
+  await expect(vscode).toHaveProjectTree(`
+    config: playwright.config.js
+    [ ] project 1
+    [x] project 2
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -379,19 +350,13 @@ test('should list files in multi-folder workspace with project switching', async
     ]
   });
 
-  const extension = new Extension(vscode);
-  const context = { subscriptions: [] };
-  await extension.activate(context);
-
   await expect(testController).toHaveTestTree(`
     - folder1
       - test.spec.ts
     - folder2
   `);
 
-  const profiles = testController.runProfilesByKind(TestRunProfileKind.Run);
-  profiles[0].isDefault = false;
-  profiles[1].isDefault = true;
+  await enableConfigs(vscode, ['folder2/playwright.config.js']);
 
   await expect(testController).toHaveTestTree(`
     - folder1
@@ -414,9 +379,13 @@ test('should ignore errors when listing files', async ({ activate }) => {
     - tests
       - test.spec.ts
   `);
+
+  await enableConfigs(vscode, ['playwright.config.ts', 'playwright.config.js']);
+
   expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.ts
   `);
-  expect(vscode.errors).toEqual(['There are errors in Playwright configuration files.']);
+
+  await expect.poll(() => vscode.errors).toEqual(['There are errors in Playwright configuration files.']);
 });

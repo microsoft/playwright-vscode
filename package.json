@@ -57,6 +57,12 @@
       },
       {
         "category": "Test",
+        "icon": "$(gear)",
+        "command": "pw.extension.command.toggleModels",
+        "title": "%contributes.command.pw.extension.command.toggleModels%"
+      },
+      {
+        "category": "Test",
         "command": "pw.extension.toggle.reuseBrowser",
         "title": "%contributes.command.pw.extension.toggle.reuseBrowser%"
       },
@@ -91,6 +97,10 @@
         "playwright.allowWatchingFiles": {
           "type": "boolean",
           "default": false
+        },
+        "playwright.workspaceSettings": {
+          "type": "object",
+          "default": {}
         }
       }
     },

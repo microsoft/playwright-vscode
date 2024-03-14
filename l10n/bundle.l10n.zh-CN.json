@@ -4,6 +4,8 @@
   "Record at cursor": "在当前光标处开始录制",
   "Reveal test output": "显示测试输出",
   "Close all browsers": "关闭全部 Playwright 浏览器",
+  "Select Playwright Config": "选择 Playwright 配置",
+  "Toggle Playwright Configs": "切换 Playwright 配置",
   "Accept to copy locator into clipboard": "确认保存到剪贴板",
   "Can't record while running tests": "运行测试时不能录制",
   "this feature": "该功能",

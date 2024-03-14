@@ -433,8 +433,12 @@ export class TestController {
     this.items = new TestItem(this, id, label);
   }
 
-  runProfilesByKind(kind: TestRunProfileKind): TestRunProfile[] {
-    return this.runProfiles.filter(p => p.kind === kind);
+  runProfile(): TestRunProfile {
+    return this.runProfiles.filter(p => p.kind === TestRunProfileKind.Run)[0];
+  }
+
+  debugProfile(): TestRunProfile {
+    return this.runProfiles.filter(p => p.kind === TestRunProfileKind.Debug)[0];
   }
 
   createTestItem(id: string, label: string, uri?: Uri): TestItem {
@@ -442,13 +446,7 @@ export class TestController {
   }
 
   createRunProfile(label: string, kind: TestRunProfileKind, runHandler: (request: TestRunRequest, token: CancellationToken) => Promise<void>, isDefault?: boolean): TestRunProfile {
-    // Enable first profile by default, lazily.
-    const isFirst = !this.runProfilesByKind(kind).length;
-    const profile = new TestRunProfile(this, label, kind, runHandler, !!isDefault, this.runProfiles);
-    setTimeout(() => {
-      profile.isDefault = isFirst;
-    }, 0);
-    return profile;
+    return new TestRunProfile(this, label, kind, runHandler, !!isDefault, this.runProfiles);
   }
 
   createTestRun(request: TestRunRequest, name?: string, persist?: boolean): TestRun {
@@ -893,6 +891,9 @@ export class VSCode {
       this._didChangeActiveTextEditor.fire(this.window.activeTextEditor);
       return editor;
     };
+    this.window.showQuickPick = async options => {
+      return this.window.mockQuickPick(options);
+    };
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
     this.workspace.onDidChangeTextDocument = this.onDidChangeTextDocument;
@@ -933,15 +934,18 @@ export class VSCode {
       'playwright.env': {},
       'playwright.reuseBrowser': false,
       'playwright.showTrace': false,
+      'playwright.workspaceSettings': {},
     };
     this.workspace.getConfiguration = scope => {
       return {
         get: key => settings[scope + '.' + key],
-        update: (key, value) => {
+        update: (key, value, notifyListeners) => {
           settings[scope + '.' + key] = value;
-          this._didChangeConfiguration.fire({
-            affectsConfiguration: prefix => (scope + '.' + key).startsWith(prefix)
-          });
+          if (notifyListeners) {
+            this._didChangeConfiguration.fire({
+              affectsConfiguration: prefix => (scope + '.' + key).startsWith(prefix)
+            });
+          }
         },
         inspect: key => {
           return { defaultValue: false, globalValue: settings[scope + '.' + key] };
@@ -1048,6 +1052,20 @@ export class VSCode {
     for (const extension of this.extensions)
       log.push(...extension.playwrightTestLog());
     return trimLog(unescapeRegex(log.join(`\n  ${indent}`)).replace(/\\/g, '/')) + `\n${indent}`;
+  }
+
+  async renderProjectTree(): Promise<string> {
+    const result: string[] = [''];
+    const webView = this.webViews.get('pw.extension.settingsView')!;
+    const selectedConfig = await webView.getByTestId('models').evaluate((e: HTMLSelectElement) => e.selectedOptions[0].textContent);
+    result.push(`    config: ${selectedConfig}`);
+    const projectLocators = await webView.getByTestId('projects').locator('div').locator('label').all();
+    for (const projectLocator of projectLocators) {
+      const checked = await projectLocator.locator('input').isChecked();
+      const name = await projectLocator.textContent();
+      result.push(`    ${checked ? '[x]' : '[ ]'} ${name}`);
+    }
+    return result.join('\n');
   }
 }
 

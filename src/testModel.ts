@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
-import { PlaywrightTest, TestConfig } from './playwrightTest';
+import { PlaywrightTest, RunHooks, TestConfig } from './playwrightTest';
 import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
 import { resolveSourceMap } from './utils';
 import { ProjectConfigWithFiles } from './listTests';
 import * as reporterTypes from './reporter';
 import { TeleSuite } from './upstream/teleReceiver';
+import type { SettingsModel, WorkspaceSettings } from './settingsModel';
 import path from 'path';
+import { DisposableBase } from './disposableBase';
+import type { TestServerController } from './testServerController';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
@@ -31,7 +34,15 @@ export type TestProject = {
   suite: reporterTypes.Suite;
   project: reporterTypes.FullProject;
   isEnabled: boolean;
-  tag: vscodeTypes.TestTag;
+};
+
+export type TestModelOptions = {
+  settingsModel: SettingsModel;
+  runHooks: RunHooks;
+  isUnderTest: boolean;
+  testServerController: TestServerController;
+  playwrightTestLog: string[];
+  envProvider: () => NodeJS.ProcessEnv;
 };
 
 export class TestModel {
@@ -44,23 +55,44 @@ export class TestModel {
   private _fileToSources: Map<string, string[]> = new Map();
   private _sourceToFile: Map<string, string> = new Map();
   private _envProvider: () => NodeJS.ProcessEnv;
+  isEnabled = false;
+  readonly tag: vscodeTypes.TestTag;
+  private _configError: reporterTypes.TestError | undefined;
 
-  constructor(vscode: vscodeTypes.VSCode, playwrightTest: PlaywrightTest, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }, envProvider: () => NodeJS.ProcessEnv) {
+  constructor(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }, options: TestModelOptions) {
     this._vscode = vscode;
-    this._playwrightTest = playwrightTest;
+    this._playwrightTest = new PlaywrightTest(vscode, { configFile, ...options });
     this.config = { ...playwrightInfo, workspaceFolder, configFile };
     this._didUpdate = new vscode.EventEmitter();
-    this._envProvider = envProvider;
     this.onUpdated = this._didUpdate.event;
+    this._envProvider = options.envProvider;
+    this.tag = new this._vscode.TestTag(this.config.configFile);
   }
 
-  setProjectEnabled(project: TestProject, enabled: boolean) {
-    project.isEnabled = enabled;
-    this._didUpdate.fire();
+  reset() {
+    this._projects.clear();
+    this._fileToSources.clear();
+    this._sourceToFile.clear();
+    this._configError = undefined;
+    this._playwrightTest.reset();
   }
 
-  allProjects(): Map<string, TestProject> {
+  projects(): TestProject[] {
+    return [...this._projects.values()];
+  }
+
+  takeConfigError(): reporterTypes.TestError | undefined {
+    const error = this._configError;
+    this._configError = undefined;
+    return error;
+  }
+
+  projectMap(): Map<string, TestProject> {
     return this._projects;
+  }
+
+  testDirs(): string[] {
+    return [...new Set([...this._projects.values()].map(p => p.project.testDir))];
   }
 
   enabledProjects(): TestProject[] {
@@ -77,10 +109,13 @@ export class TestModel {
     return result;
   }
 
-  async listFiles(): Promise<reporterTypes.TestError | undefined> {
+  async _listFiles() {
     const report = await this._playwrightTest.listFiles(this.config);
-    if (report.error)
-      return report.error;
+    if (report.error) {
+      this._configError = report.error;
+      this._didUpdate.fire();
+      return;
+    }
 
     // Resolve files to sources when using source maps.
     for (const project of report.projects) {
@@ -97,7 +132,7 @@ export class TestModel {
       let project = this._projects.get(projectReport.name);
       if (!project)
         project = this._createProject(projectReport);
-      this._updateProject(project, projectReport);
+      this._updateProjectFiles(project, projectReport);
     }
 
     for (const projectName of this._projects.keys()) {
@@ -132,13 +167,12 @@ export class TestModel {
       suite: projectSuite,
       project: projectSuite._project,
       isEnabled: false,
-      tag: new this._vscode.TestTag(this.config.configFile + ':' + projectReport.name),
     };
     this._projects.set(project.name, project);
     return project;
   }
 
-  private _updateProject(project: TestProject, projectReport: ProjectConfigWithFiles) {
+  private _updateProjectFiles(project: TestProject, projectReport: ProjectConfigWithFiles) {
     const filesToKeep = new Set<string>();
     const files = projectFiles(project);
     for (const file of projectReport.files) {
@@ -147,6 +181,7 @@ export class TestModel {
       if (!testFile) {
         const testFile = new TeleSuite(file, 'file');
         testFile.location = { file, line: 0, column: 0 };
+        (testFile as any)[listFilesFlag] = true;
         files.set(file, testFile);
       }
     }
@@ -166,9 +201,32 @@ export class TestModel {
     const deleted = this._mapFilesToSources(testDirs, change.deleted);
 
     if (created.length || deleted.length)
-      await this.listFiles();
+      await this._listFiles();
     if (changed.length)
       await this.listTests(changed);
+  }
+
+  async ensureTests(files: string[]): Promise<reporterTypes.TestError[]> {
+    // Do not list tests if all files are already loaded, otherwise we
+    // end up with update loop when updating tests for visible editors.
+    let allFilesLoaded = true;
+    for (const project of this._projects.values()) {
+      const projectSuiteFiles = projectFiles(project);
+      for (const f of files) {
+        const fileSuite = projectSuiteFiles.get(f);
+        if (!fileSuite || (fileSuite as any)[listFilesFlag]) {
+          allFilesLoaded = false;
+          break;
+        }
+      }
+      if (!allFilesLoaded)
+        break;
+    }
+    if (allFilesLoaded)
+      return [];
+    const { rootSuite, errors } = await this._playwrightTest.listTests(this.config, files);
+    this._updateProjects(rootSuite.suites, files);
+    return errors;
   }
 
   async listTests(files: string[]): Promise<reporterTypes.TestError[]> {
@@ -245,6 +303,10 @@ export class TestModel {
     return [...result];
   }
 
+  async findRelatedTestFiles(files: string[]) {
+    return await this._playwrightTest.findRelatedTestFiles(this.config, files);
+  }
+
   narrowDownFilesToEnabledProjects(fileNames: Set<string>) {
     const result = new Set<string>();
     for (const project of this.enabledProjects()) {
@@ -258,9 +320,145 @@ export class TestModel {
   }
 }
 
+export class TestModelCollection extends DisposableBase {
+  private _models: TestModel[] = [];
+  private _selectedConfigFile: string | undefined;
+  private _didUpdate: vscodeTypes.EventEmitter<void>;
+  readonly onUpdated: vscodeTypes.Event<void>;
+  private _settingsModel: SettingsModel;
+
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel) {
+    super();
+    this._settingsModel = settingsModel;
+    this._didUpdate = new vscode.EventEmitter();
+    this.onUpdated = this._didUpdate.event;
+  }
+
+  setModelEnabled(configFile: string, enabled: boolean) {
+    const model = this._models.find(m => m.config.configFile === configFile);
+    if (!model)
+      return;
+    if (model.isEnabled === enabled)
+      return;
+    model.isEnabled = enabled;
+    this._saveSettings();
+    model.reset();
+    this._loadModelIfNeeded(model).then(() => this._didUpdate.fire());
+  }
+
+  setProjectEnabled(configFile: string, name: string, enabled: boolean) {
+    const model = this._models.find(m => m.config.configFile === configFile);
+    if (!model)
+      return;
+    const project = model.projectMap().get(name);
+    if (!project)
+      return;
+    if (project.isEnabled === enabled)
+      return;
+    project.isEnabled = enabled;
+    this._saveSettings();
+    this._didUpdate.fire();
+  }
+
+  testDirs(): string[] {
+    const result = new Set<string>();
+    for (const model of this._models) {
+      for (const dir of model.testDirs())
+        result.add(dir);
+    }
+    return [...result];
+  }
+
+  async addModel(model: TestModel) {
+    this._models.push(model);
+    const workspaceSettings = this._settingsModel.workspaceSettings.get();
+    const configSettings = (workspaceSettings.configs || []).find(c => c.relativeConfigFile === path.relative(model.config.workspaceFolder, model.config.configFile));
+    model.isEnabled = configSettings?.enabled || (this._models.length === 1 && !configSettings);
+    await this._loadModelIfNeeded(model);
+    this._disposables.push(model.onUpdated(() => this._didUpdate.fire()));
+    this._didUpdate.fire();
+  }
+
+  private async _loadModelIfNeeded(model: TestModel) {
+    if (!model.isEnabled)
+      return;
+    await model._listFiles();
+    const workspaceSettings = this._settingsModel.workspaceSettings.get();
+    const configSettings = (workspaceSettings.configs || []).find(c => c.relativeConfigFile === path.relative(model.config.workspaceFolder, model.config.configFile));
+    if (configSettings) {
+      let firstProject = true;
+      for (const project of model.projects()) {
+        const projectSettings = configSettings.projects.find(p => p.name === project.name);
+        if (projectSettings)
+          project.isEnabled = projectSettings.enabled;
+        else if (firstProject)
+          project.isEnabled = true;
+        firstProject = false;
+      }
+    } else {
+      model.projects()[0].isEnabled = true;
+    }
+  }
+
+  hasEnabledModels() {
+    return !!this.enabledModels().length;
+  }
+
+  versions(): Map<number, TestModel>{
+    const versions = new Map<number, TestModel>();
+    for (const model of this._models)
+      versions.set(model.config.version, model);
+    return versions;
+  }
+
+  clear() {
+    this.dispose();
+    for (const model of this._models)
+      model.reset();
+    this._models = [];
+    this._didUpdate.fire();
+  }
+
+  enabledModels(): TestModel[] {
+    return this._models.filter(m => m.isEnabled);
+  }
+
+  models(): TestModel[] {
+    return this._models;
+  }
+
+  selectedModel(): TestModel | undefined {
+    const model = this._models.find(m => m.config.configFile === this._selectedConfigFile);
+    if (model)
+      return model;
+    return this._models.find(m => m.isEnabled);
+  }
+
+  selectModel(configFile: string) {
+    this._selectedConfigFile = configFile;
+    this._saveSettings();
+    this._didUpdate.fire();
+  }
+
+  private _saveSettings() {
+    const workspaceSettings: WorkspaceSettings = { configs: [] };
+    for (const model of this._models) {
+      workspaceSettings.configs!.push({
+        relativeConfigFile: path.relative(model.config.workspaceFolder, model.config.configFile),
+        selected: model.config.configFile === this._selectedConfigFile,
+        enabled: model.isEnabled,
+        projects: model.projects().map(p => ({ name: p.name, enabled: p.isEnabled })),
+      });
+    }
+    this._settingsModel.workspaceSettings.set(workspaceSettings);
+  }
+}
+
 export function projectFiles(project: TestProject): Map<string, reporterTypes.Suite> {
   const files = new Map<string, reporterTypes.Suite>();
   for (const fileSuite of project.suite.suites)
     files.set(fileSuite.location!.file, fileSuite);
   return files;
 }
+
+const listFilesFlag = Symbol('listFilesFlag');
