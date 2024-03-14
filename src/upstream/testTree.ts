@@ -1,3 +1,7 @@
+// *************** DO NOT EDIT *******************
+// THIS FILE HAS BEEN COPIED FROM PLAYWRIGHT REPO
+// ***********************************************
+
 /**
  * Copyright (c) Microsoft Corporation.
  *
