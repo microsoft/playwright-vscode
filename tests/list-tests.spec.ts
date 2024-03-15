@@ -29,9 +29,9 @@ test('should list tests on expand', async ({ activate }) => {
 
   await testController.expandTestItems(/test.spec.ts/);
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - one [2:0]
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -57,11 +57,11 @@ test('should list tests for visible editors', async ({ activate }) => {
   await new Promise(f => testController.onDidChangeTestItem(f));
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test1.spec.ts
-        - one [2:0]
-      - test2.spec.ts
-        - two [2:0]
+    -   tests
+      -   test1.spec.ts
+        -   one [2:0]
+      -   test2.spec.ts
+        -   two [2:0]
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -94,19 +94,19 @@ test('should list suits', async ({ activate }) => {
 
   await testController.expandTestItems(/test.spec.ts/);
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - one [2:0]
-        - two [3:0]
-        - group 1 [4:0]
-          - one [5:0]
-          - two [6:0]
-        - group 2 [8:0]
-          - group 2.1 [9:0]
-            - one [10:0]
-            - two [11:0]
-          - one [13:0]
-          - two [14:0]
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
+        -   two [3:0]
+        -   group 1 [4:0]
+          -   one [5:0]
+          -   two [6:0]
+        -   group 2 [8:0]
+          -   group 2.1 [9:0]
+            -   one [10:0]
+            -   two [11:0]
+          -   one [13:0]
+          -   two [14:0]
   `);
 });
 
@@ -136,10 +136,10 @@ test('should discover new tests', async ({ activate }) => {
   ]);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - one [2:0]
-        - two [3:0]
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
+        -   two [3:0]
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -178,10 +178,10 @@ test('should discover new tests with active editor', async ({ activate }) => {
   ]);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test1.spec.ts
-      - test2.spec.ts
-        - two [2:0]
+    -   tests
+      -   test1.spec.ts
+      -   test2.spec.ts
+        -   two [2:0]
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -202,7 +202,7 @@ test('should discover tests on add + change', async ({ activate }) => {
   ]);
 
   await expect(testController).toHaveTestTree(`
-    - test.spec.ts
+    -   test.spec.ts
   `);
 
   await testController.expandTestItems(/test.spec.ts/);
@@ -216,8 +216,8 @@ test('should discover tests on add + change', async ({ activate }) => {
   ]);
 
   await expect(testController).toHaveTestTree(`
-    - test.spec.ts
-      - one [2:0]
+    -   test.spec.ts
+      -   one [2:0]
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -253,9 +253,9 @@ test('should discover new test at existing location', async ({ activate }) => {
   ]);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - two [2:0]
+    -   tests
+      -   test.spec.ts
+        -   two [2:0]
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -283,10 +283,10 @@ test('should remove deleted tests', async ({ activate }) => {
   `);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - one [2:0]
-        - two [3:0]
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
+        -   two [3:0]
   `);
 
   await Promise.all([
@@ -298,9 +298,9 @@ test('should remove deleted tests', async ({ activate }) => {
   ]);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - one [2:0]
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -323,10 +323,10 @@ test('should forget tests after error before first test', async ({ activate }) =
   await testController.expandTestItems(/test.spec.ts/);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - one [2:0]
-        - two [3:0]
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
+        -   two [3:0]
   `);
 
   await Promise.all([
@@ -340,8 +340,8 @@ test('should forget tests after error before first test', async ({ activate }) =
   ]);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
+    -   tests
+      -   test.spec.ts
   `);
 });
 
@@ -364,8 +364,8 @@ test('should regain tests after error is fixed', async ({ activate }) => {
   `);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
+    -   tests
+      -   test.spec.ts
   `);
 
   await Promise.all([
@@ -378,10 +378,10 @@ test('should regain tests after error is fixed', async ({ activate }) => {
   ]);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - one [2:0]
-        - two [3:0]
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
+        -   two [3:0]
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -408,21 +408,21 @@ test('should support multiple configs', async ({ activate }) => {
   await enableConfigs(vscode, [`tests1${path.sep}playwright.config.js`, `tests2${path.sep}playwright.config.js`]);
 
   await expect(testController).toHaveTestTree(`
-    - tests1
-      - test.spec.ts
-    - tests2
-      - test.spec.ts
+    -   tests1
+      -   test.spec.ts
+    -   tests2
+      -   test.spec.ts
   `);
 
   await testController.expandTestItems(/test.spec/);
 
   await expect(testController).toHaveTestTree(`
-    - tests1
-      - test.spec.ts
-        - one [2:0]
-    - tests2
-      - test.spec.ts
-        - two [2:0]
+    -   tests1
+      -   test.spec.ts
+        -   one [2:0]
+    -   tests2
+      -   test.spec.ts
+        -   two [2:0]
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -455,18 +455,18 @@ test('should support multiple projects', async ({ activate }) => {
   await enableProjects(vscode, ['project 1', 'project 2']);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test1.spec.ts
-      - test2.spec.ts
+    -   tests
+      -   test1.spec.ts
+      -   test2.spec.ts
   `);
 
   await testController.expandTestItems(/test1.spec/);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test1.spec.ts
-        - one [2:0]
-      - test2.spec.ts
+    -   tests
+      -   test1.spec.ts
+        -   one [2:0]
+      -   test2.spec.ts
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -487,11 +487,11 @@ test('should list parametrized tests', async ({ activate }) => {
 
   await testController.expandTestItems(/test.spec.ts/);
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - one [3:0]
-        - two [3:0]
-        - three [3:0]
+    -   tests
+      -   test.spec.ts
+        -   one [3:0]
+        -   two [3:0]
+        -   three [3:0]
   `);
 });
 
@@ -510,12 +510,12 @@ test('should list tests in parametrized groups', async ({ activate }) => {
 
   await testController.expandTestItems(/test.spec.ts/);
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - level 1 [3:0]
-          - should work [4:0]
-        - level 2 [3:0]
-          - should work [4:0]
+    -   tests
+      -   test.spec.ts
+        -   level 1 [3:0]
+          -   should work [4:0]
+        -   level 2 [3:0]
+          -   should work [4:0]
   `);
 });
 
@@ -533,9 +533,9 @@ test('should not run config reporters', async ({ activate }, testInfo) => {
 
   await testController.expandTestItems(/test.spec.ts/);
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - one [2:0]
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
   `);
 
   expect(fs.existsSync(testInfo.outputPath('playwright-report'))).toBeFalsy();
@@ -564,20 +564,20 @@ test('should list tests in multi-folder workspace', async ({ activate }, testInf
   await enableConfigs(vscode, ['folder1/playwright.config.js', 'folder2/playwright.config.js']);
 
   await expect(testController).toHaveTestTree(`
-    - folder1
-      - test.spec.ts
-    - folder2
-      - test.spec.ts
+    -   folder1
+      -   test.spec.ts
+    -   folder2
+      -   test.spec.ts
   `);
 
   await testController.expandTestItems(/test.spec.ts/);
   await expect(testController).toHaveTestTree(`
-    - folder1
-      - test.spec.ts
-        - one [2:0]
-    - folder2
-      - test.spec.ts
-        - two [2:0]
+    -   folder1
+      -   test.spec.ts
+        -   one [2:0]
+    -   folder2
+      -   test.spec.ts
+        -   two [2:0]
   `);
 });
 
@@ -605,12 +605,12 @@ test('should merge items from different projects', async ({ activate }, testInfo
   await testController.expandTestItems(/test.spec.ts/);
   await testController.expandTestItems(/group/);
   await expect(testController).toHaveTestTree(`
-    - test.spec.ts
-      - group [2:0]
-        - test 1 [3:0]
-        - test 2 [@mobile] [4:0]
-        - test 3 [@mobile] [5:0]
-        - test 4 [6:0]
+    -   test.spec.ts
+      -   group [2:0]
+        -   test 1 [3:0]
+        -   test 2 [@mobile] [4:0]
+        -   test 3 [@mobile] [5:0]
+        -   test 4 [6:0]
   `);
 });
 
@@ -630,27 +630,27 @@ test('should show project-specific tests', async ({ activate }, testInfo) => {
   });
 
   await expect(testController).toHaveTestTree(`
-    - test.spec.ts
+    -   test.spec.ts
   `);
 
   await testController.expandTestItems(/test.spec.ts/);
   await expect(testController).toHaveTestTree(`
-    - test.spec.ts
-      - test [2:0]
+    -   test.spec.ts
+      -   test [2:0]
   `);
 
   await enableProjects(vscode, ['chromium', 'firefox', 'webkit']);
   await expect(testController).toHaveTestTree(`
-    - test.spec.ts
-      - test [2:0]
-        - chromium [2:0]
-        - firefox [2:0]
-        - webkit [2:0]
+    -   test.spec.ts
+      -   test [2:0]
+        -   chromium [2:0]
+        -   firefox [2:0]
+        -   webkit [2:0]
   `);
 
   await enableProjects(vscode, ['webkit']);
   await expect(testController).toHaveTestTree(`
-    - test.spec.ts
-      - test [2:0]
+    -   test.spec.ts
+      -   test [2:0]
   `);
 });

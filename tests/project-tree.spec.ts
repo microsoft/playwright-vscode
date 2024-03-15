@@ -31,8 +31,8 @@ test('should switch between configs', async ({ activate }) => {
     `,
   });
   await expect(testController).toHaveTestTree(`
-    - tests1
-      - test.spec.ts
+    -   tests1
+      -   test.spec.ts
   `);
   await expect(vscode).toHaveProjectTree(`
     config: tests1/playwright.config.js
@@ -53,8 +53,8 @@ test('should switch between configs', async ({ activate }) => {
   `);
 
   await expect(testController).toHaveTestTree(`
-    - tests2
-      - test.spec.ts
+    -   tests2
+      -   test.spec.ts
   `);
   expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
@@ -81,8 +81,8 @@ test('should switch between projects', async ({ activate }) => {
   });
 
   await expect(testController).toHaveTestTree(`
-    - tests1
-      - test.spec.ts
+    -   tests1
+      -   test.spec.ts
   `);
 
   await expect(vscode).toHaveProjectTree(`
@@ -100,10 +100,10 @@ test('should switch between projects', async ({ activate }) => {
   `);
 
   await expect(testController).toHaveTestTree(`
-    - tests1
-      - test.spec.ts
-    - tests2
-      - test.spec.ts
+    -   tests1
+      -   test.spec.ts
+    -   tests2
+      -   test.spec.ts
   `);
 
   await enableProjects(vscode, ['projectTwo']);

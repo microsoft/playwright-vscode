@@ -33,6 +33,15 @@ test('should run all tests', async ({ activate }) => {
   });
 
   const testRun = await testController.run();
+
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   test-1.spec.ts
+        - ✅ should pass [2:0]
+      -   test-2.spec.ts
+        - ❌ should fail [2:0]
+  `);
+
   expect(testRun.renderLog()).toBe(`
     tests > test-2.spec.ts > should fail [2:0]
       enqueued
@@ -62,6 +71,12 @@ test('should run one test', async ({ activate }) => {
   await testController.expandTestItems(/test.spec/);
   const testItems = testController.findTestItems(/pass/);
   const testRun = await testController.run(testItems);
+
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   test.spec.ts
+        - ✅ should pass [2:0]
+  `);
 
   expect(testRun.renderLog()).toBe(`
     tests > test.spec.ts > should pass [2:0]
@@ -339,14 +354,14 @@ test('should only create test run if folder belongs to context', async ({ activa
   await enableConfigs(vscode, [`tests1${path.sep}playwright.config.js`, `tests2${path.sep}playwright.config.js`]);
 
   await expect(testController).toHaveTestTree(`
-    - tests1
-      - foo1
-        - bar1
-          - test1.spec.ts
-    - tests2
-      - foo2
-        - bar2
-          - test2.spec.ts
+    -   tests1
+      -   foo1
+        -   bar1
+          -   test1.spec.ts
+    -   tests2
+      -   foo2
+        -   bar2
+          -   test2.spec.ts
   `);
 
   const profile = testController.runProfile();
@@ -524,11 +539,11 @@ test('should not remove other tests when running focused test', async ({ activat
   await testController.run(testItems);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - one [2:0]
-        - two [3:0]
-        - three [4:0]
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
+        - ✅ two [3:0]
+        -   three [4:0]
   `);
 });
 
@@ -709,9 +724,9 @@ test('should list tests in relative folder', async ({ activate }) => {
   `);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
-        - one [2:0]
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
   `);
 });
 
@@ -835,11 +850,11 @@ test('should discover tests after running one test', async ({ activate }) => {
   await testController.expandTestItems(/test2.spec.ts/);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test1.spec.ts
-        - one [2:0]
-      - test2.spec.ts
-        - two [2:0]
+    -   tests
+      -   test1.spec.ts
+        - ✅ one [2:0]
+      -   test2.spec.ts
+        -   two [2:0]
   `);
 });
 
@@ -860,6 +875,16 @@ test('should provisionally enqueue nested tests', async ({ activate }) => {
   await testController.expandTestItems(/test.spec.ts/);
   const testItems = testController.findTestItems(/test.spec.ts/);
   const testRun = await testController.run(testItems);
+
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   test.spec.ts
+        - ✅ 1 [2:0]
+        - ✅ 2 [3:0]
+        -   group [4:0]
+          - ✅ 3 [5:0]
+          - ✅ 4 [6:0]
+  `);
 
   expect(testRun.renderLog()).toBe(`
     tests > test.spec.ts > 1 [2:0]

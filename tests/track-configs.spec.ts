@@ -28,8 +28,8 @@ test('should load first config', async ({ activate }) => {
   `);
 
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
+    -   tests
+      -   test.spec.ts
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -46,8 +46,8 @@ test('should load second config', async ({ activate }) => {
     `,
   });
   await expect(testController).toHaveTestTree(`
-    - tests1
-      - test.spec.ts
+    -   tests1
+      -   test.spec.ts
   `);
 
   workspaceFolder.addFile('playwright2.config.js', `module.exports = { testDir: 'tests2' }`);
@@ -58,10 +58,10 @@ test('should load second config', async ({ activate }) => {
 
   await enableConfigs(vscode, ['playwright1.config.js', 'playwright2.config.js']);
   await expect(testController).toHaveTestTree(`
-    - tests1
-      - test.spec.ts
-    - tests2
-      - test.spec.ts
+    -   tests1
+      -   test.spec.ts
+    -   tests2
+      -   test.spec.ts
   `);
 
   expect(vscode).toHaveExecLog(`
@@ -88,17 +88,17 @@ test('should remove model for config', async ({ activate }) => {
   await enableConfigs(vscode, ['playwright1.config.js', 'playwright2.config.js']);
 
   await expect(testController).toHaveTestTree(`
-    - tests1
-      - test.spec.ts
-    - tests2
-      - test.spec.ts
+    -   tests1
+      -   test.spec.ts
+    -   tests2
+      -   test.spec.ts
   `);
 
   workspaceFolder.removeFile('playwright1.config.js');
 
   await expect(testController).toHaveTestTree(`
-    - tests2
-      - test.spec.ts
+    -   tests2
+      -   test.spec.ts
   `);
 
   expect(vscode).toHaveExecLog(`

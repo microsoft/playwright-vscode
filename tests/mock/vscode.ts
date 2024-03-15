@@ -159,6 +159,7 @@ class TestItem {
   range: Range | undefined;
   parent: TestItem | undefined;
   canResolveChildren = false;
+  status: 'none' | 'enqueued' | 'started' | 'skipped' | 'failed' | 'passed' = 'none';
 
   constructor(
       readonly testController: TestController,
@@ -220,9 +221,23 @@ class TestItem {
   }
 
   innerToString(indent: string, result: string[]) {
-    result.push(`${indent}- ${this.treeTitle()}`);
+    result.push(`${indent}- ${this.statusIcon()} ${this.treeTitle()}`);
     for (const id of this.children.map.keys())
       this.children.map.get(id)!.innerToString(indent + '  ', result);
+  }
+
+  statusIcon() {
+    if (this.status === 'enqueued')
+      return '🕦';
+    if (this.status === 'started')
+      return '↻';
+    if (this.status === 'skipped')
+      return '◯';
+    if (this.status === 'failed')
+      return '❌';
+    if (this.status === 'passed')
+      return '✅';
+    return ' ';
   }
 
   treeTitle(): string {
@@ -352,22 +367,27 @@ export class TestRun {
   }
 
   enqueued(test: TestItem) {
+    test.status = 'enqueued';
     this._log(test, { status: 'enqueued' });
   }
 
   started(test: TestItem) {
+    test.status = 'started';
     this._log(test, { status: 'started' });
   }
 
   skipped(test: TestItem) {
+    test.status = 'skipped';
     this._log(test, { status: 'skipped' });
   }
 
   failed(test: TestItem, messages: TestMessage[], duration?: number) {
+    test.status = 'failed';
     this._log(test, { status: 'failed', duration, messages });
   }
 
   passed(test: TestItem, duration?: number) {
+    test.status = 'passed';
     this._log(test, { status: 'passed', duration });
   }
 

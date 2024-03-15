@@ -29,8 +29,8 @@ test('should report duplicate test title', async ({ activate }) => {
 
   await testController.expandTestItems(/test.spec.ts/);
   await expect(testController).toHaveTestTree(`
-    - tests
-      - test.spec.ts
+    -   tests
+      -   test.spec.ts
   `);
   const diagnostics = vscode.languages.getDiagnostics();
   expect(diagnostics).toEqual([
