@@ -109,8 +109,12 @@ export class PlaywrightTest {
       this._log(`${escapeRegex(path.relative(config.workspaceFolder, configFolder))}> playwright list-files -c ${configFile}`);
     }
     const output = await this._runNode(allArgs, configFolder);
-    const result = JSON.parse(output) as ConfigListFilesReport;
-    return result;
+    const result = JSON.parse(output) as Partial<ConfigListFilesReport>;
+    return {
+      // In case of an error, we still want to return the projects.
+      projects: [],
+      ...result,
+    };
   }
 
   private async _listFilesServer(config: TestConfig): Promise<ConfigListFilesReport> {

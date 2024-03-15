@@ -396,7 +396,8 @@ export class TestModelCollection extends DisposableBase {
         firstProject = false;
       }
     } else {
-      model.projects()[0].isEnabled = true;
+      if (model.projects().length)
+        model.projects()[0].isEnabled = true;
     }
   }
 
