@@ -111,7 +111,7 @@ export class PlaywrightTest {
     const output = await this._runNode(allArgs, configFolder);
     const result = JSON.parse(output) as Partial<ConfigListFilesReport>;
     return {
-      // In case of an error, we still want to return the projects.
+      // list-files does not return `projects: []` if there is an error.
       projects: [],
       ...result,
     };
