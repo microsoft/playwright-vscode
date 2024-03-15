@@ -144,6 +144,8 @@ export class TestTree extends DisposableBase {
         vsChildrenById.set(id, vsChild);
         vsChildren.add(vsChild);
       }
+      if (uChild.kind === 'case' && !areEqualTags(uChild.tags, vsChild.tags))
+        vsChild.tags = uChild.tags.map(tag => new this._vscode.TestTag(tag));
       const hasLocation = uChild.location.line || uChild.location.column;
       if (hasLocation && (!vsChild.range || vsChild.range.start.line + 1 !== uChild.location.line)) {
         const line = uChild.location.line;
@@ -211,6 +213,17 @@ export class TestTree extends DisposableBase {
   private _idWithGeneration(id: string): string {
     return this._testGeneration + id;
   }
+}
+
+function areEqualTags(uTags: readonly string[], vsTags: readonly vscodeTypes.TestTag[]): boolean {
+  if (uTags.length !== vsTags.length)
+    return false;
+  const uTagsSet = new Set(uTags);
+  for (const tag of vsTags) {
+    if (!uTagsSet.has(tag.id))
+      return false;
+  }
+  return true;
 }
 
 const testIdSymbol = Symbol('testId');

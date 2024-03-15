@@ -45,6 +45,7 @@ export type TestCaseItem = TreeItemBase & {
   children: TestItem[];
   test: reporterTypes.TestCase | undefined;
   project: reporterTypes.FullProject | undefined;
+  tags: Array<string>;
 };
 
 export type TestItem = TreeItemBase & {
@@ -116,6 +117,7 @@ export class TestTree {
             status: 'none',
             project: undefined,
             test: undefined,
+            tags: test.tags,
           };
           this._addChild(parentGroup, testCaseItem);
         }

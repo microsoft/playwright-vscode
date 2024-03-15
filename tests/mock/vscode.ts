@@ -158,6 +158,7 @@ class TestItem {
   readonly map = new Map<string, TestItem>();
   range: Range | undefined;
   parent: TestItem | undefined;
+  tags: readonly TestTag[] = [];
   canResolveChildren = false;
   status: 'none' | 'enqueued' | 'started' | 'skipped' | 'failed' | 'passed' = 'none';
 
