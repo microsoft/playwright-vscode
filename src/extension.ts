@@ -117,7 +117,7 @@ export class Extension implements RunHooks {
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._traceViewer = new TraceViewer(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._testServerController = new TestServerController(this._vscode, this._envProvider.bind(this));
-    this._testController = vscode.tests.createTestController('pw.extension.testController', 'Playwright');
+    this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModels(true).then(() => {});
     const supportsContinuousRun = this._settingsModel.allowWatchingFiles.get();

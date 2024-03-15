@@ -144,6 +144,8 @@ export class TestTree extends DisposableBase {
         vsChildrenById.set(id, vsChild);
         vsChildren.add(vsChild);
       }
+      if (uChild.kind === 'case')
+        vsChild.tags = uChild.tags.map(tag => new this._vscode.TestTag(tag));
       const hasLocation = uChild.location.line || uChild.location.column;
       if (hasLocation && (!vsChild.range || vsChild.range.start.line + 1 !== uChild.location.line)) {
         const line = uChild.location.line;
