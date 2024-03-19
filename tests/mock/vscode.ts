@@ -279,7 +279,7 @@ class TestRunProfile {
     this._isDefault = isDefault;
   }
 
-  get isDefault(): boolean | undefined {
+  get isDefault(): boolean {
     return this._isDefault;
   }
 
@@ -915,6 +915,7 @@ export class VSCode {
     this.window.showQuickPick = async options => {
       return this.window.mockQuickPick(options);
     };
+    this.window.registerTerminalLinkProvider = () => disposable;
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
     this.workspace.onDidChangeTextDocument = this.onDidChangeTextDocument;

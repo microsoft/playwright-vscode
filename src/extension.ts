@@ -32,6 +32,7 @@ import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { TraceViewer } from './traceViewer';
 import { TestServerController } from './testServerController';
 import { type Watch, WatchSupport } from './watchSupport';
+import { registerTerminalLinkProvider } from './terminalLinkProvider';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -231,6 +232,7 @@ export class Extension implements RunHooks {
       ...Object.values(this._diagnostics),
       this._treeItemObserver,
       this._testServerController,
+      registerTerminalLinkProvider(this._vscode),
     ];
     const fileSystemWatchers = [
       // Glob parser does not supported nested group, hence multiple watchers.
