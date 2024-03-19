@@ -34,7 +34,7 @@ jobs:
     - run: npm run test --workers=1
     - run: npx vsce package
       if: matrix.os == 'ubuntu-latest' && matrix.node-version == '20'
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: matrix.os == 'ubuntu-latest' && matrix.node-version == '20'
       with:
         name: vsc-extension
