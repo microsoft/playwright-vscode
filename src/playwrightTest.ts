@@ -30,7 +30,6 @@ export type TestConfig = {
   configFile: string;
   cli: string;
   version: number;
-  testIdAttributeName?: string;
 };
 
 const pathSeparator = process.platform === 'win32' ? ';' : ':';

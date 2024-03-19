@@ -69,6 +69,8 @@ export class BackendServer<T extends BackendClient> {
         fulfill(client);
       });
       serverProcess.on('exit', () => {
+        if (this._options.dumpIO)
+          console.log('[server exit]');
         fulfill(null);
         client._onCloseEvent.fire();
       });

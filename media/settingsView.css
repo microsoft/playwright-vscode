@@ -93,3 +93,11 @@ div.separator {
 body[data-vscode-theme-kind=vscode-dark] div.separator {
   border-color: rgba(204, 204, 204, 0.2);
 }
+
+.list#projects > div .actions {
+  display: none;
+}
+
+.list#projects > div:hover .actions {
+  display: block;
+}

@@ -15,7 +15,7 @@
  */
 
 import { TestConfig } from './playwrightTest';
-import type { TestModel, TestModelCollection } from './testModel';
+import type { TestModel, TestModelCollection, TestProject } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
@@ -44,6 +44,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _editOperations = Promise.resolve();
   private _pausedOnPagePause = false;
   private _settingsModel: SettingsModel;
+  private _autoCloseTimer?: NodeJS.Timeout;
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
@@ -182,13 +183,19 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   private _pageCountChanged(pageCount: number) {
+    if (this._autoCloseTimer)
+      clearTimeout(this._autoCloseTimer);
     this._pageCount = pageCount;
     this._onPageCountChangedEvent.fire(pageCount);
     if (this._isRunningTests)
       return;
     if (pageCount)
       return;
-    this._stop();
+    const heartBeat = () => {
+      if (!this._pageCount)
+        this._stop();
+    };
+    this._autoCloseTimer = setTimeout(heartBeat, 5000);
   }
 
   browserServerWSEndpoint() {
@@ -242,9 +249,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return !this._isRunningTests && !!this._pageCount;
   }
 
-  async record(models: TestModelCollection, recordNew: boolean) {
-    const selectedModel = models.selectedModel();
-    if (!selectedModel || !this._checkVersion(selectedModel.config))
+  async record(project: TestProject, recordNew: boolean) {
+    if (!this._checkVersion(project.model.config))
       return;
     if (!this.canRecord()) {
       this._vscode.window.showWarningMessage(
@@ -256,7 +262,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       location: this._vscode.ProgressLocation.Notification,
       title: 'Playwright codegen',
       cancellable: true
-    }, async (progress, token) => this._doRecord(progress, selectedModel, recordNew, token));
+    }, async (progress, token) => this._doRecord(progress, project, recordNew, token));
   }
 
   highlight(selector: string) {
@@ -290,7 +296,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return true;
   }
 
-  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, recordNew: boolean, token: vscodeTypes.CancellationToken) {
+  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, selectedProject: TestProject, recordNew: boolean, token: vscodeTypes.CancellationToken) {
+    const model = selectedProject.model;
     const startBackend = this._startBackendIfNeeded(model.config);
     let editor: vscodeTypes.TextEditor | undefined;
     if (recordNew)
@@ -309,7 +316,13 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }
 
     try {
-      await this._backend?.setMode({ mode: 'recording', testIdAttributeName: model.config.testIdAttributeName });
+      await this._backend?.setMode({
+        mode: 'recording',
+        testIdAttributeName: selectedProject.useOptions.testIdAttribute,
+        browserName: selectedProject.useOptions.browserName,
+        launchOptions: selectedProject.useOptions.launchOptions,
+        contextOptions: selectedProject.useOptions.contextOptions,
+      });
     } catch (e) {
       showExceptionAsUserError(this._vscode, model, e as Error);
       this._stop();
@@ -446,7 +459,7 @@ export class Backend extends BackendClient {
     await this.send('navigate', params);
   }
 
-  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', testIdAttributeName?: string }) {
+  async setMode(params: { mode: 'none' | 'inspecting' | 'recording', testIdAttributeName?: string, browserName?: string, launchOptions?: Record<string, any>, contextOptions?: Record<string, any>  }) {
     await this.send('setRecorderMode', params);
   }
 
