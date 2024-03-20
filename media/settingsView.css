@@ -99,5 +99,5 @@ body[data-vscode-theme-kind=vscode-dark] div.separator {
 }
 
 .list#projects > div:hover .actions {
-  display: block;
+  display: flex;
 }

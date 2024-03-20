@@ -110,23 +110,6 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
   private _updateActions() {
     const actions = [
       {
-        command: 'pw.extension.command.inspect',
-        icon: 'inspect',
-        text: this._vscode.l10n.t('Pick locator'),
-      },
-      {
-        command: 'pw.extension.command.recordNew',
-        icon: 'recordNew',
-        text: this._vscode.l10n.t('Record new'),
-        disabled: !this._reusedBrowser.canRecord(),
-      },
-      {
-        command: 'pw.extension.command.recordAtCursor',
-        icon: 'recordAtCursor',
-        text: this._vscode.l10n.t('Record at cursor'),
-        disabled: !this._reusedBrowser.canRecord(),
-      },
-      {
         command: 'testing.showMostRecentOutput',
         icon: 'showMostRecentOutput',
         text: this._vscode.l10n.t('Reveal test output'),
@@ -269,21 +252,33 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           label.appendChild(input);
           label.appendChild(document.createTextNode(name || '<untitled>'));
           div.appendChild(label);
-          {
-            const span = document.createElement('span');
-            span.classList.add('actions');
-            const label = document.createElement('label');
-            label.role = 'button';
-            label.title = 'Record new test for ' + name;
-            const svg = document.createElement('svg');
-            label.appendChild(svg);
-            span.appendChild(label);
-            div.appendChild(span);
-            div.addEventListener('click', event => {
-              vscode.postMessage({ method: 'execute', params: { command: 'pw.extension.command.recordNew', args: [name] }});
-            });
-            svg.outerHTML = icons['inspect'];
+          const span = document.createElement('span');
+          span.classList.add('actions');
+          for (const { command, title, icon } of [{
+              command: 'pw.extension.command.recordNew',
+              title: '${vscode.l10n.t('Record new')}',
+              icon: 'recordNew',
+            }, {
+              command: 'pw.extension.command.recordAtCursor',
+              title: '${vscode.l10n.t('Record at cursor')}',
+              icon: 'recordAtCursor',
+            }, {
+              command: 'pw.extension.command.inspect',
+              title: '${vscode.l10n.t('Pick locator')}',
+              icon: 'inspect',
+            }]) {
+              const label = document.createElement('label');
+              label.role = 'button';
+              label.title = title;
+              const svg = document.createElement('svg');
+              label.appendChild(svg);
+              span.appendChild(label);
+              span.addEventListener('click', event => {
+                vscode.postMessage({ method: 'execute', params: { command, args: [name] }});
+              });
+              svg.outerHTML = icons[icon];
           }
+          div.appendChild(span);
           projectsElement.appendChild(div);
         }
       }
