@@ -16,12 +16,19 @@
 
 import type { TestError } from './reporter';
 
-// This matches the structs in packages/playwright-test/src/runner/runner.ts.
+// This matches the structs in packages/playwright/src/runner/runner.ts
+
+export type ProjectUse = {
+  testIdAttribute?: string;
+  browserName?: string;
+  contextOptions: Record<string, string>;
+  launchOptions: Record<string, string>;
+};
 
 export type ProjectConfigWithFiles = {
   name: string;
   testDir: string;
-  use: { testIdAttribute?: string };
+  use: ProjectUse;
   files: string[];
 };
 
