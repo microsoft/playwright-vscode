@@ -52,6 +52,7 @@ export type {
   WebviewViewProvider,
   WebviewViewResolveContext,
   WorkspaceConfiguration,
+  TerminalLink,
 } from 'vscode';
 
 export type VSCode = typeof import('vscode');
