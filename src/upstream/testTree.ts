@@ -19,7 +19,7 @@
  */
 
 export type TestItemStatus = 'none' | 'running' | 'scheduled' | 'passed' | 'failed' | 'skipped';
-import type * as reporterTypes from '../reporter';
+import type * as reporterTypes from './reporter';
 
 export type TreeItemBase = {
   kind: 'root' | 'group' | 'case' | 'test',
@@ -313,12 +313,6 @@ export class TestTree {
     };
     visit(treeItem);
     return testIds;
-  }
-
-  locationToOpen(treeItem?: TreeItem) {
-    if (!treeItem)
-      return;
-    return treeItem.location.file + ':' + treeItem.location.line;
   }
 }
 

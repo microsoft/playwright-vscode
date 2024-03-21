@@ -375,17 +375,25 @@ test('should ignore errors when listing files', async ({ activate }) => {
     `,
   });
 
+  await enableConfigs(vscode, ['playwright.config.ts', 'playwright.config.js']);
+
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
   `);
-
-  await enableConfigs(vscode, ['playwright.config.ts', 'playwright.config.js']);
 
   expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.ts
   `);
 
-  await expect.poll(() => vscode.errors).toEqual(['There are errors in Playwright configuration files.']);
+  await new Promise(f => setTimeout(f, 2000));
+  await expect.poll(() => vscode.languages.getDiagnostics()).toEqual([
+    {
+      message: 'Error: oh my',
+      range: { start: { line: 0, character: 6 }, end: { line: 1, character: 0 } },
+      severity: 'Error',
+      source: 'playwright',
+    }
+  ]);
 });

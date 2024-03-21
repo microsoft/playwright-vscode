@@ -16,7 +16,7 @@
 
 import { TeleReporterEmitter } from './upstream/teleEmitter';
 import { WebSocketTransport } from './transport';
-import { FullResult } from './reporter';
+import { FullResult } from './upstream/reporter';
 
 class TeleReporter extends TeleReporterEmitter {
   private _hasSender: boolean;

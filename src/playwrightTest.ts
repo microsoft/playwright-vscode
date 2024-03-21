@@ -23,7 +23,9 @@ import { findNode, spawnAsync } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { SettingsModel } from './settingsModel';
 import { TestServerController } from './testServerController';
-import * as reporterTypes from './reporter';
+import * as reporterTypes from './upstream/reporter';
+import { TeleReporterReceiver } from './upstream/teleReceiver';
+import { TestServerInterface } from './upstream/testServerInterface';
 
 export type TestConfig = {
   workspaceFolder: string;
@@ -35,15 +37,8 @@ export type TestConfig = {
 
 const pathSeparator = process.platform === 'win32' ? ';' : ':';
 
-export type PlaywrightTestRunOptions = {
-  headed?: boolean,
-  oneWorker?: boolean,
-  trace?: 'on' | 'off',
-  projects?: string[];
-  grep?: string;
-  reuseContext?: boolean,
-  connectWsEndpoint?: string;
-};
+type AllRunOptions = Parameters<TestServerInterface['runTests']>[0];
+export type PlaywrightTestRunOptions = Pick<AllRunOptions, 'headed' | 'workers' | 'trace' | 'projects' | 'grep' | 'reuseContext' | 'connectWsEndpoint'>;
 
 export interface RunHooks {
   onWillRunTests(config: TestConfig, debug: boolean): Promise<{ connectWsEndpoint?: string }>;
@@ -121,7 +116,7 @@ export class PlaywrightTest {
     const testServer = await this._options.testServerController.testServerFor(config);
     if (!testServer)
       throw new Error('Internal error: unable to connect to the test server');
-    return await testServer.listFiles({ configFile: config.configFile });
+    return await testServer.listFiles({});
   }
 
   async runTests(config: TestConfig, projectNames: string[], locations: string[] | null, listener: reporterTypes.ReporterV2, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
@@ -145,7 +140,7 @@ export class PlaywrightTest {
       grep: parametrizedTestTitle,
       projects: projectNames.length ? projectNames.filter(Boolean) : undefined,
       headed: showBrowser && !this._options.isUnderTest,
-      oneWorker: showBrowser,
+      workers: showBrowser ? 1 : undefined,
       trace,
       reuseContext: showBrowser,
       connectWsEndpoint: showBrowser ? externalOptions.connectWsEndpoint : undefined,
@@ -179,10 +174,14 @@ export class PlaywrightTest {
   }
 
   private async _test(config: TestConfig, locations: string[], mode: 'list' | 'test', options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
-    if (this._useTestServer(config))
-      await this._testWithServer(config, locations, mode, options, reporter, token);
-    else
+    if (this._useTestServer(config)) {
+      if (mode === 'test')
+        await this._testWithServer(config, locations, options, reporter, token);
+      else
+        await this._listWithServer(config, locations, reporter, token);
+    } else {
       await this._testWithCLI(config, locations, mode, options, reporter, token);
+    }
   }
 
   private async _testWithCLI(config: TestConfig, locations: string[], mode: 'list' | 'test', options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
@@ -219,8 +218,8 @@ export class PlaywrightTest {
 
     if (options.headed)
       allArgs.push('--headed');
-    if (options.oneWorker)
-      allArgs.push('--workers', '1');
+    if (options.workers)
+      allArgs.push('--workers', String(options.workers));
     if (options.trace)
       allArgs.push('--trace', options.trace);
 
@@ -250,29 +249,41 @@ export class PlaywrightTest {
     await reporterServer.wireTestListener(mode, reporter, token);
   }
 
-  private async _testWithServer(config: TestConfig, locations: string[], mode: 'list' | 'test', options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+  private async _listWithServer(config: TestConfig, locations: string[], reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const testServer = await this._options.testServerController.testServerFor(config);
     if (token?.isCancellationRequested)
       return;
     if (!testServer)
       return;
     const oopReporter = require.resolve('./oopReporter');
-    if (mode === 'list')
-      testServer.listTests({ configFile: config.configFile, locations, reporter: oopReporter });
-    if (mode === 'test') {
-      testServer.test({ configFile: config.configFile, locations, reporter: oopReporter, ...options });
-      token.onCancellationRequested(() => {
-        testServer.stop({ configFile: config.configFile });
-      });
-      testServer.on('stdio', params => {
-        if (params.type === 'stdout')
-          reporter.onStdOut?.(unwrapString(params));
-        if (params.type === 'stderr')
-          reporter.onStdErr?.(unwrapString(params));
-      });
-    }
+    const { report } = await testServer.listTests({ locations, serializer: oopReporter });
+    const teleReceiver = new TeleReporterReceiver(reporter, {
+      mergeProjects: true,
+      mergeTestCases: true,
+      resolvePath: (rootDir: string, relativePath: string) => this._vscode.Uri.file(path.join(rootDir, relativePath)).fsPath,
+    });
+    for (const message of report)
+      teleReceiver.dispatch(message);
+  }
 
-    await testServer.wireTestListener(mode, reporter, token);
+  private async _testWithServer(config: TestConfig, locations: string[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+    const testServer = await this._options.testServerController.testServerFor(config);
+    if (token?.isCancellationRequested)
+      return;
+    if (!testServer)
+      return;
+    const oopReporter = require.resolve('./oopReporter');
+    testServer.runTests({ locations, serializer: oopReporter, ...options });
+    token.onCancellationRequested(() => {
+      testServer.stopTestsNoReply({});
+    });
+    testServer.onStdio(params => {
+      if (params.type === 'stdout')
+        reporter.onStdOut?.(unwrapString(params));
+      if (params.type === 'stderr')
+        reporter.onStdErr?.(unwrapString(params));
+    });
+    await this._options.testServerController.wireTestListener(testServer, reporter, token);
   }
 
   async findRelatedTestFiles(config: TestConfig, files: string[]): Promise<ConfigFindRelatedTestFilesReport> {
@@ -313,7 +324,7 @@ export class PlaywrightTest {
     const testServer = await this._options.testServerController.testServerFor(config);
     if (!testServer)
       return { testFiles: files, errors: [{ message: 'Internal error: unable to connect to the test server' }] };
-    return await testServer.findRelatedTestFiles({ configFile: config.configFile, files });
+    return await testServer.findRelatedTestFiles({ files });
   }
 
   async debugTests(vscode: vscodeTypes.VSCode, config: TestConfig, projectNames: string[], testDirs: string[], settingsEnv: NodeJS.ProcessEnv, locations: string[] | null, reporter: reporterTypes.ReporterV2, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {

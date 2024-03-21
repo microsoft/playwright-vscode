@@ -13,18 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import path from 'path';
-import { BackendClient, BackendServer } from './backend';
-import type { ConfigFindRelatedTestFilesReport } from './listTests';
+import { startBackend } from './backend';
 import type { TestConfig } from './playwrightTest';
-import type { TestServerEvents, TestServerInterface } from './testServerInterface';
-import type * as vscodeTypes from './vscodeTypes';
-import type * as reporterTypes from './reporter';
 import { TeleReporterReceiver } from './upstream/teleReceiver';
+import { TestServerConnection } from './upstream/testServerConnection';
+import type * as vscodeTypes from './vscodeTypes';
+import * as reporterTypes from './upstream/reporter';
+import path from 'path';
 
 export class TestServerController implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
-  private _instancePromises = new Map<string, Promise<TestServer | null>>();
+  private _connectionPromises = new Map<string, Promise<TestServerConnection | null>>();
   private _envProvider: () => NodeJS.ProcessEnv;
 
   constructor(vscode: vscodeTypes.VSCode, envProvider: () => NodeJS.ProcessEnv) {
@@ -32,25 +31,25 @@ export class TestServerController implements vscodeTypes.Disposable {
     this._envProvider = envProvider;
   }
 
-  async testServerFor(config: TestConfig): Promise<TestServer | null> {
-    let instancePromise = this._instancePromises.get(config.configFile);
-    if (instancePromise)
-      return instancePromise;
-    instancePromise = this._createTestServer(config);
-    this._instancePromises.set(config.configFile, instancePromise);
-    return instancePromise;
+  testServerFor(config: TestConfig): Promise<TestServerConnection | null> {
+    let connectionPromise = this._connectionPromises.get(config.configFile);
+    if (connectionPromise)
+      return connectionPromise;
+    connectionPromise = this._createTestServer(config);
+    this._connectionPromises.set(config.configFile, connectionPromise);
+    return connectionPromise;
   }
 
   disposeTestServerFor(configFile: string) {
-    const result = this._instancePromises.get(configFile);
-    this._instancePromises.delete(configFile);
+    const result = this._connectionPromises.get(configFile);
+    this._connectionPromises.delete(configFile);
     if (result)
-      result.then(server => server?.closeGracefully());
+      result.then(server => server?.closeGracefully({}));
   }
 
-  private async _createTestServer(config: TestConfig): Promise<TestServer | null> {
-    const args = [config.cli, 'test-server'];
-    const testServerBackend = new BackendServer<TestServer>(this._vscode, {
+  private async _createTestServer(config: TestConfig): Promise<TestServerConnection | null> {
+    const args = [config.cli, 'test-server', '-c', config.configFile];
+    const wsEndpoint = await startBackend(this._vscode, {
       args,
       cwd: config.workspaceFolder,
       envProvider: () => {
@@ -59,65 +58,42 @@ export class TestServerController implements vscodeTypes.Disposable {
           FORCE_COLOR: '1',
         };
       },
-      clientFactory: () => new TestServer(this._vscode),
       dumpIO: false,
+      onClose: () => {
+        this._connectionPromises.delete(config.configFile);
+      },
+      onError: error => {
+        this._connectionPromises.delete(config.configFile);
+      },
     });
-    const testServer = await testServerBackend.start();
+    if (!wsEndpoint)
+      return null;
+    const testServer = new TestServerConnection(wsEndpoint);
+    await testServer.connect();
     return testServer;
   }
 
-  dispose() {
-    for (const instancePromise of this._instancePromises.values())
-      instancePromise.then(server => server?.closeGracefully());
-  }
-}
-
-class TestServer extends BackendClient implements TestServerInterface, TestServerEvents {
-  override async initialize(): Promise<void> {
-  }
-
-  async listFiles(params: Parameters<TestServerInterface['listFiles']>[0]) {
-    return await this.send('listFiles', params);
-  }
-
-  async listTests(params: Parameters<TestServerInterface['listTests']>[0]) {
-    await this.send('listTests', params);
-  }
-
-  findRelatedTestFiles(params: Parameters<TestServerInterface['findRelatedTestFiles']>[0]): Promise<ConfigFindRelatedTestFilesReport> {
-    return this.send('findRelatedTestFiles', params);
-  }
-
-  async test(params: Parameters<TestServerInterface['test']>[0]) {
-    await this.send('test', params);
-  }
-
-  async stop(params: Parameters<TestServerInterface['stop']>[0]) {
-    await this.send('stop', {});
-  }
-
-  async closeGracefully() {
-    await this.send('closeGracefully', {});
-    this.close();
-  }
-
-  async wireTestListener(mode: 'test' | 'list', reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
+  async wireTestListener(testServerConnection: TestServerConnection, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
     const teleReceiver = new TeleReporterReceiver(reporter, {
       mergeProjects: true,
       mergeTestCases: true,
-      resolvePath: (rootDir: string, relativePath: string) => this.vscode.Uri.file(path.join(rootDir, relativePath)).fsPath,
+      resolvePath: (rootDir: string, relativePath: string) => this._vscode.Uri.file(path.join(rootDir, relativePath)).fsPath,
     });
-    return new Promise<void>(f => {
-      const handler = (message: any) => {
+    return new Promise<void>(resolve => {
+      const disposable = testServerConnection.onReport(message => {
         if (token.isCancellationRequested && message.method !== 'onEnd')
           return;
-        teleReceiver.dispatch(mode, message);
+        teleReceiver.dispatch(message);
         if (message.method === 'onEnd') {
-          this.off('report', handler);
-          f();
+          disposable.dispose();
+          resolve();
         }
-      };
-      this.on('report', handler);
+      });
     });
+  }
+
+  dispose() {
+    for (const instancePromise of this._connectionPromises.values())
+      instancePromise.then(server => server?.closeGracefully({}));
   }
 }

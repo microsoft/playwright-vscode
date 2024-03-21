@@ -19,12 +19,13 @@ import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
 import { resolveSourceMap } from './utils';
 import { ProjectConfigWithFiles } from './listTests';
-import * as reporterTypes from './reporter';
+import * as reporterTypes from './upstream/reporter';
 import { TeleSuite } from './upstream/teleReceiver';
 import type { SettingsModel, WorkspaceSettings } from './settingsModel';
 import path from 'path';
 import { DisposableBase } from './disposableBase';
 import type { TestServerController } from './testServerController';
+import { MultiMap } from './multimap';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
@@ -57,7 +58,7 @@ export class TestModel {
   private _envProvider: () => NodeJS.ProcessEnv;
   isEnabled = false;
   readonly tag: vscodeTypes.TestTag;
-  private _configError: reporterTypes.TestError | undefined;
+  private _errorByFile = new MultiMap<string, reporterTypes.TestError>();
 
   constructor(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }, options: TestModelOptions) {
     this._vscode = vscode;
@@ -73,7 +74,7 @@ export class TestModel {
     this._projects.clear();
     this._fileToSources.clear();
     this._sourceToFile.clear();
-    this._configError = undefined;
+    this._errorByFile.clear();
     this._playwrightTest.reset();
   }
 
@@ -81,10 +82,8 @@ export class TestModel {
     return [...this._projects.values()];
   }
 
-  takeConfigError(): reporterTypes.TestError | undefined {
-    const error = this._configError;
-    this._configError = undefined;
-    return error;
+  errors(): MultiMap<string, reporterTypes.TestError> {
+    return this._errorByFile;
   }
 
   projectMap(): Map<string, TestProject> {
@@ -111,8 +110,8 @@ export class TestModel {
 
   async _listFiles() {
     const report = await this._playwrightTest.listFiles(this.config);
-    if (report.error) {
-      this._configError = report.error;
+    if (report.error?.location) {
+      this._errorByFile.set(report.error?.location.file, report.error);
       this._didUpdate.fire();
       return;
     }
@@ -206,7 +205,7 @@ export class TestModel {
       await this.listTests(changed);
   }
 
-  async ensureTests(files: string[]): Promise<reporterTypes.TestError[]> {
+  async ensureTests(files: string[]) {
     // Do not list tests if all files are already loaded, otherwise we
     // end up with update loop when updating tests for visible editors.
     let allFilesLoaded = true;
@@ -225,25 +224,34 @@ export class TestModel {
     if (allFilesLoaded)
       return [];
     const { rootSuite, errors } = await this._playwrightTest.listTests(this.config, files);
-    this._updateProjects(rootSuite.suites, files);
-    return errors;
+    this._updateProjects(rootSuite.suites, files, errors);
   }
 
-  async listTests(files: string[]): Promise<reporterTypes.TestError[]> {
+  async listTests(files: string[]) {
     const { rootSuite, errors } = await this._playwrightTest.listTests(this.config, files);
-    this._updateProjects(rootSuite.suites, files);
-    return errors;
+    this._updateProjects(rootSuite.suites, files, errors);
   }
 
-  private _updateProjects(newProjectSuites: reporterTypes.Suite[], requestedFiles: string[]) {
+  private _updateProjects(newProjectSuites: reporterTypes.Suite[], requestedFiles: string[], errors: reporterTypes.TestError[]) {
+    for (const requestedFile of requestedFiles)
+      this._errorByFile.deleteAll(requestedFile);
+    for (const error of errors) {
+      if (error.location)
+        this._errorByFile.set(error.location.file, error);
+    }
+
     for (const [projectName, project] of this._projects) {
       const files = projectFiles(project);
       const newProjectSuite = newProjectSuites.find(e => e.project()!.name === projectName);
       const filesToClear = new Set(requestedFiles);
       for (const fileSuite of newProjectSuite?.suites || []) {
+        // Do not show partial results in suites with errors.
+        if (this._errorByFile.has(fileSuite.location!.file))
+          continue;
         filesToClear.delete(fileSuite.location!.file);
         files.set(fileSuite.location!.file, fileSuite);
       }
+
       for (const file of filesToClear) {
         const fileSuite = files.get(file);
         if (fileSuite) {

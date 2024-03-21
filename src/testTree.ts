@@ -18,7 +18,7 @@ import path from 'path';
 import { TestModelCollection } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
-import * as reporterTypes from './reporter';
+import * as reporterTypes from './upstream/reporter';
 import * as upstream from './upstream/testTree';
 import { TeleSuite } from './upstream/teleReceiver';
 import { DisposableBase } from './disposableBase';

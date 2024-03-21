@@ -17,7 +17,7 @@
 import fs from 'fs';
 import glob from 'glob';
 import path from 'path';
-import { Disposable, EventEmitter, Event } from './events';
+import { Disposable, EventEmitter, Event } from '../../src/upstream/events';
 import minimatch from 'minimatch';
 import { spawn } from 'child_process';
 import which from 'which';

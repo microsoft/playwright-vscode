@@ -88,13 +88,12 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       PW_EXTENSION_MODE: '1',
     });
 
-    const backendServer = new BackendServer<Backend>(this._vscode, {
+    const backendServer = new BackendServer(this._vscode, () => new Backend(this._vscode), {
       args,
       cwd,
-      envProvider,
-      clientFactory: () => new Backend(this._vscode)
+      envProvider
     });
-    const backend = await backendServer.start();
+    const backend = await backendServer.startAndConnect();
     if (!backend)
       return;
     backend.onClose(() => {

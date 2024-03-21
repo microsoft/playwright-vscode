@@ -20,7 +20,7 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { ConnectionTransport } from './transport';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
-import * as reporterTypes from './reporter';
+import * as reporterTypes from './upstream/reporter';
 import { TeleReporterReceiver } from './upstream/teleReceiver';
 
 export class ReporterServer {
@@ -97,7 +97,7 @@ export class ReporterServer {
         return;
       if (message.method === 'onEnd')
         transport.close();
-      teleReceiver.dispatch(mode, message as any);
+      teleReceiver.dispatch(message as any);
     };
 
     await new Promise<void>(f => transport.onclose = f);
