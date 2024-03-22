@@ -20,59 +20,35 @@ import * as vscodeTypes from './vscodeTypes';
 import EventEmitter from 'events';
 import { WebSocketTransport } from './transport';
 
-export type BackendServerOptions<T extends BackendClient> = {
+export type BackendServerOptions = {
   args: string[],
   cwd: string,
   envProvider: () => NodeJS.ProcessEnv,
-  clientFactory: () => T,
   dumpIO?: boolean,
 };
 
 export class BackendServer<T extends BackendClient> {
   private _vscode: vscodeTypes.VSCode;
-  private _options: BackendServerOptions<T>;
+  private _options: BackendServerOptions;
+  private _clientFactory: () => T;
 
-  constructor(vscode: vscodeTypes.VSCode, options: BackendServerOptions<T>) {
+  constructor(vscode: vscodeTypes.VSCode, clientFactory: () => T, options: BackendServerOptions) {
     this._vscode = vscode;
+    this._clientFactory = clientFactory;
     this._options = options;
   }
 
-  async start(): Promise<T | null> {
-    const node = await findNode(this._vscode, this._options.cwd);
-    const serverProcess = spawn(node, this._options.args, {
-      cwd: this._options.cwd,
-      stdio: 'pipe',
-      env: {
-        ...process.env,
-        ...this._options.envProvider(),
-      },
+  async startAndConnect(): Promise<T | null> {
+    const client = this._clientFactory();
+    const wsEndpoint = await startBackend(this._vscode, {
+      ...this._options,
+      onError: error => client._onErrorEvent.fire(error),
+      onClose: () => client._onCloseEvent.fire(),
     });
-
-    const client = this._options.clientFactory();
-
-    serverProcess.stderr?.on('data', data => {
-      if (this._options.dumpIO)
-        console.log('[server err]', data.toString());
-    });
-    serverProcess.on('error', error => {
-      client._onErrorEvent.fire(error);
-    });
-    return new Promise(fulfill => {
-      serverProcess.stdout?.on('data', async data => {
-        if (this._options.dumpIO)
-          console.log('[server out]', data.toString());
-        const match = data.toString().match(/Listening on (.*)/);
-        if (!match)
-          return;
-        const wse = match[1];
-        await client._connect(wse);
-        fulfill(client);
-      });
-      serverProcess.on('exit', () => {
-        fulfill(null);
-        client._onCloseEvent.fire();
-      });
-    });
+    if (!wsEndpoint)
+      return null;
+    await client._connect(wsEndpoint);
+    return client;
   }
 }
 
@@ -142,4 +118,34 @@ export class BackendClient extends EventEmitter {
   close() {
     this._transport.close();
   }
+}
+
+export async function startBackend(vscode: vscodeTypes.VSCode, options: BackendServerOptions & { onError: (error: Error) => void, onClose: () => void }): Promise<string | null> {
+  const node = await findNode(vscode, options.cwd);
+  const serverProcess = spawn(node, options.args, {
+    cwd: options.cwd,
+    stdio: 'pipe',
+    env: {
+      ...process.env,
+      ...options.envProvider(),
+    },
+  });
+  serverProcess.stderr?.on('data', data => {
+    if (options.dumpIO)
+      console.log('[server err]', data.toString());
+  });
+  serverProcess.on('error', options.onError);
+  serverProcess.on('close', options.onClose);
+  return new Promise(fulfill => {
+    serverProcess.stdout?.on('data', async data => {
+      if (options.dumpIO)
+        console.log('[server out]', data.toString());
+      const match = data.toString().match(/Listening on (.*)/);
+      if (!match)
+        return;
+      const wse = match[1];
+      fulfill(wse);
+    });
+    serverProcess.on('exit', () => fulfill(null));
+  });
 }

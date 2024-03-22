@@ -484,7 +484,8 @@ test('should stop', async ({ activate, showBrowser }) => {
   await runPromise;
 });
 
-test('should tear down on stop', async ({ activate }) => {
+test('should tear down on stop', async ({ activate, useTestServer }) => {
+  test.skip(useTestServer, 'New world will not teardown on stop');
   const { testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: 'tests',

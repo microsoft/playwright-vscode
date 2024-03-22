@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { TestError } from './reporter';
+import type { TestError } from './upstream/reporter';
 
 // This matches the structs in packages/playwright-test/src/runner/runner.ts.
 

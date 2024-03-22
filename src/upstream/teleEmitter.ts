@@ -20,10 +20,10 @@
 
 import path from 'path';
 import { createGuid } from '../utils';
-import type * as reporterTypes from '../reporter';
+import type * as reporterTypes from './reporter';
 import type * as teleReceiver from './teleReceiver';
 import { serializeRegexPatterns } from './teleReceiver';
-import type { ReporterV2 } from '../reporter';
+import type { ReporterV2 } from './reporter';
 
 export type TeleReporterEmitterOptions = {
   omitOutput?: boolean;
