@@ -27,7 +27,6 @@ export type ProjectConfigWithFiles = {
 
 export type ConfigListFilesReport = {
   projects: ProjectConfigWithFiles[];
-  cliEntryPoint?: string;
   error?: TestError;
 };
 

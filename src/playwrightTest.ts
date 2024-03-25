@@ -75,10 +75,6 @@ export class PlaywrightTest {
         result = await this._listFilesServer(config);
       else
         result = await this._listFilesCLI(config);
-      // TODO: merge getPlaywrightInfo and listFiles to avoid this.
-      // Override the cli entry point with the one obtained from the config.
-      if (result.cliEntryPoint)
-        config.cli = result.cliEntryPoint;
       for (const project of result.projects)
         project.files = project.files.map(f => this._vscode.Uri.file(f).fsPath);
       if (result.error?.location)
@@ -116,7 +112,39 @@ export class PlaywrightTest {
     const testServer = await this._options.testServerController.testServerFor(config);
     if (!testServer)
       throw new Error('Internal error: unable to connect to the test server');
-    return await testServer.listFiles({});
+
+    const result: ConfigListFilesReport = {
+      projects: [],
+    };
+
+    // TODO: remove ConfigListFilesReport and report suite directly once CLI is deprecated.
+    const { report } = await testServer.listFiles({});
+    const teleReceiver = new TeleReporterReceiver({
+      onBegin(rootSuite) {
+        for (const projectSuite of rootSuite.suites) {
+          const project = projectSuite.project()!;
+          const files: string[] = [];
+          result.projects.push({
+            name: project.name,
+            testDir: project.testDir,
+            use: project.use || {},
+            files,
+          });
+          for (const fileSuite of projectSuite.suites)
+            files.push(fileSuite.location!.file);
+        }
+      },
+      onError(error) {
+        result.error = error;
+      },
+    }, {
+      mergeProjects: true,
+      mergeTestCases: true,
+      resolvePath: (rootDir: string, relativePath: string) => this._vscode.Uri.file(path.join(rootDir, relativePath)).fsPath,
+    });
+    for (const message of report)
+      teleReceiver.dispatch(message);
+    return result;
   }
 
   async runTests(config: TestConfig, projectNames: string[], locations: string[] | null, listener: reporterTypes.ReporterV2, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
@@ -255,8 +283,7 @@ export class PlaywrightTest {
       return;
     if (!testServer)
       return;
-    const oopReporter = require.resolve('./oopReporter');
-    const { report } = await testServer.listTests({ locations, serializer: oopReporter });
+    const { report } = await testServer.listTests({ locations });
     const teleReceiver = new TeleReporterReceiver(reporter, {
       mergeProjects: true,
       mergeTestCases: true,
@@ -272,8 +299,7 @@ export class PlaywrightTest {
       return;
     if (!testServer)
       return;
-    const oopReporter = require.resolve('./oopReporter');
-    testServer.runTests({ locations, serializer: oopReporter, ...options });
+    testServer.runTests({ locations, ...options });
     token.onCancellationRequested(() => {
       testServer.stopTestsNoReply({});
     });

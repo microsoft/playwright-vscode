@@ -112,6 +112,10 @@ export class TestServerConnection implements TestServerInterface, TestServerInte
       this._onLoadTraceRequestedEmitter.fire(params);
   }
 
+  async setSerializer(params: { serializer: string; }): Promise<void> {
+    await this._sendMessage('setSerializer', params);
+  }
+
   async ping(params: Parameters<TestServerInterface['ping']>[0]): ReturnType<TestServerInterface['ping']> {
     await this._sendMessage('ping');
   }
@@ -126,6 +130,10 @@ export class TestServerConnection implements TestServerInterface, TestServerInte
 
   watchNoReply(params: Parameters<TestServerInterface['watch']>[0]) {
     this._sendMessageNoReply('watch', params);
+  }
+
+  async watchTestDir(params: Parameters<TestServerInterface['watchTestDir']>[0]): ReturnType<TestServerInterface['watchTestDir']> {
+    await this._sendMessage('watchTestDir', params);
   }
 
   async open(params: Parameters<TestServerInterface['open']>[0]): ReturnType<TestServerInterface['open']> {
