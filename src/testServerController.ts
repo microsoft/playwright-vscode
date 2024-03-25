@@ -70,6 +70,7 @@ export class TestServerController implements vscodeTypes.Disposable {
       return null;
     const testServer = new TestServerConnection(wsEndpoint);
     await testServer.connect();
+    await testServer.setSerializer({ serializer: require.resolve('./oopReporter') });
     return testServer;
   }
 

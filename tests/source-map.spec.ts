@@ -183,9 +183,9 @@ test('should discover new tests', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
+        -   new [2:0]
         -   one [3:0]
         -   two [4:0]
-        -   new [2:0]
   `);
 
   expect(vscode).toHaveExecLog(`

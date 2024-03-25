@@ -55,10 +55,10 @@ test('should run setup and teardown projects (1)', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   setup.ts
       - ✅ setup [2:0]
-    -   test.ts
-      - ✅ test [2:0]
     -   teardown.ts
       - ✅ teardown [2:0]
+    -   test.ts
+      - ✅ test [2:0]
   `);
 
   const output = testRun.renderLog({ output: true });
