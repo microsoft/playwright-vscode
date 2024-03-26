@@ -18,20 +18,19 @@ import path from 'path';
 import StackUtils from 'stack-utils';
 import { DebugHighlight } from './debugHighlight';
 import { installBrowsers, installPlaywright } from './installer';
-import { RunHooks, TestConfig, getPlaywrightInfo } from './playwrightTest';
 import * as reporterTypes from './upstream/reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
 import { TestModel, TestModelCollection, TestProject, projectFiles } from './testModel';
 import { TestTree } from './testTree';
-import { NodeJSNotFoundError, ansiToHtml } from './utils';
+import { NodeJSNotFoundError, ansiToHtml, getPlaywrightInfo } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { TraceViewer } from './traceViewer';
-import { TestServerController } from './testServerController';
 import { type Watch, WatchSupport } from './watchSupport';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
+import { RunHooks, TestConfig } from './playwrightTestTypes';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -86,7 +85,6 @@ export class Extension implements RunHooks {
   } | undefined;
   private _diagnostics: vscodeTypes.DiagnosticCollection;
   private _treeItemObserver: TreeItemObserver;
-  private _testServerController: TestServerController;
   private _watchQueue = Promise.resolve();
   private _runProfile: vscodeTypes.TestRunProfile;
   private _debugProfile: vscodeTypes.TestRunProfile;
@@ -116,7 +114,6 @@ export class Extension implements RunHooks {
     this._models = new TestModelCollection(vscode, this._settingsModel);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._traceViewer = new TraceViewer(this._vscode, this._settingsModel, this._envProvider.bind(this));
-    this._testServerController = new TestServerController(this._vscode, this._envProvider.bind(this));
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModels(true).then(() => {});
@@ -227,7 +224,6 @@ export class Extension implements RunHooks {
       this._reusedBrowser,
       this._diagnostics,
       this._treeItemObserver,
-      this._testServerController,
       registerTerminalLinkProvider(this._vscode),
     ];
     const fileSystemWatchers = [
@@ -298,7 +294,6 @@ export class Extension implements RunHooks {
         settingsModel: this._settingsModel,
         runHooks: this,
         isUnderTest: this._isUnderTest,
-        testServerController: this._testServerController,
         envProvider: this._envProvider.bind(this),
       });
       await this._models.addModel(model);

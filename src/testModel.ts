@@ -14,18 +14,22 @@
  * limitations under the License.
  */
 
-import { PlaywrightTest, RunHooks, TestConfig } from './playwrightTest';
 import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
-import { resolveSourceMap } from './utils';
-import { ProjectConfigWithFiles } from './listTests';
+import { escapeRegex, pathSeparator, resolveSourceMap } from './utils';
+import { ConfigListFilesReport, ProjectConfigWithFiles } from './listTests';
 import * as reporterTypes from './upstream/reporter';
 import { TeleSuite } from './upstream/teleReceiver';
 import type { SettingsModel, WorkspaceSettings } from './settingsModel';
 import path from 'path';
 import { DisposableBase } from './disposableBase';
-import type { TestServerController } from './testServerController';
 import { MultiMap } from './multimap';
+import { TestServerInterface } from './upstream/testServerInterface';
+import { ReporterServer } from './reporterServer';
+import { debugSessionName } from './debugSessionName';
+import { PlaywrightTestServer } from './playwrightTestServer';
+import type { RunHooks, TestConfig } from './playwrightTestTypes';
+import { PlaywrightTestCLI } from './playwrightTestCLI';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
@@ -41,10 +45,12 @@ export type TestModelOptions = {
   settingsModel: SettingsModel;
   runHooks: RunHooks;
   isUnderTest: boolean;
-  testServerController: TestServerController;
   playwrightTestLog: string[];
   envProvider: () => NodeJS.ProcessEnv;
 };
+
+type AllRunOptions = Parameters<TestServerInterface['runTests']>[0];
+export type PlaywrightTestRunOptions = Pick<AllRunOptions, 'headed' | 'workers' | 'trace' | 'projects' | 'grep' | 'reuseContext' | 'connectWsEndpoint'>;
 
 export class TestModel {
   private _vscode: vscodeTypes.VSCode;
@@ -52,18 +58,20 @@ export class TestModel {
   private _projects = new Map<string, TestProject>();
   private _didUpdate: vscodeTypes.EventEmitter<void>;
   readonly onUpdated: vscodeTypes.Event<void>;
-  private _playwrightTest: PlaywrightTest;
+  private _playwrightTest: PlaywrightTestCLI | PlaywrightTestServer;
   private _fileToSources: Map<string, string[]> = new Map();
   private _sourceToFile: Map<string, string> = new Map();
   private _envProvider: () => NodeJS.ProcessEnv;
   isEnabled = false;
   readonly tag: vscodeTypes.TestTag;
   private _errorByFile = new MultiMap<string, reporterTypes.TestError>();
+  private _options: TestModelOptions;
 
   constructor(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }, options: TestModelOptions) {
     this._vscode = vscode;
-    this._playwrightTest = new PlaywrightTest(vscode, { configFile, ...options });
+    this._options = options;
     this.config = { ...playwrightInfo, workspaceFolder, configFile };
+    this._playwrightTest = options.settingsModel.useTestServer.get() ? new PlaywrightTestServer(vscode, this.config, options) : new PlaywrightTestCLI(vscode, this.config, options);
     this._didUpdate = new vscode.EventEmitter();
     this.onUpdated = this._didUpdate.event;
     this._envProvider = options.envProvider;
@@ -109,7 +117,23 @@ export class TestModel {
   }
 
   async _listFiles() {
-    const report = await this._playwrightTest.listFiles(this.config);
+    let report: ConfigListFilesReport;
+    try {
+      report = await this._playwrightTest.listFiles();
+      for (const project of report.projects)
+        project.files = project.files.map(f => this._vscode.Uri.file(f).fsPath);
+      if (report.error?.location)
+        report.error.location.file = this._vscode.Uri.file(report.error.location.file).fsPath;
+    } catch (error: any) {
+      report = {
+        error: {
+          location: { file: this.config.configFile, line: 0, column: 0 },
+          message: error.message,
+        },
+        projects: [],
+      };
+    }
+
     if (report.error?.location) {
       this._errorByFile.set(report.error?.location.file, report.error);
       this._didUpdate.fire();
@@ -223,13 +247,21 @@ export class TestModel {
     }
     if (allFilesLoaded)
       return [];
-    const { rootSuite, errors } = await this._playwrightTest.listTests(this.config, files);
-    this._updateProjects(rootSuite.suites, files, errors);
+    await this.listTests(files);
   }
 
   async listTests(files: string[]) {
-    const { rootSuite, errors } = await this._playwrightTest.listTests(this.config, files);
-    this._updateProjects(rootSuite.suites, files, errors);
+    const errors: reporterTypes.TestError[] = [];
+    let rootSuite: reporterTypes.Suite | undefined;
+    await this._playwrightTest.test(files, 'list', {}, {
+      onBegin: (suite: reporterTypes.Suite) => {
+        rootSuite = suite;
+      },
+      onError: (error: reporterTypes.TestError) => {
+        errors.push(error);
+      },
+    }, new this._vscode.CancellationTokenSource().token);
+    this._updateProjects(rootSuite!.suites, files, errors);
   }
 
   private _updateProjects(newProjectSuites: reporterTypes.Suite[], requestedFiles: string[], errors: reporterTypes.TestError[]) {
@@ -288,13 +320,100 @@ export class TestModel {
 
   async runTests(projects: TestProject[], locations: string[] | null, reporter: reporterTypes.ReporterV2, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     locations = locations || [];
-    await this._playwrightTest.runTests(this.config, projects.map(p => p.name), locations, reporter, parametrizedTestTitle, token);
+    const locationArg = locations ? locations : [];
+    if (token?.isCancellationRequested)
+      return;
+    const externalOptions = await this._options.runHooks.onWillRunTests(this.config, false);
+    const showBrowser = this._options.settingsModel.showBrowser.get() && !!externalOptions.connectWsEndpoint;
+
+    let trace: 'on' | 'off' | undefined;
+    if (this._options.settingsModel.showTrace.get())
+      trace = 'on';
+    // "Show browser" mode forces context reuse that survives over multiple test runs.
+    // Playwright Test sets up `tracesDir` inside the `test-results` folder, so it will be removed between runs.
+    // When context is reused, its ongoing tracing will fail with ENOENT because trace files
+    // were suddenly removed. So we disable tracing in this case.
+    if (this._options.settingsModel.showBrowser.get())
+      trace = 'off';
+
+    const options: PlaywrightTestRunOptions = {
+      grep: parametrizedTestTitle,
+      projects: projects.length ? projects.map(p => p.name).filter(Boolean) : undefined,
+      headed: showBrowser && !this._options.isUnderTest,
+      workers: showBrowser ? 1 : undefined,
+      trace,
+      reuseContext: showBrowser,
+      connectWsEndpoint: showBrowser ? externalOptions.connectWsEndpoint : undefined,
+    };
+
+    try {
+      if (token?.isCancellationRequested)
+        return;
+      await this._playwrightTest.test(locationArg, 'test', options, reporter, token);
+    } finally {
+      await this._options.runHooks.onDidRunTests(false);
+    }
   }
 
   async debugTests(projects: TestProject[], locations: string[] | null, reporter: reporterTypes.ReporterV2, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     locations = locations || [];
     const testDirs = projects.map(p => p.project.testDir);
-    await this._playwrightTest.debugTests(this._vscode, this.config, projects.map(p => p.name), testDirs, this._envProvider(), locations, reporter, parametrizedTestTitle, token);
+    const configFolder = path.dirname(this.config.configFile);
+    const configFile = path.basename(this.config.configFile);
+    locations = locations || [];
+    const escapedLocations = locations.map(escapeRegex);
+    const args = ['test',
+      '-c', configFile,
+      ...escapedLocations,
+      '--headed',
+      ...projects.map(p => p.name).filter(Boolean).map(p => `--project=${p}`),
+      '--repeat-each', '1',
+      '--retries', '0',
+      '--timeout', '0',
+      '--workers', '1'
+    ];
+    if (parametrizedTestTitle)
+      args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
+
+    {
+      // For tests.
+      const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex);
+      this._log(`${escapeRegex(path.relative(this.config.workspaceFolder, configFolder))}> debug -c ${configFile}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
+    }
+
+    const reporterServer = new ReporterServer(this._vscode);
+    const testOptions = await this._options.runHooks.onWillRunTests(this.config, true);
+    try {
+      await this._vscode.debug.startDebugging(undefined, {
+        type: 'pwa-node',
+        name: debugSessionName,
+        request: 'launch',
+        cwd: configFolder,
+        env: {
+          ...process.env,
+          CI: this._options.isUnderTest ? undefined : process.env.CI,
+          ...this._envProvider(),
+          PW_TEST_CONNECT_WS_ENDPOINT: testOptions.connectWsEndpoint,
+          ...(await reporterServer.env()),
+          // Reset VSCode's options that affect nested Electron.
+          ELECTRON_RUN_AS_NODE: undefined,
+          FORCE_COLOR: '1',
+          PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
+          PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
+          PW_TEST_HTML_REPORT_OPEN: 'never',
+          PWDEBUG: 'console',
+        },
+        program: this.config.cli,
+        args,
+      });
+      await reporterServer.wireTestListener('test', reporter, token);
+    } finally {
+      await this._options.runHooks.onDidRunTests(true);
+    }
+  }
+
+  private _log(line: string) {
+    this._options.playwrightTestLog.push(line);
   }
 
   private _mapFilesToSources(testDirs: string[], files: Set<string>): string[] {
@@ -312,7 +431,7 @@ export class TestModel {
   }
 
   async findRelatedTestFiles(files: string[]) {
-    return await this._playwrightTest.findRelatedTestFiles(this.config, files);
+    return await this._playwrightTest.findRelatedTestFiles(files);
   }
 
   narrowDownFilesToEnabledProjects(fileNames: Set<string>) {

@@ -15,7 +15,7 @@
  */
 
 import { ChildProcess, spawn } from 'child_process';
-import { TestConfig } from './playwrightTest';
+import type { TestConfig } from './playwrightTestTypes';
 import { SettingsModel } from './settingsModel';
 import { findNode } from './utils';
 import * as vscodeTypes from './vscodeTypes';

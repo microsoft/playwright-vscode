@@ -186,3 +186,26 @@ async function findNodeViaShell(vscode: vscodeTypes.VSCode, cwd: string): Promis
     });
   });
 }
+
+export function escapeRegex(text: string) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export const pathSeparator = process.platform === 'win32' ? ';' : ':';
+
+export async function runNode(vscode: vscodeTypes.VSCode, args: string[], cwd: string, env: NodeJS.ProcessEnv): Promise<string> {
+  return await spawnAsync(await findNode(vscode, cwd), args, cwd, env);
+}
+
+export async function getPlaywrightInfo(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFilePath: string, env: NodeJS.ProcessEnv): Promise<{ version: number, cli: string }> {
+  const pwtInfo = await runNode(vscode, [
+    require.resolve('./playwrightFinder'),
+  ], path.dirname(configFilePath), env);
+  const { version, cli, error } = JSON.parse(pwtInfo) as { version: number, cli: string, error?: string };
+  if (error)
+    throw new Error(error);
+  let cliOverride = cli;
+  if (cli.includes('/playwright/packages/playwright-test/') && configFilePath.includes('playwright-test'))
+    cliOverride = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/@playwright/test/cli.js');
+  return { cli: cliOverride, version };
+}
