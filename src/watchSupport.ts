@@ -16,7 +16,7 @@
 
 import type { WorkspaceChange } from './workspaceObserver';
 import type { TestModel } from './testModel';
-import type { TestConfig } from './playwrightTest';
+import type { TestConfig } from './playwrightTestTypes';
 import * as vscodeTypes from './vscodeTypes';
 import { MultiMap } from './multimap';
 import { TestTree } from './testTree';
