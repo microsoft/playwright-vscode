@@ -32,7 +32,7 @@ test('should load first config', async ({ activate }) => {
       -   test.spec.ts
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 });
@@ -64,7 +64,7 @@ test('should load second config', async ({ activate }) => {
       -   test.spec.ts
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright1.config.js
     > playwright list-files -c playwright1.config.js
     > playwright list-files -c playwright2.config.js
@@ -101,7 +101,7 @@ test('should remove model for config', async ({ activate }) => {
       -   test.spec.ts
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright1.config.js
     > playwright list-files -c playwright2.config.js
     > playwright list-files -c playwright2.config.js

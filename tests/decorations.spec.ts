@@ -63,7 +63,7 @@ test('should highlight steps while running', async ({ activate }) => {
     [5:18 - 5:18]: decorator #2 {"after":{"contentText":" — Xms"}}
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js

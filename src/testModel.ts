@@ -66,6 +66,13 @@ export class TestModel {
   readonly tag: vscodeTypes.TestTag;
   private _errorByFile = new MultiMap<string, reporterTypes.TestError>();
   private _options: TestModelOptions;
+  private _filesWithListedTests = new Set<string>();
+  private _filesPendingListTests: {
+    files: Set<string>,
+    timer: NodeJS.Timeout,
+    promise: Promise<void>,
+    finishedCallback: () => void
+  } | undefined;
 
   constructor(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }, options: TestModelOptions) {
     this._vscode = vscode;
@@ -79,6 +86,9 @@ export class TestModel {
   }
 
   reset() {
+    clearTimeout(this._filesPendingListTests?.timer);
+    this._filesPendingListTests?.finishedCallback();
+    delete this._filesPendingListTests;
     this._projects.clear();
     this._fileToSources.clear();
     this._sourceToFile.clear();
@@ -106,17 +116,18 @@ export class TestModel {
     return [...this._projects.values()].filter(p => p.isEnabled);
   }
 
-  enabledFiles(): string[] {
-    const result: string[] = [];
+  enabledFiles(): Set<string> {
+    const result = new Set<string>();
     for (const project of this.enabledProjects()) {
       const files = projectFiles(project);
       for (const file of files.keys())
-        result.push(file);
+        result.add(file);
     }
     return result;
   }
 
   async _listFiles() {
+    this._filesWithListedTests.clear();
     let report: ConfigListFilesReport;
     try {
       report = await this._playwrightTest.listFiles();
@@ -225,32 +236,49 @@ export class TestModel {
 
     if (created.length || deleted.length)
       await this._listFiles();
-    if (changed.length)
-      await this.listTests(changed);
-  }
-
-  async ensureTests(files: string[]) {
-    // Do not list tests if all files are already loaded, otherwise we
-    // end up with update loop when updating tests for visible editors.
-    let allFilesLoaded = true;
-    for (const project of this._projects.values()) {
-      const projectSuiteFiles = projectFiles(project);
-      for (const f of files) {
-        const fileSuite = projectSuiteFiles.get(f);
-        if (!fileSuite || (fileSuite as any)[listFilesFlag]) {
-          allFilesLoaded = false;
-          break;
-        }
-      }
-      if (!allFilesLoaded)
-        break;
+    if (changed.length) {
+      const changedWithListedTests = changed.filter(f => this._filesWithListedTests.has(f));
+      for (const c of changedWithListedTests)
+        this._filesWithListedTests.delete(c);
+      await this.ensureTests(changedWithListedTests);
     }
-    if (allFilesLoaded)
-      return [];
-    await this.listTests(files);
   }
 
-  async listTests(files: string[]) {
+  async ensureTests(inputFiles: string[]): Promise<void> {
+    const enabledFiles = this.enabledFiles();
+    const filesToListTests = inputFiles.filter(f => enabledFiles.has(f) && !this._filesWithListedTests.has(f));
+    if (!filesToListTests.length)
+      return;
+
+    for (const file of filesToListTests)
+      this._filesWithListedTests.add(file);
+
+    if (!this._filesPendingListTests) {
+      let finishedCallback!: () => void;
+      const promise = new Promise<void>(f => finishedCallback = f);
+      const files = new Set<string>();
+
+      const timer = setTimeout(async () => {
+        delete this._filesPendingListTests;
+        await this._listTests([...files]).catch(e => console.log(e));
+        finishedCallback();
+      }, 100);
+
+      this._filesPendingListTests = {
+        files,
+        finishedCallback,
+        promise,
+        timer,
+      };
+    }
+
+    for (const file of filesToListTests)
+      this._filesPendingListTests.files.add(file);
+
+    return this._filesPendingListTests.promise;
+  }
+
+  private async _listTests(files: string[]) {
     const errors: reporterTypes.TestError[] = [];
     let rootSuite: reporterTypes.Suite | undefined;
     await this._playwrightTest.test(files, 'list', {}, {
@@ -310,6 +338,7 @@ export class TestModel {
     for (const fileSuite of projectSuite.suites) {
       if (!fileSuite.allTests().length)
         continue;
+      this._filesWithListedTests.add(fileSuite.location!.file);
       const existingFileSuite = files.get(fileSuite.location!.file);
       if (!existingFileSuite || !existingFileSuite.allTests().length)
         files.set(fileSuite.location!.file, fileSuite);
@@ -432,18 +461,6 @@ export class TestModel {
 
   async findRelatedTestFiles(files: string[]) {
     return await this._playwrightTest.findRelatedTestFiles(files);
-  }
-
-  narrowDownFilesToEnabledProjects(fileNames: Set<string>) {
-    const result = new Set<string>();
-    for (const project of this.enabledProjects()) {
-      const files = projectFiles(project);
-      for (const fileName of fileNames) {
-        if (files.has(fileName))
-          result.add(fileName);
-      }
-    }
-    return result;
   }
 }
 

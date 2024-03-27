@@ -22,7 +22,7 @@ import * as reporterTypes from './upstream/reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
-import { TestModel, TestModelCollection, TestProject, projectFiles } from './testModel';
+import { TestModel, TestModelCollection, TestProject } from './testModel';
 import { TestTree } from './testTree';
 import { NodeJSNotFoundError, ansiToHtml, getPlaywrightInfo } from './utils';
 import * as vscodeTypes from './vscodeTypes';
@@ -77,12 +77,6 @@ export class Extension implements RunHooks {
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
   private _watchSupport: WatchSupport;
-  private _filesPendingListTests: {
-    files: Set<string>,
-    timer: NodeJS.Timeout,
-    promise: Promise<void>,
-    finishedCallback: () => void
-  } | undefined;
   private _diagnostics: vscodeTypes.DiagnosticCollection;
   private _treeItemObserver: TreeItemObserver;
   private _watchQueue = Promise.resolve();
@@ -145,9 +139,6 @@ export class Extension implements RunHooks {
   }
 
   dispose() {
-    clearTimeout(this._filesPendingListTests?.timer);
-    this._filesPendingListTests?.finishedCallback();
-    delete this._filesPendingListTests;
     for (const d of this._disposables)
       d?.dispose?.();
   }
@@ -364,7 +355,7 @@ export class Extension implements RunHooks {
           break;
       }
     }
-    const { projects, locations, parametrizedTestTitle } = this._narrowDownProjectsAndLocations(runInfo.model, include);
+    const { projects, locations, parametrizedTestTitle } = this._narrowDownLocations(runInfo.model, include);
     if (locations && !locations.length)
       return;
 
@@ -390,7 +381,7 @@ export class Extension implements RunHooks {
     }
   }
 
-  private _narrowDownProjectsAndLocations(model: TestModel, items: readonly vscodeTypes.TestItem[]): { projects: TestProject[], locations: string[] | null, parametrizedTestTitle: string | undefined } {
+  private _narrowDownLocations(model: TestModel, items: readonly vscodeTypes.TestItem[]): { projects: TestProject[], locations: string[] | null, parametrizedTestTitle: string | undefined } {
     if (!items.length)
       return { projects: model.enabledProjects(), locations: null, parametrizedTestTitle: undefined };
 
@@ -410,26 +401,18 @@ export class Extension implements RunHooks {
       }
     }
 
-    // Only pick projects that have tests matching test run request.
     const locations = new Set<string>();
-    const projectsWithFiles: TestProject[] = [];
     for (const item of items) {
       const itemFsPath = item.uri!.fsPath;
-      const projectsWithFile = model.enabledProjects().filter(project => {
-        const files = projectFiles(project);
-        for (const file of files.keys()) {
-          if (file.startsWith(itemFsPath))
-            return true;
+      const enabledFiles = model.enabledFiles();
+      for (const file of enabledFiles) {
+        if (file === itemFsPath || file.startsWith(itemFsPath)) {
+          const line = item.range ? ':' + (item.range.start.line + 1) : '';
+          locations.add(item.uri!.fsPath + line);
         }
-        return false;
-      });
-      if (!projectsWithFile.length)
-        continue;
-      const line = item.range ? ':' + (item.range.start.line + 1) : '';
-      locations.add(item.uri!.fsPath + line);
-      projectsWithFiles.push(...projectsWithFile);
+      }
     }
-    return { projects: projectsWithFiles, locations: [...locations], parametrizedTestTitle };
+    return { projects: model.enabledProjects(), locations: [...locations], parametrizedTestTitle };
   }
 
   private async _resolveChildren(fileItem: vscodeTypes.TestItem | undefined): Promise<void> {
@@ -582,41 +565,9 @@ export class Extension implements RunHooks {
     await this._ensureTestsInAllModels(files);
   }
 
-  private _ensureTestsInAllModels(inputFiles: string[]): Promise<void> {
-    // Perform coalescing listTests calls to avoid multiple
-    // 'list tests' processes running at the same time.
-    if (!inputFiles.length)
-      return Promise.resolve();
-
-    if (!this._filesPendingListTests) {
-      let finishedCallback!: () => void;
-      const promise = new Promise<void>(f => finishedCallback = f);
-      const files = new Set<string>();
-
-      const timer = setTimeout(async () => {
-        delete this._filesPendingListTests;
-        for (const model of this._models.enabledModels()) {
-          const filteredFiles = model.narrowDownFilesToEnabledProjects(files);
-          if (!filteredFiles.size)
-            continue;
-          await model.ensureTests([...filteredFiles]).catch(e => console.log(e));
-        }
-        this._updateDiagnostics();
-        finishedCallback();
-      }, 0);
-
-      this._filesPendingListTests = {
-        files,
-        finishedCallback,
-        promise,
-        timer,
-      };
-    }
-
-    for (const file of inputFiles)
-      this._filesPendingListTests.files.add(file);
-
-    return this._filesPendingListTests.promise;
+  private async _ensureTestsInAllModels(inputFiles: string[]): Promise<void> {
+    for (const model of this._models.enabledModels())
+      await model.ensureTests(inputFiles);
   }
 
   private _updateDiagnostics() {
@@ -699,9 +650,15 @@ export class Extension implements RunHooks {
       if (line.startsWith('    at ')) {
         // Render relative stack.
         for (const workspaceFolder of this._vscode.workspace.workspaceFolders || []) {
-          const prefix = '    at ' + workspaceFolder.uri.fsPath;
-          if (line.startsWith(prefix)) {
-            line = '    at ' + line.substring(prefix.length + 1);
+          const prefix1 = ('    at ' + workspaceFolder.uri.fsPath + path.sep).toLowerCase();
+          const prefix2 = ('    at fn (' + workspaceFolder.uri.fsPath + path.sep).toLowerCase();
+          const lowerLine = line.toLowerCase();
+          if (lowerLine.startsWith(prefix1)) {
+            line = '    at ' + line.substring(prefix1.length);
+            break;
+          }
+          if (lowerLine.startsWith(prefix2)) {
+            line = '    at ' + line.substring(prefix2.length, line.length - 1);
             break;
           }
         }

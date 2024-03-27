@@ -40,7 +40,7 @@ test('should switch between configs', async ({ activate }) => {
     [ ] projectTwo
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
   `);
 
@@ -56,7 +56,7 @@ test('should switch between configs', async ({ activate }) => {
     -   tests2
       -   test.spec.ts
   `);
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
   `);

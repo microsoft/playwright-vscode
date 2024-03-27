@@ -22,6 +22,7 @@ import { TeleReporterReceiver } from './upstream/teleReceiver';
 import { TestServerConnection } from './upstream/testServerConnection';
 import { startBackend } from './backend';
 import type { PlaywrightTestOptions, PlaywrightTestRunOptions, TestConfig } from './playwrightTestTypes';
+import { escapeRegex } from './utils';
 
 export class PlaywrightTestServer {
   private _vscode: vscodeTypes.VSCode;
@@ -91,6 +92,8 @@ export class PlaywrightTestServer {
       return;
     if (!testServer)
       return;
+    // Locations are regular expressions.
+    locations = locations.map(escapeRegex);
     const { report } = await testServer.listTests({ locations });
     const teleReceiver = new TeleReporterReceiver(reporter, {
       mergeProjects: true,
@@ -107,6 +110,8 @@ export class PlaywrightTestServer {
       return;
     if (!testServer)
       return;
+    // Locations are regular expressions.
+    locations = locations.map(escapeRegex);
     testServer.runTests({ locations, ...options });
     token.onCancellationRequested(() => {
       testServer.stopTestsNoReply({});
