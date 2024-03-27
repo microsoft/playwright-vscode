@@ -52,11 +52,11 @@ export const expect = baseExpect.extend({
     }
   },
 
-  toHaveExecLog(vscode: VSCode, expectedLog: string) {
+  async toHaveExecLog(vscode: VSCode, expectedLog: string) {
     if (vscode.extensions[0]._settingsModel.useTestServer.get())
       return { pass: true, message: () => '' };
     try {
-      expect(vscode.renderExecLog('  ')).toBe(expectedLog);
+      await expect.poll(() => vscode.renderExecLog('  ')).toBe(expectedLog);
       return { pass: true, message: () => '' };
     } catch (e) {
       return {

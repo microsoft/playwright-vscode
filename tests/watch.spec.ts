@@ -54,7 +54,7 @@ test('should watch all tests', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test-1.spec.ts
     > playwright find-related-test-files -c playwright.config.js
@@ -90,7 +90,7 @@ test('should unwatch all tests', async ({ activate }) => {
 
   expect(testRuns).toHaveLength(0);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test-1.spec.ts
   `);
@@ -169,7 +169,7 @@ test.skip('should watch tests via helper', async ({ activate }) => {
       failed
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright find-related-test-files -c playwright.config.js
     > playwright test -c playwright.config.js tests/test.spec.ts
@@ -212,7 +212,7 @@ test('should watch test in a file', async ({ activate }) => {
 
   // first --list is for expand
   // second --list is for workspace change
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
@@ -262,7 +262,7 @@ test('should watch two tests in a file', async ({ activate }) => {
 
   // first --list is for expand
   // second --list is for workspace change
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
