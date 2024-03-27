@@ -16,6 +16,8 @@
 
 import { enableProjects, expect, test } from './utils';
 
+test.skip(({ useTestServer }) => !useTestServer);
+
 const testsWithSetup = {
   'playwright.config.ts': `
     import { defineConfig } from '@playwright/test';
@@ -68,16 +70,15 @@ test('should run setup and teardown projects (1)', async ({ activate }) => {
 });
 
 test('should run setup and teardown projects (2)', async ({ activate }) => {
-  test.fixme();
   const { vscode, testController } = await activate(testsWithSetup);
   await enableProjects(vscode, ['teardown', 'test']);
   const testRun = await testController.run();
 
   await expect(testController).toHaveTestTree(`
-    -   test.ts
-      - ✅ test [2:0]
     -   teardown.ts
       - ✅ teardown [2:0]
+    -   test.ts
+      - ✅ test [2:0]
   `);
 
   const output = testRun.renderLog({ output: true });
@@ -87,9 +88,8 @@ test('should run setup and teardown projects (2)', async ({ activate }) => {
 });
 
 test('should run setup and teardown projects (3)', async ({ activate }) => {
-  test.fixme();
   const { vscode, testController } = await activate(testsWithSetup);
-  await enableProjects(vscode, ['teardown', 'test']);
+  await enableProjects(vscode, ['test']);
   const testRun = await testController.run();
 
   await expect(testController).toHaveTestTree(`
@@ -119,5 +119,24 @@ test('should run part of the setup only', async ({ activate }) => {
         ✅ teardown [2:0]
     - ◯ test.ts
         ◯ test [2:0]
+  `);
+});
+
+test('should run setup and teardown for test', async ({ activate }) => {
+  test.fixme();
+  const { vscode, testController } = await activate(testsWithSetup);
+  await enableProjects(vscode, ['setup', 'teardown', 'test']);
+
+  await testController.expandTestItems(/test.ts/);
+  const testItems = testController.findTestItems(/test/);
+  await testController.run(testItems);
+
+  await expect(testController).toHaveTestTree(`
+    - ✅ setup.ts
+        ✅ setup [2:0]
+    - ✅ teardown.ts
+        ✅ teardown [2:0]
+    - ✅ test.ts
+        ✅ test [2:0]
   `);
 });
