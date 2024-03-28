@@ -47,12 +47,14 @@ const testsWithSetup = {
   `,
 };
 
-test('should run setup and teardown projects (1)', async ({ activate }) => {
-  const { vscode, testController } = await activate(testsWithSetup);
-  await enableProjects(vscode, ['setup', 'teardown', 'test']);
-  const testRun = await testController.run();
+test.describe(() => {
+  test.skip(({ useTestServer }) => !useTestServer);
+  test('should run setup and teardown projects (1)', async ({ activate }) => {
+    const { vscode, testController } = await activate(testsWithSetup);
+    await enableProjects(vscode, ['setup', 'teardown', 'test']);
+    const testRun = await testController.run();
 
-  await expect(testController).toHaveTestTree(`
+    await expect(testController).toHaveTestTree(`
     -   setup.ts
       - ✅ setup [2:0]
     -   teardown.ts
@@ -61,63 +63,78 @@ test('should run setup and teardown projects (1)', async ({ activate }) => {
       - ✅ test [2:0]
   `);
 
-  const output = testRun.renderLog({ output: true });
-  expect(output).toContain('from-setup');
-  expect(output).toContain('from-test');
-  expect(output).toContain('from-teardown');
-});
+    const output = testRun.renderLog({ output: true });
+    expect(output).toContain('from-setup');
+    expect(output).toContain('from-test');
+    expect(output).toContain('from-teardown');
+  });
 
-test('should run setup and teardown projects (2)', async ({ activate }) => {
-  test.fixme();
-  const { vscode, testController } = await activate(testsWithSetup);
-  await enableProjects(vscode, ['teardown', 'test']);
-  const testRun = await testController.run();
+  test('should run setup and teardown projects (2)', async ({ activate }) => {
+    const { vscode, testController } = await activate(testsWithSetup);
+    await enableProjects(vscode, ['teardown', 'test']);
+    const testRun = await testController.run();
 
-  await expect(testController).toHaveTestTree(`
-    -   test.ts
-      - ✅ test [2:0]
+    await expect(testController).toHaveTestTree(`
     -   teardown.ts
       - ✅ teardown [2:0]
-  `);
-
-  const output = testRun.renderLog({ output: true });
-  expect(output).not.toContain('from-setup');
-  expect(output).toContain('from-test');
-  expect(output).toContain('from-teardown');
-});
-
-test('should run setup and teardown projects (3)', async ({ activate }) => {
-  test.fixme();
-  const { vscode, testController } = await activate(testsWithSetup);
-  await enableProjects(vscode, ['teardown', 'test']);
-  const testRun = await testController.run();
-
-  await expect(testController).toHaveTestTree(`
     -   test.ts
       - ✅ test [2:0]
   `);
 
-  const output = testRun.renderLog({ output: true });
-  expect(output).not.toContain('from-setup');
-  expect(output).toContain('from-test');
-  expect(output).not.toContain('from-teardown');
+    const output = testRun.renderLog({ output: true });
+    expect(output).not.toContain('from-setup');
+    expect(output).toContain('from-test');
+    expect(output).toContain('from-teardown');
+  });
+
+  test('should run setup and teardown projects (3)', async ({ activate }) => {
+    const { vscode, testController } = await activate(testsWithSetup);
+    await enableProjects(vscode, ['test']);
+    const testRun = await testController.run();
+
+    await expect(testController).toHaveTestTree(`
+    -   test.ts
+      - ✅ test [2:0]
+  `);
+
+    const output = testRun.renderLog({ output: true });
+    expect(output).not.toContain('from-setup');
+    expect(output).toContain('from-test');
+    expect(output).not.toContain('from-teardown');
+  });
+
+  test('should run part of the setup only', async ({ activate }) => {
+    const { vscode, testController } = await activate(testsWithSetup);
+    await enableProjects(vscode, ['setup', 'teardown', 'test']);
+
+    await testController.expandTestItems(/setup.ts/);
+    const testItems = testController.findTestItems(/setup/);
+    await testController.run(testItems);
+
+    await expect(testController).toHaveTestTree(`
+    -   setup.ts
+      - ✅ setup [2:0]
+    -   teardown.ts
+      - ✅ teardown [2:0]
+    -   test.ts
+  `);
+  });
 });
 
-test('should run part of the setup only', async ({ activate }) => {
-  test.fixme();
+test('should run setup and teardown for test', async ({ activate }) => {
   const { vscode, testController } = await activate(testsWithSetup);
   await enableProjects(vscode, ['setup', 'teardown', 'test']);
 
-  await testController.expandTestItems(/setup.ts/);
-  const testItems = testController.findTestItems(/setup/);
+  await testController.expandTestItems(/test.ts/);
+  const testItems = testController.findTestItems(/test/);
   await testController.run(testItems);
 
   await expect(testController).toHaveTestTree(`
-    - ✅ setup.ts
-        ✅ setup [2:0]
-    - ✅ teardown.ts
-        ✅ teardown [2:0]
-    - ◯ test.ts
-        ◯ test [2:0]
+    -   setup.ts
+      - ✅ setup [2:0]
+    -   teardown.ts
+      - ✅ teardown [2:0]
+    -   test.ts
+      - ✅ test [2:0]
   `);
 });

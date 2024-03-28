@@ -27,7 +27,7 @@ test('should list files', async ({ activate }) => {
     -   tests
       -   test.spec.ts
   `);
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 });
@@ -48,7 +48,7 @@ test('should list tests on expand', async ({ activate }) => {
         -   two [3:0]
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
@@ -72,7 +72,7 @@ test('should list tests for visible editors', async ({ activate }) => {
         -   two [3:0]
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
@@ -91,7 +91,7 @@ test('should pick new files', async ({ activate }) => {
       -   test-1.spec.ts
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 
@@ -108,7 +108,7 @@ test('should pick new files', async ({ activate }) => {
       -   test-2.spec.ts
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.js
   `);
@@ -135,7 +135,7 @@ test('should remove deleted files', async ({ activate }) => {
       -   test-3.spec.ts
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
 
@@ -152,7 +152,7 @@ test('should remove deleted files', async ({ activate }) => {
       -   test-3.spec.ts
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.js
   `);
@@ -168,7 +168,7 @@ test('should discover new tests', async ({ activate }) => {
 
   await testController.expandTestItems(/test.spec.ts/);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
@@ -188,10 +188,10 @@ test('should discover new tests', async ({ activate }) => {
         -   two [4:0]
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > playwright test -c playwright.config.js --list --reporter=null build/test.spec.js.map tests/test.spec.ts
+    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
   `);
 });
 
@@ -215,7 +215,7 @@ test('should run all tests', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js
   `);
@@ -241,7 +241,7 @@ test('should run one test', async ({ activate }) => {
       passed
   `);
 
-  expect(vscode).toHaveExecLog(`
+  await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js tests/test.spec.ts:3
