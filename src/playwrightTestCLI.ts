@@ -54,46 +54,55 @@ export class PlaywrightTestCLI {
     };
   }
 
-  async test(locations: string[], mode: 'list' | 'test', options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
-    // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
-    // Always use ws transport to mitigate it.
-    const reporterServer = new ReporterServer(this._vscode);
-    const node = await findNode(this._vscode, this._config.workspaceFolder);
-    if (token?.isCancellationRequested)
-      return;
-    const configFolder = path.dirname(this._config.configFile);
-    const configFile = path.basename(this._config.configFile);
-    const escapedLocations = locations.map(escapeRegex).sort();
+  async listTests(locations: string[], reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const args = [];
-    if (mode === 'list')
-      args.push('--list', '--reporter=null');
+    args.push('--list', '--reporter=null');
+    await this._innerSpawn(locations, args, {}, reporter, token);
+  }
 
+  async runTests(locations: string[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+    const args = [];
     if (options.projects)
       options.projects.forEach(p => args.push(`--project=${p}`));
     if (options.grep)
       args.push(`--grep=${escapeRegex(options.grep)}`);
+    args.push('--repeat-each=1');
+    args.push('--retries=0');
+    if (options.headed)
+      args.push('--headed');
+    if (options.workers)
+      args.push(`--workers=${options.workers}`);
+    if (options.trace)
+      args.push(`--trace=${options.trace}`);
+    await this._innerSpawn(locations, args, options, reporter, token);
+  }
+
+  async _innerSpawn(locations: string[], extraArgs: string[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
+    if (token?.isCancellationRequested)
+      return;
+
+    // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
+    // Always use ws transport to mitigate it.
+    const reporterServer = new ReporterServer(this._vscode);
+    const node = await findNode(this._vscode, this._config.workspaceFolder);
+    const configFolder = path.dirname(this._config.configFile);
+    const configFile = path.basename(this._config.configFile);
+    const escapedLocations = locations.map(escapeRegex).sort();
 
     {
       // For tests.
       const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex).sort();
-      this._log(`${escapeRegex(path.relative(this._config.workspaceFolder, configFolder))}> playwright test -c ${configFile}${args.length ? ' ' + args.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
+      const printArgs = extraArgs.filter(a => !a.includes('--repeat-each') && !a.includes('--retries') && !a.includes('--workers') && !a.includes('--trace'));
+      this._log(`${escapeRegex(path.relative(this._config.workspaceFolder, configFolder))}> playwright test -c ${configFile}${printArgs.length ? ' ' + printArgs.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
     }
-    const allArgs = [this._config.cli, 'test',
+
+    const childProcess = spawn(node, [
+      this._config.cli,
+      'test',
       '-c', configFile,
-      ...args,
+      ...extraArgs,
       ...escapedLocations,
-      '--repeat-each', '1',
-      '--retries', '0',
-    ];
-
-    if (options.headed)
-      allArgs.push('--headed');
-    if (options.workers)
-      allArgs.push('--workers', String(options.workers));
-    if (options.trace)
-      allArgs.push('--trace', options.trace);
-
-    const childProcess = spawn(node, allArgs, {
+    ], {
       cwd: configFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       env: {
@@ -116,7 +125,7 @@ export class PlaywrightTestCLI {
     const stdio = childProcess.stdio;
     stdio[1].on('data', data => reporter.onStdOut?.(data));
     stdio[2].on('data', data => reporter.onStdErr?.(data));
-    await reporterServer.wireTestListener(mode, reporter, token);
+    await reporterServer.wireTestListener(reporter, token);
   }
 
   async findRelatedTestFiles(files: string[]): Promise<ConfigFindRelatedTestFilesReport> {
