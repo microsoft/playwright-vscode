@@ -281,7 +281,7 @@ export class TestModel {
   private async _listTests(files: string[]) {
     const errors: reporterTypes.TestError[] = [];
     let rootSuite: reporterTypes.Suite | undefined;
-    await this._playwrightTest.test(files, 'list', {}, {
+    await this._playwrightTest.listTests(files, {
       onBegin: (suite: reporterTypes.Suite) => {
         rootSuite = suite;
       },
@@ -378,7 +378,7 @@ export class TestModel {
     try {
       if (token?.isCancellationRequested)
         return;
-      await this._playwrightTest.test(locationArg, 'test', options, reporter, token);
+      await this._playwrightTest.runTests(locationArg, options, reporter, token);
     } finally {
       await this._options.runHooks.onDidRunTests(false);
     }
@@ -435,7 +435,7 @@ export class TestModel {
         program: this.config.cli,
         args,
       });
-      await reporterServer.wireTestListener('test', reporter, token);
+      await reporterServer.wireTestListener(reporter, token);
     } finally {
       await this._options.runHooks.onDidRunTests(true);
     }

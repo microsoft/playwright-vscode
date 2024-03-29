@@ -79,14 +79,7 @@ export class PlaywrightTestServer {
     return result;
   }
 
-  async test(locations: string[], mode: 'list' | 'test', options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
-    if (mode === 'test')
-      await this._test(locations, options, reporter, token);
-    else
-      await this._list(locations, reporter, token);
-  }
-
-  private async _list(locations: string[], reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+  async listTests(locations: string[], reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const testServer = await this._testServer();
     if (token?.isCancellationRequested)
       return;
@@ -104,7 +97,7 @@ export class PlaywrightTestServer {
       teleReceiver.dispatch(message);
   }
 
-  private async _test(locations: string[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+  async runTests(locations: string[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const testServer = await this._testServer();
     if (token?.isCancellationRequested)
       return;

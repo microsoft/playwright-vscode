@@ -66,7 +66,7 @@ export class ReporterServer {
     return wsEndpoint;
   }
 
-  async wireTestListener(mode: 'test' | 'list', listener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
+  async wireTestListener(listener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
     let timeout: NodeJS.Timeout | undefined;
     const transport = await this._waitForTransport();
 
