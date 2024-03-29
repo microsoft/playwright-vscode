@@ -286,6 +286,7 @@ export class Extension implements RunHooks {
         runHooks: this,
         isUnderTest: this._isUnderTest,
         envProvider: this._envProvider.bind(this),
+        onStdOut: this._debugHighlight.onStdOut.bind(this._debugHighlight),
       });
       await this._models.addModel(model);
     }
