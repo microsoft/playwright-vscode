@@ -45,6 +45,11 @@ export type TestModelOptions = {
   playwrightTestLog: string[];
   envProvider: () => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
+  requestWatchRun: (files: string[], testItems: vscodeTypes.TestItem[]) => void;
+};
+
+type Watch = {
+  include: readonly vscodeTypes.TestItem[] | undefined;
 };
 
 export class TestModel {
@@ -54,6 +59,7 @@ export class TestModel {
   private _didUpdate: vscodeTypes.EventEmitter<void>;
   readonly onUpdated: vscodeTypes.Event<void>;
   private _playwrightTest: PlaywrightTestCLI | PlaywrightTestServer;
+  private _watches = new Set<Watch>();
   private _fileToSources: Map<string, string[]> = new Map();
   private _sourceToFile: Map<string, string> = new Map();
   isEnabled = false;
@@ -87,6 +93,7 @@ export class TestModel {
     this._sourceToFile.clear();
     this._errorByFile.clear();
     this._playwrightTest.reset();
+    this._watches.clear();
   }
 
   projects(): TestProject[] {
@@ -242,6 +249,50 @@ export class TestModel {
         this._filesWithListedTests.delete(c);
       await this.ensureTests(changedWithListedTests);
     }
+
+    if (!this._watches.size)
+      return;
+    if (!changed.length)
+      return;
+
+    const result = await this._playwrightTest.findRelatedTestFiles([...change.changed]);
+    if (!result.testFiles.length)
+      return;
+    const testFiles = result.testFiles.map(f => this._vscode.Uri.file(f).fsPath);
+
+    const files: string[] = [];
+    const items: vscodeTypes.TestItem[] = [];
+    for (const watch of this._watches || []) {
+      for (const testFile of testFiles) {
+        if (!watch.include) {
+          // Everything is watched => add file.
+          files.push(testFile);
+          continue;
+        }
+
+        for (const include of watch.include) {
+          if (!include.uri)
+            continue;
+          // Folder is watched => add file.
+          if (testFile.startsWith(include.uri.fsPath + path.sep)) {
+            files.push(testFile);
+            continue;
+          }
+          // File is watched => add file.
+          if (testFile === include.uri.fsPath && !include.range) {
+            items.push(include);
+            continue;
+          }
+          // Test is watched, use that include as it might be more specific (test).
+          if (testFile === include.uri.fsPath && include.range) {
+            items.push(include);
+            continue;
+          }
+        }
+      }
+    }
+
+    this._options.requestWatchRun(files, items);
   }
 
   async ensureTests(inputFiles: string[]): Promise<void> {
@@ -414,8 +465,23 @@ export class TestModel {
     return [...result];
   }
 
-  async findRelatedTestFiles(files: string[]) {
-    return await this._playwrightTest.findRelatedTestFiles(files);
+  addToWatch(include: readonly vscodeTypes.TestItem[] | undefined, cancellationToken: vscodeTypes.CancellationToken) {
+    const watch: Watch = { include };
+    this._watches.add(watch);
+    cancellationToken.onCancellationRequested(() => this._watches.delete(watch));
+
+    // Watch contract has a bug in 1.86 - when outer non-global watch is disabled, it assumes that inner watches are
+    // discarded as well without issuing the token cancelation.
+    for (const ri of include || []) {
+      for (const watch of this._watches) {
+        for (const wi of watch.include || []) {
+          if (isAncestorOf(ri, wi)) {
+            this._watches.delete(watch);
+            break;
+          }
+        }
+      }
+    }
   }
 }
 
@@ -562,3 +628,12 @@ export function projectFiles(project: TestProject): Map<string, reporterTypes.Su
 }
 
 const listFilesFlag = Symbol('listFilesFlag');
+
+function isAncestorOf(root: vscodeTypes.TestItem, descendent: vscodeTypes.TestItem) {
+  while (descendent.parent) {
+    if (descendent.parent === root)
+      return true;
+    descendent = descendent.parent;
+  }
+  return false;
+}

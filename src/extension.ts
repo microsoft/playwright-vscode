@@ -28,7 +28,6 @@ import { NodeJSNotFoundError, ansiToHtml, getPlaywrightInfo } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { TraceViewer } from './traceViewer';
-import { type Watch, WatchSupport } from './watchSupport';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { RunHooks, TestConfig } from './playwrightTestTypes';
 
@@ -70,13 +69,12 @@ export class Extension implements RunHooks {
   private _traceViewer: TraceViewer;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
-  private _watchSupport: WatchSupport;
   private _diagnostics: vscodeTypes.DiagnosticCollection;
   private _treeItemObserver: TreeItemObserver;
-  private _watchQueue = Promise.resolve();
   private _runProfile: vscodeTypes.TestRunProfile;
   private _debugProfile: vscodeTypes.TestRunProfile;
   private _playwrightTestLog: string[] = [];
+  private _runQueue = Promise.resolve();
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -114,7 +112,6 @@ export class Extension implements RunHooks {
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
     this._diagnostics = this._vscode.languages.createDiagnosticCollection('pw.testErrors.diagnostic');
     this._treeItemObserver = new TreeItemObserver(this._vscode);
-    this._watchSupport = new WatchSupport(this._vscode, this._testTree, watchData => this._watchesTriggered(watchData));
   }
 
   async onWillRunTests(config: TestConfig, debug: boolean) {
@@ -234,7 +231,8 @@ export class Extension implements RunHooks {
     context.subscriptions.push(this);
   }
 
-  private async _rebuildModels(showWarnings: boolean): Promise<vscodeTypes.Uri[]> {
+  private async _rebuildModels(userGesture: boolean): Promise<vscodeTypes.Uri[]> {
+    this._runQueue = Promise.resolve();
     this._models.clear();
     this._testTree.startedLoading();
 
@@ -255,7 +253,7 @@ export class Extension implements RunHooks {
       try {
         playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider());
       } catch (error) {
-        if (showWarnings) {
+        if (userGesture) {
           this._vscode.window.showWarningMessage(
               error instanceof NodeJSNotFoundError ? error.message : this._vscode.l10n.t('Please install Playwright Test via running `npm i --save-dev @playwright/test`')
           );
@@ -266,7 +264,7 @@ export class Extension implements RunHooks {
 
       const minimumPlaywrightVersion = 1.28;
       if (playwrightInfo.version < minimumPlaywrightVersion) {
-        if (showWarnings) {
+        if (userGesture) {
           this._vscode.window.showWarningMessage(
               this._vscode.l10n.t('Playwright Test v{0} or newer is required', minimumPlaywrightVersion)
           );
@@ -281,6 +279,7 @@ export class Extension implements RunHooks {
         isUnderTest: this._isUnderTest,
         envProvider: this._envProvider.bind(this),
         onStdOut: this._debugHighlight.onStdOut.bind(this._debugHighlight),
+        requestWatchRun: this._runWatchedTests.bind(this),
       });
       await this._models.addModel(model);
     }
@@ -311,11 +310,18 @@ export class Extension implements RunHooks {
 
     if (request.continuous) {
       for (const model of this._models.enabledModels())
-        this._watchSupport.addToWatch(model, request.include, cancellationToken!);
+        model.addToWatch(request.include, cancellationToken!);
       return;
     }
 
-    await this._runTests(request.include, isDebug ? 'debug' : 'run');
+    await this._queueTestRun(request.include, isDebug ? 'debug' : 'run');
+  }
+
+  private async _queueTestRun(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug' | 'watch') {
+    this._runQueue = this._runQueue.then(async () => {
+      await this._runTests(include, mode).catch(() => {});
+    });
+    await this._runQueue;
   }
 
   private async _runTests(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug' | 'watch') {
@@ -380,14 +386,6 @@ export class Extension implements RunHooks {
     // Workspace change can be deferred, make sure editors are
     // decorated.
     await this._updateVisibleEditorItems();
-    await this._watchSupport.workspaceChanged(change);
-  }
-
-  private _watchesTriggered(watches: Watch[]) {
-    this._watchQueue = this._watchQueue.then(async () => {
-      for (const watch of watches)
-        await this._runTests(watch.include, 'watch');
-    });
   }
 
   private async _runTest(
@@ -509,6 +507,16 @@ export class Extension implements RunHooks {
       await this._traceViewer.willRunTests(model.config);
       await model.runTests(items, testListener, testRun.token);
     }
+  }
+
+  private async _runWatchedTests(files: string[], testItems: vscodeTypes.TestItem[]) {
+    // Run either locations or test ids to always be compatible with the test server (it can run either or).
+    if (files.length) {
+      const fileItems = files.map(f => this._testTree.testItemForFile(f)).filter(Boolean) as vscodeTypes.TestItem[];
+      await this._queueTestRun(fileItems, 'watch');
+    }
+    if (testItems.length)
+      await this._queueTestRun(testItems, 'watch');
   }
 
   private async _updateVisibleEditorItems() {
