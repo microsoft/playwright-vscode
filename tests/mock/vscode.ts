@@ -650,7 +650,17 @@ class Debug {
       env: configuration.env,
     });
 
-    subprocess.stdout.on('data', data => this.output += data.toString());
+    subprocess.stdout.on('data', data => {
+      this.output += data.toString();
+      this._dapSniffer.onDidSendMessage({
+        type: 'event',
+        event: 'output',
+        body: {
+          category: 'stdout',
+          output: data.toString(),
+        }
+      });
+    });
     subprocess.stderr.on('data', data => this.output += data.toString());
     return true;
   }

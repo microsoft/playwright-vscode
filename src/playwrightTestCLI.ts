@@ -18,10 +18,11 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { ConfigFindRelatedTestFilesReport, ConfigListFilesReport } from './listTests';
 import { ReporterServer } from './reporterServer';
-import { escapeRegex, findNode, runNode } from './utils';
+import { escapeRegex, findNode, pathSeparator, runNode } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
 import type { PlaywrightTestOptions, PlaywrightTestRunOptions, TestConfig } from './playwrightTestTypes';
+import { debugSessionName } from './debugSessionName';
 
 export class PlaywrightTestCLI {
   private _vscode: vscodeTypes.VSCode;
@@ -126,6 +127,60 @@ export class PlaywrightTestCLI {
     stdio[1].on('data', data => reporter.onStdOut?.(data));
     stdio[2].on('data', data => reporter.onStdErr?.(data));
     await reporterServer.wireTestListener(reporter, token);
+  }
+
+  async debugTests(locations: string[], testDirs: string[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+    const configFolder = path.dirname(this._config.configFile);
+    const configFile = path.basename(this._config.configFile);
+    const escapedLocations = locations.map(escapeRegex);
+    const args = ['test',
+      '-c', configFile,
+      ...escapedLocations,
+      options.headed ? '--headed' : '',
+      ...(options.projects || []).map(p => `--project=${p}`),
+      '--repeat-each', '1',
+      '--retries', '0',
+      '--timeout', '0',
+      '--workers', options.workers,
+    ].filter(Boolean);
+    if (options.grep)
+      args.push(`--grep=${escapeRegex(options.grep)}`);
+
+    {
+      // For tests.
+      const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex);
+      this._log(`${escapeRegex(path.relative(this._config.workspaceFolder, configFolder))}> debug -c ${configFile}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
+    }
+
+    const reporterServer = new ReporterServer(this._vscode);
+    const testOptions = await this._options.runHooks.onWillRunTests(this._config, true);
+    try {
+      await this._vscode.debug.startDebugging(undefined, {
+        type: 'pwa-node',
+        name: debugSessionName,
+        request: 'launch',
+        cwd: configFolder,
+        env: {
+          ...process.env,
+          CI: this._options.isUnderTest ? undefined : process.env.CI,
+          ...this._options.envProvider(),
+          PW_TEST_CONNECT_WS_ENDPOINT: testOptions.connectWsEndpoint,
+          ...(await reporterServer.env()),
+          // Reset VSCode's options that affect nested Electron.
+          ELECTRON_RUN_AS_NODE: undefined,
+          FORCE_COLOR: '1',
+          PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
+          PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
+          PW_TEST_HTML_REPORT_OPEN: 'never',
+          PWDEBUG: 'console',
+        },
+        program: this._config.cli,
+        args,
+      });
+      await reporterServer.wireTestListener(reporter, token);
+    } finally {
+      await this._options.runHooks.onDidRunTests(true);
+    }
   }
 
   async findRelatedTestFiles(files: string[]): Promise<ConfigFindRelatedTestFilesReport> {

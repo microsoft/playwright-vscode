@@ -16,7 +16,7 @@
 
 import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
-import { escapeRegex, pathSeparator, resolveSourceMap } from './utils';
+import { resolveSourceMap } from './utils';
 import { ConfigListFilesReport, ProjectConfigWithFiles } from './listTests';
 import * as reporterTypes from './upstream/reporter';
 import { TeleSuite } from './upstream/teleReceiver';
@@ -25,8 +25,6 @@ import path from 'path';
 import { DisposableBase } from './disposableBase';
 import { MultiMap } from './multimap';
 import { TestServerInterface } from './upstream/testServerInterface';
-import { ReporterServer } from './reporterServer';
-import { debugSessionName } from './debugSessionName';
 import { PlaywrightTestServer } from './playwrightTestServer';
 import type { RunHooks, TestConfig } from './playwrightTestTypes';
 import { PlaywrightTestCLI } from './playwrightTestCLI';
@@ -47,6 +45,7 @@ export type TestModelOptions = {
   isUnderTest: boolean;
   playwrightTestLog: string[];
   envProvider: () => NodeJS.ProcessEnv;
+  onStdOut: vscodeTypes.Event<string>;
 };
 
 type AllRunOptions = Parameters<TestServerInterface['runTests']>[0];
@@ -386,63 +385,27 @@ export class TestModel {
 
   async debugTests(projects: TestProject[], locations: string[] | null, reporter: reporterTypes.ReporterV2, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
     locations = locations || [];
-    const testDirs = projects.map(p => p.project.testDir);
-    const configFolder = path.dirname(this.config.configFile);
-    const configFile = path.basename(this.config.configFile);
-    locations = locations || [];
-    const escapedLocations = locations.map(escapeRegex);
-    const args = ['test',
-      '-c', configFile,
-      ...escapedLocations,
-      '--headed',
-      ...projects.map(p => p.name).filter(Boolean).map(p => `--project=${p}`),
-      '--repeat-each', '1',
-      '--retries', '0',
-      '--timeout', '0',
-      '--workers', '1'
-    ];
-    if (parametrizedTestTitle)
-      args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
-
-    {
-      // For tests.
-      const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex);
-      this._log(`${escapeRegex(path.relative(this.config.workspaceFolder, configFolder))}> debug -c ${configFile}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
-    }
-
-    const reporterServer = new ReporterServer(this._vscode);
-    const testOptions = await this._options.runHooks.onWillRunTests(this.config, true);
+    const locationArg = locations ? locations : [];
+    if (token?.isCancellationRequested)
+      return;
+    const externalOptions = await this._options.runHooks.onWillRunTests(this.config, true);
+    const options: PlaywrightTestRunOptions = {
+      grep: parametrizedTestTitle,
+      projects: projects.length ? projects.map(p => p.name).filter(Boolean) : undefined,
+      headed: !this._options.isUnderTest,
+      workers: 1,
+      trace: 'off',
+      reuseContext: false,
+      connectWsEndpoint: externalOptions.connectWsEndpoint,
+    };
     try {
-      await this._vscode.debug.startDebugging(undefined, {
-        type: 'pwa-node',
-        name: debugSessionName,
-        request: 'launch',
-        cwd: configFolder,
-        env: {
-          ...process.env,
-          CI: this._options.isUnderTest ? undefined : process.env.CI,
-          ...this._envProvider(),
-          PW_TEST_CONNECT_WS_ENDPOINT: testOptions.connectWsEndpoint,
-          ...(await reporterServer.env()),
-          // Reset VSCode's options that affect nested Electron.
-          ELECTRON_RUN_AS_NODE: undefined,
-          FORCE_COLOR: '1',
-          PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
-          PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
-          PW_TEST_HTML_REPORT_OPEN: 'never',
-          PWDEBUG: 'console',
-        },
-        program: this.config.cli,
-        args,
-      });
-      await reporterServer.wireTestListener(reporter, token);
+      if (token?.isCancellationRequested)
+        return;
+      const testDirs = new Set(projects.map(p => p.project.testDir));
+      await this._playwrightTest.debugTests(locationArg, [...testDirs], options, reporter, token);
     } finally {
-      await this._options.runHooks.onDidRunTests(true);
+      await this._options.runHooks.onDidRunTests(false);
     }
-  }
-
-  private _log(line: string) {
-    this._options.playwrightTestLog.push(line);
   }
 
   private _mapFilesToSources(testDirs: string[], files: Set<string>): string[] {

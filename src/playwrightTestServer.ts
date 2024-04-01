@@ -22,7 +22,8 @@ import { TeleReporterReceiver } from './upstream/teleReceiver';
 import { TestServerConnection } from './upstream/testServerConnection';
 import { startBackend } from './backend';
 import type { PlaywrightTestOptions, PlaywrightTestRunOptions, TestConfig } from './playwrightTestTypes';
-import { escapeRegex } from './utils';
+import { escapeRegex, pathSeparator } from './utils';
+import { debugSessionName } from './debugSessionName';
 
 export class PlaywrightTestServer {
   private _vscode: vscodeTypes.VSCode;
@@ -109,13 +110,82 @@ export class PlaywrightTestServer {
     token.onCancellationRequested(() => {
       testServer.stopTestsNoReply({});
     });
-    testServer.onStdio(params => {
+    const disposable = testServer.onStdio(params => {
       if (params.type === 'stdout')
         reporter.onStdOut?.(unwrapString(params));
       if (params.type === 'stderr')
         reporter.onStdErr?.(unwrapString(params));
     });
     await this._wireTestServer(testServer, reporter, token);
+    disposable.dispose();
+  }
+
+  async debugTests(locations: string[], testDirs: string[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+    const configFolder = path.dirname(this._config.configFile);
+    const configFile = path.basename(this._config.configFile);
+    const args = ['test-server', '-c', configFile];
+
+    const addressPromise = new Promise<string>(f => {
+      const disposable = this._options.onStdOut(output => {
+        const match = output.match(/Listening on (.*)/);
+        if (match) {
+          disposable.dispose();
+          f(match[1]);
+        }
+      });
+    });
+
+    let testServer: TestServerConnection | undefined;
+    let disposable: vscodeTypes.Disposable | undefined;
+    try {
+      await this._vscode.debug.startDebugging(undefined, {
+        type: 'pwa-node',
+        name: debugSessionName,
+        request: 'launch',
+        cwd: configFolder,
+        env: {
+          ...process.env,
+          CI: this._options.isUnderTest ? undefined : process.env.CI,
+          ...this._options.envProvider(),
+          // Reset VSCode's options that affect nested Electron.
+          ELECTRON_RUN_AS_NODE: undefined,
+          FORCE_COLOR: '1',
+          PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
+          PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
+          PWDEBUG: 'console',
+        },
+        program: this._config.cli,
+        args,
+      });
+
+      if (token?.isCancellationRequested)
+        return;
+      const address = await addressPromise;
+      testServer = new TestServerConnection(address);
+      await testServer.connect();
+      await testServer.setSerializer({ serializer: require.resolve('./oopReporter') });
+      if (token?.isCancellationRequested)
+        return;
+
+      // Locations are regular expressions.
+      locations = locations.map(escapeRegex);
+      testServer.runTests({ locations, ...options });
+      token.onCancellationRequested(() => {
+        testServer!.stopTestsNoReply({});
+      });
+      disposable = testServer.onStdio(params => {
+        if (params.type === 'stdout')
+          reporter.onStdOut?.(unwrapString(params));
+        if (params.type === 'stderr')
+          reporter.onStdErr?.(unwrapString(params));
+      });
+      const testEndPromise = this._wireTestServer(testServer, reporter, token);
+      await testEndPromise;
+    } finally {
+      disposable?.dispose();
+      testServer?.closeGracefully({});
+      await this._options.runHooks.onDidRunTests(true);
+    }
   }
 
   async findRelatedTestFiles(files: string[]): Promise<ConfigFindRelatedTestFilesReport> {
@@ -155,6 +225,7 @@ export class PlaywrightTestServer {
       return null;
     const testServer = new TestServerConnection(wsEndpoint);
     await testServer.connect();
+    await testServer.setInterceptStdio({ intercept: true });
     await testServer.setSerializer({ serializer: require.resolve('./oopReporter') });
     return testServer;
   }

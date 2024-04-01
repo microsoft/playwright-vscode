@@ -16,6 +16,7 @@
 
 import { SettingsModel } from './settingsModel';
 import { TestServerInterface } from './upstream/testServerInterface';
+import type * as vscodeTypes from './vscodeTypes';
 
 export type TestConfig = {
   workspaceFolder: string;
@@ -39,4 +40,5 @@ export type PlaywrightTestOptions = {
   isUnderTest: boolean;
   playwrightTestLog: string[];
   envProvider: () => NodeJS.ProcessEnv;
+  onStdOut: vscodeTypes.Event<string>;
 };

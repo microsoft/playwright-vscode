@@ -97,8 +97,7 @@ test('should debug error', async ({ activate }, testInfo) => {
   profile.run(testItems);
   const testRun = await testRunPromise;
 
-  while (!vscode.debug.output.includes('READY TO BREAK'))
-    await new Promise(f => setTimeout(f, 100));
+  await expect.poll(() => vscode.debug.output).toContain('READY TO BREAK');
 
   vscode.debug.simulateStoppedOnError('Error on line 10', { file: testInfo.outputPath('tests/test.spec.ts'), line: 10 });
 

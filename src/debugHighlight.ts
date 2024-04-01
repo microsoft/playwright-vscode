@@ -25,15 +25,19 @@ export type DebuggerError = { error: string, location: Location };
 
 export class DebugHighlight {
   private _debugSessions = new Map<string, vscodeTypes.DebugSession>();
-  private _errorInDebugger: vscodeTypes.EventEmitter<DebuggerError>;
+  private _onErrorInDebuggerEmitter: vscodeTypes.EventEmitter<DebuggerError>;
   readonly onErrorInDebugger: vscodeTypes.Event<DebuggerError>;
+  private _onStdOutEmitter: vscodeTypes.EventEmitter<string>;
+  readonly onStdOut: vscodeTypes.Event<string>;
   private _disposables: vscodeTypes.Disposable[] = [];
   private _reusedBrowser: ReusedBrowser;
 
   constructor(vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser) {
     this._reusedBrowser = reusedBrowser;
-    this._errorInDebugger = new vscode.EventEmitter();
-    this.onErrorInDebugger = this._errorInDebugger.event;
+    this._onErrorInDebuggerEmitter = new vscode.EventEmitter();
+    this.onErrorInDebugger = this._onErrorInDebuggerEmitter.event;
+    this._onStdOutEmitter = new vscode.EventEmitter();
+    this.onStdOut = this._onStdOutEmitter.event;
 
     const self = this;
     this._disposables = [
@@ -71,6 +75,12 @@ export class DebugHighlight {
           let lastCatchLocation: Location | undefined;
           return {
             onDidSendMessage: async message => {
+              if (message.type === 'event' && message.event === 'output') {
+                if (message.body.category === 'stdout') {
+                  const output = message.body.output;
+                  self._onStdOutEmitter.fire(output);
+                }
+              }
               if (!message.success)
                 return;
               if (message.command === 'scopes' && message.type === 'response') {
@@ -88,7 +98,7 @@ export class DebugHighlight {
                 const errorVariable = message.body.variables.find((v: any) => v.name === 'playwrightError' && v.type && v.type.toLowerCase() === 'error');
                 if (errorVariable && lastCatchLocation) {
                   const error = errorVariable.value as string;
-                  self._errorInDebugger.fire({
+                  self._onErrorInDebuggerEmitter.fire({
                     error: error.replace(/\\n/g, '\n'),
                     location: lastCatchLocation!
                   });
