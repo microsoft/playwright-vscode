@@ -24,9 +24,8 @@ import type { SettingsModel, WorkspaceSettings } from './settingsModel';
 import path from 'path';
 import { DisposableBase } from './disposableBase';
 import { MultiMap } from './multimap';
-import { TestServerInterface } from './upstream/testServerInterface';
 import { PlaywrightTestServer } from './playwrightTestServer';
-import type { RunHooks, TestConfig } from './playwrightTestTypes';
+import type { PlaywrightTestRunOptions, RunHooks, TestConfig } from './playwrightTestTypes';
 import { PlaywrightTestCLI } from './playwrightTestCLI';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
@@ -48,9 +47,6 @@ export type TestModelOptions = {
   onStdOut: vscodeTypes.Event<string>;
 };
 
-type AllRunOptions = Parameters<TestServerInterface['runTests']>[0];
-export type PlaywrightTestRunOptions = Pick<AllRunOptions, 'headed' | 'workers' | 'trace' | 'projects' | 'grep' | 'reuseContext' | 'connectWsEndpoint'>;
-
 export class TestModel {
   private _vscode: vscodeTypes.VSCode;
   readonly config: TestConfig;
@@ -60,7 +56,6 @@ export class TestModel {
   private _playwrightTest: PlaywrightTestCLI | PlaywrightTestServer;
   private _fileToSources: Map<string, string[]> = new Map();
   private _sourceToFile: Map<string, string> = new Map();
-  private _envProvider: () => NodeJS.ProcessEnv;
   isEnabled = false;
   readonly tag: vscodeTypes.TestTag;
   private _errorByFile = new MultiMap<string, reporterTypes.TestError>();
@@ -77,10 +72,9 @@ export class TestModel {
     this._vscode = vscode;
     this._options = options;
     this.config = { ...playwrightInfo, workspaceFolder, configFile };
-    this._playwrightTest = options.settingsModel.useTestServer.get() ? new PlaywrightTestServer(vscode, this.config, options) : new PlaywrightTestCLI(vscode, this.config, options);
+    this._playwrightTest = options.settingsModel.useTestServer.get() ? new PlaywrightTestServer(vscode, this, options) : new PlaywrightTestCLI(vscode, this, options);
     this._didUpdate = new vscode.EventEmitter();
     this.onUpdated = this._didUpdate.event;
-    this._envProvider = options.envProvider;
     this.tag = new this._vscode.TestTag(this.config.configFile);
   }
 
@@ -113,6 +107,13 @@ export class TestModel {
 
   enabledProjects(): TestProject[] {
     return [...this._projects.values()].filter(p => p.isEnabled);
+  }
+
+  enabledProjectsFilter(): string[] {
+    const allEnabled = !([...this._projects.values()].some(p => !p.isEnabled));
+    if (allEnabled)
+      return [];
+    return this.enabledProjects().map(p => p.name);
   }
 
   enabledFiles(): Set<string> {
@@ -346,9 +347,7 @@ export class TestModel {
     this._didUpdate.fire();
   }
 
-  async runTests(projects: TestProject[], locations: string[] | null, reporter: reporterTypes.ReporterV2, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
-    locations = locations || [];
-    const locationArg = locations ? locations : [];
+  async runTests(items: vscodeTypes.TestItem[], reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
     if (token?.isCancellationRequested)
       return;
     const externalOptions = await this._options.runHooks.onWillRunTests(this.config, false);
@@ -365,8 +364,6 @@ export class TestModel {
       trace = 'off';
 
     const options: PlaywrightTestRunOptions = {
-      grep: parametrizedTestTitle,
-      projects: projects.length ? projects.map(p => p.name).filter(Boolean) : undefined,
       headed: showBrowser && !this._options.isUnderTest,
       workers: showBrowser ? 1 : undefined,
       trace,
@@ -377,21 +374,17 @@ export class TestModel {
     try {
       if (token?.isCancellationRequested)
         return;
-      await this._playwrightTest.runTests(locationArg, options, reporter, token);
+      await this._playwrightTest.runTests(items, options, reporter, token);
     } finally {
       await this._options.runHooks.onDidRunTests(false);
     }
   }
 
-  async debugTests(projects: TestProject[], locations: string[] | null, reporter: reporterTypes.ReporterV2, parametrizedTestTitle: string | undefined, token: vscodeTypes.CancellationToken) {
-    locations = locations || [];
-    const locationArg = locations ? locations : [];
+  async debugTests(items: vscodeTypes.TestItem[], reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
     if (token?.isCancellationRequested)
       return;
     const externalOptions = await this._options.runHooks.onWillRunTests(this.config, true);
     const options: PlaywrightTestRunOptions = {
-      grep: parametrizedTestTitle,
-      projects: projects.length ? projects.map(p => p.name).filter(Boolean) : undefined,
       headed: !this._options.isUnderTest,
       workers: 1,
       trace: 'off',
@@ -401,8 +394,7 @@ export class TestModel {
     try {
       if (token?.isCancellationRequested)
         return;
-      const testDirs = new Set(projects.map(p => p.project.testDir));
-      await this._playwrightTest.debugTests(locationArg, [...testDirs], options, reporter, token);
+      await this._playwrightTest.debugTests(items, options, reporter, token);
     } finally {
       await this._options.runHooks.onDidRunTests(false);
     }

@@ -22,7 +22,7 @@ import * as reporterTypes from './upstream/reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
-import { TestModel, TestModelCollection, TestProject } from './testModel';
+import { TestModel, TestModelCollection } from './testModel';
 import { TestTree } from './testTree';
 import { NodeJSNotFoundError, ansiToHtml, getPlaywrightInfo } from './utils';
 import * as vscodeTypes from './vscodeTypes';
@@ -40,12 +40,6 @@ type StepInfo = {
   location: vscodeTypes.Location;
   activeCount: number;
   duration: number;
-};
-
-type TestRunInfo = {
-  model: TestModel;
-  mode: 'run' | 'debug' | 'watch';
-  include: readonly vscodeTypes.TestItem[] | undefined;
 };
 
 export async function activate(context: vscodeTypes.ExtensionContext) {
@@ -321,29 +315,24 @@ export class Extension implements RunHooks {
       return;
     }
 
-    for (const model of this._models.enabledModels()) {
-      const testRun: TestRunInfo = { model, include: request.include, mode: isDebug ? 'debug' : 'run' };
-      await this._runTests(testRun);
-    }
+    await this._runTests(request.include, isDebug ? 'debug' : 'run');
   }
 
-  private async _runTests(runInfo: TestRunInfo) {
+  private async _runTests(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug' | 'watch') {
     this._completedSteps.clear();
     this._executionLinesChanged();
-
-    const include = runInfo.include || [];
 
     // Create a test run that potentially includes all the test items.
     // This allows running setup tests that are outside of the scope of the
     // selected test items.
     const rootItems: vscodeTypes.TestItem[] = [];
     this._testController.items.forEach(item => rootItems.push(item));
-    const requestWithDeps = new this._vscode.TestRunRequest(rootItems, [], undefined, runInfo.mode === 'watch');
+    const requestWithDeps = new this._vscode.TestRunRequest(rootItems, [], undefined, mode === 'watch');
 
     // Global errors are attributed to the first test item in the request.
     // If the request is global, find the first root test item (folder, file) that has
     // children. It will be reveal with an error.
-    let testItemForGlobalErrors = include[0];
+    let testItemForGlobalErrors = include?.[0];
     if (!testItemForGlobalErrors) {
       for (const rootItem of rootItems) {
         if (!rootItem.children.size)
@@ -356,15 +345,11 @@ export class Extension implements RunHooks {
           break;
       }
     }
-    const { projects, locations, parametrizedTestTitle } = this._narrowDownLocations(runInfo.model, include);
-    if (locations && !locations.length)
-      return;
 
     this._testRun = this._testController.createTestRun(requestWithDeps);
     const enqueuedTests: vscodeTypes.TestItem[] = [];
-
     // Provisionally mark tests (not files and not suits) as enqueued to provide immediate feedback.
-    const toEnqueue = include.length ? include : rootItems;
+    const toEnqueue = include?.length ? include : rootItems;
     for (const item of toEnqueue) {
       for (const test of this._testTree.collectTestsInside(item)) {
         this._testRun.enqueued(test);
@@ -373,47 +358,14 @@ export class Extension implements RunHooks {
     }
 
     try {
-      await this._runTest(this._testRun, testItemForGlobalErrors, new Set(), runInfo.model, runInfo.mode === 'debug', projects, locations, parametrizedTestTitle, enqueuedTests.length === 1);
+      for (const model of this._models.enabledModels())
+        await this._runTest(this._testRun, include ? [...include] : [], testItemForGlobalErrors, new Set(), model, mode === 'debug', enqueuedTests.length === 1);
     } finally {
       this._activeSteps.clear();
       this._executionLinesChanged();
       this._testRun.end();
       this._testRun = undefined;
     }
-  }
-
-  private _narrowDownLocations(model: TestModel, items: readonly vscodeTypes.TestItem[]): { projects: TestProject[], locations: string[] | null, parametrizedTestTitle: string | undefined } {
-    if (!items.length)
-      return { projects: model.enabledProjects(), locations: null, parametrizedTestTitle: undefined };
-
-    let parametrizedTestTitle: string | undefined;
-    // When we are given one item, check if it is parametrized (more than 1 item on that line).
-    // If it is parametrized, use label when running test.
-    if (items.length === 1) {
-      const test = items[0];
-      if (test.uri && test.range) {
-        let testsAtLocation = 0;
-        test.parent?.children.forEach(t => {
-          if (t.uri?.fsPath === test.uri?.fsPath && t.range?.start.line === test.range?.start.line)
-            ++testsAtLocation;
-        });
-        if (testsAtLocation > 1)
-          parametrizedTestTitle = test.label;
-      }
-    }
-
-    const locations = new Set<string>();
-    for (const item of items) {
-      const itemFsPath = item.uri!.fsPath;
-      const enabledFiles = model.enabledFiles();
-      for (const file of enabledFiles) {
-        if (file === itemFsPath || file.startsWith(itemFsPath)) {
-          const line = item.range ? ':' + (item.range.start.line + 1) : '';
-          locations.add(item.uri!.fsPath + line);
-        }
-      }
-    }
-    return { projects: model.enabledProjects(), locations: [...locations], parametrizedTestTitle };
   }
 
   private async _resolveChildren(fileItem: vscodeTypes.TestItem | undefined): Promise<void> {
@@ -434,19 +386,17 @@ export class Extension implements RunHooks {
   private _watchesTriggered(watches: Watch[]) {
     this._watchQueue = this._watchQueue.then(async () => {
       for (const watch of watches)
-        await this._runTests(watch);
+        await this._runTests(watch.include, 'watch');
     });
   }
 
   private async _runTest(
     testRun: vscodeTypes.TestRun,
+    items: vscodeTypes.TestItem[],
     testItemForGlobalErrors: vscodeTypes.TestItem | undefined,
     testFailures: Set<vscodeTypes.TestItem>,
     model: TestModel,
     isDebug: boolean,
-    projects: TestProject[],
-    locations: string[] | null,
-    parametrizedTestTitle: string | undefined,
     enqueuedSingleTest: boolean) {
     const testListener: reporterTypes.ReporterV2 = {
       onBegin: (rootSuite: reporterTypes.Suite) => {
@@ -554,10 +504,10 @@ export class Extension implements RunHooks {
     };
 
     if (isDebug) {
-      await model.debugTests(projects, locations, testListener, parametrizedTestTitle, testRun.token);
+      await model.debugTests(items, testListener, testRun.token);
     } else {
       await this._traceViewer.willRunTests(model.config);
-      await model.runTests(projects, locations, testListener, parametrizedTestTitle, testRun.token);
+      await model.runTests(items, testListener, testRun.token);
     }
   }
 
