@@ -15,7 +15,6 @@
  */
 
 import { SettingsModel } from './settingsModel';
-import { TestServerInterface } from './upstream/testServerInterface';
 import type * as vscodeTypes from './vscodeTypes';
 
 export type TestConfig = {
@@ -26,8 +25,13 @@ export type TestConfig = {
   testIdAttributeName?: string;
 };
 
-type AllRunOptions = Parameters<TestServerInterface['runTests']>[0];
-export type PlaywrightTestRunOptions = Pick<AllRunOptions, 'headed' | 'workers' | 'trace' | 'projects' | 'grep' | 'reuseContext' | 'connectWsEndpoint'>;
+export type PlaywrightTestRunOptions = {
+  headed?: boolean;
+  workers?: string | number;
+  trace?: 'on' | 'off';
+  reuseContext?: boolean;
+  connectWsEndpoint?: string;
+};
 
 export interface RunHooks {
   onWillRunTests(config: TestConfig, debug: boolean): Promise<{ connectWsEndpoint?: string }>;

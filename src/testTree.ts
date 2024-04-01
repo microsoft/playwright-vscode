@@ -86,8 +86,10 @@ export class TestTree extends DisposableBase {
   collectTestsInside(rootItem: vscodeTypes.TestItem): vscodeTypes.TestItem[] {
     const result: vscodeTypes.TestItem[] = [];
     const visitItem = (testItem: vscodeTypes.TestItem) => {
-      const testId = (testItem as any)[testIdSymbol];
-      if (testId)
+      const treeItem = (testItem as any)[testTreeItemSymbol] as upstream.TreeItem | undefined;
+      if (!testItem)
+        return;
+      if ((treeItem?.kind === 'case' || treeItem?.kind === 'test') && treeItem.test)
         result.push(testItem);
       else
         testItem.children.forEach(visitItem);
@@ -137,13 +139,10 @@ export class TestTree extends DisposableBase {
         // Allow lazy-populating file items created via listFiles.
         if (uChild.kind === 'group' && uChild.subKind === 'file' && !uChild.children.length)
           vsChild.canResolveChildren = true;
-        if (uChild.kind === 'case' || uChild.kind === 'test') {
-          if (uChild.test)
-            (vsChild as any)[testIdSymbol] = uChild.test.id;
-        }
         vsChildrenById.set(id, vsChild);
         vsChildren.add(vsChild);
       }
+      (vsChild as any)[testTreeItemSymbol] = uChild;
       if (uChild.kind === 'case' && !areEqualTags(uChild.tags, vsChild.tags))
         vsChild.tags = uChild.tags.map(tag => new this._vscode.TestTag(tag));
       const hasLocation = uChild.location.line || uChild.location.column;
@@ -166,10 +165,9 @@ export class TestTree extends DisposableBase {
     this._testItemByTestId.clear();
     this._testItemByFile.clear();
     const visit = (item: vscodeTypes.TestItem) => {
-      if ((item as any)[testIdSymbol]) {
-        const testId = (item as any)[testIdSymbol];
-        this._testItemByTestId.set(testId, item);
-      }
+      const treeItem = (item as any)[testTreeItemSymbol] as upstream.TreeItem | undefined;
+      if ((treeItem?.kind === 'case' || treeItem?.kind === 'test') && treeItem.test)
+        this._testItemByTestId.set(treeItem.test.id, item);
       for (const [, child] of item.children)
         visit(child);
       if (item.uri && !item.range)
@@ -226,4 +224,8 @@ function areEqualTags(uTags: readonly string[], vsTags: readonly vscodeTypes.Tes
   return true;
 }
 
-const testIdSymbol = Symbol('testId');
+export function upstreamTreeItem(treeItem: vscodeTypes.TreeItem): upstream.TreeItem {
+  return (treeItem as any)[testTreeItemSymbol] as upstream.TreeItem;
+}
+
+const testTreeItemSymbol = Symbol('testTreeItemSymbol');

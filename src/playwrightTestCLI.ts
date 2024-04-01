@@ -21,17 +21,18 @@ import { ReporterServer } from './reporterServer';
 import { escapeRegex, findNode, pathSeparator, runNode } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
-import type { PlaywrightTestOptions, PlaywrightTestRunOptions, TestConfig } from './playwrightTestTypes';
+import type { PlaywrightTestOptions, PlaywrightTestRunOptions } from './playwrightTestTypes';
 import { debugSessionName } from './debugSessionName';
+import type { TestModel } from './testModel';
 
 export class PlaywrightTestCLI {
   private _vscode: vscodeTypes.VSCode;
   private _options: PlaywrightTestOptions;
-  private _config: TestConfig;
+  private _model: TestModel;
 
-  constructor(vscode: vscodeTypes.VSCode, config: TestConfig, options: PlaywrightTestOptions) {
+  constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
-    this._config = config;
+    this._model = model;
     this._options = options;
   }
 
@@ -39,12 +40,12 @@ export class PlaywrightTestCLI {
   }
 
   async listFiles(): Promise<ConfigListFilesReport> {
-    const configFolder = path.dirname(this._config.configFile);
-    const configFile = path.basename(this._config.configFile);
-    const allArgs = [this._config.cli, 'list-files', '-c', configFile];
+    const configFolder = path.dirname(this._model.config.configFile);
+    const configFile = path.basename(this._model.config.configFile);
+    const allArgs = [this._model.config.cli, 'list-files', '-c', configFile];
     {
       // For tests.
-      this._log(`${escapeRegex(path.relative(this._config.workspaceFolder, configFolder))}> playwright list-files -c ${configFile}`);
+      this._log(`${escapeRegex(path.relative(this._model.config.workspaceFolder, configFolder))}> playwright list-files -c ${configFile}`);
     }
     const output = await this._runNode(allArgs, configFolder);
     const result = JSON.parse(output) as Partial<ConfigListFilesReport>;
@@ -61,12 +62,14 @@ export class PlaywrightTestCLI {
     await this._innerSpawn(locations, args, {}, reporter, token);
   }
 
-  async runTests(locations: string[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+  async runTests(items: vscodeTypes.TestItem[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+    const { locations, parametrizedTestTitle } = this._narrowDownLocations(items);
+    if (!locations)
+      return;
     const args = [];
-    if (options.projects)
-      options.projects.forEach(p => args.push(`--project=${p}`));
-    if (options.grep)
-      args.push(`--grep=${escapeRegex(options.grep)}`);
+    this._model.enabledProjectsFilter().forEach(p => args.push(`--project=${p}`));
+    if (parametrizedTestTitle)
+      args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
     args.push('--repeat-each=1');
     args.push('--retries=0');
     if (options.headed)
@@ -85,20 +88,20 @@ export class PlaywrightTestCLI {
     // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
     // Always use ws transport to mitigate it.
     const reporterServer = new ReporterServer(this._vscode);
-    const node = await findNode(this._vscode, this._config.workspaceFolder);
-    const configFolder = path.dirname(this._config.configFile);
-    const configFile = path.basename(this._config.configFile);
+    const node = await findNode(this._vscode, this._model.config.workspaceFolder);
+    const configFolder = path.dirname(this._model.config.configFile);
+    const configFile = path.basename(this._model.config.configFile);
     const escapedLocations = locations.map(escapeRegex).sort();
 
     {
       // For tests.
       const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex).sort();
       const printArgs = extraArgs.filter(a => !a.includes('--repeat-each') && !a.includes('--retries') && !a.includes('--workers') && !a.includes('--trace'));
-      this._log(`${escapeRegex(path.relative(this._config.workspaceFolder, configFolder))}> playwright test -c ${configFile}${printArgs.length ? ' ' + printArgs.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
+      this._log(`${escapeRegex(path.relative(this._model.config.workspaceFolder, configFolder))}> playwright test -c ${configFile}${printArgs.length ? ' ' + printArgs.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
     }
 
     const childProcess = spawn(node, [
-      this._config.cli,
+      this._model.config.cli,
       'test',
       '-c', configFile,
       ...extraArgs,
@@ -129,31 +132,35 @@ export class PlaywrightTestCLI {
     await reporterServer.wireTestListener(reporter, token);
   }
 
-  async debugTests(locations: string[], testDirs: string[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
-    const configFolder = path.dirname(this._config.configFile);
-    const configFile = path.basename(this._config.configFile);
+  async debugTests(items: vscodeTypes.TestItem[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+    const configFolder = path.dirname(this._model.config.configFile);
+    const configFile = path.basename(this._model.config.configFile);
+    const { locations, parametrizedTestTitle } = this._narrowDownLocations(items);
+    if (!locations)
+      return;
+    const testDirs = this._model.enabledProjects().map(p => p.project.testDir);
     const escapedLocations = locations.map(escapeRegex);
     const args = ['test',
       '-c', configFile,
       ...escapedLocations,
       options.headed ? '--headed' : '',
-      ...(options.projects || []).map(p => `--project=${p}`),
+      ...this._model.enabledProjectsFilter().map(p => `--project=${p}`),
       '--repeat-each', '1',
       '--retries', '0',
       '--timeout', '0',
       '--workers', options.workers,
     ].filter(Boolean);
-    if (options.grep)
-      args.push(`--grep=${escapeRegex(options.grep)}`);
+    if (parametrizedTestTitle)
+      args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);
 
     {
       // For tests.
       const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex);
-      this._log(`${escapeRegex(path.relative(this._config.workspaceFolder, configFolder))}> debug -c ${configFile}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
+      this._log(`${escapeRegex(path.relative(this._model.config.workspaceFolder, configFolder))}> debug -c ${configFile}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
     }
 
     const reporterServer = new ReporterServer(this._vscode);
-    const testOptions = await this._options.runHooks.onWillRunTests(this._config, true);
+    const testOptions = await this._options.runHooks.onWillRunTests(this._model.config, true);
     try {
       await this._vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
@@ -174,7 +181,7 @@ export class PlaywrightTestCLI {
           PW_TEST_HTML_REPORT_OPEN: 'never',
           PWDEBUG: 'console',
         },
-        program: this._config.cli,
+        program: this._model.config.cli,
         args,
       });
       await reporterServer.wireTestListener(reporter, token);
@@ -184,12 +191,12 @@ export class PlaywrightTestCLI {
   }
 
   async findRelatedTestFiles(files: string[]): Promise<ConfigFindRelatedTestFilesReport> {
-    const configFolder = path.dirname(this._config.configFile);
-    const configFile = path.basename(this._config.configFile);
-    const allArgs = [this._config.cli, 'find-related-test-files', '-c', configFile, ...files];
+    const configFolder = path.dirname(this._model.config.configFile);
+    const configFile = path.basename(this._model.config.configFile);
+    const allArgs = [this._model.config.cli, 'find-related-test-files', '-c', configFile, ...files];
     {
       // For tests.
-      this._log(`${escapeRegex(path.relative(this._config.workspaceFolder, configFolder))}> playwright find-related-test-files -c ${configFile}`);
+      this._log(`${escapeRegex(path.relative(this._model.config.workspaceFolder, configFolder))}> playwright find-related-test-files -c ${configFile}`);
     }
     try {
       const output = await this._runNode(allArgs, configFolder);
@@ -212,5 +219,39 @@ export class PlaywrightTestCLI {
 
   private _log(line: string) {
     this._options.playwrightTestLog.push(line);
+  }
+
+  private _narrowDownLocations(items: vscodeTypes.TestItem[]): { locations: string[] | null, parametrizedTestTitle: string | undefined } {
+    if (!items.length)
+      return { locations: [], parametrizedTestTitle: undefined };
+
+    let parametrizedTestTitle: string | undefined;
+    // When we are given one item, check if it is parametrized (more than 1 item on that line).
+    // If it is parametrized, use label when running test.
+    if (items.length === 1) {
+      const test = items[0];
+      if (test.uri && test.range) {
+        let testsAtLocation = 0;
+        test.parent?.children.forEach(t => {
+          if (t.uri?.fsPath === test.uri?.fsPath && t.range?.start.line === test.range?.start.line)
+            ++testsAtLocation;
+        });
+        if (testsAtLocation > 1)
+          parametrizedTestTitle = test.label;
+      }
+    }
+
+    const locations = new Set<string>();
+    for (const item of items) {
+      const itemFsPath = item.uri!.fsPath;
+      const enabledFiles = this._model.enabledFiles();
+      for (const file of enabledFiles) {
+        if (file === itemFsPath || file.startsWith(itemFsPath)) {
+          const line = item.range ? ':' + (item.range.start.line + 1) : '';
+          locations.add(item.uri!.fsPath + line);
+        }
+      }
+    }
+    return { locations: locations.size ? [...locations] : null, parametrizedTestTitle };
   }
 }

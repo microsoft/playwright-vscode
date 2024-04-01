@@ -396,7 +396,7 @@ test('should run all projects at once', async ({ activate }) => {
 
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --project=projectOne --project=projectTwo
+    > playwright test -c playwright.config.js
   `);
 });
 
@@ -451,8 +451,8 @@ test('should group projects by config', async ({ activate }) => {
   await expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
-    tests1> playwright test -c playwright.config.js --project=projectOne --project=projectTwo
-    tests2> playwright test -c playwright.config.js --project=projectOne --project=projectTwo
+    tests1> playwright test -c playwright.config.js
+    tests2> playwright test -c playwright.config.js
   `);
 });
 
@@ -790,7 +790,7 @@ test('should report project-specific failures', async ({ activate }) => {
 
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --project=projectA --project=projectB --project=projectC
+    > playwright test -c playwright.config.js
   `);
 
   expect(testRuns[0].renderLog({ messages: true })).toBe(`

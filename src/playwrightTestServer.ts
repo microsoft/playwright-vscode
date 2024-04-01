@@ -21,19 +21,23 @@ import * as reporterTypes from './upstream/reporter';
 import { TeleReporterReceiver } from './upstream/teleReceiver';
 import { TestServerConnection } from './upstream/testServerConnection';
 import { startBackend } from './backend';
-import type { PlaywrightTestOptions, PlaywrightTestRunOptions, TestConfig } from './playwrightTestTypes';
+import type { PlaywrightTestOptions, PlaywrightTestRunOptions } from './playwrightTestTypes';
 import { escapeRegex, pathSeparator } from './utils';
 import { debugSessionName } from './debugSessionName';
+import type { TestModel } from './testModel';
+import { TestServerInterface } from './upstream/testServerInterface';
+import { upstreamTreeItem } from './testTree';
+import { collectTestIds } from './upstream/testTree';
 
 export class PlaywrightTestServer {
   private _vscode: vscodeTypes.VSCode;
   private _options: PlaywrightTestOptions;
-  private _config: TestConfig;
+  private _model: TestModel;
   private _testServerPromise: Promise<TestServerConnection | null> | undefined;
 
-  constructor(vscode: vscodeTypes.VSCode, config: TestConfig, options: PlaywrightTestOptions) {
+  constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
-    this._config = config;
+    this._model = model;
     this._options = options;
   }
 
@@ -98,15 +102,27 @@ export class PlaywrightTestServer {
       teleReceiver.dispatch(message);
   }
 
-  async runTests(locations: string[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+  async runTests(items: vscodeTypes.TestItem[], runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const testServer = await this._testServer();
     if (token?.isCancellationRequested)
       return;
     if (!testServer)
       return;
+
+    const { locations, testIds } = this._narrowDownLocations(items);
+    if (!locations && !testIds)
+      return;
+
     // Locations are regular expressions.
-    locations = locations.map(escapeRegex);
-    testServer.runTests({ locations, ...options });
+    const locationPatterns = locations ? locations.map(escapeRegex) : undefined;
+    const options: Parameters<TestServerInterface['runTests']>['0'] = {
+      projects: this._model.enabledProjectsFilter(),
+      locations: locationPatterns,
+      testIds,
+      ...runOptions,
+    };
+    testServer.runTests(options);
+
     token.onCancellationRequested(() => {
       testServer.stopTestsNoReply({});
     });
@@ -120,9 +136,9 @@ export class PlaywrightTestServer {
     disposable.dispose();
   }
 
-  async debugTests(locations: string[], testDirs: string[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
-    const configFolder = path.dirname(this._config.configFile);
-    const configFile = path.basename(this._config.configFile);
+  async debugTests(items: vscodeTypes.TestItem[], runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+    const configFolder = path.dirname(this._model.config.configFile);
+    const configFile = path.basename(this._model.config.configFile);
     const args = ['test-server', '-c', configFile];
 
     const addressPromise = new Promise<string>(f => {
@@ -134,6 +150,8 @@ export class PlaywrightTestServer {
         }
       });
     });
+
+    const testDirs = this._model.enabledProjects().map(project => project.project.testDir);
 
     let testServer: TestServerConnection | undefined;
     let disposable: vscodeTypes.Disposable | undefined;
@@ -154,7 +172,7 @@ export class PlaywrightTestServer {
           PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
           PWDEBUG: 'console',
         },
-        program: this._config.cli,
+        program: this._model.config.cli,
         args,
       });
 
@@ -167,9 +185,20 @@ export class PlaywrightTestServer {
       if (token?.isCancellationRequested)
         return;
 
+      const { locations, testIds } = this._narrowDownLocations(items);
+      if (!locations && !testIds)
+        return;
+
       // Locations are regular expressions.
-      locations = locations.map(escapeRegex);
-      testServer.runTests({ locations, ...options });
+      const locationPatterns = locations ? locations.map(escapeRegex) : undefined;
+      const options: Parameters<TestServerInterface['runTests']>['0'] = {
+        projects: this._model.enabledProjectsFilter(),
+        locations: locationPatterns,
+        testIds,
+        ...runOptions,
+      };
+      testServer.runTests(options);
+
       token.onCancellationRequested(() => {
         testServer!.stopTestsNoReply({});
       });
@@ -203,10 +232,10 @@ export class PlaywrightTestServer {
   }
 
   private async _createTestServer(): Promise<TestServerConnection | null> {
-    const args = [this._config.cli, 'test-server', '-c', this._config.configFile];
+    const args = [this._model.config.cli, 'test-server', '-c', this._model.config.configFile];
     const wsEndpoint = await startBackend(this._vscode, {
       args,
-      cwd: this._config.workspaceFolder,
+      cwd: this._model.config.workspaceFolder,
       envProvider: () => {
         return {
           ...this._options.envProvider(),
@@ -254,6 +283,26 @@ export class PlaywrightTestServer {
     this._testServerPromise = undefined;
     if (testServer)
       testServer.then(server => server?.closeGracefully({}));
+  }
+
+  private _narrowDownLocations(items: vscodeTypes.TestItem[]): { locations: string[] | null, testIds?: string[] } {
+    if (!items.length)
+      return { locations: [] };
+    const locations = new Set<string>();
+    const testIds: string[] = [];
+    for (const item of items) {
+      const treeItem = upstreamTreeItem(item);
+      if (treeItem.kind === 'group' && (treeItem.subKind === 'folder' || treeItem.subKind === 'file')) {
+        for (const file of this._model.enabledFiles()) {
+          if (file === treeItem.location.file || file.startsWith(treeItem.location.file))
+            locations.add(treeItem.location.file);
+        }
+      } else {
+        testIds.push(...collectTestIds(treeItem));
+      }
+    }
+
+    return { locations: locations.size ? [...locations] : null, testIds: testIds.length ? testIds : undefined };
   }
 }
 
