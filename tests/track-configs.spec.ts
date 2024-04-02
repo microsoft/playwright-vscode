@@ -35,6 +35,9 @@ test('should load first config', async ({ activate }) => {
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+  ]);
 });
 
 test('should load second config', async ({ activate }) => {
@@ -69,6 +72,11 @@ test('should load second config', async ({ activate }) => {
     > playwright list-files -c playwright1.config.js
     > playwright list-files -c playwright2.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'listFiles', params: {} },
+    { method: 'listFiles', params: {} },
+  ]);
 });
 
 test('should remove model for config', async ({ activate }) => {
@@ -106,4 +114,9 @@ test('should remove model for config', async ({ activate }) => {
     > playwright list-files -c playwright2.config.js
     > playwright list-files -c playwright2.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'listFiles', params: {} },
+    { method: 'listFiles', params: {} },
+  ]);
 });

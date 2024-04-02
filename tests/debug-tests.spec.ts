@@ -16,6 +16,7 @@
 
 import { expect, test } from './utils';
 import { TestRun } from './mock/vscode';
+import path from 'path';
 
 test('should debug all tests', async ({ activate }) => {
   const { vscode } = await activate({
@@ -46,6 +47,17 @@ test('should debug all tests', async ({ activate }) => {
     > playwright list-files -c playwright.config.js
     > debug -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [],
+        testIds: undefined
+      })
+    },
+  ]);
 });
 
 test('should debug one test', async ({ activate }) => {
@@ -74,6 +86,23 @@ test('should debug one test', async ({ activate }) => {
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > debug -c playwright.config.js tests/test.spec.ts:3
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+      })
+    },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: undefined,
+        testIds: [expect.any(String)]
+      })
+    },
+  ]);
 });
 
 test('should debug error', async ({ activate }, testInfo) => {

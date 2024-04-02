@@ -449,11 +449,9 @@ export class TestRun {
   }
 
   private _renderOutput(): string[] {
-    const result: string[] = [];
     const output = this.output.map(o => o.output).join('');
     const lines = output.split('\n');
-    result.push(...lines.map(l => '  ' + stripAnsi(l).replace(/\d+(\.\d+)?(ms|s)/, 'XXms')));
-    return result;
+    return lines.map(l => '  ' + stripAnsi(l).replace(/\d+(\.\d+)?(ms|s)/, 'XXms'));
   }
 }
 
@@ -846,12 +844,13 @@ export class VSCode {
   lastWithProgressData = undefined;
   private _hoverProviders: Map<string, HoverProvider> = new Map();
   readonly version: string;
+  readonly connectionLog: any[] = [];
 
   constructor(readonly versionNumber: number, baseDir: string, browser: Browser) {
     this.version = String(versionNumber);
     this.context = { subscriptions: [], extensionUri: Uri.file(baseDir) };
     this._browser = browser;
-
+    (globalThis as any).__logForTest = message => this.connectionLog.push(message);
     const commands = new Map<string, () => Promise<void>>();
     this.commands.registerCommand = (name: string, callback: () => Promise<void>) => {
       commands.set(name, callback);

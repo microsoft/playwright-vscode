@@ -27,6 +27,8 @@ import { MultiMap } from './multimap';
 import { PlaywrightTestServer } from './playwrightTestServer';
 import type { PlaywrightTestRunOptions, RunHooks, TestConfig } from './playwrightTestTypes';
 import { PlaywrightTestCLI } from './playwrightTestCLI';
+import { upstreamTreeItem } from './testTree';
+import { collectTestIds } from './upstream/testTree';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
@@ -507,6 +509,26 @@ export class TestModel {
         }
       }
     }
+  }
+
+  narrowDownLocations(items: vscodeTypes.TestItem[]): { locations: string[] | null, testIds?: string[] } {
+    if (!items.length)
+      return { locations: [] };
+    const locations = new Set<string>();
+    const testIds: string[] = [];
+    for (const item of items) {
+      const treeItem = upstreamTreeItem(item);
+      if (treeItem.kind === 'group' && (treeItem.subKind === 'folder' || treeItem.subKind === 'file')) {
+        for (const file of this.enabledFiles()) {
+          if (file === treeItem.location.file || file.startsWith(treeItem.location.file))
+            locations.add(treeItem.location.file);
+        }
+      } else {
+        testIds.push(...collectTestIds(treeItem));
+      }
+    }
+
+    return { locations: locations.size ? [...locations] : null, testIds: testIds.length ? testIds : undefined };
   }
 }
 

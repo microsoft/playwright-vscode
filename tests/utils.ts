@@ -91,6 +91,23 @@ export const expect = baseExpect.extend({
     }
   },
 
+  async toHaveConnectionLog(vscode: VSCode, expectedLog: any[]) {
+    if (!vscode.extensions[0]._settingsModel.useTestServer.get())
+      return { pass: true, message: () => '' };
+    const filterCommands = new Set(['ping', 'initialize']);
+    const filteredLog = () => {
+      return vscode.connectionLog.filter(e => !filterCommands.has(e.method));
+    };
+    try {
+      await expect.poll(() => filteredLog()).toEqual(expectedLog);
+      return { pass: true, message: () => '' };
+    } catch (e) {
+      return {
+        pass: false,
+        message: () => e.toString()
+      };
+    }
+  },
 });
 
 export const test = baseTest.extend<TestFixtures, WorkerOptions>({

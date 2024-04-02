@@ -15,6 +15,7 @@
  */
 
 import { expect, test } from './utils';
+import path from 'path';
 
 test('should highlight steps while running', async ({ activate }) => {
   const { vscode, testController } = await activate({
@@ -68,4 +69,21 @@ test('should highlight steps while running', async ({ activate }) => {
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+      })
+    },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [],
+        testIds: undefined
+      })
+    },
+  ]);
 });
