@@ -369,7 +369,7 @@ export class TestRun {
   readonly onDidEnd = this._didEnd.event;
   readonly entries = new Map<TestItem, LogEntry[]>();
   readonly token = new CancellationTokenSource().token;
-  private _output: { output: string, location?: Location, test?: TestItem }[] = [];
+  readonly output: { output: string, location?: Location, test?: TestItem }[] = [];
 
   constructor(
     readonly request: TestRunRequest,
@@ -413,7 +413,7 @@ export class TestRun {
   }
 
   appendOutput(output: string, location?: Location, test?: TestItem) {
-    this._output.push({ output, location, test });
+    this.output.push({ output, location, test });
   }
 
   end() {
@@ -439,11 +439,21 @@ export class TestRun {
     }
     if (options.output) {
       result.push('  Output:');
-      const output = this._output.map(o => o.output).join('');
-      const lines = output.split('\n');
-      result.push(...lines.map(l => '  ' + stripAnsi(l).replace(/\d+(\.\d+)?(ms|s)/, 'XXms')));
+      result.push(...this._renderOutput());
     }
     return trimLog(result.join(`\n${indent}`)) + `\n${indent}`;
+  }
+
+  renderOutput(): string {
+    return this._renderOutput().join('\n');
+  }
+
+  private _renderOutput(): string[] {
+    const result: string[] = [];
+    const output = this.output.map(o => o.output).join('');
+    const lines = output.split('\n');
+    result.push(...lines.map(l => '  ' + stripAnsi(l).replace(/\d+(\.\d+)?(ms|s)/, 'XXms')));
+    return result;
   }
 }
 

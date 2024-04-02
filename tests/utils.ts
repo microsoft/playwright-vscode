@@ -16,7 +16,8 @@
 
 import { expect as baseExpect, test as baseTest, Browser, chromium, Page } from '@playwright/test';
 import { Extension } from '../out/extension';
-import { TestController, VSCode, WorkspaceFolder } from './mock/vscode';
+import { TestController, VSCode, WorkspaceFolder, TestRun } from './mock/vscode';
+
 import path from 'path';
 
 type ActivateResult = {
@@ -76,7 +77,20 @@ export const expect = baseExpect.extend({
         message: () => e.toString()
       };
     }
-  }
+  },
+
+  async toHaveOutput(testRun: TestRun, expectedOutput: string | RegExp) {
+    try {
+      await expect.poll(() => testRun.renderOutput()).toMatch(expectedOutput);
+      return { pass: true, message: () => '' };
+    } catch (e) {
+      return {
+        pass: false,
+        message: () => e.toString()
+      };
+    }
+  },
+
 });
 
 export const test = baseTest.extend<TestFixtures, WorkerOptions>({

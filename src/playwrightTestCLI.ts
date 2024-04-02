@@ -62,6 +62,10 @@ export class PlaywrightTestCLI {
     await this._innerSpawn(locations, args, {}, reporter, token);
   }
 
+  async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
+    return 'failed';
+  }
+
   async runTests(items: vscodeTypes.TestItem[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const { locations, parametrizedTestTitle } = this._narrowDownLocations(items);
     if (!locations)
