@@ -102,6 +102,39 @@ export class PlaywrightTestServer {
       teleReceiver.dispatch(message);
   }
 
+  async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
+    const testServer = await this._testServer();
+    if (!testServer)
+      return 'failed';
+
+    const teleReceiver = new TeleReporterReceiver(testListener, {
+      mergeProjects: true,
+      mergeTestCases: true,
+      resolvePath: (rootDir: string, relativePath: string) => this._vscode.Uri.file(path.join(rootDir, relativePath)).fsPath,
+    });
+    const disposable = testServer.onStdio(params => {
+      if (params.type === 'stdout')
+        testListener.onStdOut?.(unwrapString(params));
+      if (params.type === 'stderr')
+        testListener.onStdErr?.(unwrapString(params));
+    });
+
+    try {
+      if (type === 'setup') {
+        const { report, status } = await testServer.runGlobalSetup({});
+        for (const message of report)
+          teleReceiver.dispatch(message);
+        return status;
+      }
+      const { report, status } = await testServer.runGlobalTeardown({});
+      for (const message of report)
+        teleReceiver.dispatch(message);
+      return status;
+    } finally {
+      disposable.dispose();
+    }
+  }
+
   async runTests(items: vscodeTypes.TestItem[], runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const testServer = await this._testServer();
     if (token?.isCancellationRequested)

@@ -186,6 +186,14 @@ export class Extension implements RunHooks {
       vscode.commands.registerCommand('pw.extension.command.toggleModels', async () => {
         this._settingsView.toggleModels();
       }),
+      vscode.commands.registerCommand('pw.extension.command.runGlobalSetup', async () => {
+        await this._queueGlobalHooks('setup');
+        this._settingsView.updateActions();
+      }),
+      vscode.commands.registerCommand('pw.extension.command.runGlobalTeardown', async () => {
+        await this._queueGlobalHooks('teardown');
+        this._settingsView.updateActions();
+      }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
           this._completedSteps.clear();
@@ -319,9 +327,30 @@ export class Extension implements RunHooks {
 
   private async _queueTestRun(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug' | 'watch') {
     this._runQueue = this._runQueue.then(async () => {
-      await this._runTests(include, mode).catch(() => {});
+      await this._runTests(include, mode).catch(e => console.error(e));
     });
     await this._runQueue;
+  }
+
+  private async _queueGlobalHooks(type: 'setup' | 'teardown'): Promise<reporterTypes.FullResult['status']> {
+    let result: reporterTypes.FullResult['status'] = 'passed';
+    this._runQueue = this._runQueue.then(async () => {
+      result = await this._runGlobalHooks(type);
+    }).catch(e => console.error(e));
+    await this._runQueue;
+    return result;
+  }
+
+  private async _runGlobalHooks(type: 'setup' | 'teardown') {
+    const request = new this._vscode.TestRunRequest();
+    const testRun = this._testController.createTestRun(request);
+    const testListener = this._errorReportingListener(testRun);
+    try {
+      const status = (await this._models.selectedModel()?.runGlobalHooks(type, testListener)) || 'failed';
+      return status;
+    } finally {
+      testRun.end();
+    }
   }
 
   private async _runTests(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug' | 'watch') {
@@ -364,8 +393,15 @@ export class Extension implements RunHooks {
     }
 
     try {
-      for (const model of this._models.enabledModels())
-        await this._runTest(this._testRun, include ? [...include] : [], testItemForGlobalErrors, new Set(), model, mode === 'debug', enqueuedTests.length === 1);
+      for (const model of this._models.enabledModels()) {
+        let globalSetupResult: reporterTypes.FullResult['status'] = 'passed';
+        if (model.canRunGlobalHooks('setup')) {
+          const testListener = this._errorReportingListener(this._testRun);
+          globalSetupResult = await model.runGlobalHooks('setup', testListener);
+        }
+        if (globalSetupResult === 'passed')
+          await this._runTest(this._testRun, include ? [...include] : [], testItemForGlobalErrors, new Set(), model, mode === 'debug', enqueuedTests.length === 1);
+      }
     } finally {
       this._activeSteps.clear();
       this._executionLinesChanged();
@@ -397,6 +433,8 @@ export class Extension implements RunHooks {
     isDebug: boolean,
     enqueuedSingleTest: boolean) {
     const testListener: reporterTypes.ReporterV2 = {
+      ...this._errorReportingListener(testRun, testItemForGlobalErrors),
+
       onBegin: (rootSuite: reporterTypes.Suite) => {
         model.updateFromRunningProjects(rootSuite.suites);
         for (const test of rootSuite.allTests()) {
@@ -481,7 +519,18 @@ export class Extension implements RunHooks {
           this._activeSteps.delete(testStep);
         this._executionLinesChanged();
       },
+    };
 
+    if (isDebug) {
+      await model.debugTests(items, testListener, testRun.token);
+    } else {
+      await this._traceViewer.willRunTests(model.config);
+      await model.runTests(items, testListener, testRun.token);
+    }
+  }
+
+  private _errorReportingListener(testRun: vscodeTypes.TestRun, testItemForGlobalErrors?: vscodeTypes.TestItem) {
+    const testListener: reporterTypes.ReporterV2 = {
       onStdOut: data => {
         testRun.appendOutput(data.toString().replace(/\n/g, '\r\n'));
       },
@@ -497,16 +546,14 @@ export class Extension implements RunHooks {
           // Force UI to reveal the item if that is a file that has never been started.
           testRun.started(testItemForGlobalErrors);
           testRun.failed(testItemForGlobalErrors, this._testMessageForTestError(error), 0);
+        } else if (error.location) {
+          testRun.appendOutput(error.message || error.value || '', new this._vscode.Location(this._vscode.Uri.file(error.location.file), new this._vscode.Position(error.location.line - 1, error.location.column - 1)));
+        } else {
+          testRun.appendOutput(error.message || error.value || '');
         }
       }
     };
-
-    if (isDebug) {
-      await model.debugTests(items, testListener, testRun.token);
-    } else {
-      await this._traceViewer.willRunTests(model.config);
-      await model.runTests(items, testListener, testRun.token);
-    }
+    return testListener;
   }
 
   private async _runWatchedTests(files: string[], testItems: vscodeTypes.TestItem[]) {

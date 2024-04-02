@@ -70,6 +70,16 @@
         "category": "Test",
         "command": "pw.extension.toggle.showTrace",
         "title": "%contributes.command.pw.extension.toggle.showTrace%"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.command.runGlobalSetup",
+        "title": "%contributes.command.pw.extension.command.runGlobalSetup%"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.command.runGlobalTeardown",
+        "title": "%contributes.command.pw.extension.command.runGlobalTeardown%"
       }
     ],
     "configuration": {

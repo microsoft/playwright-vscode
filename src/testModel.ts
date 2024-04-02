@@ -73,6 +73,7 @@ export class TestModel {
     promise: Promise<void>,
     finishedCallback: () => void
   } | undefined;
+  private _ranGlobalSetup = false;
 
   constructor(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }, options: TestModelOptions) {
     this._vscode = vscode;
@@ -94,6 +95,7 @@ export class TestModel {
     this._errorByFile.clear();
     this._playwrightTest.reset();
     this._watches.clear();
+    this._ranGlobalSetup = false;
   }
 
   projects(): TestProject[] {
@@ -396,6 +398,29 @@ export class TestModel {
     }
     project.suite.suites = [...files.values()];
     this._didUpdate.fire();
+  }
+
+  canRunGlobalHooks(type: 'setup' | 'teardown') {
+    if (type === 'setup')
+      return this._options.settingsModel.useTestServer.get() && !this._ranGlobalSetup;
+    return this._ranGlobalSetup;
+  }
+
+  async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2): Promise<reporterTypes.FullResult['status']> {
+    if (type === 'setup') {
+      if (this._ranGlobalSetup)
+        return 'passed';
+      const status = await this._playwrightTest.runGlobalHooks('setup', testListener);
+      if (status === 'passed')
+        this._ranGlobalSetup = true;
+      return status;
+    }
+
+    if (!this._ranGlobalSetup)
+      return 'passed';
+    const status = await this._playwrightTest.runGlobalHooks('teardown', testListener);
+    this._ranGlobalSetup = false;
+    return status;
   }
 
   async runTests(items: vscodeTypes.TestItem[], reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
