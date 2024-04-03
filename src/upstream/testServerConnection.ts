@@ -184,4 +184,11 @@ export class TestServerConnection implements TestServerInterface, TestServerInte
   async closeGracefully(params: Parameters<TestServerInterface['closeGracefully']>[0]): ReturnType<TestServerInterface['closeGracefully']> {
     await this._sendMessage('closeGracefully', params);
   }
+
+  close() {
+    try {
+      this._ws.close();
+    } catch {
+    }
+  }
 }

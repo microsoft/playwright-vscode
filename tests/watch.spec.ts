@@ -16,6 +16,7 @@
 
 import { TestRun } from './mock/vscode';
 import { expect, test } from './utils';
+import path from 'path';
 
 test.beforeEach(async ({ vscode }) => {
   const configuration = vscode.workspace.getConfiguration('playwright');
@@ -58,6 +59,20 @@ test('should watch all tests', async ({ activate }) => {
     > playwright find-related-test-files -c playwright.config.js
     > playwright test -c playwright.config.js tests/test-1.spec.ts
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'findRelatedTestFiles', params: {
+      files: [expect.stringContaining(`tests${path.sep}test-1.spec.ts`)]
+    } },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${path.sep}test-1\\.spec\\.ts`)],
+        testIds: undefined
+      })
+    },
+  ]);
 });
 
 test('should unwatch all tests', async ({ activate }) => {
@@ -91,6 +106,9 @@ test('should unwatch all tests', async ({ activate }) => {
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+  ]);
 });
 
 test('should watch test file', async ({ activate }) => {
@@ -170,6 +188,18 @@ test.skip('should watch tests via helper', async ({ activate }) => {
     > playwright find-related-test-files -c playwright.config.js
     > playwright test -c playwright.config.js tests/test.spec.ts
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'findRelatedTests', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests1${path.sep}test\\.spec\\.ts`)],
+        testIds: undefined
+      })
+    },
+  ]);
 });
 
 test('should watch test in a file', async ({ activate }) => {
@@ -215,6 +245,37 @@ test('should watch test in a file', async ({ activate }) => {
     > playwright find-related-test-files -c playwright.config.js
     > playwright test -c playwright.config.js tests/test.spec.ts:3
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+      })
+    },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+      })
+    },
+    {
+      method: 'findRelatedTestFiles',
+      params: {
+        files: [expect.stringContaining(`tests${path.sep}test.spec.ts`)],
+      }
+    },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: undefined,
+        testIds: [
+          expect.any(String)
+        ]
+      })
+    },
+  ]);
 });
 
 test('should watch two tests in a file', async ({ activate }) => {
@@ -265,4 +326,36 @@ test('should watch two tests in a file', async ({ activate }) => {
     > playwright find-related-test-files -c playwright.config.js
     > playwright test -c playwright.config.js tests/test.spec.ts:3 tests/test.spec.ts:4
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+      })
+    },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+      })
+    },
+    {
+      method: 'findRelatedTestFiles',
+      params: {
+        files: [expect.stringContaining(`tests${path.sep}test.spec.ts`)],
+      }
+    },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: undefined,
+        testIds: [
+          expect.any(String),
+          expect.any(String),
+        ]
+      })
+    },
+  ]);
 });

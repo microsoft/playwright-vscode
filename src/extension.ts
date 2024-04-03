@@ -392,15 +392,19 @@ export class Extension implements RunHooks {
       }
     }
 
+    const items: vscodeTypes.TestItem[] = include ? [...include] : [];
     try {
       for (const model of this._models.enabledModels()) {
+        const result = model.narrowDownLocations(items);
+        if (!result.testIds && !result.locations)
+          continue;
         let globalSetupResult: reporterTypes.FullResult['status'] = 'passed';
         if (model.canRunGlobalHooks('setup')) {
-          const testListener = this._errorReportingListener(this._testRun);
+          const testListener = this._errorReportingListener(this._testRun, testItemForGlobalErrors);
           globalSetupResult = await model.runGlobalHooks('setup', testListener);
         }
         if (globalSetupResult === 'passed')
-          await this._runTest(this._testRun, include ? [...include] : [], testItemForGlobalErrors, new Set(), model, mode === 'debug', enqueuedTests.length === 1);
+          await this._runTest(this._testRun, items, testItemForGlobalErrors, new Set(), model, mode === 'debug', enqueuedTests.length === 1);
       }
     } finally {
       this._activeSteps.clear();

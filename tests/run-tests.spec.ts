@@ -57,6 +57,14 @@ test('should run all tests', async ({ activate }) => {
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    { method: 'runTests', params: expect.objectContaining({
+      locations: [],
+      testIds: undefined,
+    }) },
+  ]);
 });
 
 test('should run one test', async ({ activate }) => {
@@ -91,6 +99,23 @@ test('should run one test', async ({ activate }) => {
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js tests/test.spec.ts:3
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    {
+      method: 'listTests',
+      params: {
+        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+      }
+    },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: undefined,
+        testIds: [expect.any(String)]
+      })
+    },
+  ]);
 });
 
 test('should run describe', async ({ activate }) => {
@@ -153,6 +178,17 @@ test('should run file', async ({ activate }) => {
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js tests/test.spec.ts
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+        testIds: undefined
+      })
+    },
+  ]);
 });
 
 test('should run folder', async ({ activate }) => {
@@ -187,6 +223,17 @@ test('should run folder', async ({ activate }) => {
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js tests/folder
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${path.sep}folder`)],
+        testIds: undefined
+      })
+    },
+  ]);
 });
 
 test('should show error message', async ({ activate }) => {
@@ -321,6 +368,19 @@ test('should only create test run if file belongs to context', async ({ activate
     tests2> playwright list-files -c playwright.config.js
     tests1> playwright test -c playwright.config.js test1.spec.ts
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests1${path.sep}test1\\.spec\\.ts`)],
+        testIds: undefined
+      })
+    },
+    { method: 'listFiles', params: {} },
+  ]);
+  vscode.connectionLog.length = 0;
 
   {
     testRuns = [];
@@ -335,6 +395,17 @@ test('should only create test run if file belongs to context', async ({ activate
     tests1> playwright test -c playwright.config.js test1.spec.ts
     tests2> playwright test -c playwright.config.js test2.spec.ts
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests2${path.sep}test2\\.spec\\.ts`)],
+        testIds: undefined
+      })
+    },
+  ]);
+
 });
 
 test('should only create test run if folder belongs to context', async ({ activate }) => {
@@ -373,6 +444,18 @@ test('should only create test run if folder belongs to context', async ({ activa
     tests2> playwright list-files -c playwright.config.js
     tests1> playwright test -c playwright.config.js foo1
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests1${path.sep}foo1`)],
+        testIds: undefined
+      })
+    },
+  ]);
 });
 
 test('should run all projects at once', async ({ activate }) => {
@@ -398,6 +481,18 @@ test('should run all projects at once', async ({ activate }) => {
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [],
+        projects: [],
+        testIds: undefined
+      })
+    },
+  ]);
 });
 
 test('should group projects by config', async ({ activate }) => {
@@ -454,6 +549,26 @@ test('should group projects by config', async ({ activate }) => {
     tests1> playwright test -c playwright.config.js
     tests2> playwright test -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [],
+        testIds: undefined
+      })
+    },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [],
+        testIds: undefined
+      })
+    },
+  ]);
 });
 
 test('should stop', async ({ activate, showBrowser }) => {
@@ -584,6 +699,27 @@ test('should run all parametrized tests', async ({ activate }) => {
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js tests/test.spec.ts:4
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+      })
+    },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: undefined,
+        testIds: [
+          expect.any(String),
+          expect.any(String),
+          expect.any(String),
+        ]
+      })
+    },
+  ]);
 });
 
 test('should run one parametrized test', async ({ activate }) => {
@@ -614,6 +750,20 @@ test('should run one parametrized test', async ({ activate }) => {
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js --grep=test two tests/test.spec.ts:4
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'listTests', params: {
+      locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+    } },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: undefined,
+        testIds: [expect.any(String)]
+      })
+    },
+  ]);
 });
 
 test('should run one parametrized groups', async ({ activate }) => {
@@ -652,6 +802,26 @@ test('should run one parametrized groups', async ({ activate }) => {
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js --grep=group three tests/test.spec.ts:4
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+      })
+    },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: undefined,
+        testIds: [
+          expect.any(String),
+          expect.any(String),
+        ]
+      })
+    },
+  ]);
 });
 
 test('should run tests in parametrized groups', async ({ activate }) => {
@@ -686,6 +856,26 @@ test('should run tests in parametrized groups', async ({ activate }) => {
     > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
     > playwright test -c playwright.config.js --grep=level 1 tests/test.spec.ts:4
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+      })
+    },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: undefined,
+        testIds: [
+          expect.any(String),
+        ]
+      })
+    },
+  ]);
+  vscode.connectionLog.length = 0;
 
   const testItems2 = testController.findTestItems(/level 2/);
   expect(testItems2.length).toBe(1);
@@ -704,6 +894,17 @@ test('should run tests in parametrized groups', async ({ activate }) => {
     > playwright test -c playwright.config.js --grep=level 1 tests/test.spec.ts:4
     > playwright test -c playwright.config.js --grep=level 2 tests/test.spec.ts:4
   `);
+  await expect(vscode).toHaveConnectionLog([
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: undefined,
+        testIds: [
+          expect.any(String),
+        ]
+      })
+    },
+  ]);
 });
 
 test('should list tests in relative folder', async ({ activate }) => {
@@ -721,6 +922,15 @@ test('should list tests in relative folder', async ({ activate }) => {
     foo/bar> playwright list-files -c playwright.config.js
     foo/bar> playwright test -c playwright.config.js --list --reporter=null ../../tests/test.spec.ts
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+      })
+    },
+  ]);
 
   await expect(testController).toHaveTestTree(`
     -   tests
@@ -761,6 +971,17 @@ test('should filter selected project', async ({ activate }) => {
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js --project=project 1 tests1/test.spec.ts
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        projects: ['project 1'],
+        locations: [expect.stringContaining(`tests1${path.sep}test\\.spec\\.ts`)],
+      })
+    },
+  ]);
 });
 
 test('should report project-specific failures', async ({ activate }) => {

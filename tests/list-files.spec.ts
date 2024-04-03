@@ -32,6 +32,9 @@ test('should list files', async ({ activate }) => {
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} }
+  ]);
 });
 
 test('should list files top level if no testDir', async ({ activate }, testInfo) => {
@@ -49,6 +52,9 @@ test('should list files top level if no testDir', async ({ activate }, testInfo)
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} }
+  ]);
 });
 
 test('should list only test files', async ({ activate }) => {
@@ -94,6 +100,9 @@ test('should list folders', async ({ activate }) => {
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} }
+  ]);
 });
 
 test('should pick new files', async ({ activate }) => {
@@ -110,6 +119,9 @@ test('should pick new files', async ({ activate }) => {
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} }
+  ]);
 
   await Promise.all([
     new Promise(f => testController.onDidChangeTestItem(f)),
@@ -126,6 +138,10 @@ test('should pick new files', async ({ activate }) => {
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'listFiles', params: {} }
+  ]);
 });
 
 test('should not pick non-test files', async ({ activate }) => {
@@ -189,6 +205,9 @@ test('should remove deleted files', async ({ activate }) => {
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} }
+  ]);
 
   await Promise.all([
     new Promise(f => testController.onDidChangeTestItem(f)),
@@ -205,6 +224,10 @@ test('should remove deleted files', async ({ activate }) => {
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'listFiles', params: {} }
+  ]);
 });
 
 test('should do nothing for not loaded changed file', async ({ activate }) => {
@@ -256,6 +279,9 @@ test('should support multiple projects', async ({ activate }) => {
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} }
+  ]);
 });
 
 test('should switch between multiple projects with filter', async ({ activate }) => {
@@ -288,6 +314,9 @@ test('should switch between multiple projects with filter', async ({ activate })
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} }
+  ]);
 
   await expect(vscode).toHaveProjectTree(`
     config: playwright.config.js
@@ -311,6 +340,9 @@ test('should switch between multiple projects with filter', async ({ activate })
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} }
+  ]);
 });
 
 test('should list files in relative folder', async ({ activate }) => {
@@ -328,6 +360,9 @@ test('should list files in relative folder', async ({ activate }) => {
   await expect(vscode).toHaveExecLog(`
     foo/bar> playwright list-files -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} }
+  ]);
 });
 
 test('should list files in multi-folder workspace with project switching', async ({ activate }, testInfo) => {
@@ -386,6 +421,10 @@ test('should ignore errors when listing files', async ({ activate }) => {
     > playwright list-files -c playwright.config.js
     > playwright list-files -c playwright.config.ts
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'listFiles', params: {} }
+  ]);
 
   await new Promise(f => setTimeout(f, 2000));
   await expect.poll(() => vscode.languages.getDiagnostics()).toEqual([

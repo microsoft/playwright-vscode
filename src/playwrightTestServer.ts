@@ -26,8 +26,6 @@ import { escapeRegex, pathSeparator } from './utils';
 import { debugSessionName } from './debugSessionName';
 import type { TestModel } from './testModel';
 import { TestServerInterface } from './upstream/testServerInterface';
-import { upstreamTreeItem } from './testTree';
-import { collectTestIds } from './upstream/testTree';
 
 export class PlaywrightTestServer {
   private _vscode: vscodeTypes.VSCode;
@@ -142,7 +140,7 @@ export class PlaywrightTestServer {
     if (!testServer)
       return;
 
-    const { locations, testIds } = this._narrowDownLocations(items);
+    const { locations, testIds } = this._model.narrowDownLocations(items);
     if (!locations && !testIds)
       return;
 
@@ -220,7 +218,7 @@ export class PlaywrightTestServer {
       if (token?.isCancellationRequested)
         return;
 
-      const { locations, testIds } = this._narrowDownLocations(items);
+      const { locations, testIds } = this._model.narrowDownLocations(items);
       if (!locations && !testIds)
         return;
 
@@ -247,7 +245,7 @@ export class PlaywrightTestServer {
       await testEndPromise;
     } finally {
       disposable?.dispose();
-      testServer?.closeGracefully({});
+      testServer?.close();
       await this._options.runHooks.onDidRunTests(true);
     }
   }
@@ -319,27 +317,7 @@ export class PlaywrightTestServer {
     const testServer = this._testServerPromise;
     this._testServerPromise = undefined;
     if (testServer)
-      testServer.then(server => server?.closeGracefully({}));
-  }
-
-  private _narrowDownLocations(items: vscodeTypes.TestItem[]): { locations: string[] | null, testIds?: string[] } {
-    if (!items.length)
-      return { locations: [] };
-    const locations = new Set<string>();
-    const testIds: string[] = [];
-    for (const item of items) {
-      const treeItem = upstreamTreeItem(item);
-      if (treeItem.kind === 'group' && (treeItem.subKind === 'folder' || treeItem.subKind === 'file')) {
-        for (const file of this._model.enabledFiles()) {
-          if (file === treeItem.location.file || file.startsWith(treeItem.location.file))
-            locations.add(treeItem.location.file);
-        }
-      } else {
-        testIds.push(...collectTestIds(treeItem));
-      }
-    }
-
-    return { locations: locations.size ? [...locations] : null, testIds: testIds.length ? testIds : undefined };
+      testServer.then(server => server?.close());
   }
 }
 

@@ -73,6 +73,17 @@ test('should report error in global setup (implicit)', async ({ activate, useTes
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [],
+        testIds: undefined
+      })
+    },
+  ]);
 });
 
 test('should report error in global setup (explicit)', async ({ activate, useTestServer }) => {
@@ -101,4 +112,8 @@ test('should report error in global setup (explicit)', async ({ activate, useTes
     > playwright list-files -c playwright.config.js
     > playwright test -c playwright.config.js
   `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+  ]);
 });
