@@ -213,8 +213,10 @@ export class PlaywrightTestServer {
         return;
       const address = await addressPromise;
       testServer = new TestServerConnection(address);
-      await testServer.connect();
-      await testServer.setSerializer({ serializer: require.resolve('./oopReporter') });
+      await testServer.initialize({
+        serializer: require.resolve('./oopReporter'),
+        closeOnDisconnect: true,
+      });
       if (token?.isCancellationRequested)
         return;
 
@@ -286,9 +288,11 @@ export class PlaywrightTestServer {
     if (!wsEndpoint)
       return null;
     const testServer = new TestServerConnection(wsEndpoint);
-    await testServer.connect();
-    await testServer.setInterceptStdio({ intercept: true });
-    await testServer.setSerializer({ serializer: require.resolve('./oopReporter') });
+    await testServer.initialize({
+      serializer: require.resolve('./oopReporter'),
+      interceptStdio: true,
+      closeOnDisconnect: true,
+    });
     return testServer;
   }
 
