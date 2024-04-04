@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import { expect, test } from './utils';
-import path from 'path';
+import { escapedPathSep, expect, test } from './utils';
 
 test('should highlight steps while running', async ({ activate }) => {
   const { vscode, testController } = await activate({
@@ -74,7 +73,7 @@ test('should highlight steps while running', async ({ activate }) => {
     {
       method: 'listTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       })
     },
     { method: 'runGlobalSetup', params: {} },

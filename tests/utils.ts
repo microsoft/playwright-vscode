@@ -206,3 +206,9 @@ export async function enableProjects(vscode: VSCode, projects: string[]) {
     await projectLocator.locator('input').setChecked(projects.includes(name!));
   }
 }
+
+function escapeRegex(text: string) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export const escapedPathSep = escapeRegex(path.sep);

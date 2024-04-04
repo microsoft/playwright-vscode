@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import { expect, test } from './utils';
+import { expect, test, escapedPathSep } from './utils';
 import { TestRun } from './mock/vscode';
-import path from 'path';
 
 test('should debug all tests', async ({ activate }) => {
   const { vscode } = await activate({
@@ -91,7 +90,7 @@ test('should debug one test', async ({ activate }) => {
     {
       method: 'listTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       })
     },
     { method: 'runGlobalSetup', params: {} },
