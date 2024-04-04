@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { enableConfigs, enableProjects, expect, test } from './utils';
+import { enableConfigs, enableProjects, escapedPathSep, expect, test } from './utils';
 import fs from 'fs';
 import path from 'path';
 
@@ -43,7 +43,7 @@ test('should list tests on expand', async ({ activate }) => {
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
   ]);
@@ -83,8 +83,8 @@ test('should list tests for visible editors', async ({ activate }) => {
       method: 'listTests',
       params: {
         locations: [
-          expect.stringContaining(`tests${path.sep}test1\\.spec\\.ts`),
-          expect.stringContaining(`tests${path.sep}test2\\.spec\\.ts`),
+          expect.stringContaining(`tests${escapedPathSep}test1\\.spec\\.ts`),
+          expect.stringContaining(`tests${escapedPathSep}test2\\.spec\\.ts`),
         ]
       }
     },
@@ -151,7 +151,7 @@ test('should discover new tests', async ({ activate }) => {
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
   ]);
@@ -182,13 +182,13 @@ test('should discover new tests', async ({ activate }) => {
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
   ]);
@@ -250,7 +250,7 @@ test('should discover new tests with active editor', async ({ activate }) => {
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test2\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test2\\.spec\\.ts`)]
       }
     },
   ]);
@@ -329,7 +329,7 @@ test('should discover new test at existing location', async ({ activate }) => {
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
   ]);
@@ -358,13 +358,13 @@ test('should discover new test at existing location', async ({ activate }) => {
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
   ]);
@@ -391,7 +391,7 @@ test('should remove deleted tests', async ({ activate }) => {
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
   ]);
@@ -427,13 +427,13 @@ test('should remove deleted tests', async ({ activate }) => {
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
   ]);
@@ -496,7 +496,7 @@ test('should regain tests after error is fixed', async ({ activate }) => {
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
   ]);
@@ -532,13 +532,13 @@ test('should regain tests after error is fixed', async ({ activate }) => {
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
   ]);
@@ -590,13 +590,13 @@ test('should support multiple configs', async ({ activate }) => {
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests1${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests1${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests2${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests2${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
   ]);
@@ -647,7 +647,7 @@ test('should support multiple projects', async ({ activate }) => {
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test1\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test1\\.spec\\.ts`)]
       }
     },
   ]);
@@ -739,7 +739,7 @@ test('should list tests in multi-folder workspace', async ({ activate }, testInf
     ]
   });
 
-  await enableConfigs(vscode, ['folder1/playwright.config.js', 'folder2/playwright.config.js']);
+  await enableConfigs(vscode, [`folder1${path.sep}playwright.config.js`, `folder2${path.sep}playwright.config.js`]);
 
   await expect(testController).toHaveTestTree(`
     -   folder1

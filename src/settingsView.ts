@@ -170,7 +170,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
     this._models.enabledModels().forEach(model => workspaceFolders.add(model.config.workspaceFolder));
 
     for (const model of this._models.enabledModels()) {
-      const prefix = workspaceFolders.size > 1 ? path.basename(model.config.workspaceFolder) + '/' : '';
+      const prefix = workspaceFolders.size > 1 ? path.basename(model.config.workspaceFolder) + path.sep : '';
       configs.push({
         label: prefix + path.relative(model.config.workspaceFolder, model.config.configFile),
         configFile: model.config.configFile,
@@ -190,7 +190,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
     this._models.models().forEach(model => workspaceFolders.add(model.config.workspaceFolder));
 
     for (const model of this._models.models()) {
-      const prefix = workspaceFolders.size > 1 ? path.basename(model.config.workspaceFolder) + '/' : '';
+      const prefix = workspaceFolders.size > 1 ? path.basename(model.config.workspaceFolder) + path.sep : '';
       const modelItem: vscodeTypes.QuickPickItem = {
         label: prefix + path.relative(model.config.workspaceFolder, model.config.configFile),
         picked: model.isEnabled,

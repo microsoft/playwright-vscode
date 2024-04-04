@@ -15,6 +15,7 @@
  */
 
 import { enableConfigs, enableProjects, expect, test } from './utils';
+import path from 'path';
 
 test('should list files', async ({ activate }) => {
   const { vscode, testController } = await activate({
@@ -391,7 +392,7 @@ test('should list files in multi-folder workspace with project switching', async
     -   folder2
   `);
 
-  await enableConfigs(vscode, ['folder2/playwright.config.js']);
+  await enableConfigs(vscode, [`folder2${path.sep}playwright.config.js`]);
 
   await expect(testController).toHaveTestTree(`
     -   folder1

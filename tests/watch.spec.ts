@@ -15,7 +15,7 @@
  */
 
 import { TestRun } from './mock/vscode';
-import { expect, test } from './utils';
+import { escapedPathSep, expect, test } from './utils';
 import path from 'path';
 
 test.beforeEach(async ({ vscode }) => {
@@ -68,7 +68,7 @@ test('should watch all tests', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${path.sep}test-1\\.spec\\.ts`)],
+        locations: [expect.stringContaining(`tests${escapedPathSep}test-1\\.spec\\.ts`)],
         testIds: undefined
       })
     },
@@ -195,7 +195,7 @@ test.skip('should watch tests via helper', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests1${path.sep}test\\.spec\\.ts`)],
+        locations: [expect.stringContaining(`tests1${escapedPathSep}test\\.spec\\.ts`)],
         testIds: undefined
       })
     },
@@ -250,13 +250,13 @@ test('should watch test in a file', async ({ activate }) => {
     {
       method: 'listTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
       })
     },
     {
       method: 'listTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
       })
     },
     {
@@ -331,13 +331,13 @@ test('should watch two tests in a file', async ({ activate }) => {
     {
       method: 'listTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
       })
     },
     {
       method: 'listTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
       })
     },
     {

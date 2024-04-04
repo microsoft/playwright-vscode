@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { enableConfigs, enableProjects, expect, selectConfig, test } from './utils';
+import { enableConfigs, enableProjects, escapedPathSep, expect, selectConfig, test } from './utils';
 import { TestRun } from './mock/vscode';
 import fs from 'fs';
 import path from 'path';
@@ -104,7 +104,7 @@ test('should run one test', async ({ activate }) => {
     {
       method: 'listTests',
       params: {
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
       }
     },
     { method: 'runGlobalSetup', params: {} },
@@ -184,7 +184,7 @@ test('should run file', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
         testIds: undefined
       })
     },
@@ -229,7 +229,7 @@ test('should run folder', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${path.sep}folder`)],
+        locations: [expect.stringContaining(`tests${escapedPathSep}folder`)],
         testIds: undefined
       })
     },
@@ -374,7 +374,7 @@ test('should only create test run if file belongs to context', async ({ activate
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests1${path.sep}test1\\.spec\\.ts`)],
+        locations: [expect.stringContaining(`tests1${escapedPathSep}test1\\.spec\\.ts`)],
         testIds: undefined
       })
     },
@@ -400,7 +400,7 @@ test('should only create test run if file belongs to context', async ({ activate
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests2${path.sep}test2\\.spec\\.ts`)],
+        locations: [expect.stringContaining(`tests2${escapedPathSep}test2\\.spec\\.ts`)],
         testIds: undefined
       })
     },
@@ -451,7 +451,7 @@ test('should only create test run if folder belongs to context', async ({ activa
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests1${path.sep}foo1`)],
+        locations: [expect.stringContaining(`tests1${escapedPathSep}foo1`)],
         testIds: undefined
       })
     },
@@ -704,7 +704,7 @@ test('should run all parametrized tests', async ({ activate }) => {
     {
       method: 'listTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
       })
     },
     { method: 'runGlobalSetup', params: {} },
@@ -753,7 +753,7 @@ test('should run one parametrized test', async ({ activate }) => {
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'listTests', params: {
-      locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)]
+      locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
     } },
     { method: 'runGlobalSetup', params: {} },
     {
@@ -807,7 +807,7 @@ test('should run one parametrized groups', async ({ activate }) => {
     {
       method: 'listTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
       })
     },
     { method: 'runGlobalSetup', params: {} },
@@ -861,7 +861,7 @@ test('should run tests in parametrized groups', async ({ activate }) => {
     {
       method: 'listTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
       })
     },
     { method: 'runGlobalSetup', params: {} },
@@ -927,7 +927,7 @@ test('should list tests in relative folder', async ({ activate }) => {
     {
       method: 'listTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${path.sep}test\\.spec\\.ts`)],
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
       })
     },
   ]);
@@ -978,7 +978,7 @@ test('should filter selected project', async ({ activate }) => {
       method: 'runTests',
       params: expect.objectContaining({
         projects: ['project 1'],
-        locations: [expect.stringContaining(`tests1${path.sep}test\\.spec\\.ts`)],
+        locations: [expect.stringContaining(`tests1${escapedPathSep}test\\.spec\\.ts`)],
       })
     },
   ]);
