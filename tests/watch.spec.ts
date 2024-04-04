@@ -18,6 +18,8 @@ import { TestRun } from './mock/vscode';
 import { escapedPathSep, expect, test } from './utils';
 import path from 'path';
 
+test.skip(({ useTestServer }) => !useTestServer);
+
 test.beforeEach(async ({ vscode }) => {
   const configuration = vscode.workspace.getConfiguration('playwright');
   configuration.update('allowWatchingFiles', true);
@@ -37,6 +39,7 @@ test('should watch all tests', async ({ activate }) => {
   });
 
   await testController.watch();
+
   const [testRun] = await Promise.all([
     new Promise<TestRun>(f => testController.onDidCreateTestRun(testRun => {
       testRun.onDidEnd(() => f(testRun));
@@ -50,21 +53,36 @@ test('should watch all tests', async ({ activate }) => {
   expect(testRun.renderLog()).toBe(`
     tests > test-1.spec.ts > should pass [2:0]
       enqueued
+      enqueued
       started
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright find-related-test-files -c playwright.config.js
-    > playwright test -c playwright.config.js tests/test-1.spec.ts
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
-    { method: 'findRelatedTestFiles', params: {
-      files: [expect.stringContaining(`tests${path.sep}test-1.spec.ts`)]
-    } },
     { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [],
+        testIds: undefined
+      })
+    },
+    {
+      method: 'watch',
+      params: expect.objectContaining({
+        fileNames: [
+          expect.stringContaining(`tests${path.sep}test-1.spec.ts`),
+          expect.stringContaining(`tests${path.sep}test-2.spec.ts`),
+        ],
+      })
+    },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${escapedPathSep}test-1\\.spec\\.ts`)],
+      })
+    },
     {
       method: 'runTests',
       params: expect.objectContaining({
@@ -98,16 +116,35 @@ test('should unwatch all tests', async ({ activate }) => {
     test('should pass', async () => {});
   `);
 
-  // Workspace observer has setTimeout(0) for coalescing.
   await new Promise(f => setTimeout(f, 500));
 
   expect(testRuns).toHaveLength(0);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [],
+        testIds: undefined
+      })
+    },
+    {
+      method: 'watch',
+      params: expect.objectContaining({
+        fileNames: [
+          expect.stringContaining(`tests${path.sep}test-1.spec.ts`),
+          expect.stringContaining(`tests${path.sep}test-2.spec.ts`),
+        ],
+      })
+    },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${escapedPathSep}test-1\\.spec\\.ts`)],
+      })
+    },
   ]);
 });
 
@@ -125,9 +162,21 @@ test('should watch test file', async ({ activate }) => {
   });
 
   const testItem2 = testController.findTestItems(/test-2/);
-  await testController.watch(testItem2);
-
   const [testRun] = await Promise.all([
+    new Promise<TestRun>(f => testController.onDidCreateTestRun(testRun => {
+      testRun.onDidEnd(() => f(testRun));
+    })),
+    testController.watch(testItem2),
+  ]);
+
+  expect(testRun.renderLog()).toBe(`
+    tests > test-2.spec.ts > should fail [2:0]
+      enqueued
+      started
+      failed
+  `);
+
+  const [watchRun] = await Promise.all([
     new Promise<TestRun>(f => testController.onDidCreateTestRun(testRun => {
       testRun.onDidEnd(() => f(testRun));
     })),
@@ -141,15 +190,16 @@ test('should watch test file', async ({ activate }) => {
     `),
   ]);
 
-  expect(testRun.renderLog()).toBe(`
+  expect(watchRun.renderLog()).toBe(`
     tests > test-2.spec.ts > should pass [2:0]
+      enqueued
       enqueued
       started
       passed
   `);
 });
 
-test.skip('should watch tests via helper', async ({ activate }) => {
+test('should watch tests via helper', async ({ activate }) => {
   // This test requires nightly playwright.
   const { vscode, testController, workspaceFolder } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
@@ -177,32 +227,40 @@ test.skip('should watch tests via helper', async ({ activate }) => {
   ]);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > should pass [2:0]
+    tests > test.spec.ts > should pass [3:0]
+      enqueued
       enqueued
       started
       failed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright find-related-test-files -c playwright.config.js
-    > playwright test -c playwright.config.js tests/test.spec.ts
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
-    { method: 'findRelatedTests', params: {} },
     { method: 'runGlobalSetup', params: {} },
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests1${escapedPathSep}test\\.spec\\.ts`)],
+        locations: [],
+        testIds: undefined
+      })
+    },
+    {
+      method: 'watch',
+      params: expect.objectContaining({
+        fileNames: [expect.stringContaining(`tests${path.sep}test.spec.ts`)],
+      })
+    },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
         testIds: undefined
       })
     },
   ]);
 });
 
-test('should watch test in a file', async ({ activate }) => {
+test('should watch one test in a file', async ({ activate }) => {
   const { vscode, testController, workspaceFolder } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
@@ -236,15 +294,6 @@ test('should watch test in a file', async ({ activate }) => {
       passed
   `);
 
-  // first --list is for expand
-  // second --list is for workspace change
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > playwright find-related-test-files -c playwright.config.js
-    > playwright test -c playwright.config.js tests/test.spec.ts:3
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     {
@@ -252,18 +301,6 @@ test('should watch test in a file', async ({ activate }) => {
       params: expect.objectContaining({
         locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
       })
-    },
-    {
-      method: 'listTests',
-      params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
-      })
-    },
-    {
-      method: 'findRelatedTestFiles',
-      params: {
-        files: [expect.stringContaining(`tests${path.sep}test.spec.ts`)],
-      }
     },
     { method: 'runGlobalSetup', params: {} },
     {
@@ -273,6 +310,25 @@ test('should watch test in a file', async ({ activate }) => {
         testIds: [
           expect.any(String)
         ]
+      })
+    },
+    {
+      method: 'watch',
+      params: expect.objectContaining({
+        fileNames: [expect.stringContaining(`tests${path.sep}test.spec.ts`)],
+      })
+    },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
+      })
+    },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: undefined,
+        testIds: [expect.any(String)]
       })
     },
   ]);
@@ -317,15 +373,6 @@ test('should watch two tests in a file', async ({ activate }) => {
       passed
   `);
 
-  // first --list is for expand
-  // second --list is for workspace change
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > playwright find-related-test-files -c playwright.config.js
-    > playwright test -c playwright.config.js tests/test.spec.ts:3 tests/test.spec.ts:4
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     {
@@ -333,18 +380,6 @@ test('should watch two tests in a file', async ({ activate }) => {
       params: expect.objectContaining({
         locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
       })
-    },
-    {
-      method: 'listTests',
-      params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
-      })
-    },
-    {
-      method: 'findRelatedTestFiles',
-      params: {
-        files: [expect.stringContaining(`tests${path.sep}test.spec.ts`)],
-      }
     },
     { method: 'runGlobalSetup', params: {} },
     {
@@ -355,6 +390,25 @@ test('should watch two tests in a file', async ({ activate }) => {
           expect.any(String),
           expect.any(String),
         ]
+      })
+    },
+    {
+      method: 'watch',
+      params: expect.objectContaining({
+        fileNames: [expect.stringContaining(`tests${path.sep}test.spec.ts`)],
+      })
+    },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
+      })
+    },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: undefined,
+        testIds: [expect.any(String), expect.any(String)]
       })
     },
   ]);

@@ -250,6 +250,13 @@ export class PlaywrightTestServer {
     }
   }
 
+  async watchFiles(fileNames: string[]) {
+    const testServer = await this._testServer();
+    if (!testServer)
+      return;
+    await testServer.watch({ fileNames });
+  }
+
   async findRelatedTestFiles(files: string[]): Promise<ConfigFindRelatedTestFilesReport> {
     const testServer = await this._testServer();
     if (!testServer)
@@ -286,6 +293,7 @@ export class PlaywrightTestServer {
     if (!wsEndpoint)
       return null;
     const testServer = new TestServerConnection(wsEndpoint);
+    testServer.onTestFilesChanged(params => this._testFilesChanged(params.testFiles));
     await testServer.initialize({
       serializer: require.resolve('./oopReporter'),
       interceptStdio: true,
@@ -311,6 +319,10 @@ export class PlaywrightTestServer {
         }
       });
     });
+  }
+
+  private _testFilesChanged(testFiles: string[]) {
+    this._model.testFilesChanged(testFiles.map(f => this._vscode.Uri.file(f).fsPath));
   }
 
   private _disposeTestServer() {
