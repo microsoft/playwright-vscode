@@ -194,6 +194,9 @@ export class PlaywrightTestCLI {
     }
   }
 
+  async watchFiles(fileNames: string[]) {
+  }
+
   async findRelatedTestFiles(files: string[]): Promise<ConfigFindRelatedTestFilesReport> {
     const configFolder = path.dirname(this._model.config.configFile);
     const configFile = path.basename(this._model.config.configFile);

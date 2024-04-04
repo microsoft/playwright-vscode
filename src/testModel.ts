@@ -238,7 +238,7 @@ export class TestModel {
     project.suite.suites = [...files.values()];
   }
 
-  async workspaceChanged(change: WorkspaceChange) {
+  async handleWorkspaceChange(change: WorkspaceChange) {
     const testDirs = [...new Set([...this._projects.values()].map(p => p.project.testDir))];
 
     const changed = this._mapFilesToSources(testDirs, change.changed);
@@ -253,16 +253,13 @@ export class TestModel {
         this._filesWithListedTests.delete(c);
       await this.ensureTests(changedWithListedTests);
     }
+  }
 
+  testFilesChanged(testFiles: string[]) {
     if (!this._watches.size)
       return;
-    if (!changed.length)
+    if (!testFiles.length)
       return;
-
-    const result = await this._playwrightTest.findRelatedTestFiles([...change.changed]);
-    if (!result.testFiles.length)
-      return;
-    const testFiles = result.testFiles.map(f => this._vscode.Uri.file(f).fsPath);
 
     const files: string[] = [];
     const items: vscodeTypes.TestItem[] = [];
@@ -492,7 +489,7 @@ export class TestModel {
     return [...result];
   }
 
-  addToWatch(include: readonly vscodeTypes.TestItem[] | undefined, cancellationToken: vscodeTypes.CancellationToken) {
+  async addToWatch(include: readonly vscodeTypes.TestItem[] | undefined, cancellationToken: vscodeTypes.CancellationToken) {
     const watch: Watch = { include };
     this._watches.add(watch);
     cancellationToken.onCancellationRequested(() => this._watches.delete(watch));
@@ -509,6 +506,23 @@ export class TestModel {
         }
       }
     }
+
+    const filesToWatch = new Set<string>();
+    for (const watch of this._watches) {
+      if (!watch.include) {
+        for (const project of this._projects.values()) {
+          for (const fileSuite of project.suite.suites)
+            filesToWatch.add(fileSuite.location!.file);
+        }
+        continue;
+      }
+      for (const include of watch.include) {
+        if (!include.uri)
+          continue;
+        filesToWatch.add(include.uri.fsPath);
+      }
+    }
+    await this._playwrightTest.watchFiles([...filesToWatch]);
   }
 
   narrowDownLocations(items: vscodeTypes.TestItem[]): { locations: string[] | null, testIds?: string[] } {

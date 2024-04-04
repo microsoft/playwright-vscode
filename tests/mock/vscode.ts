@@ -144,6 +144,8 @@ export class WorkspaceFolder {
   }
 
   async changeFile(file: string, content: string) {
+    // TODO: investigate why watch immediately followed by changeFile doesn't emit the event.
+    await new Promise(f => setTimeout(f, 1000));
     const fsPath = path.join(this.uri.fsPath, file);
     await fs.promises.writeFile(fsPath, content);
     for (const watcher of this.vscode.fsWatchers) {

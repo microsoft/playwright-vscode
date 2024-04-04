@@ -74,7 +74,7 @@ export class Extension implements RunHooks {
   private _runProfile: vscodeTypes.TestRunProfile;
   private _debugProfile: vscodeTypes.TestRunProfile;
   private _playwrightTestLog: string[] = [];
-  private _runQueue = Promise.resolve();
+  private _commandQueue = Promise.resolve();
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -240,7 +240,7 @@ export class Extension implements RunHooks {
   }
 
   private async _rebuildModels(userGesture: boolean): Promise<vscodeTypes.Uri[]> {
-    this._runQueue = Promise.resolve();
+    this._commandQueue = Promise.resolve();
     this._models.clear();
     this._testTree.startedLoading();
 
@@ -316,29 +316,20 @@ export class Extension implements RunHooks {
     if (this._testRun && !request.continuous)
       return;
 
+    await this._queueTestRun(request.include, isDebug ? 'debug' : 'run');
+
     if (request.continuous) {
       for (const model of this._models.enabledModels())
         model.addToWatch(request.include, cancellationToken!);
-      return;
     }
-
-    await this._queueTestRun(request.include, isDebug ? 'debug' : 'run');
   }
 
   private async _queueTestRun(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug' | 'watch') {
-    this._runQueue = this._runQueue.then(async () => {
-      await this._runTests(include, mode).catch(e => console.error(e));
-    });
-    await this._runQueue;
+    await this._queueCommand(() => this._runTests(include, mode), undefined);
   }
 
   private async _queueGlobalHooks(type: 'setup' | 'teardown'): Promise<reporterTypes.FullResult['status']> {
-    let result: reporterTypes.FullResult['status'] = 'passed';
-    this._runQueue = this._runQueue.then(async () => {
-      result = await this._runGlobalHooks(type);
-    }).catch(e => console.error(e));
-    await this._runQueue;
-    return result;
+    return await this._queueCommand(() => this._runGlobalHooks(type), 'failed');
   }
 
   private async _runGlobalHooks(type: 'setup' | 'teardown') {
@@ -421,8 +412,11 @@ export class Extension implements RunHooks {
   }
 
   private async _workspaceChanged(change: WorkspaceChange) {
-    for (const model of this._models.enabledModels())
-      await model.workspaceChanged(change);
+    await this._queueCommand(async () => {
+      for (const model of this._models.enabledModels())
+        await model.handleWorkspaceChange(change);
+    }, undefined);
+
     // Workspace change can be deferred, make sure editors are
     // decorated.
     await this._updateVisibleEditorItems();
@@ -576,8 +570,10 @@ export class Extension implements RunHooks {
   }
 
   private async _ensureTestsInAllModels(inputFiles: string[]): Promise<void> {
-    for (const model of this._models.enabledModels())
-      await model.ensureTests(inputFiles);
+    await this._queueCommand(async () => {
+      for (const model of this._models.enabledModels())
+        await model.ensureTests(inputFiles);
+    }, undefined);
   }
 
   private _updateDiagnostics() {
@@ -753,6 +749,12 @@ export class Extension implements RunHooks {
     const testModel = this._models.selectedModel();
     if (testModel)
       this._traceViewer.open(traceUrl, testModel.config);
+  }
+
+  private _queueCommand<T>(callback: () => Promise<T>, defaultValue: T): Promise<T> {
+    const result = this._commandQueue.then(callback).catch(e => { console.error(e); return defaultValue; });
+    this._commandQueue = result.then(() => {});
+    return result;
   }
 }
 
