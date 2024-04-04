@@ -133,6 +133,22 @@ export class PlaywrightTestServer {
     }
   }
 
+  async startDevServer(): Promise<reporterTypes.FullResult['status']> {
+    const testServer = await this._testServer();
+    if (!testServer)
+      return 'failed';
+    const result = await testServer.startDevServer({});
+    return result.status;
+  }
+
+  async stopDevServer(): Promise<reporterTypes.FullResult['status']> {
+    const testServer = await this._testServer();
+    if (!testServer)
+      return 'failed';
+    const result = await testServer.stopDevServer({});
+    return result.status;
+  }
+
   async runTests(items: vscodeTypes.TestItem[], runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const testServer = await this._testServer();
     if (token?.isCancellationRequested)

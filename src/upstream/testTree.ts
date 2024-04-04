@@ -21,6 +21,8 @@
 export type TestItemStatus = 'none' | 'running' | 'scheduled' | 'passed' | 'failed' | 'skipped';
 import type * as reporterTypes from './reporter';
 
+// -- Reuse boundary -- Everything below this line is taken from playwright core.
+
 export type TreeItemBase = {
   kind: 'root' | 'group' | 'case' | 'test',
   id: string;

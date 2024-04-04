@@ -194,6 +194,14 @@ export class Extension implements RunHooks {
         await this._queueGlobalHooks('teardown');
         this._settingsView.updateActions();
       }),
+      vscode.commands.registerCommand('pw.extension.command.startDevServer', async () => {
+        await this._models.selectedModel()?.startDevServer();
+        this._settingsView.updateActions();
+      }),
+      vscode.commands.registerCommand('pw.extension.command.stopDevServer', async () => {
+        await this._models.selectedModel()?.stopDevServer();
+        this._settingsView.updateActions();
+      }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
           this._completedSteps.clear();

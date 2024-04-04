@@ -80,6 +80,16 @@
         "category": "Test",
         "command": "pw.extension.command.runGlobalTeardown",
         "title": "%contributes.command.pw.extension.command.runGlobalTeardown%"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.command.startDevServer",
+        "title": "%contributes.command.pw.extension.command.startDevServer%"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.command.startDevServer",
+        "title": "%contributes.command.pw.extension.command.stopDevServer%"
       }
     ],
     "configuration": {

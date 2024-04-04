@@ -18,6 +18,8 @@ import type * as reporterTypes from './reporter';
 import type { Event } from '../vscodeTypes';
 import { JsonEvent } from './teleReceiver';
 
+// -- Reuse boundary -- Everything below this line is taken from playwright core.
+
 export type ReportEntry = JsonEvent;
 
 export interface TestServerInterface {
@@ -49,6 +51,16 @@ export interface TestServerInterface {
 
   runGlobalTeardown(params: {}): Promise<{
     report: ReportEntry[],
+    status: reporterTypes.FullResult['status']
+  }>;
+
+  startDevServer(params: {}): Promise<{
+    report: ReportEntry[];
+    status: reporterTypes.FullResult['status']
+  }>;
+
+  stopDevServer(params: {}): Promise<{
+    report: ReportEntry[];
     status: reporterTypes.FullResult['status']
   }>;
 

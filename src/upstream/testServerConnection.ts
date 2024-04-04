@@ -19,6 +19,8 @@ import * as events from './events';
 
 import WebSocket from 'ws';
 
+// -- Reuse boundary -- Everything below this line is taken from playwright core.
+
 export class TestServerConnection implements TestServerInterface, TestServerInterfaceEvents {
   readonly onClose: events.Event<void>;
   readonly onReport: events.Event<any>;
@@ -51,7 +53,6 @@ export class TestServerConnection implements TestServerInterface, TestServerInte
     this._ws.addEventListener('message', event => {
       const message = JSON.parse(String(event.data));
       const { id, result, error, method, params } = message;
-      this._debugLog('RECV>', message);
       if (id) {
         const callback = this._callbacks.get(id);
         if (!callback)
@@ -83,7 +84,6 @@ export class TestServerConnection implements TestServerInterface, TestServerInte
     await this._connectedPromise;
     const id = ++this._lastId;
     const message = { id, method, params };
-    this._debugLog('SEND>', message);
     this._ws.send(JSON.stringify(message));
     return new Promise((resolve, reject) => {
       this._callbacks.set(id, { resolve, reject });
@@ -159,6 +159,14 @@ export class TestServerConnection implements TestServerInterface, TestServerInte
     return await this._sendMessage('runGlobalTeardown', params);
   }
 
+  async startDevServer(params: Parameters<TestServerInterface['startDevServer']>[0]): ReturnType<TestServerInterface['startDevServer']> {
+    return await this._sendMessage('startDevServer', params);
+  }
+
+  async stopDevServer(params: Parameters<TestServerInterface['stopDevServer']>[0]): ReturnType<TestServerInterface['stopDevServer']> {
+    return await this._sendMessage('stopDevServer', params);
+  }
+
   async listFiles(params: Parameters<TestServerInterface['listFiles']>[0]): ReturnType<TestServerInterface['listFiles']> {
     return await this._sendMessage('listFiles', params);
   }
@@ -192,10 +200,5 @@ export class TestServerConnection implements TestServerInterface, TestServerInte
       this._ws.close();
     } catch {
     }
-  }
-
-  _debugLog(name: string, message: any) {
-    if (process.env.DEBUG?.includes('pwtest:server'))
-      console.log(name, message.id,message.method);
   }
 }

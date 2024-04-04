@@ -8,6 +8,8 @@
   "contributes.command.pw.extension.command.recordAtCursor": "在当前光标处开始录制",
   "contributes.command.pw.extension.command.runGlobalSetup": "运行全局设置",
   "contributes.command.pw.extension.command.runGlobalTeardown": "运行全局拆卸",
+  "contributes.command.pw.extension.command.startDevServer": "启动开发服务器",
+  "contributes.command.pw.extension.command.stopDevServer": "停止开发服务器",
   "contributes.command.pw.extension.command.toggleModels": "选择 Playwright 配置",
   "contributes.command.pw.extension.toggle.reuseBrowser": "是否复用 Playwright 浏览器",
   "contributes.command.pw.extension.toggle.showTrace": "是否显示 Playwright 浏览器的跟踪",
