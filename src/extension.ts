@@ -202,6 +202,9 @@ export class Extension implements RunHooks {
         await this._models.selectedModel()?.stopDevServer();
         this._settingsView.updateActions();
       }),
+      vscode.commands.registerCommand('pw.extension.command.clearCache', async () => {
+        await this._models.selectedModel()?.clearCache();
+      }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
           this._completedSteps.clear();
