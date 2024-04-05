@@ -303,6 +303,7 @@ export class Extension implements RunHooks {
       await this._models.addModel(model);
     }
 
+    await this._models.ensureHasEnabledModels();
     this._testTree.finishedLoading();
     return configFiles;
   }

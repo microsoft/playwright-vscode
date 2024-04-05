@@ -85,11 +85,18 @@ label {
   flex: auto;
 }
 
-div.separator {
-  height: 1px !important;
-  border-top: 1px solid rgba(97, 97, 97, 0.19);
-}
-
 body[data-vscode-theme-kind=vscode-dark] div.separator {
   border-color: rgba(204, 204, 204, 0.2);
+}
+
+.section-header {
+  font-size: 11px;
+  margin: 10px 0 3px 8px;
+  font-weight: 700;
+  color: var(--vscode-editor-inlineValuesForeground);
+}
+
+.action-indent {
+  width: 4px;
+  height: 4px;
 }
