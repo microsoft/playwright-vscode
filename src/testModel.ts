@@ -76,6 +76,7 @@ export class TestModel {
     finishedCallback: () => void
   } | undefined;
   private _ranGlobalSetup = false;
+  private _startedDevServer = false;
 
   constructor(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }, options: TestModelOptions) {
     this._vscode = vscode;
@@ -422,6 +423,30 @@ export class TestModel {
     return status;
   }
 
+  canStartDevServer(): boolean {
+    return this._options.settingsModel.useTestServer.get() && !this._startedDevServer;
+  }
+
+  canStopDevServer(): boolean {
+    return this._startedDevServer;
+  }
+
+  async startDevServer() {
+    if (this._startedDevServer)
+      return;
+    const result = await this._playwrightTest.startDevServer();
+    if (result === 'passed')
+      this._startedDevServer = true;
+  }
+
+  async stopDevServer() {
+    if (!this._startedDevServer)
+      return;
+    const result = await this._playwrightTest.stopDevServer();
+    if (result === 'passed')
+      this._startedDevServer = false;
+  }
+
   async runTests(items: vscodeTypes.TestItem[], reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
     if (token?.isCancellationRequested)
       return;
@@ -510,10 +535,8 @@ export class TestModel {
     const filesToWatch = new Set<string>();
     for (const watch of this._watches) {
       if (!watch.include) {
-        for (const project of this._projects.values()) {
-          for (const fileSuite of project.suite.suites)
-            filesToWatch.add(fileSuite.location!.file);
-        }
+        for (const file of this.enabledFiles())
+          filesToWatch.add(file);
         continue;
       }
       for (const include of watch.include) {

@@ -66,6 +66,12 @@ export class PlaywrightTestCLI {
     return 'failed';
   }
 
+  async startDevServer() {
+  }
+
+  async stopDevServer() {
+  }
+
   async runTests(items: vscodeTypes.TestItem[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const { locations, parametrizedTestTitle } = this._narrowDownLocations(items);
     if (!locations)

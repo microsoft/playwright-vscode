@@ -8,6 +8,8 @@
   "contributes.command.pw.extension.command.recordAtCursor": "Enregistrer au niveau du curseur",
   "contributes.command.pw.extension.command.runGlobalSetup": "Exécuter la configuration globale",
   "contributes.command.pw.extension.command.runGlobalTeardown": "Exécuter le nettoyage global",
+  "contributes.command.pw.extension.command.startDevServer": "Démarrer le serveur de développement",
+  "contributes.command.pw.extension.command.stopDevServer": "Arrêter le serveur de développement",
   "contributes.command.pw.extension.command.toggleModels": "Sélectionner les configurations Playwright",
   "contributes.command.pw.extension.toggle.reuseBrowser": "Activer/désactiver la réutilisation du navigateur",
   "contributes.command.pw.extension.toggle.showTrace": "Activer/désactiver Playwright Trace Viewer",
