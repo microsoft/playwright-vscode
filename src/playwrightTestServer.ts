@@ -149,6 +149,11 @@ export class PlaywrightTestServer {
     return result.status;
   }
 
+  async clearCache(): Promise<void> {
+    const testServer = await this._testServer();
+    await testServer?.clearCache({});
+  }
+
   async runTests(items: vscodeTypes.TestItem[], runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const testServer = await this._testServer();
     if (token?.isCancellationRequested)

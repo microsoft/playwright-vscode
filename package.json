@@ -88,8 +88,13 @@
       },
       {
         "category": "Test",
-        "command": "pw.extension.command.startDevServer",
+        "command": "pw.extension.command.stopDevServer",
         "title": "%contributes.command.pw.extension.command.stopDevServer%"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.command.clearCache",
+        "title": "%contributes.command.pw.extension.command.clearCache%"
       }
     ],
     "configuration": {

@@ -3,6 +3,7 @@
   "contributes.command.pw.extension.install": "安装 Playwright",
   "contributes.command.pw.extension.installBrowsers": "安装 Playwright 浏览器",
   "contributes.command.pw.extension.command.inspect": "拾取选择器",
+  "contributes.command.pw.extension.command.clearCache": "清除缓存",
   "contributes.command.pw.extension.command.closeBrowsers": "关闭全部 Playwright 浏览器",
   "contributes.command.pw.extension.command.recordNew": "录制新用例",
   "contributes.command.pw.extension.command.recordAtCursor": "在当前光标处开始录制",

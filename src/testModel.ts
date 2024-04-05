@@ -447,6 +447,10 @@ export class TestModel {
       this._startedDevServer = false;
   }
 
+  async clearCache() {
+    await this._playwrightTest.clearCache();
+  }
+
   async runTests(items: vscodeTypes.TestItem[], reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
     if (token?.isCancellationRequested)
       return;
