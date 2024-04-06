@@ -587,14 +587,15 @@ export class TestModelCollection extends DisposableBase {
     this.onUpdated = this._didUpdate.event;
   }
 
-  setModelEnabled(configFile: string, enabled: boolean) {
+  setModelEnabled(configFile: string, enabled: boolean, userGesture?: boolean) {
     const model = this._models.find(m => m.config.configFile === configFile);
     if (!model)
       return;
     if (model.isEnabled === enabled)
       return;
     model.isEnabled = enabled;
-    this._saveSettings();
+    if (userGesture)
+      this._saveSettings();
     model.reset();
     this._loadModelIfNeeded(model).then(() => this._didUpdate.fire());
   }
@@ -630,6 +631,11 @@ export class TestModelCollection extends DisposableBase {
     await this._loadModelIfNeeded(model);
     this._disposables.push(model.onUpdated(() => this._didUpdate.fire()));
     this._didUpdate.fire();
+  }
+
+  async ensureHasEnabledModels() {
+    if (this._models.length && !this.hasEnabledModels())
+      this.setModelEnabled(this._models[0].config.configFile, false);
   }
 
   private async _loadModelIfNeeded(model: TestModel) {

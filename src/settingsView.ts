@@ -139,37 +139,37 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
       },
       {
         command: 'pw.extension.command.runGlobalSetup',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"></svg>`,
+        svg: `<div class="action-indent"></div>`,
         text: this._vscode.l10n.t('Run global setup'),
-        location: 'projectList',
+        location: 'rareActions',
         disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canRunGlobalHooks('setup'),
       },
       {
         command: 'pw.extension.command.runGlobalTeardown',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"></svg>`,
+        svg: `<div class="action-indent"></div>`,
         text: this._vscode.l10n.t('Run global teardown'),
-        location: 'projectList',
+        location: 'rareActions',
         disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canRunGlobalHooks('teardown'),
       },
       {
         command: 'pw.extension.command.startDevServer',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"></svg>`,
+        svg: `<div class="action-indent"></div>`,
         text: this._vscode.l10n.t('Start dev server'),
-        location: 'projectList',
+        location: 'rareActions',
         disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canStartDevServer(),
       },
       {
         command: 'pw.extension.command.stopDevServer',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"></svg>`,
+        svg: `<div class="action-indent"></div>`,
         text: this._vscode.l10n.t('Stop dev server'),
-        location: 'projectList',
+        location: 'rareActions',
         disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canStopDevServer(),
       },
       {
         command: 'pw.extension.command.clearCache',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"></svg>`,
+        svg: `<div class="action-indent"></div>`,
         text: this._vscode.l10n.t('Clear cache'),
-        location: 'projectList',
+        location: 'rareActions',
         disabled: !this._models.selectedModel(),
       },
       {
@@ -201,7 +201,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
       });
     }
 
-    this._view.webview.postMessage({ method: 'models', params: { configs } });
+    this._view.webview.postMessage({ method: 'models', params: { configs, showModelSelector: this._models.models().length > 1 } });
   }
 
   toggleModels() {
@@ -230,7 +230,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         const modelItem = itemMap.get(model.config.configFile);
         if (!modelItem)
           continue;
-        this._models.setModelEnabled(model.config.configFile, !!result?.includes(modelItem));
+        this._models.setModelEnabled(model.config.configFile, !!result?.includes(modelItem), true);
       }
     });
   }
@@ -250,7 +250,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <title>Playwright</title>
     </head>
     <body>
-      <div class="list">
+      <div class="list" id="model-selector">
         <div>
           <label title="${vscode.l10n.t('Select Playwright Config')}">
             <select data-testid="models" id="models"></select>
@@ -258,8 +258,9 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           <span id="configToolbar"></span>
         </div>
       </div>
+      <div class="section-header">${vscode.l10n.t('PROJECTS')}</div>
       <div data-testid="projects" id="projects" class="list"></div>
-      <div class="separator"></div>
+      <div class="section-header">${vscode.l10n.t('SETTINGS')}</div>
       <div class="list">
         <div>
           <label title="${vscode.l10n.t('When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.')}">
@@ -274,10 +275,10 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           </label>
         </div>
       </div>
-      <div class="separator"></div>
+      <div class="section-header">${vscode.l10n.t('TOOLS')}</div>
       <div id="actions" class="list"></div>
-      <div class="separator"></div>
-      <div id="projectListActions" class="list"></div>
+      <div class="section-header">${vscode.l10n.t('SETUP')}</div>
+      <div id="rareActions" class="list"></div>
     </body>
     <script nonce="${nonce}">
       let selectConfig;
@@ -324,8 +325,8 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           actionsElement.textContent = '';
           const configToolbarElement = document.getElementById('configToolbar');
           configToolbarElement.textContent = '';
-          const projectListActions = document.getElementById('projectListActions');
-          projectListActions.textContent = '';
+          const rareActionsElement = document.getElementById('rareActions');
+          rareActionsElement.textContent = '';
           for (const action of params.actions) {
             const actionElement = document.createElement('div');
             if (action.disabled)
@@ -346,14 +347,14 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             label.title = action.title || action.text;
             if (action.location === 'configToolbar')
               configToolbarElement.appendChild(actionElement);
-            else if (action.location === 'projectList')
-              projectListActions.appendChild(actionElement);
+            else if (action.location === 'rareActions')
+              rareActionsElement.appendChild(actionElement);
             else
               actionsElement.appendChild(actionElement);
             svg.outerHTML = action.svg;
           }
         } else if (method === 'models') {
-          const { configs } = params;
+          const { configs, showModelSelector } = params;
           const select = document.getElementById('models');
           select.textContent = '';
           const configsMap = new Map();
@@ -373,7 +374,8 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             vscode.postMessage({ method: 'selectModel', params: { configFile: select.value } });
             updateProjects(configsMap.get(select.value).projects);
           });
-
+          const modelSelector = document.getElementById('model-selector');
+          modelSelector.style.display = showModelSelector ? 'block' : 'none';
         }
       });
     </script>
