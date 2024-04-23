@@ -18,7 +18,7 @@ import { TestRun } from './mock/vscode';
 import { escapedPathSep, expect, test } from './utils';
 import path from 'path';
 
-test.skip(({ useTestServer }) => !useTestServer);
+test.skip(({ overridePlaywrightVersion }) => !!overridePlaywrightVersion);
 
 test.beforeEach(async ({ vscode }) => {
   const configuration = vscode.workspace.getConfiguration('playwright');

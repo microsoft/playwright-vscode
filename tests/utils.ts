@@ -32,7 +32,7 @@ type TestFixtures = {
 };
 
 export type WorkerOptions = {
-  useTestServer: boolean;
+  overridePlaywrightVersion?: number;
   showBrowser: boolean;
   vsCodeVersion: number;
 };
@@ -54,7 +54,7 @@ export const expect = baseExpect.extend({
   },
 
   async toHaveExecLog(vscode: VSCode, expectedLog: string) {
-    if (vscode.extensions[0]._settingsModel.useTestServer.get())
+    if (!vscode.extensions[0].overridePlaywrightVersion)
       return { pass: true, message: () => '' };
     try {
       await expect.poll(() => vscode.renderExecLog('  ')).toBe(expectedLog);
@@ -92,7 +92,7 @@ export const expect = baseExpect.extend({
   },
 
   async toHaveConnectionLog(vscode: VSCode, expectedLog: any[]) {
-    if (!vscode.extensions[0]._settingsModel.useTestServer.get())
+    if (vscode.extensions[0].overridePlaywrightVersion)
       return { pass: true, message: () => '' };
     const filterCommands = new Set(['ping', 'initialize']);
     const filteredLog = () => {
@@ -111,7 +111,7 @@ export const expect = baseExpect.extend({
 });
 
 export const test = baseTest.extend<TestFixtures, WorkerOptions>({
-  useTestServer: [false, { option: true, scope: 'worker' }],
+  overridePlaywrightVersion: [undefined, { option: true, scope: 'worker' }],
   showBrowser: [false, { option: true, scope: 'worker' }],
   vsCodeVersion: [1.86, { option: true, scope: 'worker' }],
 
@@ -119,7 +119,7 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
     await use(new VSCode(vsCodeVersion, path.resolve(__dirname, '..'), browser));
   },
 
-  activate: async ({ vscode, showBrowser, useTestServer }, use, testInfo) => {
+  activate: async ({ vscode, showBrowser, overridePlaywrightVersion }, use, testInfo) => {
     const instances: VSCode[] = [];
     await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][], env?: Record<string, any> }) => {
       if (options?.workspaceFolders) {
@@ -134,10 +134,11 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
         configuration.update('env', options.env);
       if (showBrowser)
         configuration.update('reuseBrowser', true);
-      if (useTestServer)
-        configuration.update('useTestServer', true);
 
       const extension = new Extension(vscode);
+      if (overridePlaywrightVersion)
+        extension.overridePlaywrightVersion = overridePlaywrightVersion;
+
       vscode.extensions.push(extension);
       await vscode.activate();
 

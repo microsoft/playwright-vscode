@@ -75,6 +75,7 @@ export class Extension implements RunHooks {
   private _debugProfile: vscodeTypes.TestRunProfile;
   private _playwrightTestLog: string[] = [];
   private _commandQueue = Promise.resolve();
+  overridePlaywrightVersion: number | null = null;
 
   constructor(vscode: vscodeTypes.VSCode) {
     this._vscode = vscode;
@@ -291,6 +292,8 @@ export class Extension implements RunHooks {
         continue;
       }
 
+      if (this.overridePlaywrightVersion)
+        playwrightInfo.version = this.overridePlaywrightVersion;
       const model = new TestModel(this._vscode, workspaceFolderPath, configFileUri.fsPath, playwrightInfo, {
         playwrightTestLog: this._playwrightTestLog,
         settingsModel: this._settingsModel,
@@ -345,6 +348,8 @@ export class Extension implements RunHooks {
   }
 
   private async _runGlobalHooks(type: 'setup' | 'teardown') {
+    if (!this._models.selectedModel()?.needsGlobalHooks(type))
+      return 'passed';
     const request = new this._vscode.TestRunRequest();
     const testRun = this._testController.createTestRun(request);
     const testListener = this._errorReportingListener(testRun);

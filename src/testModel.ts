@@ -77,12 +77,14 @@ export class TestModel {
   } | undefined;
   private _ranGlobalSetup = false;
   private _startedDevServer = false;
+  private _useLegacyCLIDriver: boolean;
 
   constructor(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }, options: TestModelOptions) {
     this._vscode = vscode;
     this._options = options;
     this.config = { ...playwrightInfo, workspaceFolder, configFile };
-    this._playwrightTest = options.settingsModel.useTestServer.get() ? new PlaywrightTestServer(vscode, this, options) : new PlaywrightTestCLI(vscode, this, options);
+    this._useLegacyCLIDriver = playwrightInfo.version < 1.43;
+    this._playwrightTest =  this._useLegacyCLIDriver ? new PlaywrightTestCLI(vscode, this, options) : new PlaywrightTestServer(vscode, this, options);
     this._didUpdate = new vscode.EventEmitter();
     this.onUpdated = this._didUpdate.event;
     this.tag = new this._vscode.TestTag(this.config.configFile);
@@ -402,8 +404,16 @@ export class TestModel {
 
   canRunGlobalHooks(type: 'setup' | 'teardown') {
     if (type === 'setup')
-      return this._options.settingsModel.useTestServer.get() && !this._ranGlobalSetup;
+      return !this._useLegacyCLIDriver && !this._ranGlobalSetup;
     return this._ranGlobalSetup;
+  }
+
+  needsGlobalHooks(type: 'setup' | 'teardown'): boolean {
+    if (type === 'setup' && !this._ranGlobalSetup)
+      return true;
+    if (type === 'teardown' && this._ranGlobalSetup)
+      return true;
+    return false;
   }
 
   async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2): Promise<reporterTypes.FullResult['status']> {
@@ -424,7 +434,7 @@ export class TestModel {
   }
 
   canStartDevServer(): boolean {
-    return this._options.settingsModel.useTestServer.get() && !this._startedDevServer;
+    return !this._useLegacyCLIDriver && !this._startedDevServer;
   }
 
   canStopDevServer(): boolean {
