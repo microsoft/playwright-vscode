@@ -157,6 +157,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         text: this._vscode.l10n.t('Start dev server'),
         location: 'rareActions',
         disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canStartDevServer(),
+        hidden: true,
       },
       {
         command: 'pw.extension.command.stopDevServer',
@@ -164,6 +165,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         text: this._vscode.l10n.t('Stop dev server'),
         location: 'rareActions',
         disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canStopDevServer(),
+        hidden: true,
       },
       {
         command: 'pw.extension.command.clearCache',
@@ -329,6 +331,8 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           rareActionsElement.textContent = '';
           for (const action of params.actions) {
             const actionElement = document.createElement('div');
+            if (action.hidden)
+              continue;
             if (action.disabled)
               actionElement.setAttribute('disabled', 'true');
             const label = document.createElement('label');

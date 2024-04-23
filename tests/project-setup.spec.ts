@@ -48,7 +48,7 @@ const testsWithSetup = {
 };
 
 test.describe(() => {
-  test.skip(({ useTestServer }) => !useTestServer);
+  test.skip(({ overridePlaywrightVersion }) => !!overridePlaywrightVersion);
   test('should run setup and teardown projects (1)', async ({ activate }) => {
     const { vscode, testController } = await activate(testsWithSetup);
     await enableProjects(vscode, ['setup', 'teardown', 'test']);

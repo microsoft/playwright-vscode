@@ -40,7 +40,6 @@ export class SettingsModel extends DisposableBase {
   private _onChange: vscodeTypes.EventEmitter<void>;
   showBrowser: Setting<boolean>;
   showTrace: Setting<boolean>;
-  useTestServer: Setting<boolean>;
   allowWatchingFiles: Setting<boolean>;
   workspaceSettings: Setting<WorkspaceSettings>;
 
@@ -52,7 +51,6 @@ export class SettingsModel extends DisposableBase {
 
     this.showBrowser = this._createSetting('reuseBrowser');
     this.showTrace = this._createSetting('showTrace');
-    this.useTestServer = this._createSetting('useTestServer');
     this.allowWatchingFiles = this._createSetting('allowWatchingFiles');
     this.workspaceSettings = this._createSetting('workspaceSettings', true);
 

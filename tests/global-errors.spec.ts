@@ -42,8 +42,8 @@ test('should report duplicate test title', async ({ activate }) => {
   ]);
 });
 
-test('should report error in global setup (implicit)', async ({ activate, useTestServer }) => {
-  test.skip(useTestServer);
+test('should report error in global setup (implicit)', async ({ activate, overridePlaywrightVersion }) => {
+  test.skip(!overridePlaywrightVersion);
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: 'tests',
@@ -86,8 +86,8 @@ test('should report error in global setup (implicit)', async ({ activate, useTes
   ]);
 });
 
-test('should report error in global setup (explicit)', async ({ activate, useTestServer }) => {
-  test.skip(!useTestServer);
+test('should report error in global setup (explicit)', async ({ activate, overridePlaywrightVersion }) => {
+  test.skip(!!overridePlaywrightVersion);
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: 'tests',

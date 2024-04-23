@@ -30,30 +30,28 @@ const config: PlaywrightTestConfig<WorkerOptions> = {
   ],
   projects: [
     {
-      name: 'cli',
+      name: 'default',
       use: {
-        useTestServer: false,
         showBrowser: false,
       }
     },
     {
-      name: 'cli-reuse',
+      name: 'default-reuse',
       use: {
-        useTestServer: false,
         showBrowser: true,
       }
     },
     {
-      name: 'server',
+      name: 'legacy',
       use: {
-        useTestServer: true,
+        overridePlaywrightVersion: 1.42,
         showBrowser: false,
       }
     },
     {
-      name: 'server-reuse',
+      name: 'legacy-reuse',
       use: {
-        useTestServer: true,
+        overridePlaywrightVersion: 1.42,
         showBrowser: true,
       }
     },
