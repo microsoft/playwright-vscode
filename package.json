@@ -115,14 +115,6 @@
           "default": false,
           "description": "%configuration.playwright.showTrace%"
         },
-        "playwright.useTestServer": {
-          "type": "boolean",
-          "default": false
-        },
-        "playwright.allowWatchingFiles": {
-          "type": "boolean",
-          "default": false
-        },
         "playwright.workspaceSettings": {
           "type": "object",
           "default": {}

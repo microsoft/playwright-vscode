@@ -234,6 +234,8 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
           continue;
         this._models.setModelEnabled(model.config.configFile, !!result?.includes(modelItem), true);
       }
+      this._models.ensureHasEnabledModels();
+      this._updateModels();
     });
   }
 }

@@ -104,7 +104,7 @@ export class Extension implements RunHooks {
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModels(true).then(() => {});
-    const supportsContinuousRun = this._settingsModel.allowWatchingFiles.get();
+    const supportsContinuousRun = true;
     this._runProfile = this._testController.createRunProfile('playwright-run', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, false), true, undefined, supportsContinuousRun);
     this._debugProfile = this._testController.createRunProfile('playwright-debug', this._vscode.TestRunProfileKind.Debug, this._handleTestRun.bind(this, true), true, undefined, supportsContinuousRun);
     this._testTree = new TestTree(vscode, this._models, this._testController);

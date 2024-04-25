@@ -40,7 +40,6 @@ export class SettingsModel extends DisposableBase {
   private _onChange: vscodeTypes.EventEmitter<void>;
   showBrowser: Setting<boolean>;
   showTrace: Setting<boolean>;
-  allowWatchingFiles: Setting<boolean>;
   workspaceSettings: Setting<WorkspaceSettings>;
 
   constructor(vscode: vscodeTypes.VSCode) {
@@ -51,7 +50,6 @@ export class SettingsModel extends DisposableBase {
 
     this.showBrowser = this._createSetting('reuseBrowser');
     this.showTrace = this._createSetting('showTrace');
-    this.allowWatchingFiles = this._createSetting('allowWatchingFiles');
     this.workspaceSettings = this._createSetting('workspaceSettings', true);
 
     this.showBrowser.onChange(enabled => {

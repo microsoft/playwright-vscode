@@ -698,10 +698,17 @@ export class TestModelCollection extends DisposableBase {
   }
 
   selectedModel(): TestModel | undefined {
-    const model = this._models.find(m => m.config.configFile === this._selectedConfigFile);
+    const enabledModels = this.enabledModels();
+    if (!enabledModels.length) {
+      this._selectedConfigFile = undefined;
+      return undefined;
+    }
+
+    const model = enabledModels.find(m => m.config.configFile === this._selectedConfigFile);
     if (model)
       return model;
-    return this._models.find(m => m.isEnabled);
+    this._selectedConfigFile = enabledModels[0].config.configFile;
+    return enabledModels[0];
   }
 
   selectModel(configFile: string) {
