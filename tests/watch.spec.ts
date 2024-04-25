@@ -20,11 +20,6 @@ import path from 'path';
 
 test.skip(({ overridePlaywrightVersion }) => !!overridePlaywrightVersion);
 
-test.beforeEach(async ({ vscode }) => {
-  const configuration = vscode.workspace.getConfiguration('playwright');
-  configuration.update('allowWatchingFiles', true);
-});
-
 test('should watch all tests', async ({ activate }) => {
   const { vscode, testController, workspaceFolder } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
