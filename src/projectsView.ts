@@ -1,0 +1,308 @@
+/**
+ * Copyright (c) Microsoft Corporation.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { DisposableBase } from './disposableBase';
+import { getNonce } from './settingsView';
+import type { TestModelCollection } from './testModel';
+import * as vscodeTypes from './vscodeTypes';
+import path from 'path';
+
+type ConfigEntry = {
+  label: string;
+  configFile: string;
+  selected: boolean;
+  enabled: boolean;
+  projects: ProjectEntry[];
+};
+
+type ProjectEntry = {
+  name: string;
+  enabled: boolean;
+};
+
+export class ProjectsView extends DisposableBase implements vscodeTypes.WebviewViewProvider {
+  private _view: vscodeTypes.WebviewView | undefined;
+  private _vscode: vscodeTypes.VSCode;
+  private _extensionUri: vscodeTypes.Uri;
+  private _models: TestModelCollection;
+
+  constructor(vscode: vscodeTypes.VSCode, models: TestModelCollection, extensionUri: vscodeTypes.Uri) {
+    super();
+    this._vscode = vscode;
+    this._models = models;
+    this._extensionUri = extensionUri;
+    this._disposables = [
+      vscode.window.registerWebviewViewProvider('pw.extension.projectsView', this),
+    ];
+    this._models.onUpdated(() => {
+      this._updateModels();
+      this._updateActions();
+    });
+  }
+
+  public resolveWebviewView(webviewView: vscodeTypes.WebviewView, context: vscodeTypes.WebviewViewResolveContext, token: vscodeTypes.CancellationToken) {
+    this._view = webviewView;
+
+    webviewView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [this._extensionUri]
+    };
+
+    webviewView.webview.html = htmlForWebview(this._vscode, this._extensionUri, webviewView.webview);
+    this._disposables.push(webviewView.webview.onDidReceiveMessage(data => {
+      if (data.method === 'execute') {
+        this._vscode.commands.executeCommand(data.params.command);
+      } else if (data.method === 'toggle') {
+        this._vscode.commands.executeCommand(`pw.extension.toggle.${data.params.setting}`);
+      } else if (data.method === 'setProjectEnabled') {
+        const { configFile, projectName, enabled } = data.params;
+        this._models.setProjectEnabled(configFile, projectName, enabled);
+      } else if (data.method === 'selectModel') {
+        this._models.selectModel(data.params.configFile);
+      }
+    }));
+
+    this._disposables.push(webviewView.onDidChangeVisibility(() => {
+      if (!webviewView.visible)
+        return;
+      this._updateModels();
+      this._updateActions();
+    }));
+    this._updateModels();
+    this._updateActions();
+  }
+
+  updateActions() {
+    if (this._view)
+      this._updateActions();
+  }
+
+  private _updateActions() {
+    const actions = [
+      {
+        command: 'pw.extension.command.runGlobalSetup',
+        svg: `<div class="action-indent"></div>`,
+        text: this._vscode.l10n.t('Run global setup'),
+        disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canRunGlobalHooks('setup'),
+      },
+      {
+        command: 'pw.extension.command.runGlobalTeardown',
+        svg: `<div class="action-indent"></div>`,
+        text: this._vscode.l10n.t('Run global teardown'),
+        disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canRunGlobalHooks('teardown'),
+      },
+      {
+        command: 'pw.extension.command.startDevServer',
+        svg: `<div class="action-indent"></div>`,
+        text: this._vscode.l10n.t('Start dev server'),
+        disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canStartDevServer(),
+        hidden: true,
+      },
+      {
+        command: 'pw.extension.command.stopDevServer',
+        svg: `<div class="action-indent"></div>`,
+        text: this._vscode.l10n.t('Stop dev server'),
+        disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canStopDevServer(),
+        hidden: true,
+      },
+      {
+        command: 'pw.extension.command.clearCache',
+        svg: `<div class="action-indent"></div>`,
+        text: this._vscode.l10n.t('Clear cache'),
+        disabled: !this._models.selectedModel(),
+      },
+      {
+        command: 'pw.extension.command.toggleModels',
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" viewBox="0 -960 960 960" width="48"><path d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm48-60h88l14-112q33-8 62.5-25t53.5-41l106 46 40-72-94-69q4-17 6.5-33.5T715-480q0-17-2-33.5t-7-33.5l94-69-40-72-106 46q-23-26-52-43.5T538-708l-14-112h-88l-14 112q-34 7-63.5 24T306-642l-106-46-40 72 94 69q-4 17-6.5 33.5T245-480q0 17 2.5 33.5T254-413l-94 69 40 72 106-46q24 24 53.5 41t62.5 25l14 112Zm44-210q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm0-130Z"/></svg>`,
+        title: this._vscode.l10n.t('Toggle Playwright Configs'),
+        location: 'configToolbar',
+      },
+    ];
+    if (this._view)
+      this._view.webview.postMessage({ method: 'actions', params: { actions } });
+  }
+
+  private _updateModels() {
+    if (!this._view)
+      return;
+    const configs: ConfigEntry[] = [];
+    const workspaceFolders = new Set<string>();
+    this._models.enabledModels().forEach(model => workspaceFolders.add(model.config.workspaceFolder));
+
+    for (const model of this._models.enabledModels()) {
+      const prefix = workspaceFolders.size > 1 ? path.basename(model.config.workspaceFolder) + path.sep : '';
+      configs.push({
+        label: prefix + path.relative(model.config.workspaceFolder, model.config.configFile),
+        configFile: model.config.configFile,
+        selected: model === this._models.selectedModel(),
+        enabled: model.isEnabled,
+        projects: model.projects().map(p => ({ name: p.name, enabled: p.isEnabled })),
+      });
+    }
+
+    this._view.webview.postMessage({ method: 'models', params: { configs, showModelSelector: this._models.models().length > 1 } });
+  }
+
+  toggleModels() {
+    const options: vscodeTypes.QuickPickItem[] = [];
+    const itemMap = new Map<string, vscodeTypes.QuickPickItem>();
+    const workspaceFolders = new Set<string>();
+    this._models.models().forEach(model => workspaceFolders.add(model.config.workspaceFolder));
+
+    for (const model of this._models.models()) {
+      const prefix = workspaceFolders.size > 1 ? path.basename(model.config.workspaceFolder) + path.sep : '';
+      const modelItem: vscodeTypes.QuickPickItem = {
+        label: prefix + path.relative(model.config.workspaceFolder, model.config.configFile),
+        picked: model.isEnabled,
+      };
+      itemMap.set(model.config.configFile, modelItem);
+      options.push(modelItem);
+    }
+    options.sort((a, b) => a.label.localeCompare(b.label));
+    this._vscode.window.showQuickPick(options, {
+      title: this._vscode.l10n.t('Toggle Playwright Configs'),
+      canPickMany: true,
+    }).then(result => {
+      if (!result)
+        return;
+      for (const model of this._models.models()) {
+        const modelItem = itemMap.get(model.config.configFile);
+        if (!modelItem)
+          continue;
+        this._models.setModelEnabled(model.config.configFile, !!result?.includes(modelItem), true);
+      }
+      this._models.ensureHasEnabledModels();
+      this._updateModels();
+    });
+  }
+}
+
+function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri, webview: vscodeTypes.Webview) {
+  const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'settingsView.css'));
+  const nonce = getNonce();
+
+  return `<!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link href="${styleUri}" rel="stylesheet">
+      <title>Playwright</title>
+    </head>
+    <body>
+      <div class="list" id="model-selector">
+        <div>
+          <label title="${vscode.l10n.t('Select Playwright Config')}">
+            <select data-testid="models" id="models"></select>
+          </label>
+          <span id="configToolbar"></span>
+        </div>
+      </div>
+      <div class="section-header">${vscode.l10n.t('PROJECTS')}</div>
+      <div data-testid="projects" id="projects" class="list"></div>
+      <div class="section-header">${vscode.l10n.t('SETUP')}</div>
+      <div id="actions" class="list"></div>
+    </body>
+    <script nonce="${nonce}">
+      let selectConfig;
+      function updateProjects(projects) {
+        const projectsElement = document.getElementById('projects');
+        projectsElement.textContent = '';
+        for (const project of projects) {
+          const { name, enabled } = project;
+          const div = document.createElement('div');
+          const label = document.createElement('label');
+          const input = document.createElement('input');
+          input.type = 'checkbox';
+          input.checked = enabled;
+          input.addEventListener('change', event => {
+            vscode.postMessage({ method: 'setProjectEnabled', params: { configFile: selectConfig.configFile, projectName: name, enabled: input.checked } });
+          });
+          label.appendChild(input);
+          label.appendChild(document.createTextNode(name || '<untitled>'));
+          div.appendChild(label);
+          projectsElement.appendChild(div);
+        }
+      }
+
+      const vscode = acquireVsCodeApi();
+      for (const input of document.querySelectorAll('input[type=checkbox]')) {
+        input.addEventListener('change', event => {
+          vscode.postMessage({ method: 'toggle', params: { setting: event.target.getAttribute('setting') } });
+        });
+      }
+      window.addEventListener('message', event => {
+        const { method, params } = event.data;
+        if (method === 'actions') {
+          const actionsElement = document.getElementById('actions');
+          actionsElement.textContent = '';
+          const configToolbarElement = document.getElementById('configToolbar');
+          configToolbarElement.textContent = '';
+          for (const action of params.actions) {
+            const actionElement = document.createElement('div');
+            if (action.hidden)
+              continue;
+            if (action.disabled)
+              actionElement.setAttribute('disabled', 'true');
+            const label = document.createElement('label');
+            if (!action.disabled) {
+              label.addEventListener('click', event => {
+                vscode.postMessage({ method: 'execute', params: { command: event.target.getAttribute('command') } });
+              });
+            }
+            label.setAttribute('role', 'button');
+            label.setAttribute('command', action.command);
+            const svg = document.createElement('svg');
+            actionElement.appendChild(label);
+            label.appendChild(svg);
+            if (action.text)
+              label.appendChild(document.createTextNode(action.text));
+            label.title = action.title || action.text;
+            if (action.location === 'configToolbar')
+              configToolbarElement.appendChild(actionElement);
+            else
+              actionsElement.appendChild(actionElement);
+            svg.outerHTML = action.svg;
+          }
+        } else if (method === 'models') {
+          const { configs, showModelSelector } = params;
+          const select = document.getElementById('models');
+          select.textContent = '';
+          const configsMap = new Map();
+          for (const config of configs) {
+            configsMap.set(config.configFile, config);
+            const option = document.createElement('option');
+            option.value = config.configFile;
+            option.textContent = config.label;
+            select.appendChild(option);
+            if (config.selected) {
+              selectConfig = config;
+              select.value = config.configFile;
+              updateProjects(config.projects);
+            }
+          }
+          select.addEventListener('change', event => {
+            vscode.postMessage({ method: 'selectModel', params: { configFile: select.value } });
+            updateProjects(configsMap.get(select.value).projects);
+          });
+          const modelSelector = document.getElementById('model-selector');
+          modelSelector.style.display = showModelSelector ? 'block' : 'none';
+        }
+      });
+    </script>
+    </html>`;
+}
