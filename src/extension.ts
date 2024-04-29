@@ -30,6 +30,7 @@ import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { TraceViewer } from './traceViewer';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { RunHooks, TestConfig } from './playwrightTestTypes';
+import { ProjectsView } from './projectsView';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -69,6 +70,7 @@ export class Extension implements RunHooks {
   private _traceViewer: TraceViewer;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
+  private _projectsView!: ProjectsView;
   private _diagnostics: vscodeTypes.DiagnosticCollection;
   private _treeItemObserver: TreeItemObserver;
   private _runProfile: vscodeTypes.TestRunProfile;
@@ -138,6 +140,7 @@ export class Extension implements RunHooks {
   async activate(context: vscodeTypes.ExtensionContext) {
     const vscode = this._vscode;
     this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, context.extensionUri);
+    this._projectsView = new ProjectsView(vscode, this._models, context.extensionUri);
     const messageNoPlaywrightTestsFound = this._vscode.l10n.t('No Playwright tests found.');
     this._disposables = [
       this._debugHighlight,
@@ -185,23 +188,23 @@ export class Extension implements RunHooks {
         await this._reusedBrowser.record(this._models, false);
       }),
       vscode.commands.registerCommand('pw.extension.command.toggleModels', async () => {
-        this._settingsView.toggleModels();
+        this._projectsView.toggleModels();
       }),
       vscode.commands.registerCommand('pw.extension.command.runGlobalSetup', async () => {
         await this._queueGlobalHooks('setup');
-        this._settingsView.updateActions();
+        this._projectsView.updateActions();
       }),
       vscode.commands.registerCommand('pw.extension.command.runGlobalTeardown', async () => {
         await this._queueGlobalHooks('teardown');
-        this._settingsView.updateActions();
+        this._projectsView.updateActions();
       }),
       vscode.commands.registerCommand('pw.extension.command.startDevServer', async () => {
         await this._models.selectedModel()?.startDevServer();
-        this._settingsView.updateActions();
+        this._projectsView.updateActions();
       }),
       vscode.commands.registerCommand('pw.extension.command.stopDevServer', async () => {
         await this._models.selectedModel()?.stopDevServer();
-        this._settingsView.updateActions();
+        this._projectsView.updateActions();
       }),
       vscode.commands.registerCommand('pw.extension.command.clearCache', async () => {
         await this._models.selectedModel()?.clearCache();
@@ -219,6 +222,7 @@ export class Extension implements RunHooks {
       this._models.onUpdated(() => this._modelsUpdated()),
       this._treeItemObserver.onTreeItemSelected(item => this._treeItemSelected(item)),
       this._settingsView,
+      this._projectsView,
       this._testController,
       this._runProfile,
       this._debugProfile,
