@@ -44,3 +44,8 @@ extends:
             inlineScript: |
               $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
               npx vsce verify-pat --pat $aadToken ms-playwright
+              if ("$(Build.Reason)" -eq "Manual") {
+                npx vsce publish --pre-release --pat $aadToken
+              } else {
+                npx vsce publish --pat $aadToken
+              }
