@@ -1111,7 +1111,7 @@ export class VSCode {
 
   async renderProjectTree(): Promise<string> {
     const result: string[] = [''];
-    const webView = this.webViews.get('pw.extension.projectsView')!;
+    const webView = this.webViews.get('pw.extension.settingsView')!;
     const selectedConfig = await webView.getByTestId('models').evaluate((e: HTMLSelectElement) => e.selectedOptions[0].textContent);
     result.push(`    config: ${selectedConfig}`);
     const projectLocators = await webView.getByTestId('projects').locator('div').locator('label').all();

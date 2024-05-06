@@ -127,11 +127,6 @@
           "type": "webview",
           "id": "pw.extension.settingsView",
           "name": "%views.test.pw.extension.settingsView%"
-        },
-        {
-          "type": "webview",
-          "id": "pw.extension.projectsView",
-          "name": "%views.test.pw.extension.projectsView%"
         }
       ]
     }

@@ -17,6 +17,5 @@
   "configuration.playwright.env": "Variables d'environnement à transmettre à Playwright Test.",
   "configuration.playwright.reuseBrowser": "Afficher et réutiliser le navigateur entre les tests.",
   "configuration.playwright.showTrace": "Afficher les traces avec Trace Viewer.",
-  "views.test.pw.extension.settingsView": "Playwright",
-  "views.test.pw.extension.projectsView": "Projets Playwright"
+  "views.test.pw.extension.settingsView": "Playwright"
 }
