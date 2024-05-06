@@ -1,0 +1,51 @@
+pr: none
+
+trigger:
+  tags:
+    include:
+    - '*'
+
+resources:
+  repositories:
+  - repository: 1esPipelines
+    type: git
+    name: 1ESPipelineTemplates/1ESPipelineTemplates
+    ref: refs/tags/release
+
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  parameters:
+    pool:
+      name: DevDivPlaywrightAzurePipelinesUbuntu2204
+      os: linux
+    sdl:
+      sourceAnalysisPool:
+        name: DevDivPlaywrightAzurePipelinesWindows2022
+        # The image must be windows-based due to restrictions of the SDL tools. See: https://aka.ms/AAo6v8e
+        # In the case of a windows build, this can be the same as the above pool image.
+        os: windows
+    stages:
+    - stage: Stage
+      jobs:
+      - job: HostJob
+        steps:
+        - task: UseNode@1
+          inputs:
+            version: '20.x'
+          displayName: 'Install Node.js'
+        - script: npm ci
+          displayName: 'Install dependencies'
+        - task: AzureCLI@2
+          displayName: 'Publishing with Managed Identity'  
+          inputs:
+            azureSubscription: 'Playwright-VSMarketplacePublishing'
+            scriptType: "pscore"
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
+              npx vsce verify-pat --pat $aadToken ms-playwright
+              if ("$(Build.Reason)" -eq "Manual") {
+                npx vsce publish --pre-release --pat $aadToken
+              } else {
+                npx vsce publish --pat $aadToken
+              }
