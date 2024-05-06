@@ -17,6 +17,5 @@
   "configuration.playwright.env": "Playwright Test 运行环境变量",
   "configuration.playwright.reuseBrowser": "在测试用例间显示并复用 Playwright 浏览器",
   "configuration.playwright.showTrace": "显示 Playwright 浏览器的跟踪",
-  "views.test.pw.extension.settingsView": "Playwright",
-  "views.test.pw.extension.projectsView": "Playwright 项目"
+  "views.test.pw.extension.settingsView": "Playwright"
 }

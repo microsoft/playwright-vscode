@@ -174,7 +174,7 @@ export async function waitForPage(browser: Browser) {
 
 export async function enableConfigs(vscode: VSCode, labels: string[]) {
   let success = false;
-  const webView = vscode.webViews.get('pw.extension.projectsView')!;
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
   while (!success) {
     vscode.window.mockQuickPick = async items => {
       let allFound = true;
@@ -195,12 +195,12 @@ export async function enableConfigs(vscode: VSCode, labels: string[]) {
 }
 
 export async function selectConfig(vscode: VSCode, label: string) {
-  const webView = vscode.webViews.get('pw.extension.projectsView')!;
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
   await webView.locator('select').selectOption({ label });
 }
 
 export async function enableProjects(vscode: VSCode, projects: string[]) {
-  const webView = vscode.webViews.get('pw.extension.projectsView')!;
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
   const projectLocators = await webView.getByTestId('projects').locator('div').locator('label').all();
   for (const projectLocator of projectLocators) {
     const name = await projectLocator.textContent();
