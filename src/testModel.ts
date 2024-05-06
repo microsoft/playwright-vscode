@@ -83,7 +83,7 @@ export class TestModel {
     this._vscode = vscode;
     this._options = options;
     this.config = { ...playwrightInfo, workspaceFolder, configFile };
-    this._useLegacyCLIDriver = playwrightInfo.version < 1.43;
+    this._useLegacyCLIDriver = playwrightInfo.version < 1.44;
     this._playwrightTest =  this._useLegacyCLIDriver ? new PlaywrightTestCLI(vscode, this, options) : new PlaywrightTestServer(vscode, this, options);
     this._didUpdate = new vscode.EventEmitter();
     this.onUpdated = this._didUpdate.event;
