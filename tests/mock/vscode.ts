@@ -836,7 +836,7 @@ export class VSCode {
   readonly fsWatchers = new Set<FileSystemWatcher>();
   readonly warnings: string[] = [];
   readonly errors: string[] = [];
-  readonly context: { subscriptions: any[]; extensionUri: Uri; };
+  readonly context: { subscriptions: any[]; extensionUri: Uri; workspaceState: any };
   readonly extensions: any[] = [];
   private _webviewProviders = new Map<string, any>();
   private _browser: Browser;
@@ -850,7 +850,12 @@ export class VSCode {
 
   constructor(readonly versionNumber: number, baseDir: string, browser: Browser) {
     this.version = String(versionNumber);
-    this.context = { subscriptions: [], extensionUri: Uri.file(baseDir) };
+    const workspaceStateStorage = new Map();
+    const workspaceState = {
+      get: (key: string) => workspaceStateStorage.get(key),
+      update: (key: string, value: any) => workspaceStateStorage.set(key, value)
+    };
+    this.context = { subscriptions: [], extensionUri: Uri.file(baseDir), workspaceState };
     this._browser = browser;
     (globalThis as any).__logForTest = message => this.connectionLog.push(message);
     const commands = new Map<string, () => Promise<void>>();
@@ -989,7 +994,6 @@ export class VSCode {
       'playwright.env': {},
       'playwright.reuseBrowser': false,
       'playwright.showTrace': false,
-      'playwright.workspaceSettings': {},
     };
     this.workspace.getConfiguration = scope => {
       return {
@@ -1011,7 +1015,7 @@ export class VSCode {
 
   async activate() {
     for (const extension of this.extensions)
-      await extension.activate(this.context);
+      await extension.activate();
 
     for (const [name, provider] of this._webviewProviders) {
       const webview: any = {};

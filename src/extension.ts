@@ -43,11 +43,12 @@ type StepInfo = {
 
 export async function activate(context: vscodeTypes.ExtensionContext) {
   // Do not await, quickly run the extension, schedule work.
-  new Extension(require('vscode')).activate(context);
+  new Extension(require('vscode'), context).activate();
 }
 
 export class Extension implements RunHooks {
   private _vscode: vscodeTypes.VSCode;
+  private _context: vscodeTypes.ExtensionContext;
   private _disposables: vscodeTypes.Disposable[] = [];
 
   // Global test item map.
@@ -77,8 +78,9 @@ export class Extension implements RunHooks {
   private _commandQueue = Promise.resolve();
   overridePlaywrightVersion: number | null = null;
 
-  constructor(vscode: vscodeTypes.VSCode) {
+  constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     this._vscode = vscode;
+    this._context = context;
     this._isUnderTest = !!(this._vscode as any).isUnderTest;
     this._activeStepDecorationType = this._vscode.window.createTextEditorDecorationType({
       isWholeLine: true,
@@ -98,7 +100,7 @@ export class Extension implements RunHooks {
     });
 
     this._settingsModel = new SettingsModel(vscode);
-    this._models = new TestModelCollection(vscode, this._settingsModel);
+    this._models = new TestModelCollection(vscode, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._traceViewer = new TraceViewer(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
@@ -135,9 +137,9 @@ export class Extension implements RunHooks {
       d?.dispose?.();
   }
 
-  async activate(context: vscodeTypes.ExtensionContext) {
+  async activate() {
     const vscode = this._vscode;
-    this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, context.extensionUri);
+    this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, this._context.extensionUri);
     const messageNoPlaywrightTestsFound = this._vscode.l10n.t('No Playwright tests found.');
     this._disposables = [
       this._debugHighlight,
@@ -248,7 +250,7 @@ export class Extension implements RunHooks {
     fileSystemWatchers.map(w => w.onDidChange(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidCreate(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidDelete(rebuildModelForConfig));
-    context.subscriptions.push(this);
+    this._context.subscriptions.push(this);
   }
 
   private async _rebuildModels(userGesture: boolean): Promise<vscodeTypes.Uri[]> {

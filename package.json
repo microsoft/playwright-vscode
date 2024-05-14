@@ -114,10 +114,6 @@
           "type": "boolean",
           "default": false,
           "description": "%configuration.playwright.showTrace%"
-        },
-        "playwright.workspaceSettings": {
-          "type": "object",
-          "default": {}
         }
       }
     },

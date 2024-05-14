@@ -40,7 +40,6 @@ export class SettingsModel extends DisposableBase {
   private _onChange: vscodeTypes.EventEmitter<void>;
   showBrowser: Setting<boolean>;
   showTrace: Setting<boolean>;
-  workspaceSettings: Setting<WorkspaceSettings>;
 
   constructor(vscode: vscodeTypes.VSCode) {
     super();
@@ -50,7 +49,6 @@ export class SettingsModel extends DisposableBase {
 
     this.showBrowser = this._createSetting('reuseBrowser');
     this.showTrace = this._createSetting('showTrace');
-    this.workspaceSettings = this._createSetting('workspaceSettings', true);
 
     this.showBrowser.onChange(enabled => {
       if (enabled && this.showTrace.get())
@@ -62,8 +60,8 @@ export class SettingsModel extends DisposableBase {
     });
   }
 
-  private _createSetting<T>(settingName: string, perWorkspace = false): Setting<T> {
-    const setting = new Setting<T>(this._vscode, settingName, perWorkspace);
+  private _createSetting<T>(settingName: string): Setting<T> {
+    const setting = new Setting<T>(this._vscode, settingName);
     this._disposables.push(setting);
     this._disposables.push(setting.onChange(() => this._onChange.fire()));
     this._settings.set(settingName, setting);
@@ -83,13 +81,11 @@ export class Setting<T> extends DisposableBase {
   readonly onChange: vscodeTypes.Event<T>;
   private _onChange: vscodeTypes.EventEmitter<T>;
   private _vscode: vscodeTypes.VSCode;
-  private _perWorkspace: boolean;
 
-  constructor(vscode: vscodeTypes.VSCode, settingName: string, perWorkspace: boolean) {
+  constructor(vscode: vscodeTypes.VSCode, settingName: string) {
     super();
     this._vscode = vscode;
     this.settingName = settingName;
-    this._perWorkspace = perWorkspace;
     this._onChange = new vscode.EventEmitter<T>();
     this.onChange = this._onChange.event;
 
@@ -112,12 +108,6 @@ export class Setting<T> extends DisposableBase {
 
   async set(value: T) {
     const configuration = this._vscode.workspace.getConfiguration('playwright');
-    if (this._perWorkspace) {
-      // These are not dispatched :shrug:
-      configuration.update(this.settingName, value, false);
-      this._onChange.fire(value);
-      return;
-    }
     const existsInWorkspace = configuration.inspect(this.settingName)?.workspaceValue !== undefined;
     if (existsInWorkspace)
       configuration.update(this.settingName, value, false);

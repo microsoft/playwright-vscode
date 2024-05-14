@@ -135,7 +135,7 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
       if (showBrowser)
         configuration.update('reuseBrowser', true);
 
-      const extension = new Extension(vscode);
+      const extension = new Extension(vscode, vscode.context);
       if (overridePlaywrightVersion)
         extension.overridePlaywrightVersion = overridePlaywrightVersion;
 
