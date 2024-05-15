@@ -588,11 +588,11 @@ export class TestModelCollection extends DisposableBase {
   private _selectedConfigFile: string | undefined;
   private _didUpdate: vscodeTypes.EventEmitter<void>;
   readonly onUpdated: vscodeTypes.Event<void>;
-  private _settingsModel: SettingsModel;
+  private _context: vscodeTypes.ExtensionContext;
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel) {
+  constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     super();
-    this._settingsModel = settingsModel;
+    this._context = context;
     this._didUpdate = new vscode.EventEmitter();
     this.onUpdated = this._didUpdate.event;
   }
@@ -635,7 +635,7 @@ export class TestModelCollection extends DisposableBase {
 
   async addModel(model: TestModel) {
     this._models.push(model);
-    const workspaceSettings = this._settingsModel.workspaceSettings.get();
+    const workspaceSettings = this._context.workspaceState.get(workspaceStateKey) as WorkspaceSettings || {};
     const configSettings = (workspaceSettings.configs || []).find(c => c.relativeConfigFile === path.relative(model.config.workspaceFolder, model.config.configFile));
     model.isEnabled = configSettings?.enabled || (this._models.length === 1 && !configSettings);
     await this._loadModelIfNeeded(model);
@@ -652,7 +652,7 @@ export class TestModelCollection extends DisposableBase {
     if (!model.isEnabled)
       return;
     await model._listFiles();
-    const workspaceSettings = this._settingsModel.workspaceSettings.get();
+    const workspaceSettings = this._context.workspaceState.get(workspaceStateKey) as WorkspaceSettings || {};
     const configSettings = (workspaceSettings.configs || []).find(c => c.relativeConfigFile === path.relative(model.config.workspaceFolder, model.config.configFile));
     if (configSettings) {
       let firstProject = true;
@@ -727,7 +727,7 @@ export class TestModelCollection extends DisposableBase {
         projects: model.projects().map(p => ({ name: p.name, enabled: p.isEnabled })),
       });
     }
-    this._settingsModel.workspaceSettings.set(workspaceSettings);
+    this._context.workspaceState.update(workspaceStateKey, workspaceSettings);
   }
 }
 
@@ -737,6 +737,8 @@ export function projectFiles(project: TestProject): Map<string, reporterTypes.Su
     files.set(fileSuite.location!.file, fileSuite);
   return files;
 }
+
+const workspaceStateKey = 'pw.workspace-settings';
 
 const listFilesFlag = Symbol('listFilesFlag');
 
