@@ -1150,7 +1150,7 @@ test('should run tests for folders above root', async ({ activate }) => {
   `);
 });
 
-test('should produce output twice', async ({ activate }) => {
+test('should produce output twice', async ({ activate, overridePlaywrightVersion }) => {
   const { testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: 'tests',
@@ -1168,12 +1168,13 @@ test('should produce output twice', async ({ activate }) => {
   expect(testItems.length).toBe(1);
 
   const testRun1 = await testController.run(testItems);
+  const runningGlobalSetup = overridePlaywrightVersion ? '' : '\n    Running global setup if any…';
   expect(testRun1.renderLog({ output: true })).toBe(`
     tests > test.spec.ts > one [2:0]
       enqueued
       started
       passed
-    Output:
+    Output:${runningGlobalSetup}
 
     Running 1 test using 1 worker
 

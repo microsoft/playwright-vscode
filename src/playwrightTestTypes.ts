@@ -29,6 +29,7 @@ export type PlaywrightTestRunOptions = {
   headed?: boolean;
   workers?: string | number;
   trace?: 'on' | 'off';
+  video?: 'on' | 'off';
   reuseContext?: boolean;
   connectWsEndpoint?: string;
 };

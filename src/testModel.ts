@@ -468,19 +468,24 @@ export class TestModel {
     const showBrowser = this._options.settingsModel.showBrowser.get() && !!externalOptions.connectWsEndpoint;
 
     let trace: 'on' | 'off' | undefined;
+    let video: 'on' | 'off' | undefined;
+
     if (this._options.settingsModel.showTrace.get())
       trace = 'on';
     // "Show browser" mode forces context reuse that survives over multiple test runs.
     // Playwright Test sets up `tracesDir` inside the `test-results` folder, so it will be removed between runs.
     // When context is reused, its ongoing tracing will fail with ENOENT because trace files
     // were suddenly removed. So we disable tracing in this case.
-    if (this._options.settingsModel.showBrowser.get())
+    if (this._options.settingsModel.showBrowser.get()) {
       trace = 'off';
+      video = 'off';
+    }
 
     const options: PlaywrightTestRunOptions = {
       headed: showBrowser && !this._options.isUnderTest,
       workers: showBrowser ? 1 : undefined,
       trace,
+      video,
       reuseContext: showBrowser,
       connectWsEndpoint: showBrowser ? externalOptions.connectWsEndpoint : undefined,
     };
@@ -501,6 +506,7 @@ export class TestModel {
     const options: PlaywrightTestRunOptions = {
       headed: !this._options.isUnderTest,
       workers: 1,
+      video: 'off',
       trace: 'off',
       reuseContext: false,
       connectWsEndpoint: externalOptions.connectWsEndpoint,
