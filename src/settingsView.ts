@@ -262,6 +262,8 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           <span id="configToolbar"></span>
         </div>
       </div>
+      <div class="section-header">${vscode.l10n.t('PROJECTS')}</div>
+      <div data-testid="projects" id="projects" class="list"></div>
       <div class="section-header">${vscode.l10n.t('SETTINGS')}</div>
       <div class="list">
         <div>
@@ -279,8 +281,6 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       </div>
       <div class="section-header">${vscode.l10n.t('TOOLS')}</div>
       <div id="actions" class="list"></div>
-      <div class="section-header">${vscode.l10n.t('PROJECTS')}</div>
-      <div data-testid="projects" id="projects" class="list"></div>
       <div class="section-header">${vscode.l10n.t('SETUP')}</div>
       <div id="rareActions" class="list"></div>
     </body>
