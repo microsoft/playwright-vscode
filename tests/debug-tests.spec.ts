@@ -141,3 +141,39 @@ test('should debug error', async ({ activate }, testInfo) => {
 
   testRun.token.source.cancel();
 });
+
+test('should end test run when stopping the debugging', async ({ activate }, testInfo) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should fail', async () => {
+        // Simulate breakpoint via stalling.
+        console.log('READY TO BREAK');
+        await new Promise(() => {});
+      });
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/fail/);
+
+  const profile = testController.debugProfile();
+  const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
+  profile.run(testItems);
+  const testRun = await testRunPromise;
+  await expect.poll(() => vscode.debug.output).toContain('READY TO BREAK');
+
+  const endPromise = new Promise(f => testRun.onDidEnd(f));
+  vscode.debug.stopDebugging();
+  await endPromise;
+
+  expect(testRun.renderLog({ messages: true })).toBe(`
+    tests > test.spec.ts > should fail [2:0]
+      enqueued
+      enqueued
+      started
+  `);
+
+  testRun.token.source.cancel();
+});

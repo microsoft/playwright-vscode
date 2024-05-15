@@ -120,6 +120,7 @@ export class PlaywrightTestServer {
     try {
       if (type === 'setup') {
         const { report, status } = await testServer.runGlobalSetup({});
+        testListener.onStdOut?.('\x1b[2mRunning global setup if any\u2026\x1b[0m\n');
         for (const message of report)
           teleReceiver.dispatch(message);
         return status;
@@ -189,7 +190,6 @@ export class PlaywrightTestServer {
   }
 
   async debugTests(items: vscodeTypes.TestItem[], runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
-    const configFolder = path.dirname(this._model.config.configFile);
     const configFile = path.basename(this._model.config.configFile);
     const args = ['test-server', '-c', configFile];
 
@@ -212,7 +212,7 @@ export class PlaywrightTestServer {
         type: 'pwa-node',
         name: debugSessionName,
         request: 'launch',
-        cwd: configFolder,
+        cwd: this._model.config.workspaceFolder,
         env: {
           ...process.env,
           CI: this._options.isUnderTest ? undefined : process.env.CI,
@@ -330,15 +330,21 @@ export class PlaywrightTestServer {
       resolvePath: (rootDir: string, relativePath: string) => this._vscode.Uri.file(path.join(rootDir, relativePath)).fsPath,
     });
     return new Promise<void>(resolve => {
-      const disposable = testServer.onReport(message => {
-        if (token.isCancellationRequested && message.method !== 'onEnd')
-          return;
-        teleReceiver.dispatch(message);
-        if (message.method === 'onEnd') {
-          disposable.dispose();
+      const disposables = [
+        testServer.onReport(message => {
+          if (token.isCancellationRequested && message.method !== 'onEnd')
+            return;
+          teleReceiver.dispatch(message);
+          if (message.method === 'onEnd') {
+            disposables.forEach(d => d.dispose());
+            resolve();
+          }
+        }),
+        testServer.onClose(() => {
+          disposables.forEach(d => d.dispose());
           resolve();
-        }
-      });
+        }),
+      ];
     });
   }
 

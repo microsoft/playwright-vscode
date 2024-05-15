@@ -19,7 +19,7 @@ import glob from 'glob';
 import path from 'path';
 import { Disposable, EventEmitter, Event } from '../../src/upstream/events';
 import minimatch from 'minimatch';
-import { spawn } from 'child_process';
+import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import which from 'which';
 import { Browser, Page } from '@playwright/test';
 import { CancellationToken } from '../../src/vscodeTypes';
@@ -640,6 +640,7 @@ class Debug {
   output = '';
   dapFactories: any[] = [];
   private _dapSniffer: any;
+  private _debuggerProcess: ChildProcessWithoutNullStreams;
 
   constructor() {
   }
@@ -654,13 +655,13 @@ class Debug {
       this._dapSniffer = factory.createDebugAdapterTracker(session);
     this._didStartDebugSession.fire(session);
     const node = await which('node');
-    const subprocess = spawn(node, [configuration.program, ...configuration.args], {
+    this._debuggerProcess = spawn(node, [configuration.program, ...configuration.args], {
       cwd: configuration.cwd,
       stdio: 'pipe',
       env: configuration.env,
     });
 
-    subprocess.stdout.on('data', data => {
+    this._debuggerProcess.stdout.on('data', data => {
       this.output += data.toString();
       this._dapSniffer.onDidSendMessage({
         type: 'event',
@@ -671,8 +672,12 @@ class Debug {
         }
       });
     });
-    subprocess.stderr.on('data', data => this.output += data.toString());
+    this._debuggerProcess.stderr.on('data', data => this.output += data.toString());
     return true;
+  }
+
+  stopDebugging() {
+    this._debuggerProcess.kill();
   }
 
   simulateStoppedOnError(error: string, location: { file: string; line: number; }) {
