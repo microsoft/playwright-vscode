@@ -33,17 +33,21 @@ export type WorkspaceSettings = {
   configs?: ConfigSettings[];
 };
 
+export const workspaceStateKey = 'pw.workspace-settings';
+
 export class SettingsModel extends DisposableBase {
   private _vscode: vscodeTypes.VSCode;
   private _settings = new Map<string, Setting<any>>();
+  private _context: vscodeTypes.ExtensionContext;
   readonly onChange: vscodeTypes.Event<void>;
   private _onChange: vscodeTypes.EventEmitter<void>;
   showBrowser: Setting<boolean>;
   showTrace: Setting<boolean>;
 
-  constructor(vscode: vscodeTypes.VSCode) {
+  constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     super();
     this._vscode = vscode;
+    this._context = context;
     this._onChange = new vscode.EventEmitter();
     this.onChange = this._onChange.event;
 
@@ -58,6 +62,16 @@ export class SettingsModel extends DisposableBase {
       if (enabled && this.showBrowser.get())
         this.showBrowser.set(false);
     });
+
+    this._modernize();
+  }
+
+  private _modernize() {
+    const workspaceSettings = this._vscode.workspace.getConfiguration('playwright').get('workspaceSettings') as any;
+    if (workspaceSettings?.configs && !this._context.workspaceState.get(workspaceStateKey)) {
+      this._context.workspaceState.update(workspaceStateKey, { configs: workspaceSettings.configs });
+      this._vscode.workspace.getConfiguration('playwright').update('workspaceSettings', undefined);
+    }
   }
 
   private _createSetting<T>(settingName: string): Setting<T> {

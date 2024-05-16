@@ -20,6 +20,7 @@ import { resolveSourceMap } from './utils';
 import { ConfigListFilesReport, ProjectConfigWithFiles } from './listTests';
 import * as reporterTypes from './upstream/reporter';
 import { TeleSuite } from './upstream/teleReceiver';
+import { workspaceStateKey } from './settingsModel';
 import type { SettingsModel, WorkspaceSettings } from './settingsModel';
 import path from 'path';
 import { DisposableBase } from './disposableBase';
@@ -743,8 +744,6 @@ export function projectFiles(project: TestProject): Map<string, reporterTypes.Su
     files.set(fileSuite.location!.file, fileSuite);
   return files;
 }
-
-const workspaceStateKey = 'pw.workspace-settings';
 
 const listFilesFlag = Symbol('listFilesFlag');
 
