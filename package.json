@@ -94,8 +94,22 @@
         "category": "Test",
         "command": "pw.extension.command.clearCache",
         "title": "%contributes.command.pw.extension.command.clearCache%"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.command.openTrace",
+        "title": "Open playwright trace"
       }
     ],
+    "menus": {
+      "explorer/context": [
+        {
+          "when": "resourceExtname == .zip",
+          "command": "pw.extension.command.openTrace",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "title": "Playwright",
       "properties": {

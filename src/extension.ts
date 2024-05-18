@@ -208,6 +208,9 @@ export class Extension implements RunHooks {
       vscode.commands.registerCommand('pw.extension.command.clearCache', async () => {
         await this._models.selectedModel()?.clearCache();
       }),
+      vscode.commands.registerCommand('pw.extension.command.openTrace', async (file: vscodeTypes.Uri) => {
+        this._fileSelected(file);
+      }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
           this._completedSteps.clear();
@@ -762,6 +765,14 @@ export class Extension implements RunHooks {
     const testModel = this._models.selectedModel();
     if (testModel)
       this._traceViewer.open(traceUrl, testModel.config);
+  }
+
+  private _fileSelected(file?: vscodeTypes.Uri) {
+    if (!file)
+      return;
+    const testModel = this._models.selectedModel();
+    if (testModel)
+      this._traceViewer.open(file.fsPath, testModel.config);
   }
 
   private _queueCommand<T>(callback: () => Promise<T>, defaultValue: T): Promise<T> {

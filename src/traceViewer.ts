@@ -20,11 +20,79 @@ import { SettingsModel } from './settingsModel';
 import { findNode } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
+class TraceViewerView implements vscodeTypes.Disposable {
+
+  public static readonly viewType = 'playwright.traceviewer.view';
+
+  private readonly _webviewPanel: vscodeTypes.WebviewPanel;
+  private _disposables: vscodeTypes.Disposable[] = [];
+
+  public static create(
+    vscode: vscodeTypes.VSCode,
+    url: string
+  ): TraceViewerView {
+    const webview = vscode.window.createWebviewPanel(TraceViewerView.viewType, 'Trace Viewer', {
+      viewColumn: vscode.ViewColumn.Active,
+    }, {
+      retainContextWhenHidden: true,
+      enableScripts: true,
+      enableForms: true,
+    });
+    return new TraceViewerView(url, webview);
+  }
+
+  constructor(
+    url: string,
+    webviewPanel: vscodeTypes.WebviewPanel,
+  ) {
+    this._webviewPanel = this._register(webviewPanel);
+
+    this._register(this._webviewPanel.onDidDispose(() => {
+      this.dispose();
+    }));
+
+    this.show(url);
+  }
+
+  public dispose() {
+    for (const disposable of this._disposables)
+      disposable.dispose();
+    this._disposables.length = 0;
+  }
+
+  public show(url: string) {
+    this._webviewPanel.webview.html = this.getHtml(url);
+    this._webviewPanel.reveal();
+  }
+
+  private getHtml(url: string) {
+    return /* html */ `<!DOCTYPE html>
+			<html>
+			<head>
+				<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+        <style>
+          html, body { height: 100%; min-height: 100%; padding: 0; margin: 0; }
+          iframe { width: 100%; height: 100%; border: none; }
+        </style>
+			</head>
+			<body>
+        <iframe id="traceviewer" src="${url}"></iframe>
+			</body>
+			</html>`;
+  }
+
+  private _register<T extends vscodeTypes.Disposable>(value: T): T {
+    this._disposables.push(value);
+    return value;
+  }
+}
+
 export class TraceViewer implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
   private _envProvider: () => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
   private _traceViewerProcess: ChildProcess | undefined;
+  private _traceViewerUrl: string | undefined;
   private _settingsModel: SettingsModel;
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
@@ -69,6 +137,10 @@ export class TraceViewer implements vscodeTypes.Disposable {
     if (this._vscode.env.remoteName) {
       allArgs.push('--host', '0.0.0.0');
       allArgs.push('--port', '0');
+    } else {
+      allArgs.push('--server-only');
+      const themeKind = this._vscode.window.activeColorTheme.kind;
+      allArgs.push('--theme', themeKind === 2 || themeKind === 3  ? 'dark' : 'ligth');
     }
     const traceViewerProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
@@ -81,7 +153,15 @@ export class TraceViewer implements vscodeTypes.Disposable {
     });
     this._traceViewerProcess = traceViewerProcess;
 
-    traceViewerProcess.stdout?.on('data', data => console.log(data.toString()));
+    traceViewerProcess.stdout?.on('data', data => {
+      if (!this._vscode.env.remoteName && !this._traceViewerUrl) {
+        const url = data.toString().split('\n')[0];
+        if (!url) return;
+        this._traceViewerUrl = url;
+        this._maybeOpenEmbeddedTraceViewer();
+      }
+      console.log(data.toString());
+    });
     traceViewerProcess.stderr?.on('data', data => console.log(data.toString()));
     traceViewerProcess.on('exit', () => {
       this._traceViewerProcess = undefined;
@@ -90,6 +170,11 @@ export class TraceViewer implements vscodeTypes.Disposable {
       this._vscode.window.showErrorMessage(error.message);
       this.close().catch(() => {});
     });
+  }
+
+  private _maybeOpenEmbeddedTraceViewer() {
+    if (!this._traceViewerUrl) return;
+    this._disposables.push(TraceViewerView.create(this._vscode, this._traceViewerUrl));
   }
 
   private _checkVersion(
