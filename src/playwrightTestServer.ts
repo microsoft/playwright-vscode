@@ -192,7 +192,7 @@ export class PlaywrightTestServer {
   async debugTests(items: vscodeTypes.TestItem[], runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     // Important, VSCode will change c:\\ to C:\\ in the program argument.
     // This forks globals into 2 worlds.
-    const configFile = path.resolve(this._model.config.workspaceFolder, this._model.config.configFile);
+    const configFile = path.relative(this._model.config.workspaceFolder, this._model.config.configFile);
     const args = ['test-server', '-c', configFile];
 
     const addressPromise = new Promise<string>(f => {
