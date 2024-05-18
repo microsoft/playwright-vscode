@@ -27,34 +27,32 @@ class TraceViewerView implements vscodeTypes.Disposable {
   private readonly _webviewPanel: vscodeTypes.WebviewPanel;
   private _disposables: vscodeTypes.Disposable[] = [];
 
-  public static create(
+  private readonly _onDidDispose: vscodeTypes.EventEmitter<void>;
+  public readonly onDispose: vscodeTypes.Event<void>;
+
+  constructor(
     vscode: vscodeTypes.VSCode,
     url: string
-  ): TraceViewerView {
-    const webview = vscode.window.createWebviewPanel(TraceViewerView.viewType, 'Trace Viewer', {
+  ) {
+    this._webviewPanel = this._register(vscode.window.createWebviewPanel(TraceViewerView.viewType, 'Trace Viewer', {
       viewColumn: vscode.ViewColumn.Active,
+      preserveFocus: true,
     }, {
       retainContextWhenHidden: true,
       enableScripts: true,
       enableForms: true,
-    });
-    return new TraceViewerView(url, webview);
-  }
-
-  constructor(
-    url: string,
-    webviewPanel: vscodeTypes.WebviewPanel,
-  ) {
-    this._webviewPanel = this._register(webviewPanel);
-
+    }));
     this._register(this._webviewPanel.onDidDispose(() => {
       this.dispose();
     }));
+    this._onDidDispose = this._register(new vscode.EventEmitter<void>());
+    this.onDispose = this._onDidDispose.event;
 
     this.show(url);
   }
 
   public dispose() {
+    this._onDidDispose.fire();
     for (const disposable of this._disposables)
       disposable.dispose();
     this._disposables.length = 0;
@@ -62,7 +60,7 @@ class TraceViewerView implements vscodeTypes.Disposable {
 
   public show(url: string) {
     this._webviewPanel.webview.html = this.getHtml(url);
-    this._webviewPanel.reveal();
+    this._webviewPanel.reveal(undefined, true);
   }
 
   private getHtml(url: string) {
@@ -93,6 +91,7 @@ export class TraceViewer implements vscodeTypes.Disposable {
   private _disposables: vscodeTypes.Disposable[] = [];
   private _traceViewerProcess: ChildProcess | undefined;
   private _traceViewerUrl: string | undefined;
+  private _traceViewerView: TraceViewerView | undefined;
   private _settingsModel: SettingsModel;
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
@@ -120,6 +119,7 @@ export class TraceViewer implements vscodeTypes.Disposable {
       return;
     await this._startIfNeeded(config);
     this._traceViewerProcess?.stdin?.write(file + '\n');
+    this._maybeOpenEmbeddedTraceViewer();
   }
 
   dispose() {
@@ -165,6 +165,7 @@ export class TraceViewer implements vscodeTypes.Disposable {
     traceViewerProcess.stderr?.on('data', data => console.log(data.toString()));
     traceViewerProcess.on('exit', () => {
       this._traceViewerProcess = undefined;
+      this._traceViewerUrl = undefined;
     });
     traceViewerProcess.on('error', error => {
       this._vscode.window.showErrorMessage(error.message);
@@ -173,8 +174,12 @@ export class TraceViewer implements vscodeTypes.Disposable {
   }
 
   private _maybeOpenEmbeddedTraceViewer() {
-    if (!this._traceViewerUrl) return;
-    this._disposables.push(TraceViewerView.create(this._vscode, this._traceViewerUrl));
+    if (this._traceViewerView || !this._traceViewerUrl) return;
+    this._traceViewerView = new TraceViewerView(this._vscode, this._traceViewerUrl);
+    this._traceViewerView.onDispose(() => {
+      this._traceViewerView = undefined;
+    });
+    this._disposables.push(this._traceViewerView);
   }
 
   private _checkVersion(
