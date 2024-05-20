@@ -15,7 +15,7 @@
  */
 
 import { expect, test, escapedPathSep } from './utils';
-import { TestRun, DebugSession } from './mock/vscode';
+import { TestRun, DebugSession, stripAnsi } from './mock/vscode';
 
 test('should debug all tests', async ({ activate }) => {
   const { vscode } = await activate({
@@ -56,6 +56,7 @@ test('should debug all tests', async ({ activate }) => {
         testIds: undefined
       })
     },
+    { method: 'runGlobalTeardown', params: {} },
   ]);
 });
 
@@ -101,6 +102,7 @@ test('should debug one test', async ({ activate }) => {
         testIds: [expect.any(String)]
       })
     },
+    { method: 'runGlobalTeardown', params: {} },
   ]);
 });
 
@@ -198,4 +200,53 @@ test('should pass all args as string[] when debugging', async ({ activate }) => 
   const session = await onDidStartDebugSession;
   expect(session.configuration.args.filter(arg => typeof arg !== 'string')).toEqual([]);
   await onDidTerminateDebugSession;
+});
+
+test('should run global setup before debugging', async ({ activate }, testInfo) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {
+      testDir: 'tests',
+      globalSetup: 'globalSetup.ts',
+      globalTeardown: 'globalTeardown.ts',
+    }`,
+    'globalSetup.ts': `
+      async function globalSetup(config: FullConfig) {
+        console.log('RUN GLOBAL SETUP');
+        process.env.MAGIC_NUMBER = '42';
+      }
+      export default globalSetup;
+    `,
+    'globalTeardown.ts': `
+      async function globalTeardown(config: FullConfig) {
+        console.log('RUN GLOBAL TEARDOWN');
+        delete process.env.MAGIC_NUMBER;
+      }
+      export default globalTeardown;
+    `,
+    'tests/test.spec.ts': `
+      import { test, expect } from '@playwright/test';
+      test('should pass', async () => {
+        console.log('MAGIC NUMBER: ' + process.env.MAGIC_NUMBER);
+        expect(process.env.MAGIC_NUMBER).toBe('42');
+      });
+    `
+  });
+
+  const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/pass/);
+  const profile = testController.debugProfile();
+  await profile.run(testItems);
+  const testRun = await testRunPromise;
+  expect(testRun.renderLog({ messages: true })).toBe(`
+    tests > test.spec.ts > should pass [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+
+  await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`RUN GLOBAL SETUP`);
+  await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`MAGIC NUMBER: 42`);
+  await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`RUN GLOBAL TEARDOWN`);
 });
