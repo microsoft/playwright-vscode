@@ -633,8 +633,8 @@ type DebugConfiguration  = {
 };
 
 class Debug {
-  private _didStartDebugSession = new EventEmitter();
-  private _didTerminateDebugSession = new EventEmitter();
+  private _didStartDebugSession = new EventEmitter<DebugSession>();
+  private _didTerminateDebugSession = new EventEmitter<DebugSession>();
   readonly onDidStartDebugSession = this._didStartDebugSession.event;
   readonly onDidTerminateDebugSession = this._didTerminateDebugSession.event;
   output = '';
@@ -673,6 +673,7 @@ class Debug {
       });
     });
     this._debuggerProcess.stderr.on('data', data => this.output += data.toString());
+    this._debuggerProcess.on('exit', () => this._didTerminateDebugSession.fire(session));
     return true;
   }
 
@@ -716,7 +717,7 @@ class Debug {
   }
 }
 
-class DebugSession {
+export class DebugSession {
   constructor(
     readonly id: string,
     readonly type: string,

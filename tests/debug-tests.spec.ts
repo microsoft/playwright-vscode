@@ -15,7 +15,7 @@
  */
 
 import { expect, test, escapedPathSep } from './utils';
-import { TestRun } from './mock/vscode';
+import { TestRun, DebugSession } from './mock/vscode';
 
 test('should debug all tests', async ({ activate }) => {
   const { vscode } = await activate({
@@ -176,4 +176,26 @@ test('should end test run when stopping the debugging', async ({ activate }, tes
   `);
 
   testRun.token.source.cancel();
+});
+
+test('should pass all args as string[] when debugging', async ({ activate }) => {
+  test.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/30829' });
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('pass', () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/pass/);
+
+  const profile = testController.debugProfile();
+  const onDidStartDebugSession = new Promise<DebugSession>(resolve => vscode.debug.onDidStartDebugSession(resolve));
+  const onDidTerminateDebugSession = new Promise(resolve => vscode.debug.onDidTerminateDebugSession(resolve));
+  profile.run(testItems);
+  const session = await onDidStartDebugSession;
+  expect(session.configuration.args.filter(arg => typeof arg !== 'string')).toEqual([]);
+  await onDidTerminateDebugSession;
 });

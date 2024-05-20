@@ -153,7 +153,7 @@ export class PlaywrightTestCLI {
       return;
     const testDirs = this._model.enabledProjects().map(p => p.project.testDir);
     const escapedLocations = locations.map(escapeRegex);
-    const args = ['test',
+    const args: string[] = ['test',
       '-c', configFile,
       ...escapedLocations,
       options.headed ? '--headed' : '',
@@ -161,7 +161,7 @@ export class PlaywrightTestCLI {
       '--repeat-each', '1',
       '--retries', '0',
       '--timeout', '0',
-      '--workers', options.workers,
+      '--workers', String(options.workers),
     ].filter(Boolean);
     if (parametrizedTestTitle)
       args.push(`--grep=${escapeRegex(parametrizedTestTitle)}`);

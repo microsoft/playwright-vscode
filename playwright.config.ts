@@ -44,14 +44,14 @@ const config: PlaywrightTestConfig<WorkerOptions> = {
     {
       name: 'legacy',
       use: {
-        overridePlaywrightVersion: 1.42,
+        overridePlaywrightVersion: 1.43,
         showBrowser: false,
       }
     },
     {
       name: 'legacy-reuse',
       use: {
-        overridePlaywrightVersion: 1.42,
+        overridePlaywrightVersion: 1.43,
         showBrowser: true,
       }
     },
