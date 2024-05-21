@@ -104,7 +104,10 @@ export class PlaywrightTestServer {
     const testServer = await this._testServer();
     if (!testServer)
       return 'failed';
+    return await this._runGlobalHooksInServer(testServer, type, testListener);
+  }
 
+  private async _runGlobalHooksInServer(testServer: TestServerConnection, type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
     const teleReceiver = new TeleReporterReceiver(testListener, {
       mergeProjects: true,
       mergeTestCases: true,
@@ -119,8 +122,8 @@ export class PlaywrightTestServer {
 
     try {
       if (type === 'setup') {
-        const { report, status } = await testServer.runGlobalSetup({});
         testListener.onStdOut?.('\x1b[2mRunning global setup if any\u2026\x1b[0m\n');
+        const { report, status } = await testServer.runGlobalSetup({});
         for (const message of report)
           teleReceiver.dispatch(message);
         return status;
@@ -207,7 +210,7 @@ export class PlaywrightTestServer {
 
     const testDirs = this._model.enabledProjects().map(project => project.project.testDir);
 
-    let testServer: TestServerConnection | undefined;
+    let debugTestServer: TestServerConnection | undefined;
     let disposable: vscodeTypes.Disposable | undefined;
     try {
       await this._vscode.debug.startDebugging(undefined, {
@@ -233,8 +236,8 @@ export class PlaywrightTestServer {
       if (token?.isCancellationRequested)
         return;
       const address = await addressPromise;
-      testServer = new TestServerConnection(address);
-      await testServer.initialize({
+      debugTestServer = new TestServerConnection(address);
+      await debugTestServer.initialize({
         serializer: require.resolve('./oopReporter'),
         closeOnDisconnect: true,
       });
@@ -245,6 +248,12 @@ export class PlaywrightTestServer {
       if (!locations && !testIds)
         return;
 
+      const result = await this._runGlobalHooksInServer(debugTestServer, 'setup', reporter);
+      if (result !== 'passed')
+        return;
+      if (token?.isCancellationRequested)
+        return;
+
       // Locations are regular expressions.
       const locationPatterns = locations ? locations.map(escapeRegex) : undefined;
       const options: Parameters<TestServerInterface['runTests']>['0'] = {
@@ -253,22 +262,24 @@ export class PlaywrightTestServer {
         testIds,
         ...runOptions,
       };
-      testServer.runTests(options);
+      debugTestServer.runTests(options);
 
       token.onCancellationRequested(() => {
-        testServer!.stopTestsNoReply({});
+        debugTestServer!.stopTestsNoReply({});
       });
-      disposable = testServer.onStdio(params => {
+      disposable = debugTestServer.onStdio(params => {
         if (params.type === 'stdout')
           reporter.onStdOut?.(unwrapString(params));
         if (params.type === 'stderr')
           reporter.onStdErr?.(unwrapString(params));
       });
-      const testEndPromise = this._wireTestServer(testServer, reporter, token);
+      const testEndPromise = this._wireTestServer(debugTestServer, reporter, token);
       await testEndPromise;
     } finally {
       disposable?.dispose();
-      testServer?.close();
+      if (!token.isCancellationRequested && debugTestServer && !debugTestServer.isClosed())
+        await this._runGlobalHooksInServer(debugTestServer, 'teardown', reporter);
+      debugTestServer?.close();
       await this._options.runHooks.onDidRunTests(true);
     }
   }

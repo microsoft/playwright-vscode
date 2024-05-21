@@ -418,6 +418,8 @@ export class TestModel {
   }
 
   async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2): Promise<reporterTypes.FullResult['status']> {
+    if (!this.canRunGlobalHooks(type))
+      return 'passed';
     if (type === 'setup') {
       if (this._ranGlobalSetup)
         return 'passed';
@@ -465,6 +467,14 @@ export class TestModel {
   async runTests(items: vscodeTypes.TestItem[], reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
     if (token?.isCancellationRequested)
       return;
+
+    // Run global setup with the first test.
+    let globalSetupResult: reporterTypes.FullResult['status'] = 'passed';
+    if (this.canRunGlobalHooks('setup'))
+      globalSetupResult = await this.runGlobalHooks('setup', reporter);
+    if (globalSetupResult !== 'passed')
+      return;
+
     const externalOptions = await this._options.runHooks.onWillRunTests(this.config, false);
     const showBrowser = this._options.settingsModel.showBrowser.get() && !!externalOptions.connectWsEndpoint;
 
@@ -503,6 +513,12 @@ export class TestModel {
   async debugTests(items: vscodeTypes.TestItem[], reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
     if (token?.isCancellationRequested)
       return;
+
+    // Underlying debugTest implementation will run the global setup.
+    await this.runGlobalHooks('teardown', reporter);
+    if (token?.isCancellationRequested)
+      return;
+
     const externalOptions = await this._options.runHooks.onWillRunTests(this.config, true);
     const options: PlaywrightTestRunOptions = {
       headed: !this._options.isUnderTest,

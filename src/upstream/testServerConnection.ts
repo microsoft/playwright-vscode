@@ -40,6 +40,7 @@ export class TestServerConnection implements TestServerInterface, TestServerInte
   private _ws: WebSocket;
   private _callbacks = new Map<number, { resolve: (arg: any) => void, reject: (arg: Error) => void }>();
   private _connectedPromise: Promise<void>;
+  private _isClosed = false;
 
   constructor(wsURL: string) {
     this.onClose = this._onCloseEmitter.event;
@@ -72,9 +73,14 @@ export class TestServerConnection implements TestServerInterface, TestServerInte
       this._ws.addEventListener('error', r);
     });
     this._ws.addEventListener('close', () => {
+      this._isClosed = true;
       this._onCloseEmitter.fire();
       clearInterval(pingInterval);
     });
+  }
+
+  isClosed(): boolean {
+    return this._isClosed;
   }
 
   private async _sendMessage(method: string, params?: any): Promise<any> {
