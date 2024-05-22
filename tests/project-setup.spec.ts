@@ -67,6 +67,13 @@ test.describe(() => {
     expect(output).toContain('from-setup');
     expect(output).toContain('from-test');
     expect(output).toContain('from-teardown');
+
+    // Ensure the rendered order of the tests.
+    await expect.poll(() => [...testController.items.map.values()].map(v => v.label)).toEqual([
+      'setup.ts',
+      'test.ts',
+      'teardown.ts',
+    ]);
   });
 
   test('should run setup and teardown projects (2)', async ({ activate }) => {
