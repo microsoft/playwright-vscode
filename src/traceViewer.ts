@@ -125,6 +125,7 @@ export class TraceViewer implements vscodeTypes.Disposable {
   private _envProvider: () => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
   private _traceViewerProcess: ChildProcess | undefined;
+  private _embedded: boolean = false;
   private _traceViewerUrl: string | undefined;
   private _traceViewerView: TraceViewerView | undefined;
   private _settingsModel: SettingsModel;
@@ -137,6 +138,13 @@ export class TraceViewer implements vscodeTypes.Disposable {
     this._disposables.push(settingsModel.showTrace.onChange(value => {
       if (!value && this._traceViewerProcess)
         this.close().catch(() => {});
+    }));
+    this._disposables.push(settingsModel.embedTraceViewer.onChange(value => {
+      if (this._embedded !== value) {
+        this._traceViewerProcess?.kill();
+        this._traceViewerView?.dispose();
+        this._traceViewerView = undefined;
+      }
     }));
   }
 
@@ -169,12 +177,14 @@ export class TraceViewer implements vscodeTypes.Disposable {
     if (this._traceViewerProcess)
       return;
     const allArgs = [config.cli, 'show-trace', `--stdin`];
+    const embedded = this._settingsModel.embedTraceViewer.get();
     if (this._vscode.env.remoteName) {
       allArgs.push('--host', '0.0.0.0');
       allArgs.push('--port', '0');
-    } else {
-      allArgs.push('--server-only');
     }
+    if (embedded)
+      allArgs.push('--server-only');
+
     const traceViewerProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
       stdio: 'pipe',
@@ -185,9 +195,10 @@ export class TraceViewer implements vscodeTypes.Disposable {
       },
     });
     this._traceViewerProcess = traceViewerProcess;
+    this._embedded = embedded;
 
     traceViewerProcess.stdout?.on('data', data => {
-      if (!this._vscode.env.remoteName && !this._traceViewerUrl) {
+      if (!this._vscode.env.remoteName && !this._traceViewerUrl && this._settingsModel.embedTraceViewer.get()) {
         const url = data.toString().split('\n')[0];
         if (!url) return;
         this._traceViewerUrl = url;

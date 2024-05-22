@@ -278,6 +278,10 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             <input type="checkbox" setting="showTrace"></input>
             ${vscode.l10n.t('Show trace viewer')}
           </label>
+          <label id="embedTraceViewerLabel" style="display: none">
+            <input type="checkbox" setting="embedTraceViewer"></input>
+            ${vscode.l10n.t('Embedded')}
+          </label>
         </div>
       </div>
       <div class="section-header">${vscode.l10n.t('TOOLS')}</div>
@@ -313,6 +317,14 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           vscode.postMessage({ method: 'toggle', params: { setting: event.target.getAttribute('setting') } });
         });
       }
+
+      function updateEmbedTraceViewer() {
+        const embedTraceViewerLabel = document.getElementById('embedTraceViewerLabel');
+        const showTrace = document.querySelector('[setting="showTrace"]');
+        embedTraceViewerLabel.style.display = showTrace.checked ? '' : 'none';
+      }
+      updateEmbedTraceViewer();
+
       window.addEventListener('message', event => {
         const { method, params } = event.data;
         if (method === 'settings') {
@@ -324,6 +336,9 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
               input.checked = value;
             else
               input.value = value;
+
+            if (key === 'showTrace')
+              updateEmbedTraceViewer();
           }
         } else if (method === 'actions') {
           const actionsElement = document.getElementById('actions');
