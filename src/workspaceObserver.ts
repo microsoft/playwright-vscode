@@ -16,6 +16,7 @@
 
 import path from 'path';
 import * as vscodeTypes from './vscodeTypes';
+import { DisposableBase } from './disposableBase';
 
 export type WorkspaceChange = {
   created: Set<string>;
@@ -23,33 +24,35 @@ export type WorkspaceChange = {
   deleted: Set<string>;
 };
 
-export class WorkspaceObserver {
+export class WorkspaceObserver extends DisposableBase {
   private _vscode: vscodeTypes.VSCode;
-  private _fileSystemWatchers: vscodeTypes.FileSystemWatcher[] = [];
   private _handler: (change: WorkspaceChange) => void;
   private _pendingChange: WorkspaceChange | undefined;
   private _timeout: NodeJS.Timeout | undefined;
 
   constructor(vscode: vscodeTypes.VSCode, handler: (change: WorkspaceChange) => void) {
+    super();
     this._vscode = vscode;
     this._handler = handler;
   }
 
   addWatchFolder(folder: string) {
     const fileSystemWatcher = this._vscode.workspace.createFileSystemWatcher(folder + path.sep + '**');
-    fileSystemWatcher.onDidCreate(uri => {
-      if (uri.scheme === 'file')
-        this._change().created.add(uri.fsPath);
-    });
-    fileSystemWatcher.onDidChange(uri => {
-      if (uri.scheme === 'file')
-        this._change().changed.add(uri.fsPath);
-    });
-    fileSystemWatcher.onDidDelete(uri => {
-      if (uri.scheme === 'file')
-        this._change().deleted.add(uri.fsPath);
-    });
-    this._fileSystemWatchers.push(fileSystemWatcher);
+    this._disposables.push(
+        fileSystemWatcher.onDidCreate(uri => {
+          if (uri.scheme === 'file')
+            this._change().created.add(uri.fsPath);
+        }),
+        fileSystemWatcher.onDidChange(uri => {
+          if (uri.scheme === 'file')
+            this._change().changed.add(uri.fsPath);
+        }),
+        fileSystemWatcher.onDidDelete(uri => {
+          if (uri.scheme === 'file')
+            this._change().deleted.add(uri.fsPath);
+        }),
+        fileSystemWatcher,
+    );
   }
 
   private _change(): WorkspaceChange {
@@ -72,14 +75,14 @@ export class WorkspaceObserver {
     this._pendingChange = undefined;
   }
 
-  dispose() {
-    this.reset();
+  reset() {
+    this.dispose();
   }
 
-  reset() {
+  dispose() {
+    super.dispose();
     if (this._timeout)
       clearTimeout(this._timeout);
-    this._fileSystemWatchers.forEach(f => f.dispose());
-    this._fileSystemWatchers = [];
+    // VS Code stops sending events to new watchers if we dispose old watchers.
   }
 }
