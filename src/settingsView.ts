@@ -18,6 +18,7 @@ import { DisposableBase } from './disposableBase';
 import type { ReusedBrowser } from './reusedBrowser';
 import type { SettingsModel } from './settingsModel';
 import type { TestModelCollection } from './testModel';
+import { getNonce } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
 
@@ -386,12 +387,4 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       });
     </script>
     </html>`;
-}
-
-function getNonce() {
-  let text = '';
-  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++)
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  return text;
 }

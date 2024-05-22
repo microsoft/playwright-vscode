@@ -17,7 +17,7 @@
 import { ChildProcess, spawn } from 'child_process';
 import type { TestConfig } from './playwrightTestTypes';
 import { SettingsModel } from './settingsModel';
-import { findNode } from './utils';
+import { findNode, getNonce } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
 function getPath(uriOrPath: string | vscodeTypes.Uri) {
@@ -72,11 +72,18 @@ class TraceViewerView implements vscodeTypes.Disposable {
   }
 
   private getHtml(url: string) {
+    const nonce = getNonce();
+
     return /* html */ `<!DOCTYPE html>
 			<html>
 			<head>
 				<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
-        <style>
+        <meta http-equiv="Content-Security-Policy" content="
+          default-src 'none';
+          style-src 'nonce-${nonce}';
+          frame-src *;
+          ">
+        <style nonce="${nonce}">
           html, body { height: 100%; min-height: 100%; padding: 0; margin: 0; }
           iframe { width: 100%; height: 100%; border: none; }
         </style>
