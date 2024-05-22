@@ -832,3 +832,43 @@ test('should show project-specific tests', async ({ activate }, testInfo) => {
       -   test [2:0]
   `);
 });
+
+test('should remove top-level items after disabling config', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'tests1/playwright.config.js': `module.exports = { testDir: '.' }`,
+    'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
+    'tests1/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+    'tests2/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('two', async () => {});
+    `,
+  });
+
+  await enableConfigs(vscode, [`tests1${path.sep}playwright.config.js`, `tests2${path.sep}playwright.config.js`]);
+
+  await expect(testController).toHaveTestTree(`
+    -   tests1
+      -   test.spec.ts
+    -   tests2
+      -   test.spec.ts
+  `);
+
+  await enableConfigs(vscode, [`tests1${path.sep}playwright.config.js`]);
+
+  await expect(testController).toHaveTestTree(`
+    -   tests1
+      -   test.spec.ts
+  `);
+
+  await expect(vscode).toHaveExecLog(`
+    tests1> playwright list-files -c playwright.config.js
+    tests2> playwright list-files -c playwright.config.js
+  `);
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'listFiles', params: {} },
+  ]);
+});

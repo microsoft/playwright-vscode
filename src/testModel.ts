@@ -647,13 +647,13 @@ export class TestModelCollection extends DisposableBase {
     this._didUpdate.fire();
   }
 
-  testDirs(): string[] {
+  testDirs(): Set<string> {
     const result = new Set<string>();
     for (const model of this._models) {
       for (const dir of model.testDirs())
         result.add(dir);
     }
-    return [...result];
+    return result;
   }
 
   async addModel(model: TestModel) {
