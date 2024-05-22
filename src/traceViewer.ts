@@ -19,6 +19,7 @@ import type { TestConfig } from './playwrightTestTypes';
 import { SettingsModel } from './settingsModel';
 import { findNode, getNonce } from './utils';
 import * as vscodeTypes from './vscodeTypes';
+import { DisposableBase } from './disposableBase';
 
 function getPath(uriOrPath: string | vscodeTypes.Uri) {
   return typeof uriOrPath === 'string' ?
@@ -28,12 +29,17 @@ function getPath(uriOrPath: string | vscodeTypes.Uri) {
       uriOrPath;
 }
 
-class TraceViewerView implements vscodeTypes.Disposable {
+function getThemeMode(vscode: vscodeTypes.VSCode) {
+  const themeKind = vscode.window.activeColorTheme.kind;
+  return themeKind === 2 || themeKind === 3  ? 'dark-mode' : 'light-mode';
+}
+
+class TraceViewerView extends DisposableBase {
 
   public static readonly viewType = 'playwright.traceviewer.view';
 
+  private readonly _vscode: vscodeTypes.VSCode;
   private readonly _webviewPanel: vscodeTypes.WebviewPanel;
-  private _disposables: vscodeTypes.Disposable[] = [];
 
   private readonly _onDidDispose: vscodeTypes.EventEmitter<void>;
   public readonly onDispose: vscodeTypes.Event<void>;
@@ -42,6 +48,8 @@ class TraceViewerView implements vscodeTypes.Disposable {
     vscode: vscodeTypes.VSCode,
     url: string
   ) {
+    super();
+    this._vscode = vscode;
     this._webviewPanel = this._register(vscode.window.createWebviewPanel(TraceViewerView.viewType, 'Trace Viewer', {
       viewColumn: vscode.ViewColumn.Active,
       preserveFocus: true,
@@ -53,6 +61,10 @@ class TraceViewerView implements vscodeTypes.Disposable {
     this._register(this._webviewPanel.onDidDispose(() => {
       this.dispose();
     }));
+    this._register(vscode.workspace.onDidChangeConfiguration(event => {
+      if (event.affectsConfiguration('workbench.colorTheme'))
+        this._webviewPanel.webview.postMessage({ theme: getThemeMode(vscode) });
+    }));
     this._onDidDispose = this._register(new vscode.EventEmitter<void>());
     this.onDispose = this._onDidDispose.event;
 
@@ -61,9 +73,7 @@ class TraceViewerView implements vscodeTypes.Disposable {
 
   public dispose() {
     this._onDidDispose.fire();
-    for (const disposable of this._disposables)
-      disposable.dispose();
-    this._disposables.length = 0;
+    super.dispose();
   }
 
   public show(url: string) {
@@ -73,6 +83,7 @@ class TraceViewerView implements vscodeTypes.Disposable {
 
   private getHtml(url: string) {
     const nonce = getNonce();
+    const theme = getThemeMode(this._vscode);
 
     return /* html */ `<!DOCTYPE html>
 			<html>
@@ -80,6 +91,7 @@ class TraceViewerView implements vscodeTypes.Disposable {
 				<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
         <meta http-equiv="Content-Security-Policy" content="
           default-src 'none';
+          script-src 'nonce-${nonce}';
           style-src 'nonce-${nonce}';
           frame-src *;
           ">
@@ -91,6 +103,14 @@ class TraceViewerView implements vscodeTypes.Disposable {
 			<body>
         <iframe id="traceviewer" src="${url}"></iframe>
 			</body>
+      <script nonce="${nonce}">
+      const iframe = document.getElementById('traceviewer');
+      function postMessage(data) {
+        iframe.contentWindow.postMessage(data, '*');
+      }
+      iframe.addEventListener('load', () => postMessage({ theme: '${theme}' }));
+      window.addEventListener('message', e => postMessage(e.data));
+      </script>
 			</html>`;
   }
 
@@ -154,8 +174,6 @@ export class TraceViewer implements vscodeTypes.Disposable {
       allArgs.push('--port', '0');
     } else {
       allArgs.push('--server-only');
-      const themeKind = this._vscode.window.activeColorTheme.kind;
-      allArgs.push('--theme', themeKind === 2 || themeKind === 3  ? 'dark' : 'ligth');
     }
     const traceViewerProcess = spawn(node, allArgs, {
       cwd: config.workspaceFolder,
