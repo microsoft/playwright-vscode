@@ -16,7 +16,6 @@
 
 import path from 'path';
 import * as vscodeTypes from './vscodeTypes';
-import { DisposableBase } from './disposableBase';
 
 export type WorkspaceChange = {
   created: Set<string>;
@@ -24,35 +23,48 @@ export type WorkspaceChange = {
   deleted: Set<string>;
 };
 
-export class WorkspaceObserver extends DisposableBase {
+export class WorkspaceObserver {
   private _vscode: vscodeTypes.VSCode;
   private _handler: (change: WorkspaceChange) => void;
   private _pendingChange: WorkspaceChange | undefined;
   private _timeout: NodeJS.Timeout | undefined;
+  private _folderWatchers = new Map<string, vscodeTypes.Disposable[]>();
 
   constructor(vscode: vscodeTypes.VSCode, handler: (change: WorkspaceChange) => void) {
-    super();
     this._vscode = vscode;
     this._handler = handler;
   }
 
-  addWatchFolder(folder: string) {
-    const fileSystemWatcher = this._vscode.workspace.createFileSystemWatcher(folder + path.sep + '**');
-    this._disposables.push(
-        fileSystemWatcher.onDidCreate(uri => {
+  setWatchFolders(folders: Set<string>) {
+    for (const folder of folders) {
+      if (this._folderWatchers.has(folder))
+        continue;
+
+      const watcher = this._vscode.workspace.createFileSystemWatcher(folder + path.sep + '**');
+      const disposables: vscodeTypes.Disposable[] = [
+        watcher.onDidCreate(uri => {
           if (uri.scheme === 'file')
             this._change().created.add(uri.fsPath);
         }),
-        fileSystemWatcher.onDidChange(uri => {
+        watcher.onDidChange(uri => {
           if (uri.scheme === 'file')
             this._change().changed.add(uri.fsPath);
         }),
-        fileSystemWatcher.onDidDelete(uri => {
+        watcher.onDidDelete(uri => {
           if (uri.scheme === 'file')
             this._change().deleted.add(uri.fsPath);
         }),
-        fileSystemWatcher,
-    );
+        watcher,
+      ];
+      this._folderWatchers.set(folder, disposables);
+    }
+
+    for (const [folder, disposables] of this._folderWatchers) {
+      if (!folders.has(folder)) {
+        disposables.forEach(d => d.dispose());
+        this._folderWatchers.delete(folder);
+      }
+    }
   }
 
   private _change(): WorkspaceChange {
@@ -75,14 +87,11 @@ export class WorkspaceObserver extends DisposableBase {
     this._pendingChange = undefined;
   }
 
-  reset() {
-    this.dispose();
-  }
-
   dispose() {
-    super.dispose();
     if (this._timeout)
       clearTimeout(this._timeout);
-    // VS Code stops sending events to new watchers if we dispose old watchers.
+    for (const disposables of this._folderWatchers.values())
+      disposables.forEach(d => d.dispose());
+    this._folderWatchers.clear();
   }
 }

@@ -314,11 +314,9 @@ export class Extension implements RunHooks {
   }
 
   private _modelsUpdated() {
-    this._workspaceObserver.reset();
     this._updateVisibleEditorItems();
     this._updateDiagnostics();
-    for (const testDir of this._models.testDirs())
-      this._workspaceObserver.addWatchFolder(testDir);
+    this._workspaceObserver.setWatchFolders(this._models.testDirs());
   }
 
   private _envProvider(): NodeJS.ProcessEnv {
