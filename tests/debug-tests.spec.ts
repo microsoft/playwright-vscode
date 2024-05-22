@@ -32,14 +32,14 @@ test('should debug all tests', async ({ activate }) => {
 
   const testRun = await vscode.testControllers[0].debug();
   expect(testRun.renderLog()).toBe(`
-    tests > test-2.spec.ts > should fail [2:0]
-      enqueued
-      started
-      failed
     tests > test-1.spec.ts > should pass [2:0]
       enqueued
       started
       passed
+    tests > test-2.spec.ts > should fail [2:0]
+      enqueued
+      started
+      failed
   `);
 
   await expect(vscode).toHaveExecLog(`

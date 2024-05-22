@@ -43,14 +43,14 @@ test('should run all tests', async ({ activate }) => {
   `);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test-2.spec.ts > should fail [2:0]
-      enqueued
-      started
-      failed
     tests > test-1.spec.ts > should pass [2:0]
       enqueued
       started
       passed
+    tests > test-2.spec.ts > should fail [2:0]
+      enqueued
+      started
+      failed
   `);
 
   await expect(vscode).toHaveExecLog(`
@@ -682,12 +682,12 @@ test('should run all parametrized tests', async ({ activate }) => {
       enqueued
       started
       passed
-    tests > test.spec.ts > test-three [3:0]
+    tests > test.spec.ts > test-two [3:0]
       enqueued
       enqueued
       started
       passed
-    tests > test.spec.ts > test-two [3:0]
+    tests > test.spec.ts > test-three [3:0]
       enqueued
       enqueued
       started

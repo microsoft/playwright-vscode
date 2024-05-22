@@ -57,10 +57,10 @@ test.describe(() => {
     await expect(testController).toHaveTestTree(`
     -   setup.ts
       - ✅ setup [2:0]
-    -   teardown.ts
-      - ✅ teardown [2:0]
     -   test.ts
       - ✅ test [2:0]
+    -   teardown.ts
+      - ✅ teardown [2:0]
   `);
 
     const output = testRun.renderLog({ output: true });
@@ -82,10 +82,10 @@ test.describe(() => {
     const testRun = await testController.run();
 
     await expect(testController).toHaveTestTree(`
-    -   teardown.ts
-      - ✅ teardown [2:0]
     -   test.ts
       - ✅ test [2:0]
+    -   teardown.ts
+      - ✅ teardown [2:0]
   `);
 
     const output = testRun.renderLog({ output: true });
@@ -121,9 +121,9 @@ test.describe(() => {
     await expect(testController).toHaveTestTree(`
     -   setup.ts
       - ✅ setup [2:0]
+    -   test.ts
     -   teardown.ts
       - ✅ teardown [2:0]
-    -   test.ts
   `);
   });
 });
@@ -139,9 +139,9 @@ test('should run setup and teardown for test', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   setup.ts
       - ✅ setup [2:0]
-    -   teardown.ts
-      - ✅ teardown [2:0]
     -   test.ts
       - ✅ test [2:0]
+    -   teardown.ts
+      - ✅ teardown [2:0]
   `);
 });

@@ -226,7 +226,6 @@ class TestItem {
   innerToString(indent: string, result: string[]) {
     result.push(`${indent}- ${this.statusIcon()} ${this.treeTitle()}`);
     const items = [...this.children.map.values()];
-    items.sort((i1, i2) => itemOrder(i1).localeCompare(itemOrder(i2)));
     for (const item of items)
       item.innerToString(indent + '  ', result);
   }
@@ -264,14 +263,6 @@ class TestItem {
     }
     return `${titlePath.join(' > ')}${location}`;
   }
-}
-
-function itemOrder(item: TestItem) {
-  let result = '';
-  if (item.range)
-    result += item.range.start.line.toString().padStart(5, '0');
-  result += item.label;
-  return result;
 }
 
 class TestRunProfile {
@@ -426,7 +417,6 @@ export class TestRun {
     const indent = '  ';
     const result: string[] = [''];
     const tests = [...this.entries.keys()];
-    tests.sort((i1, i2) => itemOrder(i1).localeCompare(itemOrder(i2)));
     for (const test of tests) {
       const entries = this.entries.get(test)!;
       result.push(`  ${test.flatTitle()}`);
@@ -499,7 +489,6 @@ export class TestController {
   renderTestTree() {
     const result: string[] = [''];
     const items = [...this.items.map.values()];
-    items.sort((i1, i2) => itemOrder(i1).localeCompare(itemOrder(i2)));
     for (const item of items)
       item.innerToString('    ', result);
     result.push('  ');

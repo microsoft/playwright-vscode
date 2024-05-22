@@ -668,8 +668,8 @@ test('should list parametrized tests', async ({ activate }) => {
     -   tests
       -   test.spec.ts
         -   one [3:0]
-        -   three [3:0]
         -   two [3:0]
+        -   three [3:0]
   `);
 });
 
