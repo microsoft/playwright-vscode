@@ -23,7 +23,6 @@ This extension integrates Playwright into your VS Code workflow. Here is what it
 
 This extension works with [Playwright] version v1.38+ or newer.
 
-*If you are looking for the old extension that supported Playwright v1.14+, switch to e.g. v1.0.22 or v0.0.9 of this extension manually. Having said that, we highly recommend using the latest version of [Playwright]!*
 
 ## Install Playwright
 
