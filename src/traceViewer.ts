@@ -20,6 +20,14 @@ import { SettingsModel } from './settingsModel';
 import { findNode } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
+function getPath(uriOrPath: string | vscodeTypes.Uri) {
+  return typeof uriOrPath === 'string' ?
+    uriOrPath :
+    uriOrPath.scheme === 'file' ?
+      uriOrPath.fsPath :
+      uriOrPath;
+}
+
 class TraceViewerView implements vscodeTypes.Disposable {
 
   public static readonly viewType = 'playwright.traceviewer.view';
@@ -110,15 +118,15 @@ export class TraceViewer implements vscodeTypes.Disposable {
       await this._startIfNeeded(config);
   }
 
-  async open(file: string, config: TestConfig) {
+  async open(uri: string | vscodeTypes.Uri, config: TestConfig) {
     if (!this._settingsModel.showTrace.get())
       return;
     if (!this._checkVersion(config))
       return;
-    if (!file && !this._traceViewerProcess)
+    if (!uri && !this._traceViewerProcess)
       return;
     await this._startIfNeeded(config);
-    this._traceViewerProcess?.stdin?.write(file + '\n');
+    this._traceViewerProcess?.stdin?.write(getPath(uri) + '\n');
     this._maybeOpenEmbeddedTraceViewer();
   }
 

@@ -208,8 +208,16 @@ export class Extension implements RunHooks {
       vscode.commands.registerCommand('pw.extension.command.clearCache', async () => {
         await this._models.selectedModel()?.clearCache();
       }),
-      vscode.commands.registerCommand('pw.extension.command.openTrace', async (file: vscodeTypes.Uri) => {
-        this._fileSelected(file);
+      vscode.commands.registerCommand('pw.extension.command.openTrace', async (uri?: vscodeTypes.Uri) => {
+        if (!uri) {
+          const uriString = await vscode.window.showInputBox({
+            placeHolder: 'https://example.com/trace.zip',
+            prompt: vscode.l10n.t('Enter a trace path or URL'),
+          });
+          uri = uriString ? this._vscode.Uri.parse(uriString) : undefined;
+        }
+
+        if (uri) this._fileSelected(uri);
       }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
@@ -767,12 +775,12 @@ export class Extension implements RunHooks {
       this._traceViewer.open(traceUrl, testModel.config);
   }
 
-  private _fileSelected(file?: vscodeTypes.Uri) {
-    if (!file)
+  private _fileSelected(uri?: vscodeTypes.Uri) {
+    if (!uri)
       return;
     const testModel = this._models.selectedModel();
     if (testModel)
-      this._traceViewer.open(file.fsPath, testModel.config);
+      this._traceViewer.open(uri, testModel.config);
   }
 
   private _queueCommand<T>(callback: () => Promise<T>, defaultValue: T): Promise<T> {
