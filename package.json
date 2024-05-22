@@ -98,7 +98,7 @@
       {
         "category": "Test",
         "command": "pw.extension.command.openTrace",
-        "title": "Open playwright trace"
+        "title": "%contributes.command.pw.extension.command.openTrace%"
       }
     ],
     "menus": {
