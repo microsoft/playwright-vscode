@@ -284,7 +284,7 @@ export class Extension implements RunHooks {
         continue;
       }
 
-      const minimumPlaywrightVersion = 1.28;
+      const minimumPlaywrightVersion = 1.38;
       if (playwrightInfo.version < minimumPlaywrightVersion) {
         if (userGesture) {
           this._vscode.window.showWarningMessage(
