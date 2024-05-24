@@ -109,7 +109,20 @@ class TraceViewerView extends DisposableBase {
         iframe.contentWindow.postMessage(data, '*');
       }
       iframe.addEventListener('load', () => postMessage({ theme: '${theme}' }));
-      window.addEventListener('message', e => postMessage(e.data));
+      window.addEventListener('message', ({ data, origin }) => {
+        if (origin === '${url}') {
+          // propagate key events to vscode
+          if (data.type === 'keyup' || data.type === 'keydown') {
+            const emulatedKeyboardEvent = new KeyboardEvent(data.type, data);
+            Object.defineProperty(emulatedKeyboardEvent, 'target', {
+              get: () => window,
+            });
+            window.dispatchEvent(emulatedKeyboardEvent);
+          }
+        } else {
+          postMessage(data);
+        }
+      });
       </script>
 			</html>`;
   }
