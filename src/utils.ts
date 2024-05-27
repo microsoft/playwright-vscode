@@ -217,3 +217,7 @@ export function getNonce() {
     text += possible.charAt(Math.floor(Math.random() * possible.length));
   return text;
 }
+
+export function escapeAttribute(value?: string | vscodeTypes.Uri): string {
+  return value?.toString().replace(/"/g, '&quot;') ?? '';
+}
