@@ -7,7 +7,7 @@
   "publisher": "ms-playwright",
   "repository": "https://github.com/microsoft/playwright-vscode",
   "bugs": {
-    "url": "https://github.com/microsoft/playwright-vscode/issues"
+    "url": "https://github.com/microsoft/playwright/issues"
   },
   "engines": {
     "vscode": "^1.86.0"
