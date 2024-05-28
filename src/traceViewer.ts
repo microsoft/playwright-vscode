@@ -64,6 +64,12 @@ class TraceViewerView extends DisposableBase {
     this._register(this._webviewPanel.onDidDispose(() => {
       this.dispose();
     }));
+    this._register(this._webviewPanel.webview.onDidReceiveMessage(message  => {
+      if (message.command === 'openExternal' && message.url)
+        // should be a Uri, but due to https://github.com/microsoft/vscode/issues/85930
+        // we pass a string instead
+        vscode.env.openExternal(message.url);
+    }));
     this._register(vscode.workspace.onDidChangeConfiguration(event => {
       if (event.affectsConfiguration('workbench.colorTheme'))
         this._webviewPanel.webview.postMessage({ theme: getThemeMode(vscode) });
@@ -98,6 +104,9 @@ class TraceViewerView extends DisposableBase {
         <script nonce="${nonce}">
           const vscode = acquireVsCodeApi();
           const iframe = document.getElementById('traceviewer');
+          function postMessageToVSCode(data) {
+            vscode.postMessage(data);
+          }
           function postMessageToFrame(data) {
             iframe.contentWindow.postMessage(data, '*');
           }
@@ -111,6 +120,8 @@ class TraceViewerView extends DisposableBase {
                   get: () => window,
                 });
                 window.dispatchEvent(emulatedKeyboardEvent);
+              } else {
+                postMessageToVSCode(data);
               }
             } else {
               postMessageToFrame(data);
