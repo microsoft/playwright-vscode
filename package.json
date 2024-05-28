@@ -16,8 +16,7 @@
     "Testing"
   ],
   "activationEvents": [
-    "workspaceContains:**/*playwright*.config.{ts,js,mjs}",
-    "onCommand:pw.extension.install"
+    "workspaceContains:**/*playwright*.config.{ts,js,mjs}"
   ],
   "main": "./out/extension.js",
   "l10n": "./l10n",
