@@ -265,6 +265,7 @@ export class TestModel {
     if (!testFiles.length)
       return;
 
+    const enabledFiles = this.enabledFiles();
     const files: string[] = [];
     const items: vscodeTypes.TestItem[] = [];
     for (const watch of this._watches || []) {
@@ -277,6 +278,8 @@ export class TestModel {
 
         for (const include of watch.include) {
           if (!include.uri)
+            continue;
+          if (!enabledFiles.has(include.uri.fsPath))
             continue;
           // Folder is watched => add file.
           if (testFile.startsWith(include.uri.fsPath + path.sep)) {

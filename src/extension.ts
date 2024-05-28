@@ -406,6 +406,8 @@ export class Extension implements RunHooks {
         const result = model.narrowDownLocations(items);
         if (!result.testIds && !result.locations)
           continue;
+        if (!model.enabledProjects().length)
+          continue;
         await this._runTest(this._testRun, items, testItemForGlobalErrors, new Set(), model, mode === 'debug', enqueuedTests.length === 1);
       }
     } finally {
