@@ -15,7 +15,7 @@
  */
 
 import { TestRun } from './mock/vscode';
-import { escapedPathSep, expect, test } from './utils';
+import { enableConfigs, enableProjects, escapedPathSep, expect, selectConfig, test } from './utils';
 import path from 'path';
 
 test.skip(({ overridePlaywrightVersion }) => !!overridePlaywrightVersion);
@@ -404,6 +404,102 @@ test('should watch two tests in a file', async ({ activate }) => {
       params: expect.objectContaining({
         locations: undefined,
         testIds: [expect.any(String), expect.any(String)]
+      })
+    },
+  ]);
+});
+
+test('should only watch a test from the enabled project when multiple projects share the same test directory', async ({ activate }) => {
+  const { vscode, testController, workspaceFolder } = await activate({
+    'playwright-1.config.js': `module.exports = { testDir: 'tests', projects: [{ name: 'project-from-config1' }] }`,
+    'playwright-2.config.js': `module.exports = { testDir: 'tests', projects: [{ name: 'project-from-config2' }] }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('pass 1', async () => {});
+      test('pass 2', async () => {});
+    `,
+  });
+
+  await enableConfigs(vscode, [`playwright-1.config.js`, `playwright-2.config.js`]);
+
+  await selectConfig(vscode, `playwright-2.config.js`);
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  // Wait for the projects to be loaded.
+  await expect(webView.getByTestId('projects').locator('div').locator('label')).toHaveCount(1);
+  // Disable the project from config 2.
+  await enableProjects(vscode, []);
+  await expect(vscode).toHaveProjectTree(`
+  config: playwright-2.config.js
+    [ ] project-from-config2
+`);
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/pass 1/);
+  expect(testItems).toHaveLength(1);
+  await testController.watch(testItems);
+  const [testRun] = await Promise.all([
+    new Promise<TestRun>(f => testController.onDidCreateTestRun(testRun => {
+      testRun.onDidEnd(() => f(testRun));
+    })),
+    workspaceFolder.changeFile('tests/test.spec.ts', `
+      import { test } from '@playwright/test';
+      test('pass 1', async () => {});
+      test('pass 2', async () => {});
+      test('pass 3', async () => {});
+    `),
+  ]);
+
+  expect(testRun.renderLog()).toBe(`
+    tests > test.spec.ts > pass 1 [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'listFiles', params: {} },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
+      })
+    },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: undefined,
+        testIds: [
+          expect.any(String)
+        ]
+      })
+    },
+    {
+      method: 'watch',
+      params: expect.objectContaining({
+        fileNames: [expect.stringContaining(`tests${path.sep}test.spec.ts`)],
+      })
+    },
+    {
+      method: 'watch',
+      params: expect.objectContaining({
+        fileNames: [expect.stringContaining(`tests${path.sep}test.spec.ts`)],
+      })
+    },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
+      })
+    },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: undefined,
+        testIds: [expect.any(String)]
       })
     },
   ]);
