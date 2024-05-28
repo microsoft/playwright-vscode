@@ -16,7 +16,7 @@
 import { defineConfig } from '@playwright/test';
 import { TestOptions } from './tests/baseTest';
 
-export default defineConfig<void, TestOptions>({
+export default defineConfig<TestOptions>({
   reporter: process.env.CI ? 'html' : 'list',
   timeout: 120_000,
   workers: 1,
@@ -24,12 +24,11 @@ export default defineConfig<void, TestOptions>({
     timeout: 30_000,
   },
   globalSetup: './globalSetup',
-  projects: [
-    {
-      name: 'VSCode insiders',
-      use: {
-        vscodeVersion: 'insiders',
-      }
+  projects: ['next', 'latest', '1.33', '1.35', '1.38', '1.40', '1.42'].map(playwrightVersion => ({
+    name: 'VSCode insiders / Playwright @latest',
+    use: {
+      vscodeVersion: 'insiders',
+      playwrightVersion,
     }
-  ]
+  })),
 });

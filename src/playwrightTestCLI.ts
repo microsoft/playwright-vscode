@@ -100,7 +100,7 @@ export class PlaywrightTestCLI {
 
     // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
     // Always use ws transport to mitigate it.
-    const reporterServer = new ReporterServer(this._vscode);
+    const reporterServer = new ReporterServer(this._vscode, this._model.config.version);
     const node = await findNode(this._vscode, this._model.config.workspaceFolder);
     const configFolder = path.dirname(this._model.config.configFile);
     const configFile = path.basename(this._model.config.configFile);
@@ -172,7 +172,7 @@ export class PlaywrightTestCLI {
       this._log(`${escapeRegex(path.relative(this._model.config.workspaceFolder, configFolder))}> debug -c ${configFile}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
     }
 
-    const reporterServer = new ReporterServer(this._vscode);
+    const reporterServer = new ReporterServer(this._vscode, this._model.config.version);
     const testOptions = await this._options.runHooks.onWillRunTests(this._model.config, true);
     try {
       await this._vscode.debug.startDebugging(undefined, {

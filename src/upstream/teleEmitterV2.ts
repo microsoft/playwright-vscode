@@ -30,7 +30,7 @@ export type TeleReporterEmitterOptions = {
   omitBuffers?: boolean;
 };
 
-export class TeleReporterEmitter implements ReporterV2 {
+export class TeleReporterEmitterV2 implements ReporterV2 {
   private _messageSink: (message: teleReceiver.JsonEvent) => void;
   private _rootDir!: string;
   private _emitterOptions: TeleReporterEmitterOptions;
@@ -135,8 +135,8 @@ export class TeleReporterEmitter implements ReporterV2 {
   async onEnd(result: reporterTypes.FullResult) {
     const resultPayload: teleReceiver.JsonFullResult = {
       status: result.status,
-      startTime: result.startTime.getTime(),
-      duration: result.duration,
+      startTime: result.startTime?.getTime() ?? Date.now(),
+      duration: result.duration ?? 0,
     };
     this._messageSink({
       method: 'onEnd',

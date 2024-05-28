@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-import { TeleReporterEmitter } from './upstream/teleEmitter';
+import { TeleReporterEmitterV1 } from './upstream/teleEmitterV1';
+import { TeleReporterEmitterV2 } from './upstream/teleEmitterV2';
 import { WebSocketTransport } from './transport';
 import { FullResult } from './upstream/reporter';
+
+const TeleReporterEmitter = process.env.PW_TEST_REPORTER_USE_V1_REPORTER ? TeleReporterEmitterV1 : TeleReporterEmitterV2;
 
 class TeleReporter extends TeleReporterEmitter {
   private _hasSender: boolean;

@@ -28,9 +28,11 @@ export class ReporterServer {
   private _clientSocketCallback!: (socket: WebSocket) => void;
   private _wsServer: WebSocketServer | undefined;
   private _vscode: vscodeTypes.VSCode;
+  private _playwrightVersion: number;
 
-  constructor(vscode: vscodeTypes.VSCode) {
+  constructor(vscode: vscodeTypes.VSCode, playwrightVersion: number) {
     this._vscode = vscode;
+    this._playwrightVersion = playwrightVersion;
     this._clientSocketPromise = new Promise(f => this._clientSocketCallback = f);
   }
 
@@ -39,6 +41,7 @@ export class ReporterServer {
     return {
       PW_TEST_REPORTER: require.resolve('./oopReporter'),
       PW_TEST_REPORTER_WS_ENDPOINT: wsEndpoint,
+      ...(this._playwrightVersion < 1.36 ? { PW_TEST_REPORTER_USE_V1_REPORTER: '1' } : {})
     };
   }
 
