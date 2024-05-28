@@ -67,6 +67,14 @@ test.describe(() => {
     expect(output).toContain('from-setup');
     expect(output).toContain('from-test');
     expect(output).toContain('from-teardown');
+
+    // Ensure the rendered order of the projects is correct.
+    const webView = vscode.webViews.get('pw.extension.settingsView')!;
+    await expect(webView.getByTestId('projects').locator('div').locator('label')).toHaveText([
+      'setup',
+      'test',
+      'teardown',
+    ]);
   });
 
   test('should run setup and teardown projects (2)', async ({ activate }) => {
