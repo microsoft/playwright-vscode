@@ -98,12 +98,18 @@ export class TestTree extends DisposableBase {
       const upstreamTree = new upstream.TestTree(workspaceFolder.uri.fsPath, rootSuite, [], undefined, path.sep);
       upstreamTree.sortAndPropagateStatus();
       upstreamTree.flattenForSingleProject();
+      // Create root item if there are test files.
       if (upstreamTree.rootItem.children.length === 0) {
-        this._testController.items.delete(this._idWithGeneration(workspaceFolder.uri.fsPath));
+        this._deleteRootItem(workspaceFolder.uri.fsPath);
         continue;
       }
       const workspaceRootItem = this._createRootItemIfNeeded(workspaceFolder.uri);
       this._syncSuite(upstreamTree.rootItem, workspaceRootItem);
+    }
+    // Remove stale root items.
+    for (const itemFsPath of this._rootItems.keys()) {
+      if (!this._vscode.workspace.workspaceFolders!.find(f => f.uri.fsPath === itemFsPath))
+        this._deleteRootItem(itemFsPath);
     }
     this._indexTree();
   }
@@ -195,6 +201,11 @@ export class TestTree extends DisposableBase {
     }
     this._rootItems.set(uri.fsPath, item);
     return item;
+  }
+
+  private _deleteRootItem(fsPath: string): void {
+    this._testController.items.delete(this._idWithGeneration(fsPath));
+    this._rootItems.delete(fsPath);
   }
 
   testItemForTest(test: reporterTypes.TestCase): vscodeTypes.TestItem | undefined {
