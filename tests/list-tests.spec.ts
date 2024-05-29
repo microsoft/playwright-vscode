@@ -759,6 +759,35 @@ test('should list tests in multi-folder workspace', async ({ activate }, testInf
   `);
 });
 
+test('should not keep empty workspace-folders in a workspace', async ({ activate }, testInfo) => {
+  const { testController } = await activate({}, {
+    workspaceFolders: [
+      [testInfo.outputPath('folder1'), {}],
+      [testInfo.outputPath('folder2'), {
+        'playwright.config.js': `module.exports = { testDir: './' }`,
+        'test.spec.ts': `
+          import { test } from '@playwright/test';
+          test('two', async () => {});
+        `,
+      }]
+    ]
+  });
+
+  // Make sure folder1 is not listed.
+  await expect(testController).toHaveTestTree(`
+    -   folder2
+      -   test.spec.ts
+  `);
+
+  await testController.expandTestItems(/test.spec.ts/);
+  // Make sure folder1 is not listed.
+  await expect(testController).toHaveTestTree(`
+    -   folder2
+      -   test.spec.ts
+        -   two [2:0]
+  `);
+});
+
 test('should merge items from different projects', async ({ activate }, testInfo) => {
   const { vscode, testController } = await activate({
     'playwright.config.ts': `module.exports = {

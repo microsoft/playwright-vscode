@@ -63,17 +63,7 @@ export class TestTree extends DisposableBase {
     if (!this._vscode.workspace.workspaceFolders?.length)
       return;
 
-    if (this._vscode.workspace.workspaceFolders?.length === 1) {
-      const rootItem = this._createInlineRootItem(this._vscode.workspace.workspaceFolders[0].uri);
-      rootItem.children.replace([this._loadingItem]);
-    } else {
-      const rootTreeItems: vscodeTypes.TestItem[] = [];
-      for (const workspaceFolder of this._vscode.workspace.workspaceFolders || []) {
-        const rootTreeItem = this._createRootFolderItem(workspaceFolder.uri.fsPath);
-        rootTreeItems.push(rootTreeItem);
-      }
-      this._testController.items.replace([this._loadingItem, ...rootTreeItems]);
-    }
+    this._testController.items.replace([this._loadingItem]);
   }
 
   finishedLoading() {
@@ -99,16 +89,27 @@ export class TestTree extends DisposableBase {
   }
 
   private _update() {
-    for (const [workspaceFolder, workspaceRootItem] of this._rootItems) {
+    for (const workspaceFolder of this._vscode.workspace.workspaceFolders ?? []) {
       const rootSuite = new TeleSuite('', 'root');
-      for (const model of this._models.enabledModels().filter(m => m.config.workspaceFolder === workspaceFolder)) {
+      for (const model of this._models.enabledModels().filter(m => m.config.workspaceFolder === workspaceFolder.uri.fsPath)) {
         for (const project of model.enabledProjects())
           rootSuite.suites.push(project.suite as TeleSuite);
       }
-      const upstreamTree = new upstream.TestTree(workspaceFolder, rootSuite, [], undefined, path.sep);
+      const upstreamTree = new upstream.TestTree(workspaceFolder.uri.fsPath, rootSuite, [], undefined, path.sep);
       upstreamTree.sortAndPropagateStatus();
       upstreamTree.flattenForSingleProject();
+      // Create root item if there are test files.
+      if (upstreamTree.rootItem.children.length === 0) {
+        this._deleteRootItem(workspaceFolder.uri.fsPath);
+        continue;
+      }
+      const workspaceRootItem = this._createRootItemIfNeeded(workspaceFolder.uri);
       this._syncSuite(upstreamTree.rootItem, workspaceRootItem);
+    }
+    // Remove stale root items.
+    for (const itemFsPath of this._rootItems.keys()) {
+      if (!this._vscode.workspace.workspaceFolders!.find(f => f.uri.fsPath === itemFsPath))
+        this._deleteRootItem(itemFsPath);
     }
     this._indexTree();
   }
@@ -177,27 +178,34 @@ export class TestTree extends DisposableBase {
       visit(item);
   }
 
-  private _createInlineRootItem(uri: vscodeTypes.Uri): vscodeTypes.TestItem {
-    const testItem: vscodeTypes.TestItem = {
-      id: this._idWithGeneration(uri.fsPath),
-      uri: uri,
-      children: this._testController.items,
-      parent: undefined,
-      tags: [],
-      canResolveChildren: false,
-      busy: false,
-      label: '<root>',
-      range: undefined,
-      error: undefined,
-    };
-    this._rootItems.set(uri.fsPath, testItem);
-    return testItem;
+  private _createRootItemIfNeeded(uri: vscodeTypes.Uri): vscodeTypes.TestItem {
+    if (this._rootItems.has(uri.fsPath))
+      return this._rootItems.get(uri.fsPath)!;
+    let item: vscodeTypes.TestItem;
+    if (this._vscode.workspace.workspaceFolders!.length === 1) {
+      item = {
+        id: this._idWithGeneration(uri.fsPath),
+        uri: uri,
+        children: this._testController.items,
+        parent: undefined,
+        tags: [],
+        canResolveChildren: false,
+        busy: false,
+        label: '<root>',
+        range: undefined,
+        error: undefined,
+      };
+    } else {
+      item = this._testController.createTestItem(this._idWithGeneration(uri.fsPath), path.basename(uri.fsPath), this._vscode.Uri.file(uri.fsPath));
+      this._testController.items.add(item);
+    }
+    this._rootItems.set(uri.fsPath, item);
+    return item;
   }
 
-  private _createRootFolderItem(folder: string): vscodeTypes.TestItem {
-    const folderItem = this._testController.createTestItem(this._idWithGeneration(folder), path.basename(folder), this._vscode.Uri.file(folder));
-    this._rootItems.set(folder, folderItem);
-    return folderItem;
+  private _deleteRootItem(fsPath: string): void {
+    this._testController.items.delete(this._idWithGeneration(fsPath));
+    this._rootItems.delete(fsPath);
   }
 
   testItemForTest(test: reporterTypes.TestCase): vscodeTypes.TestItem | undefined {

@@ -389,13 +389,11 @@ test('should list files in multi-folder workspace with project switching', async
   await expect(testController).toHaveTestTree(`
     -   folder1
       -   test.spec.ts
-    -   folder2
   `);
 
   await enableConfigs(vscode, [`folder2${path.sep}playwright.config.js`]);
 
   await expect(testController).toHaveTestTree(`
-    -   folder1
     -   folder2
       -   test.spec.ts
   `);
