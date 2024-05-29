@@ -1,0 +1,21 @@
+{
+  "description": "Führen Sie Playwright Test Tests in Visual Studio Code aus.",
+  "contributes.command.pw.extension.install": "Playwright installieren",
+  "contributes.command.pw.extension.installBrowsers": "Playwright Browser installieren",
+  "contributes.command.pw.extension.command.inspect": "Locator auswählen",
+  "contributes.command.pw.extension.command.clearCache": "Cache leeren",
+  "contributes.command.pw.extension.command.closeBrowsers": "Alle Playwright Browser schließen",
+  "contributes.command.pw.extension.command.recordNew": "Neu aufzeichnen",
+  "contributes.command.pw.extension.command.recordAtCursor": "An Cursor aufzeichnen",
+  "contributes.command.pw.extension.command.runGlobalSetup": "Globale Einrichtung ausführen",
+  "contributes.command.pw.extension.command.runGlobalTeardown": "Globalen Abbau ausführen",
+  "contributes.command.pw.extension.command.startDevServer": "Entwicklungsserver starten",
+  "contributes.command.pw.extension.command.stopDevServer": "Entwicklungsserver stoppen",
+  "contributes.command.pw.extension.command.toggleModels": "Playwright Konfigurationen umschalten",
+  "contributes.command.pw.extension.toggle.reuseBrowser": "Wiederverwendung des Playwright Browsers umschalten",
+  "contributes.command.pw.extension.toggle.showTrace": "Playwright Trace Viewer umschalten",
+  "configuration.playwright.env": "Umgebungsvariablen, die an Playwright Test übergeben werden.",
+  "configuration.playwright.reuseBrowser": "Browser zwischen Tests anzeigen & wiederverwenden.",
+  "configuration.playwright.showTrace": "Trace Viewer anzeigen.",
+  "views.test.pw.extension.settingsView": "Playwright"
+}

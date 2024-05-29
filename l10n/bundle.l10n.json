@@ -15,7 +15,7 @@
   "Run global setup": "Run global setup",
   "Run global teardown": "Run global teardown",
   "Select Playwright Config": "Select Playwright Config",
-  "Show browser mode does not work in the Web mode": "Show browser mode does not work in the Web mode",
+  "Show browser mode does not work in remote vscode": "Show browser mode does not work in remote vscode",
   "Show browser": "Show browser",
   "Show trace viewer": "Show trace viewer",
   "Start dev server": "Start dev server",

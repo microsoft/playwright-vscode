@@ -15,7 +15,7 @@
   "Run global setup": "运行全局设置",
   "Run global teardown": "运行全局拆卸",
   "Select Playwright Config": "选择 Playwright 配置",
-  "Show browser mode does not work in the Web mode": "在网页模式中无法使用显示浏览器模式",
+  "Show browser mode does not work in remote vscode": "显示浏览器模式在远程vscode中不起作用",
   "Show browser": "显示浏览器",
   "Show trace viewer": "显示 Trace Viewer",
   "Start dev server": "启动 dev 服务器",
