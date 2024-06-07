@@ -209,15 +209,10 @@ export class Extension implements RunHooks {
         await this._models.selectedModel()?.clearCache();
       }),
       vscode.commands.registerCommand('pw.extension.command.openTrace', async (uri?: vscodeTypes.Uri) => {
-        if (!uri) {
-          const uriString = await vscode.window.showInputBox({
-            placeHolder: 'https://example.com/trace.zip',
-            prompt: vscode.l10n.t('Enter a trace path or URL'),
-          });
-          uri = uriString ? this._vscode.Uri.parse(uriString) : undefined;
-        }
-
-        if (uri) this._fileSelected(uri);
+        if (!uri)
+          uri = await this._pickTraceFile();
+        if (uri)
+          this._fileSelected(uri);
       }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
@@ -262,6 +257,18 @@ export class Extension implements RunHooks {
     fileSystemWatchers.map(w => w.onDidCreate(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidDelete(rebuildModelForConfig));
     this._context.subscriptions.push(this);
+  }
+
+  private async _pickTraceFile() {
+    const vscode = this._vscode;
+    const selectedUris = await vscode.window.showOpenDialog({
+      canSelectMany: false,
+      filters: {
+        'Traces': ['zip'],
+      },
+      title: vscode.l10n.t('Select a trace file'),
+    });
+    return selectedUris?.[0];
   }
 
   private async _rebuildModels(userGesture: boolean): Promise<vscodeTypes.Uri[]> {

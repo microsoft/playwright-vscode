@@ -4,7 +4,7 @@
   "Can't record while running tests": "Can't record while running tests",
   "Clear cache": "Clear cache",
   "Close all browsers": "Close all browsers",
-  "Enter a trace path or URL": "Enter a trace path or URL",
+  "Select a trace file": "Select a trace file",
   "No Playwright tests found.": "No Playwright tests found.",
   "Pick locator": "Pick locator",
   "Playwright Test v{0} or newer is required": "Playwright Test v{0} or newer is required",

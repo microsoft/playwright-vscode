@@ -106,15 +106,6 @@
         "title": "%contributes.command.pw.extension.command.openTrace%"
       }
     ],
-    "menus": {
-      "explorer/context": [
-        {
-          "when": "resourceExtname == .zip",
-          "command": "pw.extension.command.openTrace",
-          "group": "navigation"
-        }
-      ]
-    },
     "configuration": {
       "title": "Playwright",
       "properties": {
