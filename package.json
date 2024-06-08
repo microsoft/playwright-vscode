@@ -103,7 +103,8 @@
       {
         "category": "Test",
         "command": "pw.extension.command.openTrace",
-        "title": "%contributes.command.pw.extension.command.openTrace%"
+        "title": "%contributes.command.pw.extension.command.openTrace%",
+        "enablement": "config.playwright.showTrace"
       }
     ],
     "configuration": {
