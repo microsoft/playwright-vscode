@@ -278,7 +278,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             <input type="checkbox" setting="showTrace"></input>
             ${vscode.l10n.t('Show trace viewer')}
           </label>
-          <label id="embedTraceViewerLabel" style="display: none">
+          <label id="embedTraceViewerLabel" class="hidden">
             <input type="checkbox" setting="embedTraceViewer"></input>
             ${vscode.l10n.t('Embedded')}
           </label>
@@ -321,7 +321,10 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       function updateEmbedTraceViewer() {
         const embedTraceViewerLabel = document.getElementById('embedTraceViewerLabel');
         const showTrace = document.querySelector('[setting="showTrace"]');
-        embedTraceViewerLabel.style.display = showTrace.checked ? '' : 'none';
+        if (showTrace.checked)
+          embedTraceViewerLabel.classList.remove('hidden');
+        else
+          embedTraceViewerLabel.classList.add('hidden');
       }
       updateEmbedTraceViewer();
 
@@ -397,7 +400,10 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             updateProjects(configsMap.get(select.value).projects);
           });
           const modelSelector = document.getElementById('model-selector');
-          modelSelector.style.display = showModelSelector ? 'block' : 'none';
+          if (showModelSelector)
+            modelSelector.classList.remove('hidden');
+          else
+            modelSelector.classList.add('hidden');
         }
       });
     </script>

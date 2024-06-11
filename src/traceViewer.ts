@@ -100,7 +100,7 @@ class TraceViewerView extends DisposableBase {
       </body>`;
 
     const iframeBody = /* html */ `<body data-vscode-context='{ "preventDefaultContextMenuItems": true }'>
-        <iframe id="traceviewer" src="${escapeAttribute(url)}"></iframe>
+        <iframe id="traceviewer" src="${url}"></iframe>
         <script nonce="${nonce}">
           const vscode = acquireVsCodeApi();
           const iframe = document.getElementById('traceviewer');
@@ -134,14 +134,13 @@ class TraceViewerView extends DisposableBase {
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${cspSource}; media-src ${cspSource}; script-src 'nonce-${nonce}'; style-src ${cspSource}; frame-src *">
         <!-- Disable pinch zooming -->
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
 
         <title>Playwright Trace Viewer</title>
 
         <link rel="stylesheet" href="${escapeAttribute(this.extensionResource('media', 'traceViewer.css'))}" type="text/css" media="screen">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${cspSource}; media-src ${cspSource}; script-src 'nonce-${nonce}'; style-src ${cspSource}; frame-src *">
       </head>
       ${url ? iframeBody : loadingBody}
 			</html>`;
