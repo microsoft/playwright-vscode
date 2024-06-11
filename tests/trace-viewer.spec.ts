@@ -74,7 +74,7 @@ test('should show tracer when test runs', async ({ activate }) => {
 
   const [webview] = await vscode.webViewsByPanelType('playwright.traceviewer.view')!;
 
-  testItems[0].select();
+  testItems[0].selected();
   const listItem = webview.frameLocator('iframe').getByTestId('actions-tree').getByRole('listitem');
   await expect(
       listItem,
@@ -106,10 +106,10 @@ test('should switch trace when selected test item changes', async ({ activate })
 
   const [webview] = await vscode.webViewsByPanelType('playwright.traceviewer.view')!;
 
-  testItems[0].select();
+  testItems[0].selected();
   await expect(webview.frameLocator('iframe').frameLocator('iframe.snapshot-visible').locator('h1')).toHaveText('Test 1');
 
-  testItems[1].select();
+  testItems[1].selected();
   await expect(webview.frameLocator('iframe').frameLocator('iframe.snapshot-visible').locator('h1')).toHaveText('Test 2');
 });
 
@@ -131,7 +131,7 @@ test('should toggle between dark and light themes', async ({ activate }) => {
   const configuration = vscode.workspace.getConfiguration('workbench');
   const [webview] = await vscode.webViewsByPanelType('playwright.traceviewer.view')!;
 
-  testItems[0].select();
+  testItems[0].selected();
 
   await expect(webview.frameLocator('iframe').locator('body')).toHaveClass('dark-mode');
 
@@ -140,4 +140,55 @@ test('should toggle between dark and light themes', async ({ activate }) => {
 
   await configuration.update('colorTheme', 'Dark Modern', true);
   await expect(webview.frameLocator('iframe').locator('body')).toHaveClass('dark-mode');
+});
+
+test('should reopen trace viewer if closed', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => {});
+    `,
+  });
+
+  await vscode.commands.executeCommand('pw.extension.toggle.embedTraceViewer');
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/pass/);
+  await testController.run(testItems);
+
+  testItems[0].selected();
+
+  const [webview] = await vscode.webViewsByPanelType('playwright.traceviewer.view')!;
+  await expect(webview.locator('iframe')).toBeVisible();
+
+  await webview.close();
+  await expect.poll(() => vscode.webViewsByPanelType('playwright.traceviewer.view')).toHaveLength(0);
+
+  testItems[0].selected();
+  await expect.poll(() => vscode.webViewsByPanelType('playwright.traceviewer.view')).toHaveLength(1);
+});
+
+test('should open snapshot popout', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', ({ page }) => page.setContent('<h1>Test</h1>'));
+    `,
+  });
+
+  await vscode.commands.executeCommand('pw.extension.toggle.embedTraceViewer');
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/pass/);
+  await testController.run(testItems);
+
+  testItems[0].selected();
+
+  const [webview] = await vscode.webViewsByPanelType('playwright.traceviewer.view')!;
+  await webview.frameLocator('iframe').getByTitle('Open snapshot in a new tab').click();
+
+  await expect.poll(() => vscode.openExternalUrls).toHaveLength(1);
+  expect(vscode.openExternalUrls[0]).toContain('snapshot.html');
 });
