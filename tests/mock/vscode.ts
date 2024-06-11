@@ -21,7 +21,7 @@ import { Disposable, EventEmitter, Event } from '../../src/upstream/events';
 import minimatch from 'minimatch';
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import which from 'which';
-import { Browser, ConsoleMessage, Page } from '@playwright/test';
+import { Browser, Page } from '@playwright/test';
 import { CancellationToken, WebviewPanel } from '../../src/vscodeTypes';
 
 export class Uri {
@@ -1092,7 +1092,7 @@ export class VSCode {
       page.on('console', msg => {
         if (msg.type() === 'error')
           this.consoleErrors.push(msg.text());
-      })
+      });
       this.webViews.set(name, page);
       // convert webview.html into an observable property
       let currHtml = webview.html;

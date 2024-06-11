@@ -21,6 +21,9 @@ import { escapeAttribute, findNode, getNonce } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { DisposableBase } from './disposableBase';
 
+// TODO match with playwright version that includes this feature
+export const kEmbeddedMinVersion = 1.45;
+
 function getPath(uriOrPath: string | vscodeTypes.Uri) {
   return typeof uriOrPath === 'string' ?
     uriOrPath :
@@ -204,7 +207,7 @@ export class TraceViewer implements vscodeTypes.Disposable {
     await this._startIfNeeded(config);
     this._currentFile = file;
     this._traceViewerProcess?.stdin?.write(getPath(file) + '\n');
-    this._maybeOpenEmbeddedTraceViewer();
+    this._maybeOpenEmbeddedTraceViewer(config);
   }
 
   dispose() {
@@ -224,9 +227,9 @@ export class TraceViewer implements vscodeTypes.Disposable {
       allArgs.push('--host', '0.0.0.0');
       allArgs.push('--port', '0');
     }
-    if (embedded) {
+    if (embedded && this._checkEmbeddedVersion(config)) {
       allArgs.push('--server-only');
-      this._maybeOpenEmbeddedTraceViewer();
+      this._maybeOpenEmbeddedTraceViewer(config);
     }
 
     const traceViewerProcess = spawn(node, allArgs, {
@@ -265,8 +268,8 @@ export class TraceViewer implements vscodeTypes.Disposable {
     });
   }
 
-  private _maybeOpenEmbeddedTraceViewer() {
-    if (this._traceViewerView || !this._settingsModel.embedTraceViewer.get()) return;
+  private _maybeOpenEmbeddedTraceViewer(config: TestConfig) {
+    if (this._traceViewerView || !this._settingsModel.embedTraceViewer.get() || !this._checkEmbeddedVersion(config)) return;
     this._traceViewerView = new TraceViewerView(this._vscode, this._extensionUri, this._traceViewerUrl);
     this._traceViewerView.onDispose(() => {
       this._traceViewerView = undefined;
@@ -278,13 +281,18 @@ export class TraceViewer implements vscodeTypes.Disposable {
     config: TestConfig,
     message: string = this._vscode.l10n.t('this feature')
   ): boolean {
+    const version = 1.35;
     if (config.version < 1.35) {
       this._vscode.window.showWarningMessage(
-          this._vscode.l10n.t('Playwright v1.35+ is required for {0} to work, v{1} found', message, config.version)
+          this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, config.version)
       );
       return false;
     }
     return true;
+  }
+
+  private _checkEmbeddedVersion(config: TestConfig): boolean {
+    return config.version >= kEmbeddedMinVersion;
   }
 
   async close() {

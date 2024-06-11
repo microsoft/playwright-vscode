@@ -43,7 +43,7 @@ test('should enable "Embedded" and "Show trace viewer" setting on embedTraceView
     'playwright.config.js': `module.exports = {}`,
   });
 
-  const webView = await vscode.webViews.get('pw.extension.settingsView')!;
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
   const configuration = vscode.workspace.getConfiguration('playwright');
 
   expect(configuration.get('showTrace')).toBe(false);
@@ -83,6 +83,8 @@ test('should show tracer when test runs', async ({ activate }) => {
     /Before Hooks[\d.]+m?s/,
     /After Hooks[\d.]+m?s/,
   ]);
+
+  // ensure there's no CSP errors
   expect(vscode.consoleErrors).toHaveLength(0);
 });
 

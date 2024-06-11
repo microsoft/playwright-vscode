@@ -147,7 +147,6 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
         vscode,
         testController: vscode.testControllers[0],
         workspaceFolder: vscode.workspace.workspaceFolders[0],
-        extension,
       };
     });
     for (const vscode of instances)
