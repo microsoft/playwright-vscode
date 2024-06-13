@@ -322,7 +322,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       }
 
       function updateEmbedTraceViewer() {
-        const enabled = !!selectConfig?.embeddedEnabled;
+        const enabled = selectConfig?.embeddedEnabled;
 
         const embedTraceViewerLabel = document.getElementById('embedTraceViewerLabel');
         const showTrace = document.querySelector('[setting="showTrace"]');
@@ -398,6 +398,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
               selectConfig = config;
               select.value = config.configFile;
               updateProjects(config.projects);
+              updateEmbedTraceViewer();
             }
           }
           select.addEventListener('change', event => {

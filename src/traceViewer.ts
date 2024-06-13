@@ -64,6 +64,7 @@ class TraceViewerView extends DisposableBase {
       enableScripts: true,
       enableForms: true,
     }));
+    this._webviewPanel.iconPath = vscode.Uri.joinPath(extensionUri, 'images', 'playwright-logo.svg');
     this._register(this._webviewPanel.onDidDispose(() => {
       this.dispose();
     }));
