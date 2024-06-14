@@ -39,7 +39,7 @@ export class TraceViewer implements vscodeTypes.Disposable {
     }));
   }
 
-  get currentFile() {
+  currentFile() {
     return this._currentFile;
   }
 
