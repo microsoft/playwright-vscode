@@ -488,8 +488,10 @@ export class Extension implements RunHooks {
           return;
 
         const trace = result.attachments.find(a => a.name === 'trace')?.path || '';
+        const prevTrace = (testItem as any)[traceUrlSymbol];
         (testItem as any)[traceUrlSymbol] = trace;
-        if (enqueuedSingleTest)
+        if (enqueuedSingleTest || prevTrace === this._traceViewer.currentFile)
+          // refresh the trace viewer
           this._showTrace(testItem);
 
         if (result.status === test.expectedStatus) {
