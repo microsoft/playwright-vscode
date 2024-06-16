@@ -53,3 +53,7 @@ iframe {
 .vscode-high-contrast .loading-indicator {
 	background-image: url('./loading-hc.svg');
 }
+
+.hidden {
+  display: none;
+}
