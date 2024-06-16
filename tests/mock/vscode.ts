@@ -26,16 +26,39 @@ import { CancellationToken, Webview } from '../../src/vscodeTypes';
 
 export class Uri {
   scheme = 'file';
-  fsPath!: string;
+  authority = '';
+  path = '';
+  query = '';
+  fragment = '';
+  fsPath = '';
 
   static file(fsPath: string): Uri {
     const uri = new Uri();
     uri.fsPath = fsPath;
+    uri.path = fsPath;
     return uri;
   }
 
   static joinPath(base: Uri, ...args: string[]): Uri {
     return Uri.file(path.join(base.fsPath, ...args));
+  }
+
+  static parse(value: string): Uri {
+    const { protocol, host, pathname, search, hash } = new URL(value);
+    const uri = new Uri();
+    uri.scheme = protocol.replace(/:$/, '');
+    uri.authority = host;
+    uri.path = pathname;
+    uri.query = search;
+    uri.fragment = hash;
+    return uri;
+  }
+
+  toString() {
+    const url = new URL(`${this.scheme}://${this.authority}${this.path}`);
+    if (this.query) url.search = this.query;
+    if (this.fragment) url.hash = this.fragment;
+    return url.toString();
   }
 }
 
@@ -829,6 +852,7 @@ export class VSCode {
     openExternal: (url: any) => {
       if (url) this.openExternalUrls.push(url.toString());
     },
+    asExternalUri: (uri: Uri) => Promise.resolve(uri),
   };
   ProgressLocation = { Notification: 1 };
   ViewColumn = { Active: -1 };

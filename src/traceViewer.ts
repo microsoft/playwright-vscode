@@ -98,6 +98,7 @@ class TraceViewerView extends DisposableBase {
     const nonce = getNonce();
     const cspSource = this._webviewPanel.webview.cspSource;
     const theme = getThemeMode(this._vscode);
+    const origin = url ? new URL(url).origin : undefined;
 
     const loadingBody = /* html */ `<body class="loading" data-vscode-context='{ "preventDefaultContextMenuItems": true }'>
         <div class="loading-indicator"></div>
@@ -116,7 +117,7 @@ class TraceViewerView extends DisposableBase {
           }
           iframe.addEventListener('load', () => postMessageToFrame({ theme: '${theme}' }));
           window.addEventListener('message', ({ data, origin }) => {
-            if (origin === '${url}') {
+            if (origin === '${origin}') {
               // propagate key events to vscode
               if (data.type === 'keyup' || data.type === 'keydown') {
                 const emulatedKeyboardEvent = new KeyboardEvent(data.type, data);
@@ -138,7 +139,9 @@ class TraceViewerView extends DisposableBase {
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${cspSource}; media-src ${cspSource}; script-src 'nonce-${nonce}'; style-src ${cspSource}; frame-src *">
+        <meta
+          http-equiv="Content-Security-Policy"
+          content="default-src 'none'; img-src data: ${cspSource}; media-src ${cspSource}; script-src 'nonce-${nonce}'; style-src ${cspSource}; frame-src ${url ?? ''} ${cspSource} https:">
         <!-- Disable pinch zooming -->
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
 
@@ -223,14 +226,13 @@ export class TraceViewer implements vscodeTypes.Disposable {
     if (this._traceViewerProcess)
       return;
     const allArgs = [config.cli, 'show-trace', `--stdin`];
-    const embedded = this._settingsModel.embedTraceViewer.get();
-    if (this._vscode.env.remoteName) {
-      allArgs.push('--host', '0.0.0.0');
-      allArgs.push('--port', '0');
-    }
-    if (embedded && this._checkEmbeddedVersion(config)) {
+    const embedded = this._settingsModel.embedTraceViewer.get() && this._checkEmbeddedVersion(config);
+    if (embedded) {
       allArgs.push('--server-only');
       this._maybeOpenEmbeddedTraceViewer(config);
+    } else if (this._vscode.env.remoteName) {
+      allArgs.push('--host', '0.0.0.0');
+      allArgs.push('--port', '0');
     }
 
     const traceViewerProcess = spawn(node, allArgs, {
@@ -245,11 +247,12 @@ export class TraceViewer implements vscodeTypes.Disposable {
     this._traceViewerProcess = traceViewerProcess;
     this._embedded = embedded;
 
-    traceViewerProcess.stdout?.on('data', data => {
-      if (!this._vscode.env.remoteName && !this._traceViewerUrl && this._settingsModel.embedTraceViewer.get()) {
-        const url = data.toString().split('\n')[0];
+    traceViewerProcess.stdout?.on('data', async data => {
+      if (!this._traceViewerUrl && this._settingsModel.embedTraceViewer.get()) {
+        const [url] = data.toString().split('\n') ?? [];
         if (!url) return;
-        this._traceViewerUrl = url;
+        const uri = await this._vscode.env.asExternalUri(this._vscode.Uri.parse(url));
+        this._traceViewerUrl = uri.toString();
         this._traceViewerView?.show(this._traceViewerUrl);
       }
       console.log(data.toString());
