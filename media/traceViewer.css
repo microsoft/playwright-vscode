@@ -27,33 +27,3 @@ iframe {
   height: 100%;
   border: none;
 }
-
-.loading {
-  width: 100%;
-  height: 100%;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-  -webkit-user-select: none;
-	user-select: none;
-}
-
-.loading-indicator {
-	display: block;
-	width: 30px;
-	height: 30px;
-	background-image: url('./loading.svg');
-	background-size: cover;
-}
-
-.vscode-dark .loading-indicator {
-	background-image: url('./loading-dark.svg');
-}
-
-.vscode-high-contrast .loading-indicator {
-	background-image: url('./loading-hc.svg');
-}
-
-.hidden {
-  display: none;
-}

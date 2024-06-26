@@ -27,7 +27,7 @@ import { TestTree } from './testTree';
 import { NodeJSNotFoundError, ansiToHtml, getPlaywrightInfo } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
-import { TraceViewer } from './traceViewer';
+import { TraceViewer, kEmbeddedMinVersion } from './traceViewer';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { RunHooks, TestConfig } from './playwrightTestTypes';
 
@@ -553,7 +553,7 @@ export class Extension implements RunHooks {
     if (isDebug) {
       await model.debugTests(items, testListener, testRun.token);
     } else {
-      await this._traceViewer.willRunTests(model.config);
+      await this._traceViewer.willRunTests(await this._extendTestConfig(model));
       await model.runTests(items, testListener, testRun.token);
     }
   }
@@ -766,28 +766,37 @@ export class Extension implements RunHooks {
     return this._reusedBrowser.browserServerWSEndpoint();
   }
 
-  private _showTrace(testItem: vscodeTypes.TestItem) {
+  private async _showTrace(testItem: vscodeTypes.TestItem) {
     const traceUrl = (testItem as any)[traceUrlSymbol];
     const testModel = this._models.selectedModel();
     if (testModel)
-      this._traceViewer.open(traceUrl, testModel.config);
+      this._traceViewer.open(traceUrl, await this._extendTestConfig(testModel));
   }
 
-  private _treeItemSelected(treeItem: vscodeTypes.TreeItem | null) {
+  private async _treeItemSelected(treeItem: vscodeTypes.TreeItem | null) {
     if (!treeItem)
       return;
     const traceUrl = (treeItem as any)[traceUrlSymbol] || '';
     const testModel = this._models.selectedModel();
     if (testModel)
-      this._traceViewer.open(traceUrl, testModel.config);
+      this._traceViewer.open(traceUrl, await this._extendTestConfig(testModel));
   }
 
-  private _fileSelected(uri?: vscodeTypes.Uri) {
+  private async _fileSelected(uri?: vscodeTypes.Uri) {
     if (!uri)
       return;
     const testModel = this._models.selectedModel();
     if (testModel)
-      this._traceViewer.open(uri, testModel.config);
+      this._traceViewer.open(uri, await this._extendTestConfig(testModel));
+  }
+
+  private async _extendTestConfig(testModel: TestModel) {
+    if (testModel.config.version < kEmbeddedMinVersion || !this._settingsModel.embedTraceViewer.get())
+      return testModel.config;
+    const url = await testModel.serverUrlPrefix();
+    const serverUri = url ? await this._vscode.env.asExternalUri(this._vscode.Uri.parse(url)) : undefined;
+    const serverUrlPrefix = serverUri?.toString().replace(/\/$/, '');
+    return { ...testModel.config, serverUrlPrefix };
   }
 
   private _queueCommand<T>(callback: () => Promise<T>, defaultValue: T): Promise<T> {

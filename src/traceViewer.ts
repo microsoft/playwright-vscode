@@ -22,19 +22,14 @@ import * as vscodeTypes from './vscodeTypes';
 import { DisposableBase } from './disposableBase';
 
 // TODO match with playwright version that includes this feature
-export const kEmbeddedMinVersion = 1.45;
+export const kEmbeddedMinVersion = 1.46;
 
 function getPath(uriOrPath: string | vscodeTypes.Uri) {
   return typeof uriOrPath === 'string' ?
     uriOrPath :
     uriOrPath.scheme === 'file' ?
       uriOrPath.fsPath :
-      uriOrPath;
-}
-
-function getThemeMode(vscode: vscodeTypes.VSCode) {
-  const themeKind = vscode.window.activeColorTheme.kind;
-  return themeKind === 2 || themeKind === 3  ? 'dark-mode' : 'light-mode';
+      uriOrPath.toString();
 }
 
 class TraceViewerView extends DisposableBase {
@@ -48,10 +43,11 @@ class TraceViewerView extends DisposableBase {
   private readonly _onDidDispose: vscodeTypes.EventEmitter<void>;
   public readonly onDispose: vscodeTypes.Event<void>;
 
+  private _url?: string;
+
   constructor(
     vscode: vscodeTypes.VSCode,
     extensionUri: vscodeTypes.Uri,
-    url?: string
   ) {
     super();
     this._vscode = vscode;
@@ -69,19 +65,23 @@ class TraceViewerView extends DisposableBase {
       this.dispose();
     }));
     this._register(this._webviewPanel.webview.onDidReceiveMessage(message  => {
-      if (message.command === 'openExternal' && message.url)
+      if (message.command === 'openExternal' && message.params.url)
         // should be a Uri, but due to https://github.com/microsoft/vscode/issues/85930
         // we pass a string instead
-        vscode.env.openExternal(message.url);
+        vscode.env.openExternal(message.params.url);
+      else if (message.command === 'showErrorMessage')
+        vscode.window.showErrorMessage(message.params.message);
     }));
     this._register(vscode.workspace.onDidChangeConfiguration(event => {
       if (event.affectsConfiguration('workbench.colorTheme'))
-        this._webviewPanel.webview.postMessage({ theme: getThemeMode(vscode) });
+        this._applyTheme();
     }));
     this._onDidDispose = this._register(new vscode.EventEmitter<void>());
     this.onDispose = this._onDidDispose.event;
+  }
 
-    this.show(url);
+  public url() {
+    return this._url;
   }
 
   public dispose() {
@@ -89,48 +89,66 @@ class TraceViewerView extends DisposableBase {
     super.dispose();
   }
 
-  public show(url?: string) {
-    this._webviewPanel.webview.html = this.getHtml(url);
-    this._webviewPanel.reveal(undefined, true);
+  public postMessage(msg: any) {
+    this._webviewPanel.webview.postMessage(msg);
   }
 
-  private getHtml(url?: string) {
+  public show(url: string) {
+    this._url = url;
+    this._webviewPanel.webview.html = this.getHtml(url);
+    this._webviewPanel.reveal(undefined, false);
+    this._applyTheme();
+  }
+
+  private _applyTheme() {
+    const themeKind = this._vscode.window.activeColorTheme.kind;
+    const theme = themeKind === 2 || themeKind === 3  ? 'dark-mode' : 'light-mode';
+    this._webviewPanel.webview.postMessage({ method: 'applyTheme', params: { theme } });
+  }
+
+  private getHtml(url: string) {
     const nonce = getNonce();
     const cspSource = this._webviewPanel.webview.cspSource;
-    const theme = getThemeMode(this._vscode);
-    const origin = url ? new URL(url).origin : undefined;
+    const origin = new URL(url).origin;
 
     return /* html */ `<!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
+        <!-- CSP doesn't support IPv6 urls -->
         <meta
           http-equiv="Content-Security-Policy"
-          content="default-src 'none'; img-src data: ${cspSource}; media-src ${cspSource}; script-src 'nonce-${nonce}'; style-src ${cspSource}; frame-src ${url ?? ''} ${cspSource} https:">
+          content="default-src 'none'; img-src data: ${cspSource}; media-src ${cspSource}; script-src 'nonce-${nonce}'; style-src ${cspSource}; frame-src *">
         <!-- Disable pinch zooming -->
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
         <title>Playwright Trace Viewer</title>
         <link rel="stylesheet" href="${escapeAttribute(this.extensionResource('media', 'traceViewer.css'))}" type="text/css" media="screen">
       </head>
       <body data-vscode-context='{ "preventDefaultContextMenuItems": true }'>
-        <div class="${url ? 'hidden' : 'loading'}">
-          <div class="loading-indicator"></div>
-        </div>
-        <iframe class="${url ? '' : 'hidden'}" id="traceviewer" src="${url ?? ''}"></iframe>
+        <iframe id="traceviewer" src="${url}/trace/embedded.html"></iframe>
         <script nonce="${nonce}">
           const vscode = acquireVsCodeApi();
           const iframe = document.getElementById('traceviewer');
+          let loaded = false;
+          let pendingMessages = [];
           function postMessageToVSCode(data) {
             vscode.postMessage(data);
           }
           function postMessageToFrame(data) {
-            iframe.contentWindow.postMessage(data, '*');
+            if (!loaded)
+              pendingMessages.push(data);
+            else
+              iframe.contentWindow.postMessage(data, '*');
           }
-          iframe.addEventListener('load', () => postMessageToFrame({ theme: '${theme}' }));
           window.addEventListener('message', ({ data, origin }) => {
             if (origin === '${origin}') {
-              // propagate key events to vscode
-              if (data.type === 'keyup' || data.type === 'keydown') {
+              if (data.type === 'loaded') {
+                loaded = true;
+                for (const data of pendingMessages)
+                  postMessageToFrame(data);
+                pendingMessages = [];
+              } else if (data.type === 'keyup' || data.type === 'keydown') {
+                // propagate key events to vscode
                 const emulatedKeyboardEvent = new KeyboardEvent(data.type, data);
                 Object.defineProperty(emulatedKeyboardEvent, 'target', {
                   get: () => window,
@@ -165,11 +183,10 @@ export class TraceViewer implements vscodeTypes.Disposable {
   private _disposables: vscodeTypes.Disposable[] = [];
   private _traceViewerProcess: ChildProcess | undefined;
   private _embedded: boolean = false;
-  private _traceViewerUrl: string | undefined;
   private _traceViewerView: TraceViewerView | undefined;
   private _settingsModel: SettingsModel;
-  private _restart: boolean = false;
   private _currentFile?: string | vscodeTypes.Uri;
+  private _traceLoadRequestedTimeout?: NodeJS.Timeout;
 
   constructor(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
@@ -182,21 +199,17 @@ export class TraceViewer implements vscodeTypes.Disposable {
         this.close().catch(() => {});
     }));
     this._disposables.push(settingsModel.embedTraceViewer.onChange(value => {
-      if (this._embedded !== value) {
-        this._restart = !!this._traceViewerProcess;
-        this._traceViewerProcess?.kill();
-        this._traceViewerView?.dispose();
-        this._traceViewerView = undefined;
-      }
+      if (this._embedded !== value)
+        this.close().catch(() => {});
     }));
   }
 
-  async willRunTests(config: TestConfig) {
+  async willRunTests(config: TestConfig & { serverUrlPrefix?: string }) {
     if (this._settingsModel.showTrace.get())
       await this._startIfNeeded(config);
   }
 
-  async open(file: string | vscodeTypes.Uri, config: TestConfig) {
+  async open(file: string | vscodeTypes.Uri, config: TestConfig & { serverUrlPrefix?: string }) {
     if (!this._settingsModel.showTrace.get())
       return;
     if (!this._checkVersion(config))
@@ -205,8 +218,9 @@ export class TraceViewer implements vscodeTypes.Disposable {
       return;
     await this._startIfNeeded(config);
     this._currentFile = file;
-    this._traceViewerProcess?.stdin?.write(getPath(file) + '\n');
-    this._maybeOpenEmbeddedTraceViewer(config);
+    const traceUrl = getPath(file);
+    this._traceViewerProcess?.stdin?.write(traceUrl + '\n');
+    this._maybeFireLoadTraceRequested();
   }
 
   dispose() {
@@ -216,16 +230,17 @@ export class TraceViewer implements vscodeTypes.Disposable {
     this._disposables = [];
   }
 
-  private async _startIfNeeded(config: TestConfig) {
+  private async _startIfNeeded(config: TestConfig & { serverUrlPrefix?: string }) {
+    if (config.serverUrlPrefix) {
+      this._maybeOpenEmbeddedTraceViewer(config.serverUrlPrefix);
+      return;
+    }
+
     const node = await findNode(this._vscode, config.workspaceFolder);
     if (this._traceViewerProcess)
       return;
     const allArgs = [config.cli, 'show-trace', `--stdin`];
-    const embedded = this._settingsModel.embedTraceViewer.get() && this._checkEmbeddedVersion(config);
-    if (embedded) {
-      allArgs.push('--server-only');
-      this._maybeOpenEmbeddedTraceViewer(config);
-    } else if (this._vscode.env.remoteName) {
+    if (this._vscode.env.remoteName) {
       allArgs.push('--host', '0.0.0.0');
       allArgs.push('--port', '0');
     }
@@ -240,26 +255,11 @@ export class TraceViewer implements vscodeTypes.Disposable {
       },
     });
     this._traceViewerProcess = traceViewerProcess;
-    this._embedded = embedded;
 
-    traceViewerProcess.stdout?.on('data', async data => {
-      if (!this._traceViewerUrl && this._settingsModel.embedTraceViewer.get()) {
-        const [url] = data.toString().split('\n') ?? [];
-        if (!url) return;
-        const uri = await this._vscode.env.asExternalUri(this._vscode.Uri.parse(url));
-        this._traceViewerUrl = uri.toString();
-        this._traceViewerView?.show(this._traceViewerUrl);
-      }
-      console.log(data.toString());
-    });
+    traceViewerProcess.stdout?.on('data', async data => console.log(data.toString()));
     traceViewerProcess.stderr?.on('data', data => console.log(data.toString()));
     traceViewerProcess.on('exit', () => {
       this._traceViewerProcess = undefined;
-      this._traceViewerUrl = undefined;
-      if (this._restart) {
-        this._restart = false;
-        this.open(this._currentFile ?? '', config);
-      }
     });
     traceViewerProcess.on('error', error => {
       this._vscode.window.showErrorMessage(error.message);
@@ -267,13 +267,32 @@ export class TraceViewer implements vscodeTypes.Disposable {
     });
   }
 
-  private _maybeOpenEmbeddedTraceViewer(config: TestConfig) {
-    if (this._traceViewerView || !this._settingsModel.embedTraceViewer.get() || !this._checkEmbeddedVersion(config)) return;
-    this._traceViewerView = new TraceViewerView(this._vscode, this._extensionUri, this._traceViewerUrl);
-    this._traceViewerView.onDispose(() => {
-      this._traceViewerView = undefined;
-    });
-    this._disposables.push(this._traceViewerView);
+  private _maybeFireLoadTraceRequested() {
+    if (this._traceLoadRequestedTimeout) {
+      clearTimeout(this._traceLoadRequestedTimeout);
+      this._traceLoadRequestedTimeout = undefined;
+    }
+    if (!this._traceViewerView || !this._currentFile)
+      return;
+    const traceUrl = getPath(this._currentFile);
+    this._traceViewerView.postMessage({ method: 'loadTraceRequested', params: { traceUrl } });
+    if (traceUrl.endsWith('.json'))
+      this._traceLoadRequestedTimeout = setTimeout(() => this._maybeFireLoadTraceRequested(), 500);
+  }
+
+  private _maybeOpenEmbeddedTraceViewer(serverUrlPrefix: string) {
+    if (this._traceViewerView?.url() === serverUrlPrefix)
+      return;
+
+    if (!this._traceViewerView) {
+      this._traceViewerView = new TraceViewerView(this._vscode, this._extensionUri);
+      this._traceViewerView.onDispose(() => {
+        this._traceViewerView = undefined;
+      });
+      this._disposables.push(this._traceViewerView);
+    }
+
+    this._traceViewerView.show(serverUrlPrefix);
   }
 
   private _checkVersion(
@@ -290,12 +309,14 @@ export class TraceViewer implements vscodeTypes.Disposable {
     return true;
   }
 
-  private _checkEmbeddedVersion(config: TestConfig): boolean {
-    return config.version >= kEmbeddedMinVersion;
-  }
-
   async close() {
     this._traceViewerProcess?.stdin?.end();
     this._traceViewerProcess = undefined;
+    this._traceViewerView?.dispose();
+    this._traceViewerView = undefined;
+    if (this._traceLoadRequestedTimeout) {
+      clearTimeout(this._traceLoadRequestedTimeout);
+      this._traceLoadRequestedTimeout = undefined;
+    }
   }
 }
