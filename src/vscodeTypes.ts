@@ -48,6 +48,7 @@ export type {
   TreeView,
   Uri,
   Webview,
+  WebviewPanel,
   WebviewView,
   WebviewViewProvider,
   WebviewViewResolveContext,

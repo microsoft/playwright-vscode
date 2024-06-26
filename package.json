@@ -72,6 +72,11 @@
       },
       {
         "category": "Test",
+        "command": "pw.extension.toggle.embedTraceViewer",
+        "title": "%contributes.command.pw.extension.toggle.embedTraceViewer%"
+      },
+      {
+        "category": "Test",
         "command": "pw.extension.command.runGlobalSetup",
         "title": "%contributes.command.pw.extension.command.runGlobalSetup%"
       },
@@ -94,6 +99,12 @@
         "category": "Test",
         "command": "pw.extension.command.clearCache",
         "title": "%contributes.command.pw.extension.command.clearCache%"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.command.openTrace",
+        "title": "%contributes.command.pw.extension.command.openTrace%",
+        "enablement": "config.playwright.showTrace"
       }
     ],
     "configuration": {
@@ -113,6 +124,11 @@
           "type": "boolean",
           "default": false,
           "description": "%configuration.playwright.showTrace%"
+        },
+        "playwright.embedTraceViewer": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.playwright.embedTraceViewer%"
         }
       }
     },

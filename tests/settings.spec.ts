@@ -131,3 +131,15 @@ test('should reload when playwright.env changes', async ({ activate }) => {
   expect(output).toContain(`foo=foo-value`);
   expect(output).toContain(`bar={"prop":"bar-value"}`);
 });
+
+test('should not have Content Security Policy violations', async ({ activate }) => {
+  const { vscode } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+  });
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await webView.getByLabel('Show browser').click();
+
+  // ensure there's no CSP errors
+  expect(vscode.consoleErrors).toHaveLength(0);
+});

@@ -18,6 +18,8 @@ import { DisposableBase } from './disposableBase';
 import type { ReusedBrowser } from './reusedBrowser';
 import type { SettingsModel } from './settingsModel';
 import type { TestModelCollection } from './testModel';
+import { kEmbeddedMinVersion } from './traceViewer';
+import { getNonce } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
 
@@ -27,6 +29,7 @@ type ConfigEntry = {
   selected: boolean;
   enabled: boolean;
   projects: ProjectEntry[];
+  embeddedEnabled: boolean;
 };
 
 type ProjectEntry = {
@@ -200,6 +203,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         selected: model === this._models.selectedModel(),
         enabled: model.isEnabled,
         projects: model.projects().map(p => ({ name: p.name, enabled: p.isEnabled })),
+        embeddedEnabled: model.config.version >= kEmbeddedMinVersion,
       });
     }
 
@@ -277,6 +281,10 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             <input type="checkbox" setting="showTrace"></input>
             ${vscode.l10n.t('Show trace viewer')}
           </label>
+          <label id="embedTraceViewerLabel" class="hidden">
+            <input type="checkbox" setting="embedTraceViewer"></input>
+            ${vscode.l10n.t('Embedded')}
+          </label>
         </div>
       </div>
       <div class="section-header">${vscode.l10n.t('TOOLS')}</div>
@@ -312,6 +320,19 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           vscode.postMessage({ method: 'toggle', params: { setting: event.target.getAttribute('setting') } });
         });
       }
+
+      function updateEmbedTraceViewer() {
+        const enabled = selectConfig?.embeddedEnabled;
+
+        const embedTraceViewerLabel = document.getElementById('embedTraceViewerLabel');
+        const showTrace = document.querySelector('[setting="showTrace"]');
+        if (enabled && showTrace.checked)
+          embedTraceViewerLabel.classList.remove('hidden');
+        else
+          embedTraceViewerLabel.classList.add('hidden');
+      }
+      updateEmbedTraceViewer();
+
       window.addEventListener('message', event => {
         const { method, params } = event.data;
         if (method === 'settings') {
@@ -323,6 +344,9 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
               input.checked = value;
             else
               input.value = value;
+
+            if (key === 'showTrace')
+              updateEmbedTraceViewer();
           }
         } else if (method === 'actions') {
           const actionsElement = document.getElementById('actions');
@@ -374,6 +398,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
               selectConfig = config;
               select.value = config.configFile;
               updateProjects(config.projects);
+              updateEmbedTraceViewer();
             }
           }
           select.addEventListener('change', event => {
@@ -381,17 +406,12 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             updateProjects(configsMap.get(select.value).projects);
           });
           const modelSelector = document.getElementById('model-selector');
-          modelSelector.style.display = showModelSelector ? 'block' : 'none';
+          if (showModelSelector)
+            modelSelector.classList.remove('hidden');
+          else
+            modelSelector.classList.add('hidden');
         }
       });
     </script>
     </html>`;
-}
-
-function getNonce() {
-  let text = '';
-  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++)
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  return text;
 }
