@@ -138,7 +138,8 @@
     "code": "code --uninstall-extension ms-playwright.playwright && code --install-extension playwright-0.2.11.vsix",
     "uncode": "code --uninstall-extension ms-playwright.playwright",
     "code-insiders": "code-insiders --uninstall-extension ms-playwright.playwright && code-insiders --install-extension playwright-0.2.11.vsix",
-    "uncode-insiders": "code-insiders --uninstall-extension ms-playwright.playwright"
+    "uncode-insiders": "code-insiders --uninstall-extension ms-playwright.playwright",
+    "verify-localization": "node ./utils/verifyLocalizationConsistency.js"
   },
   "devDependencies": {
     "@babel/preset-typescript": "^7.23.2",
