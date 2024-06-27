@@ -26,6 +26,7 @@ export class TraceViewer implements vscodeTypes.Disposable {
   private _disposables: vscodeTypes.Disposable[] = [];
   private _traceViewerProcess: ChildProcess | undefined;
   private _settingsModel: SettingsModel;
+  private _currentFile?: string;
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
@@ -36,6 +37,10 @@ export class TraceViewer implements vscodeTypes.Disposable {
       if (!value && this._traceViewerProcess)
         this.close().catch(() => {});
     }));
+  }
+
+  currentFile() {
+    return this._currentFile;
   }
 
   async willRunTests(config: TestConfig) {
@@ -52,6 +57,7 @@ export class TraceViewer implements vscodeTypes.Disposable {
       return;
     await this._startIfNeeded(config);
     this._traceViewerProcess?.stdin?.write(file + '\n');
+    this._currentFile = file;
   }
 
   dispose() {
@@ -85,6 +91,7 @@ export class TraceViewer implements vscodeTypes.Disposable {
     traceViewerProcess.stderr?.on('data', data => console.log(data.toString()));
     traceViewerProcess.on('exit', () => {
       this._traceViewerProcess = undefined;
+      this._currentFile = undefined;
     });
     traceViewerProcess.on('error', error => {
       this._vscode.window.showErrorMessage(error.message);
