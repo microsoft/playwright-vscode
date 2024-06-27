@@ -31,6 +31,7 @@ jobs:
     - run: npx playwright install chromium
     - run: npm run lint
     - run: npm run build
+    - run: npm run verify-localization
     - run: npm run test --workers=1
     - run: npx vsce package
       if: matrix.os == 'ubuntu-latest' && matrix.node-version == '20'
