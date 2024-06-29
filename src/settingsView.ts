@@ -326,10 +326,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
 
         const embedTraceViewerLabel = document.getElementById('embedTraceViewerLabel');
         const showTrace = document.querySelector('[setting="showTrace"]');
-        if (enabled && showTrace.checked)
-          embedTraceViewerLabel.classList.remove('hidden');
-        else
-          embedTraceViewerLabel.classList.add('hidden');
+        embedTraceViewerLabel.classList.toggle('hidden', !enabled || !showTrace.checked);
       }
       updateEmbedTraceViewer();
 
@@ -406,10 +403,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             updateProjects(configsMap.get(select.value).projects);
           });
           const modelSelector = document.getElementById('model-selector');
-          if (showModelSelector)
-            modelSelector.classList.remove('hidden');
-          else
-            modelSelector.classList.add('hidden');
+          modelSelector.classList.toggle('hidden', !showModelSelector);
         }
       });
     </script>
