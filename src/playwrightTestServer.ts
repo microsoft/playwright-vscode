@@ -31,7 +31,8 @@ export class PlaywrightTestServer {
   private _vscode: vscodeTypes.VSCode;
   private _options: PlaywrightTestOptions;
   private _model: TestModel;
-  private _testServerPromise: Promise<[TestServerConnection, string] | []> | undefined;
+  private _testServerPromise: Promise<TestServerConnection | null> | undefined;
+  private _serverUrlPrefix?: string;
 
   constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
@@ -46,10 +47,7 @@ export class PlaywrightTestServer {
   async serverUrlPrefix() {
     // ensure test server is running
     await this._testServer();
-    if (!this._testServerPromise)
-      return;
-    const [, url] = await this._testServerPromise;
-    return url;
+    return this._serverUrlPrefix;
   }
 
   async listFiles(): Promise<ConfigListFilesReport> {
@@ -307,14 +305,14 @@ export class PlaywrightTestServer {
     return await testServer.findRelatedTestFiles({ files });
   }
 
-  private async _testServer() {
-    if (!this._testServerPromise)
-      this._testServerPromise = this._createTestServer();
-    const [server] = await this._testServerPromise;
-    return server;
+  private _testServer() {
+    if (this._testServerPromise)
+      return this._testServerPromise;
+    this._testServerPromise = this._createTestServer();
+    return this._testServerPromise;
   }
 
-  private async _createTestServer(): Promise<[TestServerConnection, string] | []> {
+  private async _createTestServer(): Promise<TestServerConnection | null> {
     const args = [this._model.config.cli, 'test-server', '-c', this._model.config.configFile];
     const wsEndpoint = await startBackend(this._vscode, {
       args,
@@ -334,7 +332,7 @@ export class PlaywrightTestServer {
       },
     });
     if (!wsEndpoint)
-      return [];
+      return null;
     const testServer = new TestServerConnection(wsEndpoint);
     testServer.onTestFilesChanged(params => this._testFilesChanged(params.testFiles));
     await testServer.initialize({
@@ -342,8 +340,8 @@ export class PlaywrightTestServer {
       interceptStdio: true,
       closeOnDisconnect: true,
     });
-    const serverUrlPrefix = new URL(wsEndpoint.replace('ws:', 'http:')).origin;
-    return [testServer, serverUrlPrefix];
+    this._serverUrlPrefix = new URL(wsEndpoint.replace('ws:', 'http:')).origin;
+    return testServer;
   }
 
   private async _wireTestServer(testServer: TestServerConnection, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
@@ -375,13 +373,11 @@ export class PlaywrightTestServer {
     this._model.testFilesChanged(testFiles.map(f => this._vscode.Uri.file(f).fsPath));
   }
 
-  private async _disposeTestServer() {
+  private _disposeTestServer() {
     const testServer = this._testServerPromise;
     this._testServerPromise = undefined;
-    if (!testServer)
-      return;
-    const [server] = await testServer ?? [];
-    server?.close();
+    if (testServer)
+      testServer.then(server => server?.close());
   }
 }
 
