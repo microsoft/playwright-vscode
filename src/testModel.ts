@@ -83,11 +83,11 @@ export class TestModel {
   constructor(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }, options: TestModelOptions) {
     this._vscode = vscode;
     this._options = options;
+    this.config = { ...playwrightInfo, workspaceFolder, configFile };
     this._useLegacyCLIDriver = playwrightInfo.version < 1.44;
     this._playwrightTest =  this._useLegacyCLIDriver ? new PlaywrightTestCLI(vscode, this, options) : new PlaywrightTestServer(vscode, this, options);
     this._didUpdate = new vscode.EventEmitter();
     this.onUpdated = this._didUpdate.event;
-    this.config = { ...playwrightInfo, workspaceFolder, configFile };
     this.tag = new this._vscode.TestTag(this.config.configFile);
   }
 
