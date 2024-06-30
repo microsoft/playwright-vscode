@@ -272,9 +272,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     config: TestConfig,
     message: string = this._vscode.l10n.t('this feature')
   ): boolean {
-    if (config.version < 1.25) {
+    const version = 1.25;
+    if (config.version < version) {
       this._vscode.window.showWarningMessage(
-          this._vscode.l10n.t('Playwright v1.25+ is required for {0} to work, v{1} found', message, config.version)
+          this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, config.version)
       );
       return false;
     }
