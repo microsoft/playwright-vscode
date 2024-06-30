@@ -22,7 +22,7 @@ import minimatch from 'minimatch';
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import which from 'which';
 import { Browser, Page } from '@playwright/test';
-import { CancellationToken, Webview } from '../../src/vscodeTypes';
+import { CancellationToken } from '../../src/vscodeTypes';
 
 export class Uri {
   scheme = 'file';
@@ -60,6 +60,13 @@ export class Uri {
     if (this.fragment) url.hash = this.fragment;
     return url.toString();
   }
+}
+
+export enum ColorThemeKind {
+  Light = 1,
+  Dark = 2,
+  HighContrast = 3,
+  HighContrastLight = 4
 }
 
 class Position {
@@ -827,6 +834,7 @@ type HoverProvider = {
 export class VSCode {
   isUnderTest = true;
   CancellationTokenSource = CancellationTokenSource;
+  ColorThemeKind = ColorThemeKind;
   DiagnosticSeverity = DiagnosticSeverity;
   EventEmitter = EventEmitter;
   Location = Location;
@@ -881,7 +889,7 @@ export class VSCode {
   readonly extensions: any[] = [];
   private _webviewProviders = new Map<string, any>();
   private _browser: Browser;
-  private _webViewsByPanelType = new Map<string, Array<Promise<Page>>>();
+  private _webViewsByPanelType = new Map<string, Set<Promise<Page>>>();
   readonly webViews = new Map<string, Page>();
   readonly commandLog: string[] = [];
   readonly l10n = new L10n();
@@ -957,19 +965,17 @@ export class VSCode {
       return disposable;
     };
     this.window.createWebviewPanel = (viewType: string) => {
-      const webview = this._createWebview();
+      const { webview, pagePromise } = this._createWebviewAndPage();
       const didDispose = new EventEmitter<void>();
       const panel: any = {};
       panel.onDidDispose = didDispose.event;
       panel.webview = webview;
-      panel.reveal = () => {
-        if (webview.pagePromise)
-          return;
-        const pagePromise = webview.show();
-        this._webViewsByPanelType.set(viewType, [...(this._webViewsByPanelType.get(viewType) ?? []), pagePromise]);
-        pagePromise.then(page => page.on('close', () => panel.dispose()));
-      };
+      pagePromise.then(page => page.on('close', () => panel.dispose()));
+      const webviews = this._webViewsByPanelType.get(viewType) ?? new Set();
+      webviews.add(pagePromise);
+      this._webViewsByPanelType.set(viewType, webviews);
       panel.dispose = () => {
+        webviews.delete(pagePromise);
         didDispose.fire();
       };
       return panel;
@@ -1089,9 +1095,9 @@ export class VSCode {
       await extension.activate();
 
     for (const [name, provider] of this._webviewProviders) {
-      const webview = this._createWebview();
+      const { webview, pagePromise } = this._createWebviewAndPage();
       provider?.resolveWebviewView({ webview, onDidChangeVisibility: () => disposable });
-      this.webViews.set(name, await webview.show());
+      this.webViews.set(name, await pagePromise);
     }
   }
 
@@ -1104,11 +1110,22 @@ export class VSCode {
     return (await Promise.all(this._webViewsByPanelType.get(viewType) ?? [])).filter(p => !p.isClosed());
   }
 
-  private _createWebview(): Webview & { pagePromise?: Promise<Page>, show: () => Promise<Page>} {
-    const webview: any = {};
+  private _createWebviewAndPage() {
+    let initializedPage: Page | undefined = undefined;
+    let currHtml = '';
+    const webview: any = {
+      get html() {
+        return currHtml;
+      },
+      set html(newValue: string) {
+        if (newValue === currHtml)
+          return;
+        currHtml = newValue;
+        initializedPage?.reload().catch(() => {});
+      }
+    };
     webview.asWebviewUri = uri => path.relative(this.context.extensionUri.fsPath, uri.fsPath).replace(/\\/g, '/');
     const eventEmitter = new EventEmitter<any>();
-    let initializedPage: Page | undefined = undefined;
     webview.onDidReceiveMessage = eventEmitter.event;
     webview.cspSource = 'http://localhost/';
     const pendingMessages: any[] = [];
@@ -1123,63 +1140,42 @@ export class VSCode {
         globalThis.dispatchEvent(event);
       }, data).catch(() => {});
     };
-    webview.show = async () => {
-      if (webview.pagePromise)
-        return await webview.pagePromise;
-      // asynchronosly create corresponding page
-      webview.pagePromise = (async () => {
-        const context = await this._browser.newContext();
-        const page = await context.newPage();
-        page.on('close', () => {
-          webview.pagePromise = undefined;
-        });
-        page.on('console', msg => {
-          if (msg.type() === 'error')
-            this.consoleErrors.push(msg.text());
-        });
-        // convert webview.html into an observable property
-        let currHtml = webview.html;
-        Object.defineProperty(webview, 'html', {
-          get: () => currHtml,
-          set: (newValue: string) => {
-            if (currHtml === newValue) return;
-            currHtml = newValue;
-            page.reload();
-          }
-        });
-        await page.route('**/*', route => {
-          const url = route.request().url();
-          if (!url.startsWith('http://localhost/')) {
-            route.continue();
-            return;
-          }
-
-          if (url === 'http://localhost/') {
-            route.fulfill({ body: webview.html });
-          } else {
-            const suffix = url.substring('http://localhost/'.length);
-            const buffer = fs.readFileSync(path.join(this.context.extensionUri.fsPath, suffix));
-            route.fulfill({ body: buffer });
-          }
-        });
-        await page.addInitScript(() => {
-          globalThis.acquireVsCodeApi = () => globalThis;
-        });
-        await page.goto('http://localhost');
-        await page.exposeFunction('postMessage', (data: any) => eventEmitter.fire(data));
-        this.context.subscriptions.push({
-          dispose: () => {
-            context.close().catch(() => {});
-          }
-        });
-        initializedPage = page;
-        for (const m of pendingMessages)
-          webview.postMessage(m);
-        return page;
-      })();
-      return await webview.pagePromise;
+    const createPage = async () => {
+      const context = await this._browser.newContext();
+      const page = await context.newPage();
+      page.on('console', msg => {
+        if (msg.type() === 'error')
+          this.consoleErrors.push(msg.text());
+      });
+      await page.route('**/*', route => {
+        const url = route.request().url();
+        if (!url.startsWith('http://localhost/')) {
+          route.continue();
+        } else if (url === 'http://localhost/') {
+          route.fulfill({ body: webview.html });
+        } else {
+          const suffix = url.substring('http://localhost/'.length);
+          const buffer = fs.readFileSync(path.join(this.context.extensionUri.fsPath, suffix));
+          route.fulfill({ body: buffer });
+        }
+      });
+      await page.addInitScript(() => {
+        globalThis.acquireVsCodeApi = () => globalThis;
+      });
+      await page.goto('http://localhost');
+      await page.exposeFunction('postMessage', (data: any) => eventEmitter.fire(data));
+      this.context.subscriptions.push({
+        dispose: () => {
+          context.close().catch(() => {});
+        }
+      });
+      initializedPage = page;
+      for (const m of pendingMessages)
+        webview.postMessage(m);
+      return page;
     };
-    return webview;
+    const pagePromise = createPage();
+    return { webview, pagePromise };
   }
 
   private _createTestController(id: string, label: string): TestController {
@@ -1226,7 +1222,7 @@ export class VSCode {
 
   async renderProjectTree(): Promise<string> {
     const result: string[] = [''];
-    const webView = await this.webViews.get('pw.extension.settingsView')!;
+    const webView = this.webViews.get('pw.extension.settingsView')!;
     const selectedConfig = await webView.getByTestId('models').evaluate((e: HTMLSelectElement) => e.selectedOptions[0].textContent);
     result.push(`    config: ${selectedConfig}`);
     const projectLocators = await webView.getByTestId('projects').locator('div').locator('label').all();
