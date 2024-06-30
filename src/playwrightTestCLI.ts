@@ -24,6 +24,7 @@ import * as reporterTypes from './upstream/reporter';
 import type { PlaywrightTestOptions, PlaywrightTestRunOptions } from './playwrightTestTypes';
 import { debugSessionName } from './debugSessionName';
 import type { TestModel } from './testModel';
+import { EmbeddedTraceViewer } from './traceViewer';
 
 export class PlaywrightTestCLI {
   private _vscode: vscodeTypes.VSCode;
@@ -37,6 +38,10 @@ export class PlaywrightTestCLI {
   }
 
   reset() {
+  }
+
+  async embeddedTraceViewer(): Promise<EmbeddedTraceViewer | undefined> {
+    return undefined;
   }
 
   async listFiles(): Promise<ConfigListFilesReport> {

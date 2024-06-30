@@ -26,13 +26,14 @@ import { escapeRegex, pathSeparator } from './utils';
 import { debugSessionName } from './debugSessionName';
 import type { TestModel } from './testModel';
 import { TestServerInterface } from './upstream/testServerInterface';
+import { EmbeddedTraceViewer } from './traceViewer';
 
 export class PlaywrightTestServer {
   private _vscode: vscodeTypes.VSCode;
   private _options: PlaywrightTestOptions;
   private _model: TestModel;
   private _testServerPromise: Promise<TestServerConnection | null> | undefined;
-  private _serverUrlPrefix?: string;
+  private _embeddedTraceViewer?: EmbeddedTraceViewer;
 
   constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
@@ -42,12 +43,14 @@ export class PlaywrightTestServer {
 
   reset() {
     this._disposeTestServer();
+    this._embeddedTraceViewer?.dispose();
+    this._embeddedTraceViewer = undefined;
   }
 
-  async serverUrlPrefix() {
+  async embeddedTraceViewer(): Promise<EmbeddedTraceViewer | undefined> {
     // ensure test server is running
     await this._testServer();
-    return this._serverUrlPrefix;
+    return this._embeddedTraceViewer;
   }
 
   async listFiles(): Promise<ConfigListFilesReport> {
@@ -335,13 +338,24 @@ export class PlaywrightTestServer {
       return null;
     const testServer = new TestServerConnection(wsEndpoint);
     testServer.onTestFilesChanged(params => this._testFilesChanged(params.testFiles));
-    await testServer.initialize({
-      serializer: require.resolve('./oopReporter'),
-      interceptStdio: true,
-      closeOnDisconnect: true,
-    });
-    this._serverUrlPrefix = new URL(wsEndpoint.replace('ws:', 'http:')).origin;
+    const [embeddedTraceViewer] = await Promise.all([
+      this._createEmbeddedTraceViewer(wsEndpoint),
+      testServer.initialize({
+        serializer: require.resolve('./oopReporter'),
+        interceptStdio: true,
+        closeOnDisconnect: true,
+      }),
+    ]);
+    this._embeddedTraceViewer = embeddedTraceViewer;
     return testServer;
+  }
+
+  private async _createEmbeddedTraceViewer(wsEndpoint: string) {
+    const serverUrl = new URL(wsEndpoint);
+    serverUrl.protocol = 'http';
+    const serverUri = await this._vscode.env.asExternalUri(this._vscode.Uri.parse(serverUrl.origin));
+    const serverUrlPrefix = serverUri.toString().replace(/\/$/, '');
+    return new EmbeddedTraceViewer(this._vscode, this._model.extensionUri, this._options.settingsModel, serverUrlPrefix);
   }
 
   private async _wireTestServer(testServer: TestServerConnection, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {

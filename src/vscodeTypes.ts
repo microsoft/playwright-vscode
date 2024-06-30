@@ -17,6 +17,7 @@
 export type {
   CancellationToken,
   CancellationTokenSource,
+  ColorThemeKind,
   DebugSession,
   DecorationOptions,
   Diagnostic,

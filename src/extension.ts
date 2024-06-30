@@ -27,7 +27,7 @@ import { TestTree } from './testTree';
 import { NodeJSNotFoundError, ansiToHtml, getPlaywrightInfo } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
-import { TraceViewer, kEmbeddedMinVersion } from './traceViewer';
+import { EmbeddedTraceViewer, SpawnTraceViewer } from './traceViewer';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { RunHooks, TestConfig } from './playwrightTestTypes';
 
@@ -67,7 +67,8 @@ export class Extension implements RunHooks {
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
   private _reusedBrowser: ReusedBrowser;
-  private _traceViewer: TraceViewer;
+  private _spawnTraceViewer: SpawnTraceViewer;
+  private _currentEmbeddedTraceViewer?: EmbeddedTraceViewer;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
   private _diagnostics: vscodeTypes.DiagnosticCollection;
@@ -102,7 +103,7 @@ export class Extension implements RunHooks {
     this._settingsModel = new SettingsModel(vscode, context);
     this._models = new TestModelCollection(vscode, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
-    this._traceViewer = new TraceViewer(this._vscode, context.extensionUri, this._settingsModel, this._envProvider.bind(this));
+    this._spawnTraceViewer = new SpawnTraceViewer(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModels(true).then(() => {});
@@ -232,6 +233,7 @@ export class Extension implements RunHooks {
       this._debugProfile,
       this._workspaceObserver,
       this._reusedBrowser,
+      this._spawnTraceViewer,
       this._diagnostics,
       this._treeItemObserver,
       registerTerminalLinkProvider(this._vscode),
@@ -314,7 +316,7 @@ export class Extension implements RunHooks {
 
       if (this.overridePlaywrightVersion)
         playwrightInfo.version = this.overridePlaywrightVersion;
-      const model = new TestModel(this._vscode, workspaceFolderPath, configFileUri.fsPath, playwrightInfo, {
+      const model = new TestModel(this._vscode, this._context.extensionUri, workspaceFolderPath, configFileUri.fsPath, playwrightInfo, {
         playwrightTestLog: this._playwrightTestLog,
         settingsModel: this._settingsModel,
         runHooks: this,
@@ -553,7 +555,8 @@ export class Extension implements RunHooks {
     if (isDebug) {
       await model.debugTests(items, testListener, testRun.token);
     } else {
-      await this._traceViewer.willRunTests(await this._extendTestConfig(model));
+      const traceViewer = await this._traceView(model);
+      traceViewer.willRunTests(model.config);
       await model.runTests(items, testListener, testRun.token);
     }
   }
@@ -766,37 +769,42 @@ export class Extension implements RunHooks {
     return this._reusedBrowser.browserServerWSEndpoint();
   }
 
-  private async _showTrace(testItem: vscodeTypes.TestItem) {
+  private _showTrace(testItem: vscodeTypes.TestItem) {
     const traceUrl = (testItem as any)[traceUrlSymbol];
     const testModel = this._models.selectedModel();
     if (testModel)
-      this._traceViewer.open(traceUrl, await this._extendTestConfig(testModel));
+      this._traceView(testModel).then(traceViewer => traceViewer.open(traceUrl, testModel.config));
   }
 
-  private async _treeItemSelected(treeItem: vscodeTypes.TreeItem | null) {
+  private _treeItemSelected(treeItem: vscodeTypes.TreeItem | null) {
     if (!treeItem)
       return;
     const traceUrl = (treeItem as any)[traceUrlSymbol] || '';
     const testModel = this._models.selectedModel();
     if (testModel)
-      this._traceViewer.open(traceUrl, await this._extendTestConfig(testModel));
+      this._traceView(testModel).then(traceViewer => traceViewer.open(traceUrl, testModel.config));
   }
 
-  private async _fileSelected(uri?: vscodeTypes.Uri) {
+  private _fileSelected(uri?: vscodeTypes.Uri) {
     if (!uri)
       return;
     const testModel = this._models.selectedModel();
-    if (testModel)
-      this._traceViewer.open(uri, await this._extendTestConfig(testModel));
+    if (!testModel)
+      return;
+    this._traceView(testModel).then(traceViewer => traceViewer.open(uri, testModel.config));
   }
 
-  private async _extendTestConfig(testModel: TestModel) {
-    if (testModel.config.version < kEmbeddedMinVersion || !this._settingsModel.embedTraceViewer.get())
-      return testModel.config;
-    const url = await testModel.serverUrlPrefix();
-    const serverUri = url ? await this._vscode.env.asExternalUri(this._vscode.Uri.parse(url)) : undefined;
-    const serverUrlPrefix = serverUri?.toString().replace(/\/$/, '');
-    return { ...testModel.config, serverUrlPrefix };
+  private async _traceView(testModel: TestModel) {
+    if (!this._settingsModel.embedTraceViewer.get())
+      return this._spawnTraceViewer;
+    const embeddedTraceViewer = await testModel.embeddedTraceViewer();
+    if (embeddedTraceViewer !== this._currentEmbeddedTraceViewer)
+      this._currentEmbeddedTraceViewer?.close();
+    this._currentEmbeddedTraceViewer = embeddedTraceViewer;
+    if (!embeddedTraceViewer)
+      return this._spawnTraceViewer;
+    this._spawnTraceViewer.close();
+    return embeddedTraceViewer;
   }
 
   private _queueCommand<T>(callback: () => Promise<T>, defaultValue: T): Promise<T> {
