@@ -795,15 +795,13 @@ export class Extension implements RunHooks {
   }
 
   private async _traceView(testModel: TestModel) {
-    if (!this._settingsModel.embedTraceViewer.get())
-      return this._spawnTraceViewer;
     const embeddedTraceViewer = await testModel.embeddedTraceViewer();
+    if (!embeddedTraceViewer || !embeddedTraceViewer.supports(testModel.config))
+      return this._spawnTraceViewer;
+    this._spawnTraceViewer.close();
     if (embeddedTraceViewer !== this._currentEmbeddedTraceViewer)
       this._currentEmbeddedTraceViewer?.close();
     this._currentEmbeddedTraceViewer = embeddedTraceViewer;
-    if (!embeddedTraceViewer)
-      return this._spawnTraceViewer;
-    this._spawnTraceViewer.close();
     return embeddedTraceViewer;
   }
 

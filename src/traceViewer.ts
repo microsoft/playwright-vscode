@@ -148,8 +148,14 @@ export class EmbeddedTraceViewer extends DisposableBase {
     }));
   }
 
+  supports(config: TestConfig) {
+    return config.version >= kEmbeddedMinVersion &&
+        this._settingsModel.showTrace.get() &&
+        this._settingsModel.embedTraceViewer.get();
+  }
+
   async willRunTests(config: TestConfig) {
-    if (this._settingsModel.showTrace.get() && this._settingsModel.embedTraceViewer.get())
+    if (this.supports(config))
       this._openPanelIfNeeded();
   }
 
