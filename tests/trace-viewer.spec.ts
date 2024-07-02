@@ -16,7 +16,13 @@
 
 import { enableConfigs, expect, test } from './utils';
 
-test.use({ showTrace: true, embedTraceViewer: true });
+test.beforeEach(({ showBrowser, overridePlaywrightVersion }) => {
+  test.skip(!!overridePlaywrightVersion || showBrowser);
+  // prevents spawn trace viewer process from opening in browser
+  process.env.PWTEST_UNDER_TEST = '1';
+});
+
+test.use({ showTrace: true, embedTraceViewer: true, envRemoteName: 'ssh-remote' });
 
 test('should show tracer when test runs', async ({ activate }) => {
   const { vscode, testController } = await activate({
@@ -87,7 +93,7 @@ test('should toggle between dark and light themes', async ({ activate }) => {
 
   await expect(webview.frameLocator('iframe').locator('body')).toHaveClass('dark-mode');
 
-  await configuration.update('colorTheme', 'Light Modern',true);
+  await configuration.update('colorTheme', 'Light Modern', true);
   await expect(webview.frameLocator('iframe').locator('body')).toHaveClass('light-mode');
 
   await configuration.update('colorTheme', 'Dark Modern', true);
@@ -181,7 +187,6 @@ test('should not change trace viewer when running tests from different test conf
   expect(serverUrl1).toEqual(serverUrl2);
 });
 
-
 test('should change trace viewer when test config changes', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'playwright1.config.js': `module.exports = { testDir: 'tests1' }`,
@@ -236,4 +241,85 @@ test('should change trace viewer when test config changes', async ({ activate })
   }
 
   expect(serverUrl1).not.toEqual(serverUrl2);
+});
+
+test('should not open trace viewer if selected test item did not run', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/pass/);
+
+  testItems[0].selected();
+
+  // wait to ensure no async webview is opened
+  await new Promise(f => setTimeout(f, 1000));
+  await expect.poll(() => vscode.webViewsByPanelType('playwright.traceviewer.view')).toHaveLength(0);
+  expect(vscode.warnings).toHaveLength(0);
+});
+
+test('should not open trace viewer if selected test item has no trace', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => {});
+    `,
+  });
+
+  const configuration = vscode.workspace.getConfiguration('playwright');
+  await configuration.update('showTrace', false, true);
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/pass/);
+  await testController.run(testItems);
+
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   test.spec.ts
+        - ✅ should pass [2:0]
+  `);
+
+  await configuration.update('showTrace', true, true);
+  testItems[0].selected();
+
+  // wait to ensure no async webview is opened
+  await new Promise(f => setTimeout(f, 1000));
+  await expect.poll(() => vscode.webViewsByPanelType('playwright.traceviewer.view')).toHaveLength(0);
+  expect(vscode.warnings).toHaveLength(0);
+});
+
+test('should fallback to spawn trace viewer if embedded not enabled', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => {});
+    `,
+  });
+
+  const configuration = vscode.workspace.getConfiguration('playwright');
+  configuration.update('embedTraceViewer', false, true);
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/pass/);
+  await testController.run(testItems);
+
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   test.spec.ts
+        - ✅ should pass [2:0]
+  `);
+
+  // wait to ensure no async webview is opened
+  await new Promise(f => setTimeout(f, 1000));
+  await expect.poll(() => vscode.webViewsByPanelType('playwright.traceviewer.view')).toHaveLength(0);
+  expect(vscode.warnings).toHaveLength(0);
+
+  // TODO intercept /Listening on http:\/\/[^:]+:\d+/
 });

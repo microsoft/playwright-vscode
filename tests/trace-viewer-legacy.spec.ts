@@ -16,9 +16,15 @@
 
 import { test, expect } from './utils';
 
-test.use({ showTrace: true, embedTraceViewer: true, overridePlaywrightVersion: 1.44 });
+test.beforeEach(({ showBrowser, overridePlaywrightVersion }) => {
+  test.skip(!overridePlaywrightVersion || showBrowser);
+  // prevents spawn trace viewer process from opening in browser
+  process.env.PWTEST_UNDER_TEST = '1';
+});
 
-test('should hide embedded in older @playwright/test projects', async ({ activate }) => {
+test.use({ showTrace: true, embedTraceViewer: true, envRemoteName: 'ssh-remote' });
+
+test('should fallback to spawn trace viewer in older @playwright/test projects', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
@@ -27,18 +33,10 @@ test('should hide embedded in older @playwright/test projects', async ({ activat
     `,
   });
 
-  const configuration = vscode.workspace.getConfiguration('playwright');
-
-  const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
-  expect(configuration.get('showTrace')).toBe(true);
-  expect(configuration.get('embedTraceViewer')).toBe(true);
-  await expect(settingsView.getByLabel('Show trace viewer')).toBeVisible();
-  await expect(settingsView.getByLabel('Embedded')).not.toBeVisible();
-
   await testController.expandTestItems(/test.spec/);
   const testItems = testController.findTestItems(/pass/);
   await testController.run(testItems);
 
-  const webview = await vscode.singleWebViewByPanelType('playwright.traceviewer.view');
-  expect(webview).toBeUndefined();
+  await expect.poll(() => vscode.warnings).toContain('Playwright v1.46+ is required for embedded trace viewer to work, v1.43 found');
+  // TODO intercept /Listening on http:\/\/[^:]+:\d+/
 });
