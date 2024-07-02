@@ -64,10 +64,6 @@ export class SettingsModel extends DisposableBase {
       if (enabled && this.showBrowser.get())
         this.showBrowser.set(false);
     });
-    this.embedTraceViewer.onChange(enabled => {
-      if (enabled && !this.showTrace.get())
-        this.showTrace.set(true);
-    });
 
     this._modernize();
   }
