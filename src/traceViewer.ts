@@ -32,17 +32,21 @@ function getPath(uriOrPath: string | vscodeTypes.Uri) {
       uriOrPath.toString();
 }
 
+export type TraceViewer = SpawnTraceViewer | EmbeddedTraceViewer;
+
 export class SpawnTraceViewer extends DisposableBase {
   private _vscode: vscodeTypes.VSCode;
   private _envProvider: () => NodeJS.ProcessEnv;
   private _traceViewerProcess: ChildProcess | undefined;
   private _settingsModel: SettingsModel;
+  private _config: TestConfig;
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv, config: TestConfig) {
     super();
     this._vscode = vscode;
     this._envProvider = envProvider;
     this._settingsModel = settingsModel;
+    this._config = config;
 
     this._disposables.push(settingsModel.showTrace.onChange(value => {
       if (!value && this._traceViewerProcess)
@@ -50,19 +54,27 @@ export class SpawnTraceViewer extends DisposableBase {
     }));
   }
 
-  async willRunTests(config: TestConfig) {
-    if (this._settingsModel.showTrace.get())
-      await this._startIfNeeded(config);
+  isEnabled() {
+    return this._settingsModel.showTrace.get();
   }
 
-  async open(file: string | vscodeTypes.Uri, config: TestConfig) {
-    if (!this._settingsModel.showTrace.get())
+  isStarted() {
+    return !!this._traceViewerProcess;
+  }
+
+  async willRunTests() {
+    if (this.isEnabled())
+      await this._startIfNeeded();
+  }
+
+  async open(file: string | vscodeTypes.Uri) {
+    if (!this.isEnabled())
       return;
-    if (!this._checkVersion(config))
+    if (!file || !this._traceViewerProcess)
       return;
-    if (!file && !this._traceViewerProcess)
+    if (!this.checkVersion())
       return;
-    await this._startIfNeeded(config);
+    await this._startIfNeeded();
     this._traceViewerProcess?.stdin?.write(getPath(file) + '\n');
   }
 
@@ -71,17 +83,17 @@ export class SpawnTraceViewer extends DisposableBase {
     super.dispose();
   }
 
-  private async _startIfNeeded(config: TestConfig) {
-    const node = await findNode(this._vscode, config.workspaceFolder);
+  private async _startIfNeeded() {
     if (this._traceViewerProcess)
       return;
-    const allArgs = [config.cli, 'show-trace', `--stdin`];
+    const node = await findNode(this._vscode, this._config.workspaceFolder);
+    const allArgs = [this._config.cli, 'show-trace', `--stdin`];
     if (this._vscode.env.remoteName) {
       allArgs.push('--host', '0.0.0.0');
       allArgs.push('--port', '0');
     }
     const traceViewerProcess = spawn(node, allArgs, {
-      cwd: config.workspaceFolder,
+      cwd: this._config.workspaceFolder,
       stdio: 'pipe',
       detached: true,
       env: {
@@ -102,14 +114,12 @@ export class SpawnTraceViewer extends DisposableBase {
     });
   }
 
-  private _checkVersion(
-    config: TestConfig,
-    message: string = this._vscode.l10n.t('this feature')
-  ): boolean {
+  checkVersion() {
     const version = 1.35;
-    if (config.version < version) {
+    if (this._config.version < version) {
+      const featureName = this._vscode.l10n.t('trace viewer');
       this._vscode.window.showWarningMessage(
-          this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, config.version)
+          this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, featureName, this._config.version)
       );
       return false;
     }
@@ -129,13 +139,15 @@ export class EmbeddedTraceViewer extends DisposableBase {
   private _currentFile?: string | vscodeTypes.Uri;
   private _traceViewerPanel: EmbeddedTraceViewerPanel | undefined;
   private _traceLoadRequestedTimeout?: NodeJS.Timeout;
-  private _serverUrlPrefix: string;
+  private _config: TestConfig;
+  private _serverUrlPrefix?: string;
 
-  constructor(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri, settingsModel: SettingsModel, serverUrlPrefix: string) {
+  constructor(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri, settingsModel: SettingsModel, config: TestConfig, serverUrlPrefix?: string) {
     super();
     this._vscode = vscode;
     this._extensionUri = extensionUri;
     this._settingsModel = settingsModel;
+    this._config = config;
     this._serverUrlPrefix = serverUrlPrefix;
 
     this._disposables.push(settingsModel.showTrace.onChange(value => {
@@ -148,25 +160,27 @@ export class EmbeddedTraceViewer extends DisposableBase {
     }));
   }
 
-  supports(config: TestConfig) {
-    return config.version >= kEmbeddedMinVersion &&
-        this._settingsModel.showTrace.get() &&
-        this._settingsModel.embedTraceViewer.get();
+  isEnabled() {
+    return this._settingsModel.showTrace.get() && this._settingsModel.embedTraceViewer.get();
   }
 
-  async willRunTests(config: TestConfig) {
-    if (this.supports(config))
-      this._openPanelIfNeeded();
+  isStarted() {
+    return !!this._traceViewerPanel;
   }
 
-  async open(file: string | vscodeTypes.Uri, config: TestConfig) {
-    if (!this._settingsModel.showTrace.get() || !this._settingsModel.embedTraceViewer.get())
-      return;
-    if (!this._checkVersion(config))
+  async willRunTests() {
+    if (this.isEnabled())
+      await this._startIfNeeded();
+  }
+
+  async open(file: string | vscodeTypes.Uri) {
+    if (!this.isEnabled())
       return;
     if (!file && !this._traceViewerPanel)
       return;
-    this._openPanelIfNeeded();
+    if (!this.checkVersion())
+      return;
+    this._startIfNeeded();
     this._currentFile = file;
     this._maybeFireLoadTraceRequested();
   }
@@ -198,23 +212,23 @@ export class EmbeddedTraceViewer extends DisposableBase {
       this._traceLoadRequestedTimeout = setTimeout(() => this._maybeFireLoadTraceRequested(), 500);
   }
 
-  private _openPanelIfNeeded() {
+  private async _startIfNeeded() {
     if (this._traceViewerPanel)
       return;
+    if (!this._serverUrlPrefix)
+      throw new Error(`Embedded trace viewer requires a server URL`);
     this._traceViewerPanel = new EmbeddedTraceViewerPanel(this._vscode, this._extensionUri, this._serverUrlPrefix);
     this._traceViewerPanel.onDispose(() => {
       this._traceViewerPanel = undefined;
     });
   }
 
-  private _checkVersion(
-    config: TestConfig,
-    message: string = this._vscode.l10n.t('this feature')
-  ): boolean {
-    const version = kEmbeddedMinVersion;
-    if (config.version < kEmbeddedMinVersion) {
+  checkVersion() {
+    const version = 1.46;
+    if (this._config.version < version) {
+      const featureName = this._vscode.l10n.t('embedded trace viewer');
       this._vscode.window.showWarningMessage(
-          this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, config.version)
+          this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, featureName, this._config.version)
       );
       return false;
     }

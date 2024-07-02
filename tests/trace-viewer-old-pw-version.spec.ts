@@ -16,7 +16,7 @@
 
 import { test, expect } from './utils';
 
-test.use({ overridePlaywrightVersion: 1.44 });
+test.use({ showTrace: true, embedTraceViewer: true, overridePlaywrightVersion: 1.44 });
 
 test('should hide embedded in older @playwright/test projects', async ({ activate }) => {
   const { vscode, testController } = await activate({
@@ -27,7 +27,6 @@ test('should hide embedded in older @playwright/test projects', async ({ activat
     `,
   });
 
-  await vscode.commands.executeCommand('pw.extension.toggle.embedTraceViewer');
   const configuration = vscode.workspace.getConfiguration('playwright');
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
@@ -40,6 +39,6 @@ test('should hide embedded in older @playwright/test projects', async ({ activat
   const testItems = testController.findTestItems(/pass/);
   await testController.run(testItems);
 
-  const [webview] = await vscode.webViewsByPanelType('playwright.traceviewer.view');
+  const webview = await vscode.singleWebViewByPanelType('playwright.traceviewer.view');
   expect(webview).toBeUndefined();
 });

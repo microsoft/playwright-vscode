@@ -67,8 +67,7 @@ export class Extension implements RunHooks {
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
   private _reusedBrowser: ReusedBrowser;
-  private _spawnTraceViewer: SpawnTraceViewer;
-  private _currentEmbeddedTraceViewer?: EmbeddedTraceViewer;
+  private _currentTraceViewer?: SpawnTraceViewer | EmbeddedTraceViewer;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
   private _diagnostics: vscodeTypes.DiagnosticCollection;
@@ -103,7 +102,6 @@ export class Extension implements RunHooks {
     this._settingsModel = new SettingsModel(vscode, context);
     this._models = new TestModelCollection(vscode, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
-    this._spawnTraceViewer = new SpawnTraceViewer(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModels(true).then(() => {});
@@ -233,9 +231,9 @@ export class Extension implements RunHooks {
       this._debugProfile,
       this._workspaceObserver,
       this._reusedBrowser,
-      this._spawnTraceViewer,
       this._diagnostics,
       this._treeItemObserver,
+      this._models,
       registerTerminalLinkProvider(this._vscode),
     ];
     const fileSystemWatchers = [
@@ -555,8 +553,8 @@ export class Extension implements RunHooks {
     if (isDebug) {
       await model.debugTests(items, testListener, testRun.token);
     } else {
-      const traceViewer = await this._traceView(model);
-      traceViewer.willRunTests(model.config);
+      const traceViewer = await this._enabledTraceView();
+      traceViewer?.willRunTests();
       await model.runTests(items, testListener, testRun.token);
     }
   }
@@ -771,38 +769,39 @@ export class Extension implements RunHooks {
 
   private _showTrace(testItem: vscodeTypes.TestItem) {
     const traceUrl = (testItem as any)[traceUrlSymbol];
-    const testModel = this._models.selectedModel();
-    if (testModel)
-      this._traceView(testModel).then(traceViewer => traceViewer.open(traceUrl, testModel.config));
+    if (traceUrl)
+      this._enabledTraceView().then(traceViewer => traceViewer?.open(traceUrl));
   }
 
   private _treeItemSelected(treeItem: vscodeTypes.TreeItem | null) {
     if (!treeItem)
       return;
     const traceUrl = (treeItem as any)[traceUrlSymbol] || '';
-    const testModel = this._models.selectedModel();
-    if (testModel)
-      this._traceView(testModel).then(traceViewer => traceViewer.open(traceUrl, testModel.config));
+    if (!traceUrl && !this._currentTraceViewer?.isStarted())
+      return;
+    this._enabledTraceView().then(traceViewer => traceViewer?.open(traceUrl));
   }
 
   private _fileSelected(uri?: vscodeTypes.Uri) {
-    if (!uri)
-      return;
-    const testModel = this._models.selectedModel();
-    if (!testModel)
-      return;
-    this._traceView(testModel).then(traceViewer => traceViewer.open(uri, testModel.config));
+    if (uri)
+      this._enabledTraceView().then(traceViewer => traceViewer?.open(uri));
   }
 
-  private async _traceView(testModel: TestModel) {
-    const embeddedTraceViewer = await testModel.embeddedTraceViewer();
-    if (!embeddedTraceViewer || !embeddedTraceViewer.supports(testModel.config))
-      return this._spawnTraceViewer;
-    this._spawnTraceViewer.close();
-    if (embeddedTraceViewer !== this._currentEmbeddedTraceViewer)
-      this._currentEmbeddedTraceViewer?.close();
-    this._currentEmbeddedTraceViewer = embeddedTraceViewer;
-    return embeddedTraceViewer;
+  private async _enabledTraceView() {
+    const selectedModel = this._models.selectedModel();
+    if (!selectedModel)
+      return;
+    const traceViewers = await selectedModel.availableTraceViewers();
+    for (const traceViewer of traceViewers) {
+      if (!traceViewer.isEnabled())
+        continue;
+      if (!traceViewer.checkVersion())
+        continue;
+      if (traceViewer !== this._currentTraceViewer)
+        this._currentTraceViewer?.close();
+      this._currentTraceViewer = traceViewer;
+      return traceViewer;
+    }
   }
 
   private _queueCommand<T>(callback: () => Promise<T>, defaultValue: T): Promise<T> {

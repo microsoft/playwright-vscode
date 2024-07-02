@@ -93,8 +93,8 @@ export class TestModel {
     this.tag = new this._vscode.TestTag(this.config.configFile);
   }
 
-  async embeddedTraceViewer() {
-    return await this._playwrightTest.embeddedTraceViewer();
+  async availableTraceViewers() {
+    return await this._playwrightTest.availableTraceViewers();
   }
 
   reset() {

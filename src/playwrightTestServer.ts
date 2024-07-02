@@ -26,7 +26,7 @@ import { escapeRegex, pathSeparator } from './utils';
 import { debugSessionName } from './debugSessionName';
 import type { TestModel } from './testModel';
 import { TestServerInterface } from './upstream/testServerInterface';
-import { EmbeddedTraceViewer } from './traceViewer';
+import { EmbeddedTraceViewer, SpawnTraceViewer, type TraceViewer } from './traceViewer';
 
 export class PlaywrightTestServer {
   private _vscode: vscodeTypes.VSCode;
@@ -34,6 +34,7 @@ export class PlaywrightTestServer {
   private _model: TestModel;
   private _testServerPromise: Promise<TestServerConnection | null> | undefined;
   private _embeddedTraceViewer?: EmbeddedTraceViewer;
+  private _spawnTraceViewer?: SpawnTraceViewer;
 
   constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
@@ -45,12 +46,16 @@ export class PlaywrightTestServer {
     this._disposeTestServer();
     this._embeddedTraceViewer?.dispose();
     this._embeddedTraceViewer = undefined;
+    this._spawnTraceViewer?.dispose();
+    this._spawnTraceViewer = undefined;
   }
 
-  async embeddedTraceViewer(): Promise<EmbeddedTraceViewer | undefined> {
+  async availableTraceViewers(): Promise<TraceViewer[]> {
+    if (!this._spawnTraceViewer)
+      this._spawnTraceViewer = new SpawnTraceViewer(this._vscode, this._options.settingsModel, this._options.envProvider, this._model.config);
     // ensure test server is running
     await this._testServer();
-    return this._embeddedTraceViewer;
+    return this._embeddedTraceViewer ? [this._embeddedTraceViewer, this._spawnTraceViewer] : [this._spawnTraceViewer];
   }
 
   async listFiles(): Promise<ConfigListFilesReport> {
@@ -355,7 +360,7 @@ export class PlaywrightTestServer {
     serverUrl.protocol = 'http';
     const serverUri = await this._vscode.env.asExternalUri(this._vscode.Uri.parse(serverUrl.origin));
     const serverUrlPrefix = serverUri.toString().replace(/\/$/, '');
-    return new EmbeddedTraceViewer(this._vscode, this._model.extensionUri, this._options.settingsModel, serverUrlPrefix);
+    return new EmbeddedTraceViewer(this._vscode, this._model.extensionUri, this._options.settingsModel, this._model.config, serverUrlPrefix);
   }
 
   private async _wireTestServer(testServer: TestServerConnection, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
