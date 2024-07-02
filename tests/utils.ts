@@ -34,6 +34,8 @@ type TestFixtures = {
 export type WorkerOptions = {
   overridePlaywrightVersion?: number;
   showBrowser: boolean;
+  showTrace: boolean;
+  embedTraceViewer: boolean;
   vsCodeVersion: number;
 };
 
@@ -113,13 +115,15 @@ export const expect = baseExpect.extend({
 export const test = baseTest.extend<TestFixtures, WorkerOptions>({
   overridePlaywrightVersion: [undefined, { option: true, scope: 'worker' }],
   showBrowser: [false, { option: true, scope: 'worker' }],
+  showTrace: [false, { option: true, scope: 'worker' }],
+  embedTraceViewer: [false, { option: true, scope: 'worker' }],
   vsCodeVersion: [1.86, { option: true, scope: 'worker' }],
 
   vscode: async ({ browser, vsCodeVersion }, use) => {
     await use(new VSCode(vsCodeVersion, path.resolve(__dirname, '..'), browser));
   },
 
-  activate: async ({ vscode, showBrowser, overridePlaywrightVersion }, use, testInfo) => {
+  activate: async ({ vscode, showBrowser, showTrace, embedTraceViewer, overridePlaywrightVersion }, use, testInfo) => {
     const instances: VSCode[] = [];
     await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][], env?: Record<string, any> }) => {
       if (options?.workspaceFolders) {
@@ -134,6 +138,10 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
         configuration.update('env', options.env);
       if (showBrowser)
         configuration.update('reuseBrowser', true);
+      if (showTrace)
+        configuration.update('showTrace', true);
+      if (embedTraceViewer)
+        configuration.update('embedTraceViewer', true);
 
       const extension = new Extension(vscode, vscode.context);
       if (overridePlaywrightVersion)
