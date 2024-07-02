@@ -750,6 +750,10 @@ export class Extension implements RunHooks {
     return this._reusedBrowser.browserServerWSEndpoint();
   }
 
+  fireTreeItemSelectedForTest(testItem: vscodeTypes.TestItem | null) {
+    this._treeItemSelected(testItem);
+  }
+
   private _showTrace(testItem: vscodeTypes.TestItem) {
     const traceUrl = (testItem as any)[traceUrlSymbol];
     const testModel = this._models.selectedModel();

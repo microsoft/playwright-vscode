@@ -16,7 +16,7 @@
 
 import { expect as baseExpect, test as baseTest, Browser, chromium, Page } from '@playwright/test';
 import { Extension } from '../out/extension';
-import { TestController, VSCode, WorkspaceFolder, TestRun } from './mock/vscode';
+import { TestController, VSCode, WorkspaceFolder, TestRun, TestItem } from './mock/vscode';
 
 import path from 'path';
 
@@ -213,3 +213,7 @@ function escapeRegex(text: string) {
 }
 
 export const escapedPathSep = escapeRegex(path.sep);
+
+export async function selectTestItem(testItem: TestItem) {
+  testItem.testController.vscode.extensions[0].fireTreeItemSelectedForTest(testItem);
+}

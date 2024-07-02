@@ -26,17 +26,47 @@ import { CancellationToken } from '../../src/vscodeTypes';
 
 export class Uri {
   scheme = 'file';
-  fsPath!: string;
+  authority = '';
+  path = '';
+  query = '';
+  fragment = '';
+  fsPath = '';
 
   static file(fsPath: string): Uri {
     const uri = new Uri();
     uri.fsPath = fsPath;
+    uri.path = fsPath;
     return uri;
   }
 
   static joinPath(base: Uri, ...args: string[]): Uri {
     return Uri.file(path.join(base.fsPath, ...args));
   }
+
+  static parse(value: string): Uri {
+    const { protocol, host, pathname, search, hash } = new URL(value);
+    const uri = new Uri();
+    uri.scheme = protocol.replace(/:$/, '');
+    uri.authority = host;
+    uri.path = pathname;
+    uri.query = search;
+    uri.fragment = hash;
+    return uri;
+  }
+
+  toString() {
+    const url = new URL(`${this.scheme}://${this.authority}${this.path}`);
+    if (this.query) url.search = this.query;
+    if (this.fragment) url.hash = this.fragment;
+    return url.toString();
+  }
+}
+
+export enum ColorThemeKind {
+  Light = 1,
+  Dark = 2,
+  HighContrast = 3,
+  HighContrastLight = 4
 }
 
 class Position {
@@ -155,7 +185,7 @@ export class WorkspaceFolder {
   }
 }
 
-class TestItem {
+export class TestItem {
   readonly children = this;
   readonly map = new Map<string, TestItem>();
   range: Range | undefined;
@@ -797,6 +827,7 @@ type HoverProvider = {
 export class VSCode {
   isUnderTest = true;
   CancellationTokenSource = CancellationTokenSource;
+  ColorThemeKind = ColorThemeKind;
   DiagnosticSeverity = DiagnosticSeverity;
   EventEmitter = EventEmitter;
   Location = Location;
@@ -819,8 +850,13 @@ export class VSCode {
   env: any = {
     uiKind: UIKind.Desktop,
     remoteName: undefined,
+    openExternal: (url: any) => {
+      if (url) this.openExternalUrls.push(url.toString());
+    },
+    asExternalUri: (uri: Uri) => Promise.resolve(uri),
   };
   ProgressLocation = { Notification: 1 };
+  ViewColumn = { Active: -1 };
 
   private _didChangeActiveTextEditor = new EventEmitter();
   private _didChangeVisibleTextEditors = new EventEmitter();
@@ -846,6 +882,8 @@ export class VSCode {
   readonly extensions: any[] = [];
   private _webviewProviders = new Map<string, any>();
   private _browser: Browser;
+  private _webViewsByPanelType = new Map<string, Set<Promise<Page>>>();
+  private _webViewsByPanelTypeAddedResolves: Array<(ev: { viewType: string, webview: Page }) => void> = [];
   readonly webViews = new Map<string, Page>();
   readonly commandLog: string[] = [];
   readonly l10n = new L10n();
@@ -853,6 +891,7 @@ export class VSCode {
   private _hoverProviders: Map<string, HoverProvider> = new Map();
   readonly version: string;
   readonly connectionLog: any[] = [];
+  readonly openExternalUrls: string[] = [];
 
   constructor(readonly versionNumber: number, baseDir: string, browser: Browser) {
     this.version = String(versionNumber);
@@ -918,6 +957,28 @@ export class VSCode {
       this._webviewProviders.set(name, provider);
       return disposable;
     };
+    this.window.createWebviewPanel = (viewType: string) => {
+      const { webview, pagePromise } = this._createWebviewAndPage();
+      const didDispose = new EventEmitter<void>();
+      const panel: any = {};
+      panel.onDidDispose = didDispose.event;
+      panel.webview = webview;
+      pagePromise.then(webview => {
+        for (const resolve of this._webViewsByPanelTypeAddedResolves)
+          resolve({ viewType, webview });
+        this._webViewsByPanelTypeAddedResolves = [];
+        webview.on('close', () => panel.dispose());
+      });
+      const webviews = this._webViewsByPanelType.get(viewType) ?? new Set();
+      webviews.add(pagePromise);
+      this._webViewsByPanelType.set(viewType, webviews);
+      panel.dispose = () => {
+        pagePromise.then(page => page.close());
+        webviews.delete(pagePromise);
+        didDispose.fire();
+      };
+      return panel;
+    };
     this.window.createInputBox = () => {
       const didAccept = new EventEmitter<void>();
       const didChange = new EventEmitter<string>();
@@ -960,6 +1021,13 @@ export class VSCode {
       return this.window.mockQuickPick(options);
     };
     this.window.registerTerminalLinkProvider = () => disposable;
+    Object.defineProperty(this.window, 'activeColorTheme', {
+      get: () => {
+        const theme: string = this.workspace.getConfiguration('workbench').get('colorTheme', 'Dark Modern');
+        const kind = /Dark/i.test(theme) ? 2 : 1;
+        return { kind };
+      },
+    });
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
     this.workspace.onDidChangeTextDocument = this.onDidChangeTextDocument;
@@ -1000,6 +1068,7 @@ export class VSCode {
       'playwright.env': {},
       'playwright.reuseBrowser': false,
       'playwright.showTrace': false,
+      'workbench.colorTheme': 'Dark Modern',
     };
     this.workspace.getConfiguration = scope => {
       return {
@@ -1024,31 +1093,73 @@ export class VSCode {
       await extension.activate();
 
     for (const [name, provider] of this._webviewProviders) {
-      const webview: any = {};
-      webview.asWebviewUri = uri => path.relative(this.context.extensionUri.fsPath, uri.fsPath);
-      const eventEmitter = new EventEmitter<any>();
-      let initializedPage: Page | undefined = undefined;
-      webview.onDidReceiveMessage = eventEmitter.event;
-      webview.cspSource = 'http://localhost/';
-      const pendingMessages: any[] = [];
-      webview.postMessage = (data: any) => {
-        if (!initializedPage) {
-          pendingMessages.push(data);
+      const { webview, pagePromise } = this._createWebviewAndPage();
+      provider?.resolveWebviewView({ webview, onDidChangeVisibility: () => disposable });
+      this.webViews.set(name, await pagePromise);
+    }
+  }
+
+  dispose() {
+    for (const d of this.context.subscriptions)
+      d.dispose();
+  }
+
+  async webViewsByPanelType(viewType: string) {
+    return (await Promise.all(this._webViewsByPanelType.get(viewType) ?? []));
+  }
+
+  async singleWebViewByPanelType(viewType: string): Promise<Page> {
+    const webViews = this._webViewsByPanelType.get(viewType);
+    if (!webViews?.size) {
+      while (true) {
+        const ev = await new Promise<{ viewType: string, webview: Page }>(r => this._webViewsByPanelTypeAddedResolves.push(r));
+        if (ev.viewType === viewType)
+          return ev.webview;
+      }
+    }
+    if (webViews.size === 1)
+      return await [...webViews][0];
+    throw new Error(`Expected 1 webview of panel type ${viewType}, found ${webViews.size}`);
+  }
+
+  private _createWebviewAndPage() {
+    let initializedPage: Page | undefined = undefined;
+    let currHtml = '';
+    const webview: any = {
+      get html() {
+        return currHtml;
+      },
+      set html(newValue: string) {
+        if (newValue === currHtml)
           return;
-        }
-        initializedPage.evaluate((data: any) => {
-          const event = new globalThis.Event('message');
-          (event as any).data = data;
-          globalThis.dispatchEvent(event);
-        }, data).catch(() => {});
-      };
-      provider.resolveWebviewView({ webview, onDidChangeVisibility: () => disposable });
+        currHtml = newValue;
+        initializedPage?.reload().catch(() => {});
+      }
+    };
+    webview.asWebviewUri = uri => path.relative(this.context.extensionUri.fsPath, uri.fsPath).replace(/\\/g, '/');
+    const eventEmitter = new EventEmitter<any>();
+    webview.onDidReceiveMessage = eventEmitter.event;
+    webview.cspSource = 'http://localhost/';
+    const pendingMessages: any[] = [];
+    webview.postMessage = (data: any) => {
+      if (!initializedPage) {
+        pendingMessages.push(data);
+        return;
+      }
+      initializedPage.evaluate((data: any) => {
+        const event = new globalThis.Event('message');
+        (event as any).data = data;
+        globalThis.dispatchEvent(event);
+      }, data).catch(() => {});
+    };
+    const createPage = async () => {
       const context = await this._browser.newContext();
       const page = await context.newPage();
-      this.webViews.set(name, page);
       await page.route('**/*', route => {
         const url = route.request().url();
-        if (url === 'http://localhost/') {
+        if (!url.startsWith('http://localhost/')) {
+          route.continue();
+        } else if (url === 'http://localhost/') {
           route.fulfill({ body: webview.html });
         } else {
           const suffix = url.substring('http://localhost/'.length);
@@ -1069,12 +1180,10 @@ export class VSCode {
       initializedPage = page;
       for (const m of pendingMessages)
         webview.postMessage(m);
-    }
-  }
-
-  dispose() {
-    for (const d of this.context.subscriptions)
-      d.dispose();
+      return page;
+    };
+    const pagePromise = createPage();
+    return { webview, pagePromise };
   }
 
   private _createTestController(id: string, label: string): TestController {

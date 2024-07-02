@@ -17,6 +17,7 @@
 export type {
   CancellationToken,
   CancellationTokenSource,
+  ColorThemeKind,
   DebugSession,
   DecorationOptions,
   Diagnostic,
@@ -48,6 +49,7 @@ export type {
   TreeView,
   Uri,
   Webview,
+  WebviewPanel,
   WebviewView,
   WebviewViewProvider,
   WebviewViewResolveContext,
