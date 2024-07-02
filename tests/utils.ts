@@ -29,13 +29,14 @@ type ActivateResult = {
 type TestFixtures = {
   vscode: VSCode,
   activate: (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][], env?: Record<string, any> }) => Promise<ActivateResult>;
+  showTrace: boolean;
+  embedTraceViewer: boolean;
+  envRemoteName?: string;
 };
 
 export type WorkerOptions = {
   overridePlaywrightVersion?: number;
   showBrowser: boolean;
-  showTrace: boolean;
-  embedTraceViewer: boolean;
   vsCodeVersion: number;
 };
 
@@ -115,15 +116,16 @@ export const expect = baseExpect.extend({
 export const test = baseTest.extend<TestFixtures, WorkerOptions>({
   overridePlaywrightVersion: [undefined, { option: true, scope: 'worker' }],
   showBrowser: [false, { option: true, scope: 'worker' }],
-  showTrace: [false, { option: true, scope: 'worker' }],
-  embedTraceViewer: [false, { option: true, scope: 'worker' }],
   vsCodeVersion: [1.86, { option: true, scope: 'worker' }],
+  showTrace: false,
+  embedTraceViewer: false,
+  envRemoteName: undefined,
 
   vscode: async ({ browser, vsCodeVersion }, use) => {
     await use(new VSCode(vsCodeVersion, path.resolve(__dirname, '..'), browser));
   },
 
-  activate: async ({ vscode, showBrowser, showTrace, embedTraceViewer, overridePlaywrightVersion }, use, testInfo) => {
+  activate: async ({ vscode, showBrowser, showTrace, embedTraceViewer, overridePlaywrightVersion, envRemoteName }, use, testInfo) => {
     const instances: VSCode[] = [];
     await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][], env?: Record<string, any> }) => {
       if (options?.workspaceFolders) {
@@ -142,6 +144,8 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
         configuration.update('showTrace', true);
       if (embedTraceViewer)
         configuration.update('embedTraceViewer', true);
+      if (envRemoteName)
+        vscode.env.remoteName = envRemoteName;
 
       const extension = new Extension(vscode, vscode.context);
       if (overridePlaywrightVersion)
