@@ -37,6 +37,7 @@ export class SpawnTraceViewer extends DisposableBase {
   private _traceViewerProcess: ChildProcess | undefined;
   private _settingsModel: SettingsModel;
   private _config: TestConfig;
+  private _serverUrlPrefix?: string;
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv, config: TestConfig) {
     super();
@@ -107,6 +108,13 @@ export class SpawnTraceViewer extends DisposableBase {
       this._vscode.window.showErrorMessage(error.message);
       this.close().catch(() => {});
     });
+    if (this._vscode.isUnderTest) {
+      traceViewerProcess.stdout?.on('data', data => {
+        const match = data.toString().match(/Listening on (.*)/);
+        if (match)
+          this._serverUrlPrefix = match[1];
+      });
+    }
   }
 
   checkVersion() {
@@ -124,6 +132,14 @@ export class SpawnTraceViewer extends DisposableBase {
   async close() {
     this._traceViewerProcess?.stdin?.end();
     this._traceViewerProcess = undefined;
+  }
+
+  infoForTest() {
+    return {
+      type: 'spawn',
+      serverUrlPrefix: this._serverUrlPrefix,
+      testConfigFile: this._config.configFile
+    };
   }
 }
 
@@ -226,6 +242,14 @@ export class EmbeddedTraceViewer extends DisposableBase {
       return false;
     }
     return true;
+  }
+
+  infoForTest() {
+    return {
+      type: 'embedded',
+      serverUrlPrefix: this._serverUrlPrefix,
+      testConfigFile: this._config.configFile
+    };
   }
 }
 
