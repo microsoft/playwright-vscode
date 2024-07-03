@@ -209,3 +209,15 @@ export async function getPlaywrightInfo(vscode: vscodeTypes.VSCode, workspaceFol
     cliOverride = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/@playwright/test/cli.js');
   return { cli: cliOverride, version };
 }
+
+export function getNonce() {
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < 32; i++)
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  return text;
+}
+
+export function escapeAttribute(value?: string | vscodeTypes.Uri): string {
+  return value?.toString().replace(/"/g, '&quot;') ?? '';
+}
