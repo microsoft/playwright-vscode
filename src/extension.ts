@@ -232,7 +232,7 @@ export class Extension implements RunHooks {
     ];
     const fileSystemWatchers = [
       // Glob parser does not supported nested group, hence multiple watchers.
-      this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mjs}'),
+      this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mts,mjs}'),
       this._vscode.workspace.createFileSystemWatcher('**/*.env*'),
     ];
     this._disposables.push(...fileSystemWatchers);
@@ -258,7 +258,7 @@ export class Extension implements RunHooks {
     this._models.clear();
     this._testTree.startedLoading();
 
-    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mjs}', '**/node_modules/**');
+    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mts,mjs}', '**/node_modules/**');
     for (const configFileUri of configFiles) {
       const configFilePath = configFileUri.fsPath;
       // TODO: parse .gitignore
