@@ -1124,18 +1124,7 @@ export class VSCode {
 
   private _createWebviewAndPage() {
     let initializedPage: Page | undefined = undefined;
-    let currHtml = '';
-    const webview: any = {
-      get html() {
-        return currHtml;
-      },
-      set html(newValue: string) {
-        if (newValue === currHtml)
-          return;
-        currHtml = newValue;
-        initializedPage?.reload().catch(() => {});
-      }
-    };
+    const webview: any = {};
     webview.asWebviewUri = uri => path.relative(this.context.extensionUri.fsPath, uri.fsPath).replace(/\\/g, '/');
     const eventEmitter = new EventEmitter<any>();
     webview.onDidReceiveMessage = eventEmitter.event;
