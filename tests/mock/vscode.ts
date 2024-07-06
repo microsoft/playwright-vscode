@@ -883,7 +883,6 @@ export class VSCode {
   private _webviewProviders = new Map<string, any>();
   private _browser: Browser;
   private _webViewsByPanelType = new Map<string, Set<Promise<Page>>>();
-  private _webViewsByPanelTypeAddedResolves: Array<(ev: { viewType: string, webview: Page }) => void> = [];
   readonly webViews = new Map<string, Page>();
   readonly commandLog: string[] = [];
   readonly l10n = new L10n();
@@ -964,9 +963,6 @@ export class VSCode {
       panel.onDidDispose = didDispose.event;
       panel.webview = webview;
       pagePromise.then(webview => {
-        for (const resolve of this._webViewsByPanelTypeAddedResolves)
-          resolve({ viewType, webview });
-        this._webViewsByPanelTypeAddedResolves = [];
         webview.on('close', () => panel.dispose());
       });
       const webviews = this._webViewsByPanelType.get(viewType) ?? new Set();
@@ -1106,20 +1102,6 @@ export class VSCode {
 
   async webViewsByPanelType(viewType: string) {
     return (await Promise.all(this._webViewsByPanelType.get(viewType) ?? []));
-  }
-
-  async singleWebViewByPanelType(viewType: string): Promise<Page> {
-    const webViews = this._webViewsByPanelType.get(viewType);
-    if (!webViews?.size) {
-      while (true) {
-        const ev = await new Promise<{ viewType: string, webview: Page }>(r => this._webViewsByPanelTypeAddedResolves.push(r));
-        if (ev.viewType === viewType)
-          return ev.webview;
-      }
-    }
-    if (webViews.size === 1)
-      return await [...webViews][0];
-    throw new Error(`Expected 1 webview of panel type ${viewType}, found ${webViews.size}`);
   }
 
   private _createWebviewAndPage() {

@@ -217,3 +217,8 @@ export const escapedPathSep = escapeRegex(path.sep);
 export async function selectTestItem(testItem: TestItem) {
   testItem.testController.vscode.extensions[0].fireTreeItemSelectedForTest(testItem);
 }
+
+export async function singleWebViewByPanelType(vscode: VSCode, viewType: string) {
+  await expect.poll(() => vscode.webViewsByPanelType(viewType)).toHaveLength(1);
+  return (await vscode.webViewsByPanelType(viewType))[0];
+}
