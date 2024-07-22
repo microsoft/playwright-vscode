@@ -882,7 +882,7 @@ export class VSCode {
   readonly extensions: any[] = [];
   private _webviewProviders = new Map<string, any>();
   private _browser: Browser;
-  private _webViewsByPanelType = new Map<string, Set<Promise<Page>>>();
+  private _webViewsByPanelType = new Map<string, Set<Page>>();
   readonly webViews = new Map<string, Page>();
   readonly commandLog: string[] = [];
   readonly l10n = new L10n();
@@ -963,14 +963,16 @@ export class VSCode {
       panel.onDidDispose = didDispose.event;
       panel.webview = webview;
       pagePromise.then(webview => {
-        webview.on('close', () => panel.dispose());
+        webview.on('close', () => {
+          panel.dispose();
+          webviews.delete(webview);
+        });
+        const webviews = this._webViewsByPanelType.get(viewType) ?? new Set();
+        webviews.add(webview);
+        this._webViewsByPanelType.set(viewType, webviews);
       });
-      const webviews = this._webViewsByPanelType.get(viewType) ?? new Set();
-      webviews.add(pagePromise);
-      this._webViewsByPanelType.set(viewType, webviews);
       panel.dispose = () => {
         pagePromise.then(page => page.close());
-        webviews.delete(pagePromise);
         didDispose.fire();
       };
       return panel;
@@ -1100,8 +1102,9 @@ export class VSCode {
       d.dispose();
   }
 
-  async webViewsByPanelType(viewType: string) {
-    return (await Promise.all(this._webViewsByPanelType.get(viewType) ?? []));
+  webViewsByPanelType(viewType: string) {
+    const webviews = this._webViewsByPanelType.get(viewType);
+    return webviews ? [...webviews] : [];
   }
 
   private _createWebviewAndPage() {

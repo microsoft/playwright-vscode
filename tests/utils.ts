@@ -220,5 +220,5 @@ export async function selectTestItem(testItem: TestItem) {
 
 export async function singleWebViewByPanelType(vscode: VSCode, viewType: string) {
   await expect.poll(() => vscode.webViewsByPanelType(viewType)).toHaveLength(1);
-  return (await vscode.webViewsByPanelType(viewType))[0];
+  return vscode.webViewsByPanelType(viewType)[0];
 }
