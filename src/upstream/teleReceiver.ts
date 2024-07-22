@@ -610,7 +610,7 @@ export function serializeRegexPatterns(patterns: string | RegExp | (string | Reg
 
 export function parseRegexPatterns(patterns: JsonPattern[]): (string | RegExp)[] {
   return patterns.map(p => {
-    if (p.s)
+    if (p.s !== undefined)
       return p.s;
     return new RegExp(p.r!.source, p.r!.flags);
   });
