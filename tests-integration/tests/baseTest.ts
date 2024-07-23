@@ -13,31 +13,52 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { test as base, type Page, _electron } from '@playwright/test';
+import { test as base, type Page, _electron, Locator, FrameLocator } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron/out/download';
 export { expect } from '@playwright/test';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
 import { spawnSync } from 'child_process';
+import { VSCode, VSCodeEvaluator, VSCodeFunctionOn, VSCodeHandle } from './vscodeHandle';
 
 export type TestOptions = {
   vscodeVersion: string;
+  playwrightVersion?: 'latest' | 'next';
 };
 
 type TestFixtures = TestOptions & {
+  _evaluator: VSCodeEvaluator,
   workbox: Page,
+  vscodeHandle: VSCodeHandle<VSCode>,
+  getWebview: (overlappingElem: Locator) => Promise<FrameLocator>,
+  evaluateInVSCode<R>(vscodeFunction: VSCodeFunctionOn<VSCode, void, R>, arg?: any): Promise<R>;
+  evaluateInVSCode<R, Arg>(vscodeFunction: VSCodeFunctionOn<VSCode, Arg, R>, arg: Arg): Promise<R>;
+  evaluateHandleInVSCode<R>(vscodeFunction: VSCodeFunctionOn<VSCode, void, R>, arg?: any): Promise<VSCodeHandle<R>>,
+  evaluateHandleInVSCode<R, Arg>(vscodeFunction: VSCodeFunctionOn<VSCode, Arg, R>, arg: Arg): Promise<VSCodeHandle<R>>,
   createProject: () => Promise<string>,
   createTempDir: () => Promise<string>,
 };
 
 export const test = base.extend<TestFixtures>({
   vscodeVersion: ['insiders', { option: true }],
-  workbox: async ({ vscodeVersion, createProject, createTempDir }, use) => {
+  playwrightVersion: [undefined, { option: true }],
+  workbox: async ({ vscodeVersion, createProject, createTempDir, _evaluator }, use) => {
+    // remove all VSCODE_* environment variables, otherwise it fails to load custom webviews with the following error:
+    // InvalidStateError: Failed to register a ServiceWorker: The document is in an invalid state
+    const env = { ...process.env } as Record<string, string>;
+    for (const prop in env) {
+      if (/^VSCODE_/i.test(prop))
+        delete env[prop];
+    }
     const defaultCachePath = await createTempDir();
     const vscodePath = await downloadAndUnzipVSCode(vscodeVersion);
     const electronApp = await _electron.launch({
       executablePath: vscodePath,
+      env: {
+        ...env,
+        PW_VSCODE_TEST_PORT: (await _evaluator.port()).toString(),
+      },
       args: [
         // Stolen from https://github.com/microsoft/vscode-test/blob/0ec222ef170e102244569064a12898fb203e5bb7/lib/runTest.ts#L126-L160
         // https://github.com/microsoft/vscode/issues/84238
@@ -52,6 +73,7 @@ export const test = base.extend<TestFixtures>({
         `--extensionDevelopmentPath=${path.join(__dirname, '..', '..')}`,
         `--extensions-dir=${path.join(defaultCachePath, 'extensions')}`,
         `--user-data-dir=${path.join(defaultCachePath, 'user-data')}`,
+        `--extensionTestsPath=${path.join(__dirname, 'injected', 'index')}`,
         await createProject(),
       ],
     });
@@ -68,7 +90,40 @@ export const test = base.extend<TestFixtures>({
       await fs.promises.cp(logPath, logOutputPath, { recursive: true });
     }
   },
-  createProject: async ({ createTempDir }, use) => {
+  _evaluator: async ({}, use) => {
+    const evaluator = new VSCodeEvaluator();
+    await use(evaluator);
+    await evaluator.dispose();
+  },
+  vscodeHandle: async ({ _evaluator }, use) => {
+    await use(_evaluator.rootHandle());
+  },
+  getWebview: async ({ workbox }, use) => {
+    await use(async overlappingLocator => {
+      const webviewId = await overlappingLocator.evaluate(overlappingElem => {
+        function overlaps(elem: Element) {
+          const rect1 = elem.getBoundingClientRect();
+          const rect2 = overlappingElem.getBoundingClientRect();
+          return rect1.right >= rect2.left && rect1.left <= rect2.right && rect1.bottom >= rect2.top && rect1.top <= rect2.bottom;
+        }
+        return [...document.querySelectorAll('.webview')].find(overlaps)?.getAttribute('name');
+      });
+      if (!webviewId)
+        throw new Error(`No webview found overlapping ${overlappingLocator}`);
+      return workbox.frameLocator(`[name='${webviewId}']`).frameLocator('iframe');
+    });
+  },
+  evaluateInVSCode: async ({ vscodeHandle }, use) => {
+    await use(async (fn, arg) => {
+      return await vscodeHandle.evaluate(fn, arg);
+    });
+  },
+  evaluateHandleInVSCode: async ({ vscodeHandle }, use) => {
+    await use(async (fn, arg) => {
+      return await vscodeHandle.evaluateHandle(fn, arg);
+    });
+  },
+  createProject: async ({ createTempDir, playwrightVersion }, use) => {
     await use(async () => {
       // We want to be outside of the project directory to avoid already installed dependencies.
       const projectPath = await createTempDir();
