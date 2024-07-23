@@ -24,11 +24,13 @@ import * as reporterTypes from './upstream/reporter';
 import type { PlaywrightTestOptions, PlaywrightTestRunOptions } from './playwrightTestTypes';
 import { debugSessionName } from './debugSessionName';
 import type { TestModel } from './testModel';
+import { EmbeddedTraceViewer, SpawnTraceViewer, type TraceViewer } from './traceViewer';
 
 export class PlaywrightTestCLI {
   private _vscode: vscodeTypes.VSCode;
   private _options: PlaywrightTestOptions;
   private _model: TestModel;
+  private _traceViewers?: TraceViewer[];
 
   constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
@@ -37,6 +39,22 @@ export class PlaywrightTestCLI {
   }
 
   reset() {
+    if (!this._traceViewers)
+      return;
+    for (const traceViewer of this._traceViewers)
+      traceViewer.dispose();
+    this._traceViewers = undefined;
+  }
+
+  async availableTraceViewers(): Promise<TraceViewer[]> {
+    if (!this._traceViewers) {
+      this._traceViewers = [
+        // embedded mode is not supported, but it will display the warning message and fallback to the spawn trace viewer
+        new EmbeddedTraceViewer(this._vscode, this._model.extensionUri, this._options.settingsModel, this._model.config),
+        new SpawnTraceViewer(this._vscode, this._options.settingsModel, this._options.envProvider, this._model.config),
+      ];
+    }
+    return this._traceViewers;
   }
 
   async listFiles(): Promise<ConfigListFilesReport> {

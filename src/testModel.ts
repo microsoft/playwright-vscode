@@ -57,6 +57,7 @@ type Watch = {
 
 export class TestModel {
   private _vscode: vscodeTypes.VSCode;
+  readonly extensionUri: vscodeTypes.Uri;
   readonly config: TestConfig;
   private _projects = new Map<string, TestProject>();
   private _didUpdate: vscodeTypes.EventEmitter<void>;
@@ -80,8 +81,9 @@ export class TestModel {
   private _startedDevServer = false;
   private _useLegacyCLIDriver: boolean;
 
-  constructor(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }, options: TestModelOptions) {
+  constructor(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }, options: TestModelOptions) {
     this._vscode = vscode;
+    this.extensionUri = extensionUri;
     this._options = options;
     this.config = { ...playwrightInfo, workspaceFolder, configFile };
     this._useLegacyCLIDriver = playwrightInfo.version < 1.44;
@@ -89,6 +91,10 @@ export class TestModel {
     this._didUpdate = new vscode.EventEmitter();
     this.onUpdated = this._didUpdate.event;
     this.tag = new this._vscode.TestTag(this.config.configFile);
+  }
+
+  async availableTraceViewers() {
+    return await this._playwrightTest.availableTraceViewers();
   }
 
   reset() {

@@ -29,6 +29,9 @@ type ActivateResult = {
 type TestFixtures = {
   vscode: VSCode,
   activate: (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][], env?: Record<string, any> }) => Promise<ActivateResult>;
+  showTrace: boolean;
+  embedTraceViewer: boolean;
+  envRemoteName?: string;
 };
 
 export type WorkerOptions = {
@@ -114,12 +117,15 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
   overridePlaywrightVersion: [undefined, { option: true, scope: 'worker' }],
   showBrowser: [false, { option: true, scope: 'worker' }],
   vsCodeVersion: [1.86, { option: true, scope: 'worker' }],
+  showTrace: false,
+  embedTraceViewer: false,
+  envRemoteName: undefined,
 
   vscode: async ({ browser, vsCodeVersion }, use) => {
     await use(new VSCode(vsCodeVersion, path.resolve(__dirname, '..'), browser));
   },
 
-  activate: async ({ vscode, showBrowser, overridePlaywrightVersion }, use, testInfo) => {
+  activate: async ({ vscode, showBrowser, showTrace, embedTraceViewer, overridePlaywrightVersion, envRemoteName }, use, testInfo) => {
     const instances: VSCode[] = [];
     await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][], env?: Record<string, any> }) => {
       if (options?.workspaceFolders) {
@@ -134,6 +140,12 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
         configuration.update('env', options.env);
       if (showBrowser)
         configuration.update('reuseBrowser', true);
+      if (showTrace)
+        configuration.update('showTrace', true);
+      if (embedTraceViewer)
+        configuration.update('embedTraceViewer', true);
+      if (envRemoteName)
+        vscode.env.remoteName = envRemoteName;
 
       const extension = new Extension(vscode, vscode.context);
       if (overridePlaywrightVersion)
@@ -221,4 +233,8 @@ export async function selectTestItem(testItem: TestItem) {
 export async function singleWebViewByPanelType(vscode: VSCode, viewType: string) {
   await expect.poll(() => vscode.webViewsByPanelType(viewType)).toHaveLength(1);
   return vscode.webViewsByPanelType(viewType)[0];
+}
+
+export function traceViewerInfo(vscode: VSCode): { type: 'spawn' | 'embedded', serverUrlPrefix?: string, testConfigFile: string } | undefined {
+  return vscode.extensions[0].traceViewerInfoForTest();
 }

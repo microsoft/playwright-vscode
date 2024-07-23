@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { test as base, type Page, _electron } from '@playwright/test';
+import { test as base, type Page, _electron, Locator, FrameLocator } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron/out/download';
 export { expect } from '@playwright/test';
 import path from 'path';
@@ -23,21 +23,33 @@ import { spawnSync } from 'child_process';
 
 export type TestOptions = {
   vscodeVersion: string;
+  playwrightVersion?: 'next' | 'beta';
 };
 
 type TestFixtures = TestOptions & {
   workbox: Page,
+  getWebview: (overlappingElem: Locator) => Promise<FrameLocator>,
   createProject: () => Promise<string>,
   createTempDir: () => Promise<string>,
 };
 
 export const test = base.extend<TestFixtures>({
   vscodeVersion: ['insiders', { option: true }],
-  workbox: async ({ vscodeVersion, createProject, createTempDir }, use) => {
+  playwrightVersion: [undefined, { option: true }],
+  workbox: async ({ vscodeVersion, createProject, createTempDir, }, use) => {
+    // remove all VSCODE_* environment variables, otherwise it fails to load custom webviews with the following error:
+    // InvalidStateError: Failed to register a ServiceWorker: The document is in an invalid state
+    const env = { ...process.env } as Record<string, string>;
+    for (const prop in env) {
+      if (/VSCODE_/i.test(prop))
+        delete env[prop];
+    }
+
     const defaultCachePath = await createTempDir();
     const vscodePath = await downloadAndUnzipVSCode(vscodeVersion);
     const electronApp = await _electron.launch({
       executablePath: vscodePath,
+      env,
       args: [
         // Stolen from https://github.com/microsoft/vscode-test/blob/0ec222ef170e102244569064a12898fb203e5bb7/lib/runTest.ts#L126-L160
         // https://github.com/microsoft/vscode/issues/84238
@@ -68,7 +80,22 @@ export const test = base.extend<TestFixtures>({
       await fs.promises.cp(logPath, logOutputPath, { recursive: true });
     }
   },
-  createProject: async ({ createTempDir }, use) => {
+  getWebview: async ({ workbox }, use) => {
+    await use(async overlappingLocator => {
+      const webviewId = await overlappingLocator.evaluate(overlappingElem => {
+        function overlaps(elem: Element) {
+          const rect1 = elem.getBoundingClientRect();
+          const rect2 = overlappingElem.getBoundingClientRect();
+          return rect1.right >= rect2.left && rect1.left <= rect2.right && rect1.bottom >= rect2.top && rect1.top <= rect2.bottom;
+        }
+        return [...document.querySelectorAll('.webview')].find(overlaps)?.getAttribute('name');
+      });
+      if (!webviewId)
+        throw new Error(`No webview found overlapping ${overlappingLocator}`);
+      return workbox.frameLocator(`[name='${webviewId}']`).frameLocator('iframe');
+    });
+  },
+  createProject: async ({ createTempDir, playwrightVersion }, use) => {
     await use(async () => {
       // We want to be outside of the project directory to avoid already installed dependencies.
       const projectPath = await createTempDir();
@@ -76,7 +103,7 @@ export const test = base.extend<TestFixtures>({
         await fs.promises.rm(projectPath, { recursive: true });
       console.log(`Creating project in ${projectPath}`);
       await fs.promises.mkdir(projectPath);
-      spawnSync(`npm init playwright@latest --yes -- --quiet --browser=chromium --gha --install-deps`, {
+      spawnSync(`npm init playwright@latest --yes -- --quiet --browser=chromium --gha --install-deps ${playwrightVersion ? `--${playwrightVersion}` : ''}`, {
         cwd: projectPath,
         stdio: 'inherit',
         shell: true,

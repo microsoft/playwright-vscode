@@ -18,6 +18,7 @@ import { DisposableBase } from './disposableBase';
 import type { ReusedBrowser } from './reusedBrowser';
 import type { SettingsModel } from './settingsModel';
 import type { TestModelCollection } from './testModel';
+import { getNonce } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
 
@@ -277,6 +278,10 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             <input type="checkbox" setting="showTrace"></input>
             ${vscode.l10n.t('Show trace viewer')}
           </label>
+          <label>
+            <input type="checkbox" setting="embedTraceViewer"></input>
+            ${vscode.l10n.t('Embedded')}
+          </label>
         </div>
       </div>
       <div class="section-header">${vscode.l10n.t('TOOLS')}</div>
@@ -386,12 +391,4 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       });
     </script>
     </html>`;
-}
-
-function getNonce() {
-  let text = '';
-  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++)
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  return text;
 }
