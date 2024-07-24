@@ -1168,7 +1168,7 @@ test('should produce output twice', async ({ activate, overridePlaywrightVersion
   expect(testItems.length).toBe(1);
 
   const testRun1 = await testController.run(testItems);
-  const runningGlobalSetup = overridePlaywrightVersion ? '' : '\n    Running global setup if any…';
+  const runningGlobalSetup = overridePlaywrightVersion ? '' : '\n    Running global setup if any…\n';
   expect(testRun1.renderLog({ output: true })).toBe(`
     tests > test.spec.ts > one [2:0]
       enqueued
