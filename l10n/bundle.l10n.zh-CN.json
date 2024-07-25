@@ -7,7 +7,7 @@
   "No Playwright tests found.": "没有找到 Playwright Test",
   "Pick locator": "拾取选择器",
   "Playwright Test v{0} or newer is required": "需要 v{0} 或以上版本的 Playwright Test",
-  "Playwright v1.25+ is required for {0} to work, v{1} found": "{0} 需要 Playwright v1.25 或以上的版本，当前版本 v{1}",
+  "Playwright v{0}+ is required for {1} to work, v{2} found": "{1} 需要 Playwright v{0} 或以上的版本，当前版本 v{2}",
   "Please install Playwright Test via running `npm i --save-dev @playwright/test`": "请通过运行 `npm i --save-dev @playwright/test` 安装 Playwright Test",
   "Record at cursor": "在当前光标处开始录制",
   "Record new": "录制新用例",

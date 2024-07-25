@@ -7,7 +7,7 @@
   "No Playwright tests found.": "No Playwright tests found.",
   "Pick locator": "Pick locator",
   "Playwright Test v{0} or newer is required": "Playwright Test v{0} or newer is required",
-  "Playwright v1.25+ is required for {0} to work, v{1} found": "Playwright v1.25+ is required for {0} to work, v{1} found",
+  "Playwright v{0}+ is required for {1} to work, v{2} found": "Playwright v{0}+ is required for {1} to work, v{2} found",
   "Please install Playwright Test via running `npm i --save-dev @playwright/test`": "Please install Playwright Test via running `npm i --save-dev @playwright/test`",
   "Record at cursor": "Record at cursor",
   "Record new": "Record new",
