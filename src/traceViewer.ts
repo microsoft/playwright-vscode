@@ -16,68 +16,53 @@
 
 import { ChildProcess, spawn } from 'child_process';
 import type { TestConfig } from './playwrightTestTypes';
-import { SettingsModel } from './settingsModel';
 import { findNode } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
-export class TraceViewer implements vscodeTypes.Disposable {
+export type TraceViewer = SpawnTraceViewer;
+
+export class SpawnTraceViewer {
   private _vscode: vscodeTypes.VSCode;
   private _envProvider: () => NodeJS.ProcessEnv;
-  private _disposables: vscodeTypes.Disposable[] = [];
   private _traceViewerProcess: ChildProcess | undefined;
-  private _settingsModel: SettingsModel;
   private _currentFile?: string;
+  private _config: TestConfig;
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
+  constructor(vscode: vscodeTypes.VSCode, envProvider: () => NodeJS.ProcessEnv, config: TestConfig) {
     this._vscode = vscode;
     this._envProvider = envProvider;
-    this._settingsModel = settingsModel;
+    this._config = config;
+  }
 
-    this._disposables.push(settingsModel.showTrace.onChange(value => {
-      if (!value && this._traceViewerProcess)
-        this.close().catch(() => {});
-    }));
+  isStarted() {
+    return !!this._traceViewerProcess;
   }
 
   currentFile() {
     return this._currentFile;
   }
 
-  async willRunTests(config: TestConfig) {
-    if (this._settingsModel.showTrace.get())
-      await this._startIfNeeded(config);
+  async willRunTests() {
+    await this._startIfNeeded();
   }
 
-  async open(file: string, config: TestConfig) {
-    if (!this._settingsModel.showTrace.get())
-      return;
-    if (!this._checkVersion(config))
-      return;
-    if (!file && !this._traceViewerProcess)
-      return;
-    await this._startIfNeeded(config);
+  async open(file: string) {
+    await this._startIfNeeded();
     this._traceViewerProcess?.stdin?.write(file + '\n');
     this._currentFile = file;
   }
 
-  dispose() {
-    this.close().catch(() => {});
-    for (const d of this._disposables)
-      d.dispose();
-    this._disposables = [];
-  }
-
-  private async _startIfNeeded(config: TestConfig) {
-    const node = await findNode(this._vscode, config.workspaceFolder);
+  private async _startIfNeeded() {
+    const node = await findNode(this._vscode, this._config.workspaceFolder);
     if (this._traceViewerProcess)
       return;
-    const allArgs = [config.cli, 'show-trace', `--stdin`];
+    const allArgs = [this._config.cli, 'show-trace', `--stdin`];
     if (this._vscode.env.remoteName) {
       allArgs.push('--host', '0.0.0.0');
       allArgs.push('--port', '0');
     }
     const traceViewerProcess = spawn(node, allArgs, {
-      cwd: config.workspaceFolder,
+      cwd: this._config.workspaceFolder,
       stdio: 'pipe',
       detached: true,
       env: {
@@ -95,26 +80,30 @@ export class TraceViewer implements vscodeTypes.Disposable {
     });
     traceViewerProcess.on('error', error => {
       this._vscode.window.showErrorMessage(error.message);
-      this.close().catch(() => {});
+      this.close();
     });
   }
 
-  private _checkVersion(
-    config: TestConfig,
-    message: string = this._vscode.l10n.t('this feature')
-  ): boolean {
+  checkVersion() {
     const version = 1.35;
-    if (config.version < 1.35) {
+    if (this._config.version < version) {
+      const message = this._vscode.l10n.t('this feature');
       this._vscode.window.showWarningMessage(
-          this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, config.version)
+          this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, this._config.version)
       );
       return false;
     }
     return true;
   }
 
-  async close() {
+
+  close() {
     this._traceViewerProcess?.stdin?.end();
     this._traceViewerProcess = undefined;
+    this._currentFile = undefined;
+  }
+
+  dispose() {
+    this.close();
   }
 }

@@ -30,6 +30,7 @@ import type { PlaywrightTestRunOptions, RunHooks, TestConfig } from './playwrigh
 import { PlaywrightTestCLI } from './playwrightTestCLI';
 import { upstreamTreeItem } from './testTree';
 import { collectTestIds } from './upstream/testTree';
+import { SpawnTraceViewer } from './traceViewer';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
@@ -79,6 +80,7 @@ export class TestModel extends DisposableBase {
   private _startedDevServer = false;
   private _useLegacyCLIDriver: boolean;
   private _collection: TestModelCollection;
+  private _spawnTraceViewer: SpawnTraceViewer;
 
   constructor(collection: TestModelCollection, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }) {
     super();
@@ -89,6 +91,22 @@ export class TestModel extends DisposableBase {
     this._useLegacyCLIDriver = playwrightInfo.version < 1.44;
     this._playwrightTest =  this._useLegacyCLIDriver ? new PlaywrightTestCLI(this._vscode, this, collection.embedder) : new PlaywrightTestServer(this._vscode, this, collection.embedder);
     this.tag = new this._vscode.TestTag(this.config.configFile);
+    this._spawnTraceViewer = new SpawnTraceViewer(this._vscode, this._embedder.envProvider, this.config);
+
+    this._disposables.push(
+        this._spawnTraceViewer,
+        this._embedder.settingsModel.showTrace.onChange(value => {
+          if (!value)
+            this._spawnTraceViewer.close();
+        }),
+    );
+  }
+
+  enabledTraceViewer() {
+    if (!this._embedder.settingsModel.showTrace.get())
+      return;
+    if (this._spawnTraceViewer.checkVersion())
+      return this._spawnTraceViewer;
   }
 
   async _loadModelIfNeeded(configSettings: ConfigSettings | undefined) {
@@ -127,6 +145,7 @@ export class TestModel extends DisposableBase {
     this._playwrightTest.reset();
     this._watches.clear();
     this._ranGlobalSetup = false;
+    this._spawnTraceViewer.close();
   }
 
   projects(): TestProject[] {
