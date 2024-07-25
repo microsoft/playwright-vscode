@@ -72,6 +72,11 @@
       },
       {
         "category": "Test",
+        "command": "pw.extension.toggle.embeddedTraceViewer",
+        "title": "%contributes.command.pw.extension.toggle.embeddedTraceViewer%"
+      },
+      {
+        "category": "Test",
         "command": "pw.extension.command.runGlobalSetup",
         "title": "%contributes.command.pw.extension.command.runGlobalSetup%"
       },
@@ -113,6 +118,11 @@
           "type": "boolean",
           "default": false,
           "description": "%configuration.playwright.showTrace%"
+        },
+        "playwright.embeddedTraceViewer": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.playwright.embeddedTraceViewer%"
         }
       }
     },

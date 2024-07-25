@@ -32,6 +32,7 @@ export class PlaywrightTestServer {
   private _options: PlaywrightTestOptions;
   private _model: TestModel;
   private _testServerPromise: Promise<TestServerConnection | null> | undefined;
+  private _wsEndpoint?: string;
 
   constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
@@ -41,6 +42,12 @@ export class PlaywrightTestServer {
 
   reset() {
     this._disposeTestServer();
+  }
+
+  async wsEndpoint() {
+    // ensure test server is running
+    await this._testServer();
+    return this._wsEndpoint;
   }
 
   async listFiles(): Promise<ConfigListFilesReport> {
@@ -327,6 +334,7 @@ export class PlaywrightTestServer {
     if (!wsEndpoint)
       return null;
     const testServer = new TestServerConnection(wsEndpoint);
+    this._wsEndpoint = wsEndpoint;
     testServer.onTestFilesChanged(params => this._testFilesChanged(params.testFiles));
     await testServer.initialize({
       serializer: require.resolve('./oopReporter'),

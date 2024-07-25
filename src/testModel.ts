@@ -30,7 +30,8 @@ import type { PlaywrightTestRunOptions, RunHooks, TestConfig } from './playwrigh
 import { PlaywrightTestCLI } from './playwrightTestCLI';
 import { upstreamTreeItem } from './testTree';
 import { collectTestIds } from './upstream/testTree';
-import { SpawnTraceViewer } from './traceViewer';
+import { SpawnTraceViewer, TraceViewer } from './traceViewer';
+import { EmbeddedTraceViewer } from './embeddedTraceViewer';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
@@ -80,7 +81,8 @@ export class TestModel extends DisposableBase {
   private _startedDevServer = false;
   private _useLegacyCLIDriver: boolean;
   private _collection: TestModelCollection;
-  private _spawnTraceViewer: SpawnTraceViewer;
+  private _traceViewers: TraceViewer[];
+  private _currentTraceViewer: TraceViewer | null | undefined;
 
   constructor(collection: TestModelCollection, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }) {
     super();
@@ -91,24 +93,24 @@ export class TestModel extends DisposableBase {
     this._useLegacyCLIDriver = playwrightInfo.version < 1.44;
     this._playwrightTest =  this._useLegacyCLIDriver ? new PlaywrightTestCLI(this._vscode, this, collection.embedder) : new PlaywrightTestServer(this._vscode, this, collection.embedder);
     this.tag = new this._vscode.TestTag(this.config.configFile);
-    this._spawnTraceViewer = new SpawnTraceViewer(this._vscode, this._embedder.envProvider, this.config);
+    this._traceViewers = [
+      new EmbeddedTraceViewer(this._vscode, this._embedder.settingsModel, this._embedder.context.extensionUri, this.config, this._playwrightTest),
+      new SpawnTraceViewer(this._vscode, this._embedder.settingsModel, this._embedder.envProvider, this.config),
+    ];
 
     this._disposables = [
       this._embedder.settingsModel.showTrace.onChange(() => this._closeTraceViewerIfNeeded()),
+      this._embedder.settingsModel.embeddedTraceViewer.onChange(() => this._closeTraceViewerIfNeeded()),
       this._collection.onUpdated(() => this._closeTraceViewerIfNeeded()),
     ];
   }
 
   traceViewer() {
-    if (!this._embedder.settingsModel.showTrace.get())
-      return;
-    if (this._spawnTraceViewer.checkVersion())
-      return this._spawnTraceViewer;
-  }
+    if (this._currentTraceViewer !== undefined)
+      return this._currentTraceViewer;
 
-  _closeTraceViewerIfNeeded() {
-    if (this._collection.selectedModel() !== this || !this._embedder.settingsModel.showTrace.get())
-      this._spawnTraceViewer.close();
+    this._currentTraceViewer = this._traceViewers.find(t => t.checkSupport(true)) ?? null;
+    return this._currentTraceViewer;
   }
 
   async _loadModelIfNeeded(configSettings: ConfigSettings | undefined) {
@@ -147,7 +149,8 @@ export class TestModel extends DisposableBase {
     this._playwrightTest.reset();
     this._watches.clear();
     this._ranGlobalSetup = false;
-    this._spawnTraceViewer.close();
+    for (const traceViewer of this._traceViewers)
+      traceViewer.close();
   }
 
   projects(): TestProject[] {
@@ -381,6 +384,17 @@ export class TestModel extends DisposableBase {
       this._filesPendingListTests.files.add(file);
 
     return this._filesPendingListTests.promise;
+  }
+
+  private _closeTraceViewerIfNeeded() {
+    if (
+      this._collection.selectedModel() !== this ||
+      // check if there's a high priority trace viewer that supports currennt configuration
+      this._traceViewers.find(t => t.checkSupport(false)) !== this._currentTraceViewer
+    ) {
+      this._currentTraceViewer?.close();
+      this._currentTraceViewer = undefined;
+    }
   }
 
   private async _listTests(files: string[]) {

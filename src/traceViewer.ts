@@ -18,21 +18,37 @@ import { ChildProcess, spawn } from 'child_process';
 import type { TestConfig } from './playwrightTestTypes';
 import { findNode } from './utils';
 import * as vscodeTypes from './vscodeTypes';
+import { SettingsModel } from './settingsModel';
 
-export type TraceViewer = SpawnTraceViewer;
+export type TraceViewer = {
+  isStarted(): boolean;
+  currentFile(): string | undefined;
+  willRunTests(): Promise<void>;
+  open(file: string): Promise<void>;
+  close(): void;
+  checkSupport(userGesture?: boolean): boolean;
+  infoForTest(): {
+    type: string;
+    serverUrlPrefix: string;
+    testConfigFile: string;
+    traceFile: string | undefined;
+  } | undefined;
+};
 
-export class SpawnTraceViewer {
+export class SpawnTraceViewer implements TraceViewer {
   private _vscode: vscodeTypes.VSCode;
+  private _settingsModel: SettingsModel;
   private _envProvider: () => NodeJS.ProcessEnv;
   private _traceViewerProcess: ChildProcess | undefined;
   private _currentFile?: string;
   private _config: TestConfig;
   private _serverUrlPrefixForTest?: string;
 
-  constructor(vscode: vscodeTypes.VSCode, envProvider: () => NodeJS.ProcessEnv, config: TestConfig) {
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv, config: TestConfig) {
     this._vscode = vscode;
     this._envProvider = envProvider;
     this._config = config;
+    this._settingsModel = settingsModel;
   }
 
   isStarted() {
@@ -92,13 +108,18 @@ export class SpawnTraceViewer {
     }
   }
 
-  checkVersion() {
+  checkSupport(userGesture?: boolean) {
+    if (!this._settingsModel.showTrace.get())
+      return false;
+
     const version = 1.35;
     if (this._config.version < version) {
-      const message = this._vscode.l10n.t('this feature');
-      this._vscode.window.showWarningMessage(
-          this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, this._config.version)
-      );
+      if (userGesture) {
+        const message = this._vscode.l10n.t('this feature');
+        this._vscode.window.showWarningMessage(
+            this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, this._config.version)
+        );
+      }
       return false;
     }
     return true;
