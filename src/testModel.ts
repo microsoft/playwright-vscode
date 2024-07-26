@@ -102,7 +102,7 @@ export class TestModel extends DisposableBase {
     );
   }
 
-  enabledTraceViewer() {
+  traceViewer() {
     if (!this._embedder.settingsModel.showTrace.get())
       return;
     if (this._spawnTraceViewer.checkVersion())

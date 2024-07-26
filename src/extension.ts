@@ -27,7 +27,6 @@ import { TestTree } from './testTree';
 import { NodeJSNotFoundError, ansiToHtml, getPlaywrightInfo } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
-import { TraceViewer } from './traceViewer';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { RunHooks, TestConfig } from './playwrightTestTypes';
 
@@ -67,7 +66,6 @@ export class Extension implements RunHooks {
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
   private _reusedBrowser: ReusedBrowser;
-  private _currentTraceViewer?: TraceViewer;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
   private _diagnostics: vscodeTypes.DiagnosticCollection;
@@ -237,6 +235,13 @@ export class Extension implements RunHooks {
       this._reusedBrowser,
       this._diagnostics,
       this._treeItemObserver,
+      this._models.onUpdated(() => {
+        const selectedModel = this._models.selectedModel();
+        for (const model of this._models.models()) {
+          if (model !== selectedModel)
+            model.traceViewer()?.close();
+        }
+      }),
       registerTerminalLinkProvider(this._vscode),
     ];
     const fileSystemWatchers = [
@@ -485,7 +490,7 @@ export class Extension implements RunHooks {
         // if trace viewer is currently displaying the trace file about to be replaced, it needs to be refreshed
         const prevTrace = (testItem as any)[traceUrlSymbol];
         (testItem as any)[traceUrlSymbol] = trace;
-        if (enqueuedSingleTest || prevTrace === this._currentTraceViewer?.currentFile())
+        if (enqueuedSingleTest || prevTrace === this._traceViewer()?.currentFile())
           this._showTrace(testItem);
 
         if (result.status === test.expectedStatus) {
@@ -537,7 +542,7 @@ export class Extension implements RunHooks {
     if (isDebug) {
       await model.debugTests(items, testListener, testRun.token);
     } else {
-      await this._enabledTraceView()?.willRunTests();
+      await this._traceViewer()?.willRunTests();
       await model.runTests(items, testListener, testRun.token);
     }
   }
@@ -757,24 +762,20 @@ export class Extension implements RunHooks {
   private _showTrace(testItem: vscodeTypes.TestItem) {
     const traceUrl = (testItem as any)[traceUrlSymbol];
     if (traceUrl)
-      this._enabledTraceView()?.open(traceUrl);
+      this._traceViewer()?.open(traceUrl);
   }
 
   private _treeItemSelected(treeItem: vscodeTypes.TreeItem | null) {
     if (!treeItem)
       return;
     const traceUrl = (treeItem as any)[traceUrlSymbol] || '';
-    if (!traceUrl && !this._currentTraceViewer?.isStarted())
+    if (!traceUrl && !this._traceViewer()?.isStarted())
       return;
-    this._enabledTraceView()?.open(traceUrl);
+    this._traceViewer()?.open(traceUrl);
   }
 
-  private _enabledTraceView() {
-    const traceViewer = this._models.selectedModel()?.enabledTraceViewer();
-    if (traceViewer !== this._currentTraceViewer)
-      this._currentTraceViewer?.close();
-    this._currentTraceViewer = traceViewer;
-    return traceViewer;
+  private _traceViewer() {
+    return this._models.selectedModel()?.traceViewer();
   }
 
   private _queueCommand<T>(callback: () => Promise<T>, defaultValue: T): Promise<T> {
