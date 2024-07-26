@@ -27,6 +27,7 @@ export class SpawnTraceViewer {
   private _traceViewerProcess: ChildProcess | undefined;
   private _currentFile?: string;
   private _config: TestConfig;
+  private _serverUrlPrefix?: string;
 
   constructor(vscode: vscodeTypes.VSCode, envProvider: () => NodeJS.ProcessEnv, config: TestConfig) {
     this._vscode = vscode;
@@ -82,6 +83,13 @@ export class SpawnTraceViewer {
       this._vscode.window.showErrorMessage(error.message);
       this.close();
     });
+    if (this._vscode.isUnderTest) {
+      traceViewerProcess.stdout?.on('data', data => {
+        const match = data.toString().match(/Listening on (.*)/);
+        if (match)
+          this._serverUrlPrefix = match[1];
+      });
+    }
   }
 
   checkVersion() {
@@ -96,14 +104,25 @@ export class SpawnTraceViewer {
     return true;
   }
 
-
   close() {
     this._traceViewerProcess?.stdin?.end();
     this._traceViewerProcess = undefined;
     this._currentFile = undefined;
+    this._serverUrlPrefix = undefined;
   }
 
   dispose() {
     this.close();
+  }
+
+  infoForTest() {
+    if (!this._serverUrlPrefix)
+      return;
+    return {
+      type: 'spawn',
+      serverUrlPrefix: this._serverUrlPrefix,
+      testConfigFile: this._config.configFile,
+      traceFile: this.currentFile(),
+    };
   }
 }

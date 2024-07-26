@@ -759,6 +759,10 @@ export class Extension implements RunHooks {
     this._treeItemSelected(testItem);
   }
 
+  traceViewerInfoForTest() {
+    return this._traceViewer()?.infoForTest();
+  }
+
   private _showTrace(testItem: vscodeTypes.TestItem) {
     const traceUrl = (testItem as any)[traceUrlSymbol];
     if (traceUrl)
