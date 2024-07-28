@@ -18,6 +18,19 @@ import { createServer, Socket, Server, AddressInfo } from 'net';
 import type * as vscode from 'vscode';
 export type VSCode = typeof vscode;
 
+export type Unboxed<Arg> =
+  Arg extends VSCodeHandle<infer T> ? T :
+  Arg extends [infer A0] ? [Unboxed<A0>] :
+  Arg extends [infer A0, infer A1] ? [Unboxed<A0>, Unboxed<A1>] :
+  Arg extends [infer A0, infer A1, infer A2] ? [Unboxed<A0>, Unboxed<A1>, Unboxed<A2>] :
+  Arg extends [infer A0, infer A1, infer A2, infer A3] ? [Unboxed<A0>, Unboxed<A1>, Unboxed<A2>, Unboxed<A3>] :
+  Arg extends Array<infer T> ? Array<Unboxed<T>> :
+  Arg extends object ? { [Key in keyof Arg]: Unboxed<Arg[Key]> } :
+  Arg;
+export type VSCodeFunction0<R> = () => R | Thenable<R>;
+export type VSCodeFunction<Arg, R> = (arg: Unboxed<Arg>) => R | Thenable<R>;
+export type VSCodeFunctionOn<On, Arg2, R> = (on: On, arg2: Unboxed<Arg2>) => R | Thenable<R>;
+
 export class VSCodeEvaluator {
   private _lastId = 0;
   private _pending = new Map<number, { resolve: Function, reject: Function }>();
@@ -32,10 +45,13 @@ export class VSCodeEvaluator {
       throw new Error(`Could not find promise for request with ID ${id}`);
     const { resolve, reject } = this._pending.get(id)!;
     this._pending.delete(id);
-    if (error)
-      reject(error);
-    else
+    if (error) {
+      const e = new Error(error.message);
+      e.stack = error.stack;
+      reject(e);
+    } else {
       resolve(result);
+    }
   };
 
   constructor() {
@@ -57,12 +73,24 @@ export class VSCodeEvaluator {
     return (this._server.address() as AddressInfo).port;
   }
 
-  async evaluate<R, Arg>(objectId: number, returnHandle: false, fn: VSCodeFunctionOn<any, Arg, R>, arg: Arg): Promise<R>;
-  async evaluate<R, Arg>(objectId: number, returnHandle: true, fn: VSCodeFunctionOn<any, Arg, R>, arg: Arg): Promise<VSCodeHandle<R>>;
-  async evaluate<R, Arg>(objectId: number, returnHandle: boolean, fn: VSCodeFunctionOn<any, Arg, R>, arg: Arg) {
+  async evaluate<R>(objectId: number, returnHandle: false, fn: VSCodeFunctionOn<any, void, R>): Promise<R>;
+  async evaluate<R>(objectId: number, returnHandle: true, fn: VSCodeFunctionOn<any, void, R>): Promise<VSCodeHandle<R>>;
+  async evaluate<R, Arg>(objectId: number, returnHandle: false, fn: VSCodeFunctionOn<any, Arg, R>, arg?: Arg): Promise<R>;
+  async evaluate<R, Arg>(objectId: number, returnHandle: true, fn: VSCodeFunctionOn<any, Arg, R>, arg?: Arg): Promise<VSCodeHandle<R>>;
+  async evaluate<R, Arg>(objectId: number, returnHandle: boolean, fn: VSCodeFunctionOn<any, Arg, R>, arg?: Arg) {
+    function toParam(arg: any) {
+      if (['string', 'number', 'boolean', 'null', 'undefined'].includes(typeof arg))
+        return arg;
+      if (arg instanceof VSCodeHandle)
+        return { __vscodeHandle: true, objectId: arg.objectId };
+      if (Array.isArray(arg))
+        return arg.map(toParam);
+      return Object.fromEntries(Object.entries(arg).map(([k, v]) => [k, toParam(v)]));
+    }
+
     const socket = await this._socketPromise;
     const id = ++this._lastId;
-    const params = arg !== undefined ? [arg] : [];
+    const params = arg !== undefined ? [toParam(arg)] : [];
     socket.write(JSON.stringify({ id, objectId, returnHandle, fn: fn.toString(), params }));
     const result = await new Promise((resolve, reject) => this._pending.set(id, { resolve, reject }));
     if (!returnHandle)
@@ -92,47 +120,34 @@ export class VSCodeEvaluator {
   }
 }
 
-export class VSCodeHandle<T = any> {
-  private _objectId: number;
+export class VSCodeHandle<T = VSCode> {
+  readonly objectId: number;
   private _evaluator: VSCodeEvaluator;
   private _disposed = false;
 
   constructor(objectId: number, evaluator: VSCodeEvaluator) {
-    this._objectId = objectId;
+    this.objectId = objectId;
     this._evaluator = evaluator;
   }
 
-  evaluate<R>(vscodeFunction: VSCodeFunctionOn<T, void, R>, arg?: any): Thenable<R>;
-  evaluate<R, Arg>(vscodeFunction: VSCodeFunctionOn<T, Arg, R>, arg: Arg): Thenable<R> {
+  evaluate<R>(vscodeFunction: VSCodeFunctionOn<T, void, R>): Promise<R>;
+  evaluate<R, Arg>(vscodeFunction: VSCodeFunctionOn<T, Arg, R>, arg: Arg): Promise<R>;
+  evaluate<R, Arg>(vscodeFunction: VSCodeFunctionOn<T, Arg, R>, arg?: Arg): Promise<R> {
     if (this._disposed)
       throw new Error(`Handle is disposed`);
-    return this._evaluator.evaluate(this._objectId, false, vscodeFunction, arg);
+    return this._evaluator.evaluate(this.objectId, false, vscodeFunction, arg);
   }
 
-  evaluateHandle<R>(vscodeFunction: VSCodeFunctionOn<T, void, R>, arg?: any): Thenable<VSCodeHandle<R>>;
-  evaluateHandle<R, Arg>(vscodeFunction: VSCodeFunctionOn<T, Arg, R>, arg: Arg): Thenable<VSCodeHandle<R>> {
+  evaluateHandle<R>(vscodeFunction: VSCodeFunctionOn<T, void, R>): Promise<VSCodeHandle<R>>;
+  evaluateHandle<R, Arg>(vscodeFunction: VSCodeFunctionOn<T, Arg, R>, arg: Arg): Promise<VSCodeHandle<R>>;
+  evaluateHandle<R, Arg>(vscodeFunction: VSCodeFunctionOn<T, Arg, R>, arg?: Arg): Promise<VSCodeHandle<R>> {
     if (this._disposed)
       throw new Error(`Handle is disposed`);
-    return this._evaluator.evaluate(this._objectId, true, vscodeFunction, arg);
+    return this._evaluator.evaluate(this.objectId, true, vscodeFunction, arg);
   }
 
   dispose() {
     this._disposed = true;
-    return this._evaluator.release(this._objectId);
+    return this._evaluator.release(this.objectId);
   }
 }
-
-export type NoVSCodeHandles<Arg> = Arg extends VSCodeHandle ? never : (Arg extends object ? { [Key in keyof Arg]: NoVSCodeHandles<Arg[Key]> } : Arg);
-export type Unboxed<Arg> =
-  Arg extends VSCodeHandle<infer T> ? T :
-  Arg extends NoVSCodeHandles<Arg> ? Arg :
-  Arg extends [infer A0] ? [Unboxed<A0>] :
-  Arg extends [infer A0, infer A1] ? [Unboxed<A0>, Unboxed<A1>] :
-  Arg extends [infer A0, infer A1, infer A2] ? [Unboxed<A0>, Unboxed<A1>, Unboxed<A2>] :
-  Arg extends [infer A0, infer A1, infer A2, infer A3] ? [Unboxed<A0>, Unboxed<A1>, Unboxed<A2>, Unboxed<A3>] :
-  Arg extends Array<infer T> ? Array<Unboxed<T>> :
-  Arg extends object ? { [Key in keyof Arg]: Unboxed<Arg[Key]> } :
-  Arg;
-export type VSCodeFunction0<R> = string | (() => R | Thenable<R>);
-export type VSCodeFunction<Arg, R> = string | ((arg: Unboxed<Arg>) => R | Thenable<R>);
-export type VSCodeFunctionOn<On, Arg2, R> = string | ((on: On, arg2: Unboxed<Arg2>) => R | Thenable<R>);

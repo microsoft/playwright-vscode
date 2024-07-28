@@ -43,7 +43,9 @@ type StepInfo = {
 
 export async function activate(context: vscodeTypes.ExtensionContext) {
   // Do not await, quickly run the extension, schedule work.
-  new Extension(require('vscode'), context).activate();
+  const extension = new Extension(require('vscode'), context);
+  extension.activate();
+  return extension;
 }
 
 export class Extension implements RunHooks {

@@ -27,6 +27,16 @@ function run() {
     const objectsById = new Map([[0, vscode]]);
     const idByObjects = new Map([[vscode, 0]]);
 
+    function fromParam(param) {
+      if (['string', 'number', 'boolean', 'null', 'undefined'].includes(typeof param))
+        return param;
+      if (param.__vscodeHandle)
+        return objectsById.get(param.objectId);
+      if (Array.isArray(param))
+        return param.map(fromParam);
+      return Object.fromEntries(Object.entries(param).map(([k, v]) => [k, fromParam(v)]));
+    }
+
     client.on('data', async data => {
       const { op, objectId, id, returnHandle, fn, params } = JSON.parse(data.toString());
       if (op === 'release') {
@@ -47,7 +57,7 @@ function run() {
         if (!context)
           throw new Error(`No object with ID ${objectId} found`);
         const func = new Function(`return ${fn}`)();
-        result = await func(context, ...params);
+        result = await func(context, ...fromParam(params));
         if (returnHandle) {
           let objectId = idByObjects.get(result);
           if (objectId === undefined) {
