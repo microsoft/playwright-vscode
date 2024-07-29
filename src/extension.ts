@@ -235,13 +235,6 @@ export class Extension implements RunHooks {
       this._reusedBrowser,
       this._diagnostics,
       this._treeItemObserver,
-      this._models.onUpdated(() => {
-        const selectedModel = this._models.selectedModel();
-        for (const model of this._models.models()) {
-          if (model !== selectedModel)
-            model.traceViewer()?.close();
-        }
-      }),
       registerTerminalLinkProvider(this._vscode),
     ];
     const fileSystemWatchers = [

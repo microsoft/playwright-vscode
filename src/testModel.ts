@@ -667,6 +667,15 @@ export class TestModelCollection extends DisposableBase {
     this.embedder = embedder;
     this._didUpdate = new vscode.EventEmitter();
     this.onUpdated = this._didUpdate.event;
+    this._disposables.push(
+        this.onUpdated(() => {
+          const selectedModel = this.selectedModel();
+          for (const model of this.models()) {
+            if (model !== selectedModel)
+              model.traceViewer()?.close();
+          }
+        })
+    );
   }
 
   setModelEnabled(configFile: string, enabled: boolean, userGesture?: boolean) {
