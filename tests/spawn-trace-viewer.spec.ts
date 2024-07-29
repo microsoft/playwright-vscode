@@ -86,25 +86,28 @@ test('should not open trace viewer if test did not run', async ({ activate }) =>
   await expect.poll(() => traceViewerInfo(vscode)).toBeUndefined();
 });
 
-test('should refresh trace viewer while test is running', async ({ activate }) => {
+test('should refresh trace viewer while test is running', async ({ activate, createLatch }) => {
+  const latch = createLatch();
+
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
-      test('should pass', async () => await new Promise(r => setTimeout(r, 1000)));
+      test('should pass', async () => ${latch.blockingCode});
     `,
   });
 
   await testController.expandTestItems(/test.spec/);
   selectTestItem(testController.findTestItems(/pass/)[0]);
 
-  await Promise.all([
-    testController.run(),
-    expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
-      type: 'spawn',
-      traceFile: expect.stringMatching(/\.json$/),
-    }),
-  ]);
+  const testRunPromise = testController.run();
+  await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
+    type: 'spawn',
+    traceFile: expect.stringMatching(/\.json$/),
+  });
+
+  latch.open();
+  await testRunPromise;
 
   await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
     type: 'spawn',
