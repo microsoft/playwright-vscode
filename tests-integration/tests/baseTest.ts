@@ -45,7 +45,7 @@ export type WorkspaceFolderProxy = {
 
 type TestControllerProxy = {
   renderTestTree: () => Promise<string>;
-  onDidChangeTestItem: (listener: (item: any) => void) => void;
+  onDidChangeTestItem: (listener: (item: { label: string }) => void) => void;
   expandTestItems: (label: RegExp) => Promise<void>;
 };
 
@@ -293,9 +293,10 @@ export const test = base.extend<TestFixtures, WorkerOptions>({
     });
   },
 
-  _getTestController: async ({ evaluateHandleInVSCode, evaluateInVSCode, _activatedExtensionHandle }, use) => {
+  _getTestController: async ({ evaluateHandleInVSCode, evaluateInVSCode, registerEventInVSCode, _activatedExtensionHandle }, use) => {
     async function createTestController() {
-      const functions = await evaluateHandleInVSCode(async (vscode, activatedExtension) => {
+      const didChangeTestItemHandler = await evaluateHandleInVSCode(vscode => new vscode.EventEmitter<{ label: string }>());
+      const functions = await evaluateHandleInVSCode(async (vscode, { activatedExtension, didChangeTestItem }) => {
         const sinon = await import('sinon');
 
         function listenToCalls<TArgs extends readonly any[], TResult>(
@@ -324,6 +325,15 @@ export const test = base.extend<TestFixtures, WorkerOptions>({
                 listenToCalls(sinon.stub(testRun, 'passed'), ({ args: [item] }) => statusByItem.set(item, 'passed'));
                 listenToCalls(sinon.stub(testRun, 'started'), ({ args: [item] }) => statusByItem.set(item, 'started'));
                 return testRun;
+              },
+          );
+          const createTestItemStub = sinon.stub(testController, 'createTestItem').callsFake(
+              (...args) => {
+                const testItem = createTestItemStub.wrappedMethod(...args);
+                listenToCalls(sinon.stub(testItem.children, 'add'), () => didChangeTestItem.fire({ label: testItem.label }));
+                listenToCalls(sinon.stub(testItem.children, 'replace'), () => didChangeTestItem.fire({ label: testItem.label }));
+                listenToCalls(sinon.stub(testItem.children, 'delete'), () => didChangeTestItem.fire({ label: testItem.label }));
+                return testItem;
               },
           );
         });
@@ -394,8 +404,8 @@ export const test = base.extend<TestFixtures, WorkerOptions>({
           }
         }
 
-        return { renderTestTree, expandTestItems };
-      }, _activatedExtensionHandle);
+        return { renderTestTree, expandTestItems, didChangeTestItem };
+      }, { activatedExtension: _activatedExtensionHandle, didChangeTestItem: didChangeTestItemHandler });
 
       return {
         renderTestTree: () => evaluateInVSCode(
@@ -406,8 +416,8 @@ export const test = base.extend<TestFixtures, WorkerOptions>({
             (_, { functions: { expandTestItems }, label: { source, flags } }) => expandTestItems(new RegExp(source, flags)),
             { functions, label: { source, flags } }
         ),
-        onDidChangeTestItem: () => {
-          throw new Error(`not implemented`);
+        onDidChangeTestItem: (listener: (item: { label: string }) => any) => {
+          registerEventInVSCode(didChangeTestItemHandler, listener);
         },
       };
     }

@@ -19,7 +19,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { VSCode, VSCodeEvaluator, VSCodeFunctionOn, VSCodeHandle } from './vscodeHandle';
-import { Disposable } from 'vscode';
+import type { Disposable, EventEmitter } from 'vscode';
 export { expect } from '@playwright/test';
 
 type TestFixtures = {
@@ -33,6 +33,9 @@ type TestFixtures = {
   evaluateInVSCode<R, Arg>(vscodeFunction: VSCodeFunctionOn<VSCode, Arg, R>, arg: Arg): Promise<R>;
   evaluateHandleInVSCode<R>(vscodeFunction: VSCodeFunctionOn<VSCode, void, R>): Promise<VSCodeHandle<R>>,
   evaluateHandleInVSCode<R, Arg>(vscodeFunction: VSCodeFunctionOn<VSCode, Arg, R>, arg: Arg): Promise<VSCodeHandle<R>>,
+
+  registerEventInVSCode<R>(handle: VSCodeHandle<EventEmitter<R>>, listener: (event: R) => any): void;
+  unregisterEventInVSCode<R>(handle: VSCodeHandle<EventEmitter<R>>, listener: (event: R) => any): void;
 };
 
 export type WorkerOptions = {
@@ -140,6 +143,17 @@ export const test = base.extend<TestFixtures, WorkerOptions>({
     });
     for (const handle of handles)
       handle.dispose();
+  },
+
+  registerEventInVSCode: async <R>({ _evaluator }, use) => {
+    await use(async (handle: VSCodeHandle<EventEmitter<R>>, listener: (event: R) => any) => {
+      _evaluator.addListener(handle.objectId, listener);
+    });
+  },
+  unregisterEventInVSCode: async <R>({ _evaluator }, use) => {
+    await use(async (handle: VSCodeHandle<EventEmitter<R>>, listener: (event: R) => any) => {
+      _evaluator.removeListener(handle.objectId, listener);
+    });
   },
 
   createTempDir: [async ({ }, use) => {

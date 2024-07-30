@@ -38,9 +38,21 @@ export class VSCodeEvaluator {
   private _server: Server;
   private _initialized: Promise<void>;
   private _socketPromise: Promise<Socket>;
+  private _listeners = new Map<number, Set<((event?: any) => any)>>();
 
-  private _listener = (data: Buffer) => {
-    const { id, result, error } = JSON.parse(data.toString());
+  private _responseHandler = (data: Buffer) => {
+    const { id, objectId, result, error } = JSON.parse(data.toString());
+
+    if (id === undefined && typeof objectId === 'number') {
+      // event
+      const listeners = this._listeners.get(objectId);
+      if (listeners) {
+        for (const listener of listeners)
+          listener(result);
+      }
+      return;
+    }
+
     if (!this._pending.has(id))
       throw new Error(`Could not find promise for request with ID ${id}`);
     const { resolve, reject } = this._pending.get(id)!;
@@ -59,7 +71,7 @@ export class VSCodeEvaluator {
     this._initialized = new Promise<void>(r => this._server.listen(0, r));
     this._socketPromise = new Promise<Socket>(r => this._server.once('connection', r));
     this._socketPromise.then(socket => {
-      socket.on('data', this._listener);
+      socket.on('data', this._responseHandler);
     });
     this._cache.set(0, new VSCodeHandle(0, this));
   }
@@ -105,15 +117,32 @@ export class VSCodeEvaluator {
     return handle;
   }
 
+  addListener<R>(objectId: number, listener: (event: R) => any) {
+    if (!this._cache.has(objectId))
+      throw new Error(`No handle with id ${objectId}`);
+    let listeners = this._listeners.get(objectId);
+    if (!listeners) {
+      listeners = new Set([listener]);
+      this._listeners.set(objectId, listeners);
+    } else {
+      listeners.add(listener);
+    }
+  }
+
+  removeListener<R>(objectId: number, listener: (event: R) => any) {
+    this._listeners.get(objectId)?.delete(listener);
+  }
+
   async release(objectId: number) {
     const socket = await this._socketPromise;
+    this._listeners.delete(objectId);
     if (this._cache.delete(objectId))
       socket.write(JSON.stringify({ op: 'release', objectId }));
   }
 
   async dispose() {
     const socket = await this._socketPromise;
-    socket.removeListener('data', this._listener);
+    socket.removeListener('data', this._responseHandler);
     new Promise(r => this._server.close(r));
     for (const [id, { reject }] of this._pending.entries())
       reject(new Error(`No response for request ${id} received from VSCode`));
@@ -148,6 +177,6 @@ export class VSCodeHandle<T = VSCode> {
 
   dispose() {
     this._disposed = true;
-    return this._evaluator.release(this.objectId);
+    this._evaluator.release(this.objectId).catch(() => {});
   }
 }

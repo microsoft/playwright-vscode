@@ -26,6 +26,11 @@ function run() {
     let lastObjectId = 0;
     const objectsById = new Map([[0, vscode]]);
     const idByObjects = new Map([[vscode, 0]]);
+    const eventDisposables = new Map();
+
+    function emit({ objectId, result }) {
+      client.write(JSON.stringify({ objectId, result }));
+    }
 
     function fromParam(param) {
       if (['string', 'number', 'boolean', 'null', 'undefined'].includes(typeof param))
@@ -44,6 +49,7 @@ function run() {
         if (obj !== undefined) {
           objectsById.delete(objectId);
           idByObjects.delete(obj);
+          eventDisposables.delete(objectId);
         }
         return;
       }
@@ -64,6 +70,11 @@ function run() {
             objectId = ++lastObjectId;
             objectsById.set(objectId, result);
             idByObjects.set(result, objectId);
+            if (result instanceof vscode.EventEmitter) {
+              // TODO support event data handles
+              const eventDisposable = result.event(e => emit({ objectId, result: e }));
+              eventDisposables.set(objectId, eventDisposable);
+            }
           }
           result = objectId;
         }
