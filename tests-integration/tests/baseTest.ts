@@ -84,7 +84,6 @@ type TestFixtures = {
 };
 
 export type WorkerOptions = {
-  playwrightVersion?: 'latest' | 'next';
   overridePlaywrightVersion?: number;
   projectTemplateDir: string;
 };
@@ -158,7 +157,6 @@ export const expect = baseExpect.extend({
 
 export const test = base.extend<TestFixtures, WorkerOptions>({
   overridePlaywrightVersion: [undefined, { option: true, scope: 'worker' }],
-  playwrightVersion: [undefined, { option: true, scope: 'worker' }],
 
   _activatedExtensionHandle: async ({ evaluateHandleInVSCode }, use) => {
     await use(await evaluateHandleInVSCode(vscode => () => new Promise<Extension>(async (resolve, reject) => {
@@ -502,9 +500,15 @@ export const test = base.extend<TestFixtures, WorkerOptions>({
     });
   },
 
-  projectTemplateDir: [async ({ createTempDir, playwrightVersion }, use) => {
+  projectTemplateDir: [async ({ createTempDir, overridePlaywrightVersion }, use) => {
     const projectPath = await createTempDir();
-    await spawnAsync('npm', ['init', 'playwright@latest', '--yes', '--', '--quiet', '--browser=chromium', '--lang=js', '--no-examples', '--install-deps', playwrightVersion ? `--${playwrightVersion}` : ''], {
+    await fs.promises.writeFile(path.join(projectPath, 'package.json'), JSON.stringify({
+      name: '',
+      description: '',
+      version: '0.1.0'
+    }));
+
+    await spawnAsync('npm', ['install', '--save-dev', '--quiet', `@playwright/test@${overridePlaywrightVersion ?? 'latest'}`], {
       cwd: projectPath,
       stdio: 'inherit',
       shell: true,
