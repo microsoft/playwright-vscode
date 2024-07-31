@@ -228,6 +228,7 @@ export class Extension implements RunHooks {
       this._reusedBrowser,
       this._diagnostics,
       this._treeItemObserver,
+      this._models,
       registerTerminalLinkProvider(this._vscode),
     ];
     const fileSystemWatchers = [

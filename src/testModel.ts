@@ -709,10 +709,14 @@ export class TestModelCollection extends DisposableBase {
 
   clear() {
     this.dispose();
+    this._didUpdate.fire();
+  }
+
+  dispose() {
+    super.dispose();
     for (const model of this._models)
       model.reset();
     this._models = [];
-    this._didUpdate.fire();
   }
 
   enabledModels(): TestModel[] {
