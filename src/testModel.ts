@@ -21,7 +21,7 @@ import { ConfigListFilesReport, ProjectConfigWithFiles } from './listTests';
 import * as reporterTypes from './upstream/reporter';
 import { TeleSuite } from './upstream/teleReceiver';
 import { workspaceStateKey } from './settingsModel';
-import type { SettingsModel, WorkspaceSettings } from './settingsModel';
+import type { ConfigSettings, SettingsModel, WorkspaceSettings } from './settingsModel';
 import path from 'path';
 import { DisposableBase } from './disposableBase';
 import { MultiMap } from './multimap';
@@ -41,7 +41,8 @@ export type TestProject = {
   isEnabled: boolean;
 };
 
-export type TestModelOptions = {
+export type TestModelEmbedder = {
+  context: vscodeTypes.ExtensionContext;
   settingsModel: SettingsModel;
   runHooks: RunHooks;
   isUnderTest: boolean;
@@ -55,12 +56,10 @@ type Watch = {
   include: readonly vscodeTypes.TestItem[] | undefined;
 };
 
-export class TestModel {
+export class TestModel extends DisposableBase {
   private _vscode: vscodeTypes.VSCode;
   readonly config: TestConfig;
   private _projects = new Map<string, TestProject>();
-  private _didUpdate: vscodeTypes.EventEmitter<void>;
-  readonly onUpdated: vscodeTypes.Event<void>;
   private _playwrightTest: PlaywrightTestCLI | PlaywrightTestServer;
   private _watches = new Set<Watch>();
   private _fileToSources: Map<string, string[]> = new Map();
@@ -68,7 +67,7 @@ export class TestModel {
   isEnabled = false;
   readonly tag: vscodeTypes.TestTag;
   private _errorByFile = new MultiMap<string, reporterTypes.TestError>();
-  private _options: TestModelOptions;
+  private _embedder: TestModelEmbedder;
   private _filesWithListedTests = new Set<string>();
   private _filesPendingListTests: {
     files: Set<string>,
@@ -79,16 +78,42 @@ export class TestModel {
   private _ranGlobalSetup = false;
   private _startedDevServer = false;
   private _useLegacyCLIDriver: boolean;
+  private _collection: TestModelCollection;
 
-  constructor(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }, options: TestModelOptions) {
-    this._vscode = vscode;
-    this._options = options;
+  constructor(collection: TestModelCollection, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }) {
+    super();
+    this._vscode = collection.vscode;
+    this._embedder = collection.embedder;
+    this._collection = collection;
     this.config = { ...playwrightInfo, workspaceFolder, configFile };
     this._useLegacyCLIDriver = playwrightInfo.version < 1.44;
-    this._playwrightTest =  this._useLegacyCLIDriver ? new PlaywrightTestCLI(vscode, this, options) : new PlaywrightTestServer(vscode, this, options);
-    this._didUpdate = new vscode.EventEmitter();
-    this.onUpdated = this._didUpdate.event;
+    this._playwrightTest =  this._useLegacyCLIDriver ? new PlaywrightTestCLI(this._vscode, this, collection.embedder) : new PlaywrightTestServer(this._vscode, this, collection.embedder);
     this.tag = new this._vscode.TestTag(this.config.configFile);
+  }
+
+  async _loadModelIfNeeded(configSettings: ConfigSettings | undefined) {
+    if (!this.isEnabled)
+      return;
+    await this._listFiles();
+    if (configSettings) {
+      let firstProject = true;
+      for (const project of this.projects()) {
+        const projectSettings = configSettings.projects.find(p => p.name === project.name);
+        if (projectSettings)
+          project.isEnabled = projectSettings.enabled;
+        else if (firstProject)
+          project.isEnabled = true;
+        firstProject = false;
+      }
+    } else {
+      if (this.projects().length)
+        this.projects()[0].isEnabled = true;
+    }
+  }
+
+  dispose() {
+    this.reset();
+    super.dispose();
   }
 
   reset() {
@@ -162,7 +187,7 @@ export class TestModel {
 
     if (report.error?.location) {
       this._errorByFile.set(report.error?.location.file, report.error);
-      this._didUpdate.fire();
+      this._collection._modelUpdated(this);
       return;
     }
 
@@ -189,7 +214,7 @@ export class TestModel {
         this._projects.delete(projectName);
     }
 
-    this._didUpdate.fire();
+    this._collection._modelUpdated(this);
   }
 
   private _createProject(projectReport: ProjectConfigWithFiles): TestProject {
@@ -300,7 +325,7 @@ export class TestModel {
       }
     }
 
-    this._options.requestWatchRun(files, items);
+    this._embedder.requestWatchRun(files, items);
   }
 
   async ensureTests(inputFiles: string[]): Promise<void> {
@@ -380,7 +405,7 @@ export class TestModel {
       }
       project.suite.suites = [...files.values()];
     }
-    this._didUpdate.fire();
+    this._collection._modelUpdated(this);
   }
 
   updateFromRunningProjects(projectSuites: reporterTypes.Suite[]) {
@@ -403,7 +428,7 @@ export class TestModel {
         files.set(fileSuite.location!.file, fileSuite);
     }
     project.suite.suites = [...files.values()];
-    this._didUpdate.fire();
+    this._collection._modelUpdated(this);
   }
 
   canRunGlobalHooks(type: 'setup' | 'teardown') {
@@ -478,25 +503,25 @@ export class TestModel {
     if (globalSetupResult !== 'passed')
       return;
 
-    const externalOptions = await this._options.runHooks.onWillRunTests(this.config, false);
-    const showBrowser = this._options.settingsModel.showBrowser.get() && !!externalOptions.connectWsEndpoint;
+    const externalOptions = await this._embedder.runHooks.onWillRunTests(this.config, false);
+    const showBrowser = this._embedder.settingsModel.showBrowser.get() && !!externalOptions.connectWsEndpoint;
 
     let trace: 'on' | 'off' | undefined;
     let video: 'on' | 'off' | undefined;
 
-    if (this._options.settingsModel.showTrace.get())
+    if (this._embedder.settingsModel.showTrace.get())
       trace = 'on';
     // "Show browser" mode forces context reuse that survives over multiple test runs.
     // Playwright Test sets up `tracesDir` inside the `test-results` folder, so it will be removed between runs.
     // When context is reused, its ongoing tracing will fail with ENOENT because trace files
     // were suddenly removed. So we disable tracing in this case.
-    if (this._options.settingsModel.showBrowser.get()) {
+    if (this._embedder.settingsModel.showBrowser.get()) {
       trace = 'off';
       video = 'off';
     }
 
     const options: PlaywrightTestRunOptions = {
-      headed: showBrowser && !this._options.isUnderTest,
+      headed: showBrowser && !this._embedder.isUnderTest,
       workers: showBrowser ? 1 : undefined,
       trace,
       video,
@@ -509,7 +534,7 @@ export class TestModel {
         return;
       await this._playwrightTest.runTests(items, options, reporter, token);
     } finally {
-      await this._options.runHooks.onDidRunTests(false);
+      await this._embedder.runHooks.onDidRunTests(false);
     }
   }
 
@@ -522,9 +547,9 @@ export class TestModel {
     if (token?.isCancellationRequested)
       return;
 
-    const externalOptions = await this._options.runHooks.onWillRunTests(this.config, true);
+    const externalOptions = await this._embedder.runHooks.onWillRunTests(this.config, true);
     const options: PlaywrightTestRunOptions = {
-      headed: !this._options.isUnderTest,
+      headed: !this._embedder.isUnderTest,
       workers: 1,
       video: 'off',
       trace: 'off',
@@ -536,7 +561,7 @@ export class TestModel {
         return;
       await this._playwrightTest.debugTests(items, options, reporter, token);
     } finally {
-      await this._options.runHooks.onDidRunTests(false);
+      await this._embedder.runHooks.onDidRunTests(false);
     }
   }
 
@@ -614,11 +639,13 @@ export class TestModelCollection extends DisposableBase {
   private _selectedConfigFile: string | undefined;
   private _didUpdate: vscodeTypes.EventEmitter<void>;
   readonly onUpdated: vscodeTypes.Event<void>;
-  private _context: vscodeTypes.ExtensionContext;
+  readonly vscode: vscodeTypes.VSCode;
+  readonly embedder: TestModelEmbedder;
 
-  constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
+  constructor(vscode: vscodeTypes.VSCode, embedder: TestModelEmbedder) {
     super();
-    this._context = context;
+    this.vscode = vscode;
+    this.embedder = embedder;
     this._didUpdate = new vscode.EventEmitter();
     this.onUpdated = this._didUpdate.event;
   }
@@ -633,7 +660,8 @@ export class TestModelCollection extends DisposableBase {
     if (userGesture)
       this._saveSettings();
     model.reset();
-    this._loadModelIfNeeded(model).then(() => this._didUpdate.fire());
+    const configSettings = this._configSettings(model.config);
+    model._loadModelIfNeeded(configSettings).then(() => this._didUpdate.fire());
   }
 
   setProjectEnabled(configFile: string, name: string, enabled: boolean) {
@@ -659,41 +687,27 @@ export class TestModelCollection extends DisposableBase {
     return result;
   }
 
-  async addModel(model: TestModel) {
+  async createModel(workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }) {
+    const model = new TestModel(this, workspaceFolder, configFile, playwrightInfo);
     this._models.push(model);
-    const workspaceSettings = this._context.workspaceState.get(workspaceStateKey) as WorkspaceSettings || {};
-    const configSettings = (workspaceSettings.configs || []).find(c => c.relativeConfigFile === path.relative(model.config.workspaceFolder, model.config.configFile));
+    const configSettings = this._configSettings(model.config);
     model.isEnabled = configSettings?.enabled || (this._models.length === 1 && !configSettings);
-    await this._loadModelIfNeeded(model);
-    this._disposables.push(model.onUpdated(() => this._didUpdate.fire()));
+    await model._loadModelIfNeeded(configSettings);
     this._didUpdate.fire();
+  }
+
+  _modelUpdated(model: TestModel) {
+    this._didUpdate.fire();
+  }
+
+  private _configSettings(config: TestConfig) {
+    const workspaceSettings = this.embedder.context.workspaceState.get(workspaceStateKey) as WorkspaceSettings || {};
+    return (workspaceSettings.configs || []).find(c => c.relativeConfigFile === path.relative(config.workspaceFolder, config.configFile));
   }
 
   async ensureHasEnabledModels() {
     if (this._models.length && !this.hasEnabledModels())
       this.setModelEnabled(this._models[0].config.configFile, false);
-  }
-
-  private async _loadModelIfNeeded(model: TestModel) {
-    if (!model.isEnabled)
-      return;
-    await model._listFiles();
-    const workspaceSettings = this._context.workspaceState.get(workspaceStateKey) as WorkspaceSettings || {};
-    const configSettings = (workspaceSettings.configs || []).find(c => c.relativeConfigFile === path.relative(model.config.workspaceFolder, model.config.configFile));
-    if (configSettings) {
-      let firstProject = true;
-      for (const project of model.projects()) {
-        const projectSettings = configSettings.projects.find(p => p.name === project.name);
-        if (projectSettings)
-          project.isEnabled = projectSettings.enabled;
-        else if (firstProject)
-          project.isEnabled = true;
-        firstProject = false;
-      }
-    } else {
-      if (model.projects().length)
-        model.projects()[0].isEnabled = true;
-    }
   }
 
   hasEnabledModels() {
@@ -708,11 +722,16 @@ export class TestModelCollection extends DisposableBase {
   }
 
   clear() {
-    this.dispose();
     for (const model of this._models)
-      model.reset();
+      model.dispose();
     this._models = [];
     this._didUpdate.fire();
+  }
+
+  dispose() {
+    for (const model of this._models)
+      model.dispose();
+    super.dispose();
   }
 
   enabledModels(): TestModel[] {
@@ -753,7 +772,7 @@ export class TestModelCollection extends DisposableBase {
         projects: model.projects().map(p => ({ name: p.name, enabled: p.isEnabled })),
       });
     }
-    this._context.workspaceState.update(workspaceStateKey, workspaceSettings);
+    this.embedder.context.workspaceState.update(workspaceStateKey, workspaceSettings);
   }
 }
 

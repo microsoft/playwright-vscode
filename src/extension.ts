@@ -100,8 +100,18 @@ export class Extension implements RunHooks {
     });
 
     this._settingsModel = new SettingsModel(vscode, context);
-    this._models = new TestModelCollection(vscode, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
+    this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
+    this._models = new TestModelCollection(vscode, {
+      context,
+      playwrightTestLog: this._playwrightTestLog,
+      settingsModel: this._settingsModel,
+      runHooks: this,
+      isUnderTest: this._isUnderTest,
+      envProvider: this._envProvider.bind(this),
+      onStdOut: this._debugHighlight.onStdOut.bind(this._debugHighlight),
+      requestWatchRun: this._runWatchedTests.bind(this),
+    });
     this._traceViewer = new TraceViewer(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
@@ -110,7 +120,6 @@ export class Extension implements RunHooks {
     this._runProfile = this._testController.createRunProfile('playwright-run', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, false), true, undefined, supportsContinuousRun);
     this._debugProfile = this._testController.createRunProfile('playwright-debug', this._vscode.TestRunProfileKind.Debug, this._handleTestRun.bind(this, true), true, undefined, supportsContinuousRun);
     this._testTree = new TestTree(vscode, this._models, this._testController);
-    this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
     this._diagnostics = this._vscode.languages.createDiagnosticCollection('pw.testErrors.diagnostic');
@@ -218,6 +227,7 @@ export class Extension implements RunHooks {
         if (event.affectsConfiguration('playwright.env'))
           this._rebuildModels(false);
       }),
+      this._models,
       this._models.onUpdated(() => this._modelsUpdated()),
       this._treeItemObserver.onTreeItemSelected(item => this._treeItemSelected(item)),
       this._settingsView,
@@ -296,16 +306,7 @@ export class Extension implements RunHooks {
 
       if (this.overridePlaywrightVersion)
         playwrightInfo.version = this.overridePlaywrightVersion;
-      const model = new TestModel(this._vscode, workspaceFolderPath, configFileUri.fsPath, playwrightInfo, {
-        playwrightTestLog: this._playwrightTestLog,
-        settingsModel: this._settingsModel,
-        runHooks: this,
-        isUnderTest: this._isUnderTest,
-        envProvider: this._envProvider.bind(this),
-        onStdOut: this._debugHighlight.onStdOut.bind(this._debugHighlight),
-        requestWatchRun: this._runWatchedTests.bind(this),
-      });
-      await this._models.addModel(model);
+      await this._models.createModel(workspaceFolderPath, configFileUri.fsPath, playwrightInfo);
     }
 
     await this._models.ensureHasEnabledModels();
