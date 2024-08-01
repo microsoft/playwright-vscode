@@ -609,15 +609,15 @@ export class TestModel {
   }
 }
 
-export class TestModelCollection extends DisposableBase {
+export class TestModelCollection implements vscodeTypes.Disposable {
   private _models: TestModel[] = [];
   private _selectedConfigFile: string | undefined;
   private _didUpdate: vscodeTypes.EventEmitter<void>;
   readonly onUpdated: vscodeTypes.Event<void>;
   private _context: vscodeTypes.ExtensionContext;
+  private _modelDisposables: vscodeTypes.Disposable[] = [];
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
-    super();
     this._context = context;
     this._didUpdate = new vscode.EventEmitter();
     this.onUpdated = this._didUpdate.event;
@@ -665,7 +665,7 @@ export class TestModelCollection extends DisposableBase {
     const configSettings = (workspaceSettings.configs || []).find(c => c.relativeConfigFile === path.relative(model.config.workspaceFolder, model.config.configFile));
     model.isEnabled = configSettings?.enabled || (this._models.length === 1 && !configSettings);
     await this._loadModelIfNeeded(model);
-    this._disposables.push(model.onUpdated(() => this._didUpdate.fire()));
+    this._modelDisposables.push(model.onUpdated(() => this._didUpdate.fire()));
     this._didUpdate.fire();
   }
 
@@ -708,15 +708,12 @@ export class TestModelCollection extends DisposableBase {
   }
 
   clear() {
-    this.dispose();
+    this._disposeModels();
     this._didUpdate.fire();
   }
 
   dispose() {
-    super.dispose();
-    for (const model of this._models)
-      model.reset();
-    this._models = [];
+    this._disposeModels();
   }
 
   enabledModels(): TestModel[] {
@@ -745,6 +742,15 @@ export class TestModelCollection extends DisposableBase {
     this._selectedConfigFile = configFile;
     this._saveSettings();
     this._didUpdate.fire();
+  }
+
+  private _disposeModels() {
+    for (const model of this._models)
+      model.reset();
+    this._models = [];
+    for (const disposable of this._modelDisposables)
+      disposable.dispose();
+    this._modelDisposables = [];
   }
 
   private _saveSettings() {
