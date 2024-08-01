@@ -93,13 +93,10 @@ export class TestModel extends DisposableBase {
     this.tag = new this._vscode.TestTag(this.config.configFile);
     this._spawnTraceViewer = new SpawnTraceViewer(this._vscode, this._embedder.envProvider, this.config);
 
-    this._disposables.push(
-        this._spawnTraceViewer,
-        this._embedder.settingsModel.showTrace.onChange(value => {
-          if (!value)
-            this._spawnTraceViewer.close();
-        }),
-    );
+    this._disposables = [
+      this._embedder.settingsModel.showTrace.onChange(() => this._closeTraceViewerIfNeeded()),
+      this._collection.onUpdated(() => this._closeTraceViewerIfNeeded()),
+    ];
   }
 
   traceViewer() {
@@ -107,6 +104,11 @@ export class TestModel extends DisposableBase {
       return;
     if (this._spawnTraceViewer.checkVersion())
       return this._spawnTraceViewer;
+  }
+
+  _closeTraceViewerIfNeeded() {
+    if (this._collection.selectedModel() !== this || !this._embedder.settingsModel.showTrace.get())
+      this._spawnTraceViewer.close();
   }
 
   async _loadModelIfNeeded(configSettings: ConfigSettings | undefined) {
@@ -667,15 +669,6 @@ export class TestModelCollection extends DisposableBase {
     this.embedder = embedder;
     this._didUpdate = new vscode.EventEmitter();
     this.onUpdated = this._didUpdate.event;
-    this._disposables.push(
-        this.onUpdated(() => {
-          const selectedModel = this.selectedModel();
-          for (const model of this.models()) {
-            if (model !== selectedModel)
-              model.traceViewer()?.close();
-          }
-        })
-    );
   }
 
   setModelEnabled(configFile: string, enabled: boolean, userGesture?: boolean) {

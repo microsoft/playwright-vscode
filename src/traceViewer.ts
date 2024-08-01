@@ -111,10 +111,6 @@ export class SpawnTraceViewer {
     this._serverUrlPrefixForTest = undefined;
   }
 
-  dispose() {
-    this.close();
-  }
-
   infoForTest() {
     if (!this._serverUrlPrefixForTest)
       return;
