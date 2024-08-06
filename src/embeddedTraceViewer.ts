@@ -83,24 +83,10 @@ export class EmbeddedTraceViewer implements TraceViewer {
       this._traceLoadRequestedTimeout = setTimeout(() => this._fireLoadTraceRequestedIfNeeded(), 500);
   }
 
-  private async _computeServerUrlPrefix() {
-    if (!this._testServer)
-      return;
-    const wsEndpoint = await this._testServer.wsEndpoint();
-    if (!wsEndpoint)
-      return;
-    const serverUrl = new URL(wsEndpoint);
-    serverUrl.protocol = 'http';
-    if (this.vscode.env.remoteName && ['[::1]', '0.0.0.0'].includes(serverUrl.hostname))
-      serverUrl.hostname = 'localhost';
-    const serverUri = await this.vscode.env.asExternalUri(this.vscode.Uri.parse(serverUrl.origin));
-    return serverUri.toString().replace(/\/$/, '');
-  }
-
   private async _startIfNeeded() {
     if (this._traceViewerPanel)
       return;
-    const serverUrlPrefix = await this._computeServerUrlPrefix();
+    const serverUrlPrefix = await this._testServer.ensureStartedForTraceViewer();
     if (!serverUrlPrefix)
       return;
     this._traceViewerPanel = new EmbeddedTraceViewerPanel(this, serverUrlPrefix);
