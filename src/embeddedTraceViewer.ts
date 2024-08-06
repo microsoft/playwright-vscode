@@ -155,9 +155,11 @@ class EmbeddedTraceViewerPanel extends DisposableBase {
       this._webviewPanel.onDidDispose(() => {
         embeddedTestViewer.close();
       }),
-      this._webviewPanel.webview.onDidReceiveMessage(({ command, params }) => {
-        if (typeof command === 'string')
-          this._executeCommand(command, params).catch(() => {});
+      this._webviewPanel.webview.onDidReceiveMessage(message => {
+        const methodRequest = this._extractMethodRequest(message);
+        if (!methodRequest)
+          return;
+        this._executeMethod(methodRequest).catch(() => {});
       }),
       this._vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('workbench.colorTheme'))
@@ -171,12 +173,20 @@ class EmbeddedTraceViewerPanel extends DisposableBase {
     this._webviewPanel.webview.postMessage(msg);
   }
 
-  private async _executeCommand(command: string, params?: any) {
-    if (command === 'openExternal' && params.url)
+  private _extractMethodRequest(message: any) {
+    const method: string | undefined = message.method ?? message.command;
+    if (!method)
+      return;
+    const params = message.params;
+    return { method, params };
+  }
+
+  private async _executeMethod({ method, params }: { method: string, params?: any }) {
+    if (method === 'openExternal' && params.url)
       // should be a Uri, but due to https://github.com/microsoft/vscode/issues/85930
       // we pass a string instead
       await this._vscode.env.openExternal(params.url);
-    else if (command === 'showErrorMessage')
+    else if (method === 'showErrorMessage')
       await this._vscode.window.showErrorMessage(params.message);
   }
 
