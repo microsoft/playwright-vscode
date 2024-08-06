@@ -33,6 +33,7 @@ const config: PlaywrightTestConfig<WorkerOptions> = {
       name: 'default',
       use: {
         showBrowser: false,
+        traceViewerMode: 'spawn',
       }
     },
     {
@@ -46,6 +47,7 @@ const config: PlaywrightTestConfig<WorkerOptions> = {
       use: {
         overridePlaywrightVersion: 1.43,
         showBrowser: false,
+        traceViewerMode: 'spawn',
       }
     },
     {

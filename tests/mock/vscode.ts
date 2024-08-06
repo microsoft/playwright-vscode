@@ -1067,6 +1067,7 @@ export class VSCode {
       'playwright.env': {},
       'playwright.reuseBrowser': false,
       'playwright.showTrace': false,
+      'playwright.embeddedTraceViewer': false,
       'workbench.colorTheme': 'Dark Modern',
     };
     this.workspace.getConfiguration = scope => {

@@ -16,13 +16,7 @@
 
 import { enableConfigs, expect, selectConfig, selectTestItem, test, traceViewerInfo } from './utils';
 
-test.beforeEach(({ showBrowser }) => {
-  test.skip(showBrowser);
-  // prevents spawn trace viewer process from opening in browser
-  process.env.PWTEST_UNDER_TEST = '1';
-});
-
-test.use({ showTrace: true, envRemoteName: 'ssh-remote' });
+test.skip(({ traceViewerMode }) => !traceViewerMode);
 
 test('@smoke should open trace viewer', async ({ activate }) => {
   const { vscode, testController } = await activate({
