@@ -278,10 +278,6 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             <input type="checkbox" setting="showTrace"></input>
             ${vscode.l10n.t('Show trace viewer')}
           </label>
-          <label>
-            <input type="checkbox" setting="embeddedTraceViewer"></input>
-            ${vscode.l10n.t('Embedded')}
-          </label>
         </div>
       </div>
       <div class="section-header">${vscode.l10n.t('TOOLS')}</div>

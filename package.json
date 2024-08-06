@@ -72,11 +72,6 @@
       },
       {
         "category": "Test",
-        "command": "pw.extension.toggle.embeddedTraceViewer",
-        "title": "%contributes.command.pw.extension.toggle.embeddedTraceViewer%"
-      },
-      {
-        "category": "Test",
         "command": "pw.extension.command.runGlobalSetup",
         "title": "%contributes.command.pw.extension.command.runGlobalSetup%"
       },
