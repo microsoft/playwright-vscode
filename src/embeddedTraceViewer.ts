@@ -28,6 +28,7 @@ export class EmbeddedTraceViewer implements TraceViewer {
   readonly extensionUri: vscodeTypes.Uri;
   private _settingsModel: SettingsModel;
   private _currentFile?: string;
+  private _testServerStartedPromise?: Promise<string | undefined>;
   private _traceViewerPanel: EmbeddedTraceViewerPanel | undefined;
   private _traceLoadRequestedTimeout?: NodeJS.Timeout;
   private _config: TestConfig;
@@ -44,7 +45,7 @@ export class EmbeddedTraceViewer implements TraceViewer {
   }
 
   isStarted() {
-    return !!this._traceViewerPanel;
+    return !!this._testServerStartedPromise;
   }
 
   currentFile() {
@@ -64,6 +65,7 @@ export class EmbeddedTraceViewer implements TraceViewer {
   close() {
     this._traceViewerPanel?.dispose();
     this._traceViewerPanel = undefined;
+    this._testServerStartedPromise = undefined;
     this._currentFile = undefined;
     if (this._traceLoadRequestedTimeout) {
       clearTimeout(this._traceLoadRequestedTimeout);
@@ -84,9 +86,14 @@ export class EmbeddedTraceViewer implements TraceViewer {
   }
 
   private async _startIfNeeded() {
-    if (this._traceViewerPanel)
+    if (this._testServerStartedPromise)
       return;
-    const serverUrlPrefix = await this._testServer.ensureStartedForTraceViewer();
+
+    this._testServerStartedPromise = this._testServer.ensureStartedForTraceViewer();
+    const serverUrlPrefix = await this._testServerStartedPromise;
+    // if undefined, it means it was closed while test server started
+    if (!this._testServerStartedPromise)
+      return;
     if (!serverUrlPrefix)
       return;
     this._traceViewerPanel = new EmbeddedTraceViewerPanel(this, serverUrlPrefix);
