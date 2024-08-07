@@ -44,10 +44,6 @@ export class EmbeddedTraceViewer implements TraceViewer {
       this._testServer = testServer;
   }
 
-  isStarted() {
-    return !!this._testServerStartedPromise;
-  }
-
   currentFile() {
     return this._currentFile;
   }
@@ -56,9 +52,11 @@ export class EmbeddedTraceViewer implements TraceViewer {
     await this._startIfNeeded();
   }
 
-  async open(file: string) {
-    await this._startIfNeeded();
+  async open(file?: string) {
     this._currentFile = file;
+    if (!file && !this._testServerStartedPromise)
+      return;
+    await this._startIfNeeded();
     this._fireLoadTraceRequestedIfNeeded();
   }
 
@@ -117,13 +115,11 @@ export class EmbeddedTraceViewer implements TraceViewer {
   }
 
   infoForTest() {
-    if (!this._traceViewerPanel)
-      return;
     return {
       type: 'embedded',
       serverUrlPrefix: this._traceViewerPanel?.serverUrlPrefix,
       testConfigFile: this._config.configFile,
-      traceFile: this.currentFile(),
+      traceFile: this._currentFile,
     };
   }
 }

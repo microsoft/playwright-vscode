@@ -758,21 +758,14 @@ export class Extension implements RunHooks {
 
   private _showTrace(testItem: vscodeTypes.TestItem) {
     const traceUrl = (testItem as any)[traceUrlSymbol];
-    if (traceUrl)
-      this._traceViewer()?.open(traceUrl);
+    this._models.selectedModel()?.ensureTraceViewer()?.open(traceUrl);
   }
 
   private _treeItemSelected(treeItem: vscodeTypes.TreeItem | null) {
     if (!treeItem)
       return;
-    const traceUrl = (treeItem as any)[traceUrlSymbol] || '';
-    if (!traceUrl && !this._traceViewer()?.isStarted())
-      return;
-    this._traceViewer()?.open(traceUrl);
-  }
-
-  private _traceViewer() {
-    return this._models.selectedModel()?.traceViewer();
+    const traceUrl = (treeItem as any)[traceUrlSymbol];
+    this._models.selectedModel()?.ensureTraceViewer()?.open(traceUrl);
   }
 
   private _queueCommand<T>(callback: () => Promise<T>, defaultValue: T): Promise<T> {

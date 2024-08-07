@@ -21,17 +21,16 @@ import * as vscodeTypes from './vscodeTypes';
 import { SettingsModel } from './settingsModel';
 
 export type TraceViewer = {
-  isStarted(): boolean;
   currentFile(): string | undefined;
   willRunTests(): Promise<void>;
-  open(file: string): Promise<void>;
+  open(file?: string): Promise<void>;
   close(): void;
   checkSupport(userGesture?: boolean): boolean;
   infoForTest(): {
     type: string;
-    serverUrlPrefix: string;
+    serverUrlPrefix?: string;
     testConfigFile: string;
-    traceFile: string | undefined;
+    traceFile?: string;
   } | undefined;
 };
 
@@ -51,10 +50,6 @@ export class SpawnTraceViewer implements TraceViewer {
     this._settingsModel = settingsModel;
   }
 
-  isStarted() {
-    return !!this._traceViewerProcess;
-  }
-
   currentFile() {
     return this._currentFile;
   }
@@ -63,10 +58,12 @@ export class SpawnTraceViewer implements TraceViewer {
     await this._startIfNeeded();
   }
 
-  async open(file: string) {
+  async open(file?: string) {
+    this._currentFile = file;
+    if (!file && !this._traceViewerProcess)
+      return;
     await this._startIfNeeded();
     this._traceViewerProcess?.stdin?.write(file + '\n');
-    this._currentFile = file;
   }
 
   private async _startIfNeeded() {
@@ -133,13 +130,11 @@ export class SpawnTraceViewer implements TraceViewer {
   }
 
   infoForTest() {
-    if (!this._serverUrlPrefixForTest)
-      return;
     return {
       type: 'spawn',
       serverUrlPrefix: this._serverUrlPrefixForTest,
       testConfigFile: this._config.configFile,
-      traceFile: this.currentFile(),
+      traceFile: this._currentFile,
     };
   }
 }
