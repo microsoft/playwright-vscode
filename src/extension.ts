@@ -483,7 +483,7 @@ export class Extension implements RunHooks {
         // if trace viewer is currently displaying the trace file about to be replaced, it needs to be refreshed
         const prevTrace = (testItem as any)[traceUrlSymbol];
         (testItem as any)[traceUrlSymbol] = trace;
-        if (enqueuedSingleTest || prevTrace === this._traceViewer()?.currentFile())
+        if (enqueuedSingleTest || prevTrace === this._models.selectedModel()?.traceViewer()?.currentFile())
           this._showTrace(testItem);
 
         if (result.status === test.expectedStatus) {
@@ -535,7 +535,7 @@ export class Extension implements RunHooks {
     if (isDebug) {
       await model.debugTests(items, testListener, testRun.token);
     } else {
-      await this._traceViewer()?.willRunTests();
+      await this._models.selectedModel()?.ensureTraceViewer()?.willRunTests();
       await model.runTests(items, testListener, testRun.token);
     }
   }
@@ -753,7 +753,7 @@ export class Extension implements RunHooks {
   }
 
   traceViewerInfoForTest() {
-    return this._traceViewer()?.infoForTest();
+    return this._models.selectedModel()?.traceViewer()?.infoForTest();
   }
 
   private _showTrace(testItem: vscodeTypes.TestItem) {

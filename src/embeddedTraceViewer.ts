@@ -20,28 +20,22 @@ import * as vscodeTypes from './vscodeTypes';
 import { DisposableBase } from './disposableBase';
 import { PlaywrightTestServer } from './playwrightTestServer';
 import { TraceViewer } from './traceViewer';
-import { SettingsModel } from './settingsModel';
-import { PlaywrightTestCLI } from './playwrightTestCLI';
 
 export class EmbeddedTraceViewer implements TraceViewer {
   readonly vscode: vscodeTypes.VSCode;
   readonly extensionUri: vscodeTypes.Uri;
-  private _settingsModel: SettingsModel;
   private _currentFile?: string;
   private _testServerStartedPromise?: Promise<string | undefined>;
   private _traceViewerPanel: EmbeddedTraceViewerPanel | undefined;
   private _traceLoadRequestedTimeout?: NodeJS.Timeout;
   private _config: TestConfig;
-  private _testServer?: PlaywrightTestServer;
+  private _testServer: PlaywrightTestServer;
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, extensionUri: vscodeTypes.Uri, config: TestConfig, testServer?: PlaywrightTestServer | PlaywrightTestCLI) {
+  constructor(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri, config: TestConfig, testServer: PlaywrightTestServer) {
     this.vscode = vscode;
     this.extensionUri = extensionUri;
-    this._settingsModel = settingsModel;
-
     this._config = config;
-    if (testServer instanceof PlaywrightTestServer)
-      this._testServer = testServer;
+    this._testServer = testServer;
   }
 
   currentFile() {
@@ -95,23 +89,6 @@ export class EmbeddedTraceViewer implements TraceViewer {
     if (!serverUrlPrefix)
       return;
     this._traceViewerPanel = new EmbeddedTraceViewerPanel(this, serverUrlPrefix);
-  }
-
-  checkSupport(userGesture?: boolean) {
-    if (!this._settingsModel.showTrace.get() || !this._settingsModel.embeddedTraceViewer.get())
-      return false;
-
-    const version = 1.46;
-    if (this._config.version < version) {
-      if (userGesture) {
-        const featureName = this.vscode.l10n.t('embedded trace viewer');
-        this.vscode.window.showWarningMessage(
-            this.vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, featureName, this._config.version)
-        );
-      }
-      return false;
-    }
-    return true;
   }
 
   infoForTest() {

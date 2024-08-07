@@ -18,14 +18,12 @@ import { ChildProcess, spawn } from 'child_process';
 import type { TestConfig } from './playwrightTestTypes';
 import { findNode } from './utils';
 import * as vscodeTypes from './vscodeTypes';
-import { SettingsModel } from './settingsModel';
 
 export type TraceViewer = {
   currentFile(): string | undefined;
   willRunTests(): Promise<void>;
   open(file?: string): Promise<void>;
   close(): void;
-  checkSupport(userGesture?: boolean): boolean;
   infoForTest(): {
     type: string;
     serverUrlPrefix?: string;
@@ -36,18 +34,16 @@ export type TraceViewer = {
 
 export class SpawnTraceViewer implements TraceViewer {
   private _vscode: vscodeTypes.VSCode;
-  private _settingsModel: SettingsModel;
   private _envProvider: () => NodeJS.ProcessEnv;
   private _traceViewerProcess: ChildProcess | undefined;
   private _currentFile?: string;
   private _config: TestConfig;
   private _serverUrlPrefixForTest?: string;
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv, config: TestConfig) {
+  constructor(vscode: vscodeTypes.VSCode, envProvider: () => NodeJS.ProcessEnv, config: TestConfig) {
     this._vscode = vscode;
     this._envProvider = envProvider;
     this._config = config;
-    this._settingsModel = settingsModel;
   }
 
   currentFile() {
@@ -103,23 +99,6 @@ export class SpawnTraceViewer implements TraceViewer {
           this._serverUrlPrefixForTest = match[1];
       });
     }
-  }
-
-  checkSupport(userGesture?: boolean) {
-    if (!this._settingsModel.showTrace.get())
-      return false;
-
-    const version = 1.35;
-    if (this._config.version < version) {
-      if (userGesture) {
-        const message = this._vscode.l10n.t('this feature');
-        this._vscode.window.showWarningMessage(
-            this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, this._config.version)
-        );
-      }
-      return false;
-    }
-    return true;
   }
 
   close() {
