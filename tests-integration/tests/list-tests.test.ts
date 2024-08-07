@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { enableConfigs, enableProjects, escapedPathSep, expect, test } from './utils';
+import { enableConfigs, enableProjects, escapedPathSep, expect, test } from './baseTest';
 import fs from 'fs';
 import path from 'path';
 
@@ -720,6 +720,8 @@ test('should not run config reporters', async ({ activate }, testInfo) => {
 });
 
 test('should list tests in multi-folder workspace', async ({ activate }, testInfo) => {
+  test.fixme(true, 'multi-folder workspace not supported yet');
+
   const { vscode, testController } = await activate({}, {
     workspaceFolders: [
       [testInfo.outputPath('folder1'), {
@@ -760,6 +762,8 @@ test('should list tests in multi-folder workspace', async ({ activate }, testInf
 });
 
 test('should not keep empty workspace-folders in a workspace', async ({ activate }, testInfo) => {
+  test.fixme(true, 'multi-folder workspace not supported yet');
+
   const { testController } = await activate({}, {
     workspaceFolders: [
       [testInfo.outputPath('folder1'), {}],

@@ -148,6 +148,7 @@
     "@types/babel__traverse": "^7.20.3",
     "@types/glob": "^8.0.0",
     "@types/node": "^18.11.9",
+    "@types/sinon": "^17.0.3",
     "@types/stack-utils": "^2.0.1",
     "@types/vscode": "1.86.0",
     "@types/which": "^3.0.3",
@@ -161,6 +162,7 @@
     "eslint-plugin-notice": "^0.9.10",
     "eslint-plugin-react-hooks": "^4.6.0",
     "glob": "^8.0.3",
+    "sinon": "^18.0.0",
     "typescript": "^5.4.3"
   },
   "dependencies": {

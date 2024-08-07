@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 import { defineConfig } from '@playwright/test';
-import { TestOptions } from './tests/baseTest';
+import { WorkerOptions } from './tests/baseTest';
+import { WorkerOptions as VSWorkerOptions } from './tests/vscodeTest';
 
-export default defineConfig<void, TestOptions>({
+export default defineConfig<void, WorkerOptions & VSWorkerOptions>({
   reporter: process.env.CI ? 'html' : 'list',
   timeout: 120_000,
   workers: 1,
@@ -29,6 +30,7 @@ export default defineConfig<void, TestOptions>({
       name: 'VSCode insiders',
       use: {
         vscodeVersion: 'insiders',
+        playwrightVersion: 'next',
       }
     }
   ]

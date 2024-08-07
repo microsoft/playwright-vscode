@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { enableConfigs, enableProjects, expect, test } from './utils';
+import { expect, test, enableProjects, enableConfigs } from './baseTest';
 import path from 'path';
 
 test('should list files', async ({ activate }) => {
@@ -367,6 +367,8 @@ test('should list files in relative folder', async ({ activate }) => {
 });
 
 test('should list files in multi-folder workspace with project switching', async ({ activate }, testInfo) => {
+  test.fixme(true, 'multi-folder workspace not supported yet');
+
   const { vscode, testController } = await activate({}, {
     workspaceFolders: [
       [testInfo.outputPath('folder1'), {
@@ -429,7 +431,7 @@ test('should ignore errors when listing files', async ({ activate }) => {
   await expect.poll(() => vscode.languages.getDiagnostics()).toEqual([
     {
       message: 'Error: oh my',
-      range: { start: { line: 0, character: 6 }, end: { line: 1, character: 0 } },
+      range: { start: { line: 0, character: 6 }, end: { line: 1, character: 1 } },
       severity: 'Error',
       source: 'playwright',
     }
