@@ -457,8 +457,11 @@ export class Extension implements RunHooks {
         const testItem = this._testTree.testItemForTest(test);
         if (testItem) {
           testRun.started(testItem);
-          const fullProject = ancestorProject(test);
-          const traceUrl = `${fullProject.outputDir}/.playwright-artifacts-${result.workerIndex}/traces/${test.id}.json`;
+          let traceUrl: string | undefined;
+          if (mode !== 'debug') {
+            const fullProject = ancestorProject(test);
+            traceUrl = `${fullProject.outputDir}/.playwright-artifacts-${result.workerIndex}/traces/${test.id}.json`;
+          }
           (testItem as any)[traceUrlSymbol] = traceUrl;
         }
 
