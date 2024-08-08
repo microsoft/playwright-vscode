@@ -35,10 +35,6 @@ export class SpawnTraceViewer {
     this._config = config;
   }
 
-  isStarted() {
-    return !!this._traceViewerProcess;
-  }
-
   currentFile() {
     return this._currentFile;
   }
@@ -47,10 +43,12 @@ export class SpawnTraceViewer {
     await this._startIfNeeded();
   }
 
-  async open(file: string) {
+  async open(file?: string) {
+    this._currentFile = file;
+    if (!file && !this._traceViewerProcess)
+      return;
     await this._startIfNeeded();
     this._traceViewerProcess?.stdin?.write(file + '\n');
-    this._currentFile = file;
   }
 
   private async _startIfNeeded() {
@@ -112,13 +110,11 @@ export class SpawnTraceViewer {
   }
 
   infoForTest() {
-    if (!this._serverUrlPrefixForTest)
-      return;
     return {
       type: 'spawn',
       serverUrlPrefix: this._serverUrlPrefixForTest,
       testConfigFile: this._config.configFile,
-      traceFile: this.currentFile(),
+      traceFile: this._currentFile,
     };
   }
 }

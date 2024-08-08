@@ -457,8 +457,11 @@ export class Extension implements RunHooks {
         const testItem = this._testTree.testItemForTest(test);
         if (testItem) {
           testRun.started(testItem);
-          const fullProject = ancestorProject(test);
-          const traceUrl = `${fullProject.outputDir}/.playwright-artifacts-${result.workerIndex}/traces/${test.id}.json`;
+          let traceUrl: string | undefined;
+          if (!isDebug) {
+            const fullProject = ancestorProject(test);
+            traceUrl = `${fullProject.outputDir}/.playwright-artifacts-${result.workerIndex}/traces/${test.id}.json`;
+          }
           (testItem as any)[traceUrlSymbol] = traceUrl;
         }
 
@@ -479,7 +482,7 @@ export class Extension implements RunHooks {
         if (!testItem)
           return;
 
-        const trace = result.attachments.find(a => a.name === 'trace')?.path || '';
+        const trace = result.attachments.find(a => a.name === 'trace')?.path;
         // if trace viewer is currently displaying the trace file about to be replaced, it needs to be refreshed
         const prevTrace = (testItem as any)[traceUrlSymbol];
         (testItem as any)[traceUrlSymbol] = trace;
@@ -758,16 +761,13 @@ export class Extension implements RunHooks {
 
   private _showTrace(testItem: vscodeTypes.TestItem) {
     const traceUrl = (testItem as any)[traceUrlSymbol];
-    if (traceUrl)
-      this._traceViewer()?.open(traceUrl);
+    this._traceViewer()?.open(traceUrl);
   }
 
   private _treeItemSelected(treeItem: vscodeTypes.TreeItem | null) {
     if (!treeItem)
       return;
-    const traceUrl = (treeItem as any)[traceUrlSymbol] || '';
-    if (!traceUrl && !this._traceViewer()?.isStarted())
-      return;
+    const traceUrl = (treeItem as any)[traceUrlSymbol];
     this._traceViewer()?.open(traceUrl);
   }
 
