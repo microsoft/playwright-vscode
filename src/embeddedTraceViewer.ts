@@ -27,7 +27,6 @@ export class EmbeddedTraceViewer implements TraceViewer {
   private _currentFile?: string;
   private _testServerStartedPromise?: Promise<string | undefined>;
   private _traceViewerPanel: EmbeddedTraceViewerPanel | undefined;
-  private _traceLoadRequestedTimeout?: NodeJS.Timeout;
   private _config: TestConfig;
   private _testServer: PlaywrightTestServer;
 
@@ -51,7 +50,7 @@ export class EmbeddedTraceViewer implements TraceViewer {
     if (!file && !this._testServerStartedPromise)
       return;
     await this._startIfNeeded();
-    this._fireLoadTraceRequestedIfNeeded();
+    this._traceViewerPanel?.loadTraceRequested(file);
   }
 
   close() {
@@ -59,22 +58,6 @@ export class EmbeddedTraceViewer implements TraceViewer {
     this._traceViewerPanel = undefined;
     this._testServerStartedPromise = undefined;
     this._currentFile = undefined;
-    if (this._traceLoadRequestedTimeout) {
-      clearTimeout(this._traceLoadRequestedTimeout);
-      this._traceLoadRequestedTimeout = undefined;
-    }
-  }
-
-  private _fireLoadTraceRequestedIfNeeded() {
-    if (this._traceLoadRequestedTimeout) {
-      clearTimeout(this._traceLoadRequestedTimeout);
-      this._traceLoadRequestedTimeout = undefined;
-    }
-    if (!this._traceViewerPanel || !this._currentFile)
-      return;
-    this._traceViewerPanel.postMessage({ method: 'loadTraceRequested', params: { traceUrl: this._currentFile } });
-    if (this._currentFile.endsWith('.json'))
-      this._traceLoadRequestedTimeout = setTimeout(() => this._fireLoadTraceRequestedIfNeeded(), 500);
   }
 
   private async _startIfNeeded() {
@@ -109,6 +92,10 @@ class EmbeddedTraceViewerPanel extends DisposableBase {
   private _extensionUri: vscodeTypes.Uri;
   private _webviewPanel: vscodeTypes.WebviewPanel;
   readonly serverUrlPrefix: string;
+  private _isVisible: boolean = false;
+  private _viewColumn: vscodeTypes.ViewColumn | undefined;
+  private _traceUrl?: string;
+  private _traceLoadRequestedTimeout?: NodeJS.Timeout;
 
   constructor(
     embeddedTestViewer: EmbeddedTraceViewer,
@@ -118,6 +105,7 @@ class EmbeddedTraceViewerPanel extends DisposableBase {
     this._vscode = embeddedTestViewer.vscode;
     this._extensionUri = embeddedTestViewer.extensionUri;
     this.serverUrlPrefix = serverUrlPrefix;
+    this._isVisible = false;
     this._webviewPanel = this._vscode.window.createWebviewPanel(EmbeddedTraceViewerPanel.viewType, 'Trace Viewer', {
       viewColumn: this._vscode.ViewColumn.Active,
       preserveFocus: true,
@@ -125,12 +113,25 @@ class EmbeddedTraceViewerPanel extends DisposableBase {
       enableScripts: true,
       enableForms: true,
     });
+    this._viewColumn = this._webviewPanel.viewColumn;
     this._webviewPanel.iconPath = this._vscode.Uri.joinPath(this._extensionUri, 'images', 'playwright-logo.svg');
     this._webviewPanel.webview.html = this._getHtml();
     this._disposables = [
       this._webviewPanel,
       this._webviewPanel.onDidDispose(() => {
         embeddedTestViewer.close();
+      }),
+      this._webviewPanel.onDidChangeViewState(({ webviewPanel }) => {
+        if (this._isVisible === webviewPanel.visible && this._viewColumn === webviewPanel.viewColumn)
+          return;
+        this._isVisible = webviewPanel.visible;
+        this._viewColumn = webviewPanel.viewColumn;
+        if (this._isVisible) {
+          this._applyTheme();
+          this.loadTraceRequested(this._traceUrl);
+        } else {
+          this._clearTraceLoadRequestedTimeout();
+        }
       }),
       this._webviewPanel.webview.onDidReceiveMessage(message => {
         const methodRequest = this._extractMethodRequest(message);
@@ -143,11 +144,35 @@ class EmbeddedTraceViewerPanel extends DisposableBase {
           this._applyTheme();
       }),
     ];
-    this._applyTheme();
   }
 
-  public postMessage(msg: any) {
-    this._webviewPanel.webview.postMessage(msg);
+  loadTraceRequested(traceUrl?: string) {
+    this._traceUrl = traceUrl;
+    this._fireLoadTraceRequestedIfNeeded();
+  }
+
+  dispose() {
+    this._clearTraceLoadRequestedTimeout();
+    super.dispose();
+  }
+
+  private _clearTraceLoadRequestedTimeout() {
+    if (this._traceLoadRequestedTimeout) {
+      clearTimeout(this._traceLoadRequestedTimeout);
+      this._traceLoadRequestedTimeout = undefined;
+    }
+  }
+
+  private _fireLoadTraceRequestedIfNeeded() {
+    if (this._traceLoadRequestedTimeout) {
+      clearTimeout(this._traceLoadRequestedTimeout);
+      this._traceLoadRequestedTimeout = undefined;
+    }
+    if (!this._isVisible)
+      return;
+    this._webviewPanel.webview.postMessage({ method: 'loadTraceRequested', params: { traceUrl: this._traceUrl } });
+    if (this._traceUrl?.endsWith('.json'))
+      this._traceLoadRequestedTimeout = setTimeout(() => this._fireLoadTraceRequestedIfNeeded(), 500);
   }
 
   private _extractMethodRequest(message: any) {
@@ -168,9 +193,11 @@ class EmbeddedTraceViewerPanel extends DisposableBase {
   }
 
   private _applyTheme() {
+    if (!this._webviewPanel.visible)
+      return;
     const themeKind = this._vscode.window.activeColorTheme.kind;
     const theme = [this._vscode.ColorThemeKind.Dark, this._vscode.ColorThemeKind.HighContrast].includes(themeKind) ? 'dark-mode' : 'light-mode';
-    this.postMessage({ method: 'applyTheme', params: { theme } });
+    this._webviewPanel.webview.postMessage({ method: 'applyTheme', params: { theme } });
   }
 
   private _getHtml() {

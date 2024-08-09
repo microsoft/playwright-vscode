@@ -387,3 +387,37 @@ test('should switch to spawn trace viewer if embedded is disabled and tests are 
 
   await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({ type: 'spawn' });
 });
+
+test('should restore webview state when moving', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/pass/);
+
+  await testController.run();
+
+  selectTestItem(testItems[0]);
+
+  const webview = await singleWebViewByPanelType(vscode, 'playwright.traceviewer.view')!;
+  await vscode.changeVisibility(webview, 'hidden');
+
+  await expect(webview).toHaveURL(/hidden/);
+
+  await vscode.changeVisibility(webview, 'visible');
+
+  const listItem = webview.frameLocator('iframe').getByTestId('actions-tree').getByRole('listitem');
+  await expect(
+      listItem,
+      'action list'
+  ).toHaveText([
+    /Before Hooks[\d.]+m?s/,
+    /After Hooks[\d.]+m?s/,
+  ]);
+
+});
