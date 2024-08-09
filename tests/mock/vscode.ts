@@ -193,6 +193,8 @@ export class TestItem {
   tags: readonly TestTag[] = [];
   canResolveChildren = false;
   status: 'none' | 'enqueued' | 'started' | 'skipped' | 'failed' | 'passed' = 'none';
+  _didChangeStatus = new EventEmitter<TestItem>();
+  onDidChangeStatus = this._didChangeStatus.event;
 
   constructor(
       readonly testController: TestController,
@@ -411,26 +413,31 @@ export class TestRun {
 
   enqueued(test: TestItem) {
     test.status = 'enqueued';
+    test._didChangeStatus.fire(test);
     this._log(test, { status: 'enqueued' });
   }
 
   started(test: TestItem) {
     test.status = 'started';
+    test._didChangeStatus.fire(test);
     this._log(test, { status: 'started' });
   }
 
   skipped(test: TestItem) {
     test.status = 'skipped';
+    test._didChangeStatus.fire(test);
     this._log(test, { status: 'skipped' });
   }
 
   failed(test: TestItem, messages: TestMessage[], duration?: number) {
     test.status = 'failed';
+    test._didChangeStatus.fire(test);
     this._log(test, { status: 'failed', duration, messages });
   }
 
   passed(test: TestItem, duration?: number) {
     test.status = 'passed';
+    test._didChangeStatus.fire(test);
     this._log(test, { status: 'passed', duration });
   }
 

@@ -15,8 +15,16 @@
  */
 
 import { enableConfigs, expect, selectConfig, selectTestItem, test, traceViewerInfo } from './utils';
+import { TestItem } from './mock/vscode';
 
 test.skip(({ traceViewerMode }) => !traceViewerMode);
+
+async function waitForTestItemStatus(testItem: TestItem, status: TestItem['status']) {
+  await new Promise<void>(resolve => testItem.onDidChangeStatus(() => {
+    if (testItem.status === status)
+      resolve();
+  }));
+}
 
 test('@smoke should open trace viewer', async ({ activate, traceViewerMode }) => {
   const { vscode, testController } = await activate({
@@ -77,7 +85,9 @@ test('should not open trace viewer if test did not run', async ({ activate }) =>
   await testController.expandTestItems(/test.spec/);
   selectTestItem(testController.findTestItems(/pass/)[0]);
 
-  await expect.poll(() => traceViewerInfo(vscode)).toBeUndefined();
+  await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
+    traceFile: undefined,
+  });
 });
 
 test('should refresh trace viewer while test is running', async ({ activate, createLatch, traceViewerMode }) => {
@@ -92,9 +102,13 @@ test('should refresh trace viewer while test is running', async ({ activate, cre
   });
 
   await testController.expandTestItems(/test.spec/);
-  selectTestItem(testController.findTestItems(/pass/)[0]);
+  const [testItem] = testController.findTestItems(/pass/);
+  selectTestItem(testItem);
 
   const testRunPromise = testController.run();
+  // wait for test to start
+  await waitForTestItemStatus(testItem, 'started');
+
   await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
     type: traceViewerMode,
     traceFile: expect.stringMatching(/\.json$/),
@@ -129,7 +143,9 @@ test('should close trace viewer if test configs refreshed', async ({ activate, t
 
   await testController.refreshHandler(null);
 
-  await expect.poll(() => traceViewerInfo(vscode)).toBeUndefined();
+  await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
+    traceFile: undefined,
+  });
 });
 
 test('should open new trace viewer when another test config is selected', async ({ activate, traceViewerMode }) => {
@@ -165,7 +181,9 @@ test('should open new trace viewer when another test config is selected', async 
   // closes opened trace viewer
   await selectConfig(vscode, 'playwright2.config.js');
 
-  await expect.poll(() => traceViewerInfo(vscode)).toBeUndefined();
+  await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
+    traceFile: undefined,
+  });
 
   // opens trace viewer from selected test config
   selectTestItem(testItems[0]);
@@ -178,4 +196,76 @@ test('should open new trace viewer when another test config is selected', async 
   const serverUrlPrefix2 = traceViewerInfo(vscode);
 
   expect(serverUrlPrefix2).not.toBe(serverUrlPrefix1);
+});
+
+test('should not open trace viewer test item is selected while debugging', async ({ activate, createLatch }) => {
+  const latch = createLatch();
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => ${latch.blockingCode});
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const [testItem] = testController.findTestItems(/pass/);
+
+  const debugPromise = testController.debug();
+
+  // wait for test to start
+  await waitForTestItemStatus(testItem, 'started');
+
+  // select the test item and wait a bit more to give some time for trace viewer to eventually open
+  selectTestItem(testItem);
+
+  // ensure it didn't open
+  await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
+    traceFile: undefined,
+  });
+
+  latch.open();
+  await debugPromise;
+});
+
+test('should show empty state in trace viewer when test item is selected while debugging', async ({ activate, createLatch }) => {
+  const latch = createLatch();
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => ${latch.blockingCode});
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const [testItem] = testController.findTestItems(/pass/);
+
+  // run test without blocking, just to ensure trace viewer opens and displays a trace file
+  latch.open();
+  await testController.run();
+  await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
+    type: 'spawn',
+    traceFile: expect.stringMatching(/\.zip$/),
+  });
+
+  // debug the test
+  latch.close();
+  const debugPromise = testController.debug();
+
+  // wait for test to start
+  await waitForTestItemStatus(testItem, 'started');
+
+  // select the test item and wait a bit more to give some time for trace viewer to eventually update
+  selectTestItem(testItem);
+
+  // ensure it's not showing any trace file
+  await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
+    traceFile: undefined,
+  });
+
+  latch.open();
+  await debugPromise;
 });
