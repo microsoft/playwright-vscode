@@ -30,7 +30,8 @@ import type { PlaywrightTestRunOptions, RunHooks, TestConfig } from './playwrigh
 import { PlaywrightTestCLI } from './playwrightTestCLI';
 import { upstreamTreeItem } from './testTree';
 import { collectTestIds } from './upstream/testTree';
-import { SpawnTraceViewer } from './traceViewer';
+import { SpawnTraceViewer, TraceViewer } from './traceViewer';
+import { EmbeddedTraceViewer } from './embeddedTraceViewer';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
@@ -57,6 +58,64 @@ type Watch = {
   include: readonly vscodeTypes.TestItem[] | undefined;
 };
 
+class TraceViewerFactory {
+  private _embedder: TestModelEmbedder;
+  private _vscode: vscodeTypes.VSCode;
+  private _config: TestConfig;
+  private _testServer?: PlaywrightTestServer;
+
+  constructor(collection: TestModelCollection, config: TestConfig, testServer?: PlaywrightTestServer) {
+    this._vscode = collection.vscode;
+    this._embedder = collection.embedder;
+    this._config = config;
+    this._testServer = testServer;
+  }
+
+  create(): TraceViewer | null {
+    if (this._checkEmbeddedSupport(true))
+      return new EmbeddedTraceViewer(this._vscode, this._embedder.context.extensionUri, this._config, this._testServer!);
+    else if (this._checkSpawnSupport(true))
+      return new SpawnTraceViewer(this._vscode, this._embedder.envProvider, this._config);
+    return null;
+  }
+
+  isSupported(traceViewer: TraceViewer) {
+    if (traceViewer instanceof EmbeddedTraceViewer && this._checkEmbeddedSupport())
+      return true;
+    if (traceViewer instanceof SpawnTraceViewer && this._checkSpawnSupport())
+      return true;
+    return false;
+  }
+
+  private _checkSpawnSupport(userGesture?: boolean) {
+    if (!this._embedder.settingsModel.showTrace.get())
+      return false;
+    if (!this._checkVersion(1.35, this._vscode.l10n.t('this feature'), userGesture))
+      return false;
+    return true;
+  }
+
+  private _checkEmbeddedSupport(userGesture?: boolean) {
+    if (!this._embedder.settingsModel.showTrace.get() || !this._embedder.settingsModel.embeddedTraceViewer.get())
+      return false;
+    if (!this._checkVersion(1.46, this._vscode.l10n.t('embedded trace viewer'), userGesture))
+      return false;
+    return true;
+  }
+
+  private _checkVersion(version: number, message: string, userGesture?: boolean) {
+    if (this._config.version < version) {
+      if (userGesture) {
+        this._vscode.window.showWarningMessage(
+            this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, this._config.version)
+        );
+      }
+      return false;
+    }
+    return true;
+  }
+}
+
 export class TestModel extends DisposableBase {
   private _vscode: vscodeTypes.VSCode;
   readonly config: TestConfig;
@@ -80,7 +139,8 @@ export class TestModel extends DisposableBase {
   private _startedDevServer = false;
   private _useLegacyCLIDriver: boolean;
   private _collection: TestModelCollection;
-  private _spawnTraceViewer: SpawnTraceViewer;
+  private _traceViewerFactory: TraceViewerFactory;
+  private _traceViewer: TraceViewer | null | undefined;
 
   constructor(collection: TestModelCollection, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }) {
     super();
@@ -89,26 +149,38 @@ export class TestModel extends DisposableBase {
     this._collection = collection;
     this.config = { ...playwrightInfo, workspaceFolder, configFile };
     this._useLegacyCLIDriver = playwrightInfo.version < 1.44;
-    this._playwrightTest =  this._useLegacyCLIDriver ? new PlaywrightTestCLI(this._vscode, this, collection.embedder) : new PlaywrightTestServer(this._vscode, this, collection.embedder);
+    if (this._useLegacyCLIDriver) {
+      this._playwrightTest = new PlaywrightTestCLI(this._vscode, this, collection.embedder);
+      this._traceViewerFactory = new TraceViewerFactory(collection, this.config);
+    } else {
+      this._playwrightTest = new PlaywrightTestServer(this._vscode, this, collection.embedder);
+      this._traceViewerFactory = new TraceViewerFactory(collection, this.config, this._playwrightTest);
+    }
     this.tag = new this._vscode.TestTag(this.config.configFile);
-    this._spawnTraceViewer = new SpawnTraceViewer(this._vscode, this._embedder.envProvider, this.config);
 
     this._disposables = [
       this._embedder.settingsModel.showTrace.onChange(() => this._closeTraceViewerIfNeeded()),
+      this._embedder.settingsModel.embeddedTraceViewer.onChange(() => this._closeTraceViewerIfNeeded()),
       this._collection.onUpdated(() => this._closeTraceViewerIfNeeded()),
     ];
   }
 
   traceViewer() {
-    if (!this._embedder.settingsModel.showTrace.get())
-      return;
-    if (this._spawnTraceViewer.checkVersion())
-      return this._spawnTraceViewer;
+    return this._traceViewer;
   }
 
-  _closeTraceViewerIfNeeded() {
-    if (this._collection.selectedModel() !== this || !this._embedder.settingsModel.showTrace.get())
-      this._spawnTraceViewer.close();
+  ensureTraceViewer(): TraceViewer | null {
+    if (this._traceViewer === undefined)
+      this._traceViewer = this._traceViewerFactory.create();
+
+    return this._traceViewer;
+  }
+
+  private _closeTraceViewerIfNeeded() {
+    if (this._traceViewer && this._collection.selectedModel() === this && this._traceViewerFactory.isSupported(this._traceViewer))
+      return;
+    this._traceViewer?.close();
+    this._traceViewer = undefined;
   }
 
   async _loadModelIfNeeded(configSettings: ConfigSettings | undefined) {
@@ -147,7 +219,8 @@ export class TestModel extends DisposableBase {
     this._playwrightTest.reset();
     this._watches.clear();
     this._ranGlobalSetup = false;
-    this._spawnTraceViewer.close();
+    this._traceViewer?.close();
+    this._traceViewer = undefined;
   }
 
   projects(): TestProject[] {

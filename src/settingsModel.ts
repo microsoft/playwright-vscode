@@ -43,6 +43,7 @@ export class SettingsModel extends DisposableBase {
   private _onChange: vscodeTypes.EventEmitter<void>;
   showBrowser: Setting<boolean>;
   showTrace: Setting<boolean>;
+  embeddedTraceViewer: Setting<boolean>;
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     super();
@@ -53,6 +54,7 @@ export class SettingsModel extends DisposableBase {
 
     this.showBrowser = this._createSetting('reuseBrowser');
     this.showTrace = this._createSetting('showTrace');
+    this.embeddedTraceViewer = this._createSetting('embeddedTraceViewer');
 
     this.showBrowser.onChange(enabled => {
       if (enabled && this.showTrace.get())

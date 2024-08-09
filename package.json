@@ -113,6 +113,11 @@
           "type": "boolean",
           "default": false,
           "description": "%configuration.playwright.showTrace%"
+        },
+        "playwright.embeddedTraceViewer": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.playwright.embeddedTraceViewer%"
         }
       }
     },

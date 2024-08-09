@@ -19,9 +19,20 @@ import type { TestConfig } from './playwrightTestTypes';
 import { findNode } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
-export type TraceViewer = SpawnTraceViewer;
+export type TraceViewer = {
+  currentFile(): string | undefined;
+  willRunTests(): Promise<void>;
+  open(file?: string): Promise<void>;
+  close(): void;
+  infoForTest(): {
+    type: string;
+    serverUrlPrefix?: string;
+    testConfigFile: string;
+    traceFile?: string;
+  } | undefined;
+};
 
-export class SpawnTraceViewer {
+export class SpawnTraceViewer implements TraceViewer {
   private _vscode: vscodeTypes.VSCode;
   private _envProvider: () => NodeJS.ProcessEnv;
   private _traceViewerProcess: ChildProcess | undefined;
@@ -35,10 +46,6 @@ export class SpawnTraceViewer {
     this._config = config;
   }
 
-  isStarted() {
-    return !!this._traceViewerProcess;
-  }
-
   currentFile() {
     return this._currentFile;
   }
@@ -47,10 +54,12 @@ export class SpawnTraceViewer {
     await this._startIfNeeded();
   }
 
-  async open(file: string) {
+  async open(file?: string) {
+    this._currentFile = file;
+    if (!file && !this._traceViewerProcess)
+      return;
     await this._startIfNeeded();
     this._traceViewerProcess?.stdin?.write(file + '\n');
-    this._currentFile = file;
   }
 
   private async _startIfNeeded() {
@@ -92,18 +101,6 @@ export class SpawnTraceViewer {
     }
   }
 
-  checkVersion() {
-    const version = 1.35;
-    if (this._config.version < version) {
-      const message = this._vscode.l10n.t('this feature');
-      this._vscode.window.showWarningMessage(
-          this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, this._config.version)
-      );
-      return false;
-    }
-    return true;
-  }
-
   close() {
     this._traceViewerProcess?.stdin?.end();
     this._traceViewerProcess = undefined;
@@ -112,13 +109,11 @@ export class SpawnTraceViewer {
   }
 
   infoForTest() {
-    if (!this._serverUrlPrefixForTest)
-      return;
     return {
       type: 'spawn',
       serverUrlPrefix: this._serverUrlPrefixForTest,
       testConfigFile: this._config.configFile,
-      traceFile: this.currentFile(),
+      traceFile: this._currentFile,
     };
   }
 }
