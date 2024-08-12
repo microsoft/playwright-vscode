@@ -752,8 +752,8 @@ export class Extension implements RunHooks {
     this._treeItemSelected(testItem);
   }
 
-  traceViewerInfoForTest() {
-    return this._models.selectedModel()?.traceViewer()?.infoForTest();
+  async traceViewerInfoForTest() {
+    return await this._models.selectedModel()?.traceViewer()?.infoForTest();
   }
 
   private _showTrace(testItem: vscodeTypes.TestItem) {

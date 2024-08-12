@@ -24,12 +24,12 @@ export type TraceViewer = {
   willRunTests(): Promise<void>;
   open(file?: string): Promise<void>;
   close(): void;
-  infoForTest(): {
+  infoForTest(): Promise<{
     type: string;
     serverUrlPrefix?: string;
     testConfigFile: string;
     traceFile?: string;
-  } | undefined;
+  } | undefined>;
 };
 
 export class SpawnTraceViewer implements TraceViewer {
@@ -108,7 +108,7 @@ export class SpawnTraceViewer implements TraceViewer {
     this._serverUrlPrefixForTest = undefined;
   }
 
-  infoForTest() {
+  async infoForTest() {
     return {
       type: 'spawn',
       serverUrlPrefix: this._serverUrlPrefixForTest,

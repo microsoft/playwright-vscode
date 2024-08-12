@@ -25,8 +25,7 @@ export class EmbeddedTraceViewer implements TraceViewer {
   readonly vscode: vscodeTypes.VSCode;
   readonly extensionUri: vscodeTypes.Uri;
   private _currentFile?: string;
-  private _testServerStartedPromise?: Promise<string | undefined>;
-  private _traceViewerPanel: EmbeddedTraceViewerPanel | undefined;
+  private _traceViewerPanelPromise?: Promise<EmbeddedTraceViewerPanel | undefined>;
   private _config: TestConfig;
   private _testServer: PlaywrightTestServer;
 
@@ -47,37 +46,36 @@ export class EmbeddedTraceViewer implements TraceViewer {
 
   async open(file?: string) {
     this._currentFile = file;
-    if (!file && !this._testServerStartedPromise)
+    if (!file && !this._traceViewerPanelPromise)
       return;
-    await this._startIfNeeded();
-    this._traceViewerPanel?.loadTraceRequested(file);
+    const traceViewerPanel = await this._startIfNeeded();
+    traceViewerPanel?.loadTraceRequested(file);
   }
 
   close() {
-    this._traceViewerPanel?.dispose();
-    this._traceViewerPanel = undefined;
-    this._testServerStartedPromise = undefined;
+    this._traceViewerPanelPromise?.then(panel => panel?.dispose()).catch(() => {});
+    this._traceViewerPanelPromise = undefined;
     this._currentFile = undefined;
   }
 
   private async _startIfNeeded() {
-    if (this._testServerStartedPromise)
-      return;
-
-    this._testServerStartedPromise = this._testServer.ensureStartedForTraceViewer();
-    const serverUrlPrefix = await this._testServerStartedPromise;
-    // if undefined, it means it was closed while test server started
-    if (!this._testServerStartedPromise)
-      return;
-    if (!serverUrlPrefix)
-      return;
-    this._traceViewerPanel = new EmbeddedTraceViewerPanel(this, serverUrlPrefix);
+    if (!this._traceViewerPanelPromise)
+      this._traceViewerPanelPromise = this._createTraceViewerPanel();
+    return await this._traceViewerPanelPromise;
   }
 
-  infoForTest() {
+  private async _createTraceViewerPanel() {
+    const serverUrlPrefix = await this._testServer.ensureStartedForTraceViewer();
+    if (!serverUrlPrefix)
+      return;
+    return new EmbeddedTraceViewerPanel(this, serverUrlPrefix);
+  }
+
+  async infoForTest() {
+    const traceViewerPanel = await this._traceViewerPanelPromise;
     return {
       type: 'embedded',
-      serverUrlPrefix: this._traceViewerPanel?.serverUrlPrefix,
+      serverUrlPrefix: traceViewerPanel?.serverUrlPrefix,
       testConfigFile: this._config.configFile,
       traceFile: this._currentFile,
     };

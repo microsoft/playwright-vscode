@@ -89,7 +89,7 @@ test('should keep same spawn trace viewer when toggling embedded setting in lega
     serverUrlPrefix: expect.stringContaining('http'),
   });
 
-  const serverUrlPrefix = traceViewerInfo(vscode)!.serverUrlPrefix;
+  const serverUrlPrefix = (await traceViewerInfo(vscode))!.serverUrlPrefix;
 
   // disable embedded
   configuration.update('embeddedTraceViewer', false, true);
@@ -97,7 +97,7 @@ test('should keep same spawn trace viewer when toggling embedded setting in lega
   // wait 1 second to ensure we don't check too soon
   await new Promise(r => setTimeout(r, 1000));
 
-  expect(traceViewerInfo(vscode)).toMatchObject({
+  expect(await traceViewerInfo(vscode)).toMatchObject({
     type: 'spawn',
     serverUrlPrefix: serverUrlPrefix,
   });
@@ -107,7 +107,7 @@ test('should keep same spawn trace viewer when toggling embedded setting in lega
 
   await new Promise(r => setTimeout(r, 1000));
 
-  expect(traceViewerInfo(vscode)).toMatchObject({
+  expect(await traceViewerInfo(vscode)).toMatchObject({
     type: 'spawn',
     serverUrlPrefix: serverUrlPrefix,
   });

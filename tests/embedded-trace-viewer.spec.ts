@@ -157,8 +157,7 @@ test('should not change trace viewer when running tests from different test conf
     await testController.run(testItems);
     const webview = await singleWebViewByPanelType(vscode, 'playwright.traceviewer.view')!;
     const serverUrlPrefix = new URL(await webview.locator('iframe').getAttribute('src') ?? '').origin;
-    const traceViewer = traceViewerInfo(vscode);
-    expect(traceViewer).toMatchObject({
+    expect(await traceViewerInfo(vscode)).toMatchObject({
       type: 'embedded',
       serverUrlPrefix,
       testConfigFile: expect.stringMatching('playwright2.config.js'),
@@ -171,8 +170,7 @@ test('should not change trace viewer when running tests from different test conf
     await testController.run(testItems);
     const webview = await singleWebViewByPanelType(vscode, 'playwright.traceviewer.view')!;
     const serverUrlPrefix = new URL(await webview.locator('iframe').getAttribute('src') ?? '').origin;
-    const traceViewer = traceViewerInfo(vscode);
-    expect(traceViewer).toMatchObject({
+    expect(await traceViewerInfo(vscode)).toMatchObject({
       type: 'embedded',
       serverUrlPrefix,
       testConfigFile: expect.stringMatching('playwright2.config.js'),
@@ -205,8 +203,7 @@ test('should close trace viewer when selected test config is disabled', async ({
   const serverUrlPrefix = new URL(await webview.locator('iframe').getAttribute('src') ?? '').origin;
 
   selectTestItem(testItems[0]);
-  const traceViewer = traceViewerInfo(vscode);
-  expect(traceViewer).toMatchObject({
+  expect(await traceViewerInfo(vscode)).toMatchObject({
     type: 'embedded',
     serverUrlPrefix,
     testConfigFile: expect.stringMatching('playwright1.config.js'),
@@ -241,7 +238,7 @@ test('should reopen trace viewer when another test config is selected', async ({
   await testController.run(testItems);
 
   const webview1 = await singleWebViewByPanelType(vscode, 'playwright.traceviewer.view')!;
-  expect(traceViewerInfo(vscode)).toMatchObject({
+  expect(await traceViewerInfo(vscode)).toMatchObject({
     type: 'embedded',
     serverUrlPrefix: new URL(await webview1.locator('iframe').getAttribute('src') ?? '').origin,
     testConfigFile: expect.stringMatching('playwright1.config.js'),
@@ -252,7 +249,7 @@ test('should reopen trace viewer when another test config is selected', async ({
   await webview1.waitForEvent('close');
 
   const webview2 = await singleWebViewByPanelType(vscode, 'playwright.traceviewer.view')!;
-  expect(traceViewerInfo(vscode)).toMatchObject({
+  expect(await traceViewerInfo(vscode)).toMatchObject({
     type: 'embedded',
     serverUrlPrefix: new URL(await webview2.locator('iframe').getAttribute('src') ?? '').origin,
     testConfigFile: expect.stringMatching('playwright2.config.js'),
