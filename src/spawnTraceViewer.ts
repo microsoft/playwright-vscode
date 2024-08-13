@@ -102,6 +102,7 @@ export class SpawnTraceViewer implements TraceViewer {
       serverUrlPrefix: this._serverUrlPrefixForTest,
       testConfigFile: this._config.configFile,
       traceFile: this._currentFile,
+      visible: !!this._serverUrlPrefixForTest
     };
   }
 }

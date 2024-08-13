@@ -100,7 +100,10 @@ export class TestModel extends DisposableBase {
     this.tag = new this._vscode.TestTag(this.config.configFile);
 
     this._disposables = [
-      this._embedder.settingsModel.showTrace.onChange(() => this._closeTraceViewerIfNeeded()),
+      this._embedder.settingsModel.showTrace.onChange(() => {
+        this._closeTraceViewerIfNeeded();
+        this._revealTraceViewer();
+      }),
       this._embedder.settingsModel.embeddedTraceViewer.onChange(() => this._closeTraceViewerIfNeeded()),
       this._collection.onUpdated(() => this._closeTraceViewerIfNeeded()),
     ];
@@ -122,6 +125,14 @@ export class TestModel extends DisposableBase {
       return;
     this._traceViewer?.close();
     this._traceViewer = undefined;
+  }
+
+  private _revealTraceViewer() {
+    if (!this._embedder.settingsModel.showTrace)
+      return;
+    if (this._collection.selectedModel() !== this)
+      return;
+    this.ensureTraceViewer()?.reveal?.().catch(() => {});
   }
 
   async _loadModelIfNeeded(configSettings: ConfigSettings | undefined) {

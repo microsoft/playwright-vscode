@@ -418,3 +418,20 @@ test('should restore webview state when moving', async ({ activate }) => {
   ]);
 
 });
+
+test('should show embedded trace viewer upon trace enabling', async ({ activate }) => {
+  const { vscode } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => {});
+    `,
+  });
+
+  const configuration = vscode.workspace.getConfiguration('playwright');
+  configuration.update('showTrace', false, true);
+  await expect.poll(() => traceViewerInfo(vscode)).toBeUndefined();
+
+  configuration.update('showTrace', true, true);
+  await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({ type: 'embedded', visible: true });
+});

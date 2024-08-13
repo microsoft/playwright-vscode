@@ -52,6 +52,10 @@ export class EmbeddedTraceViewer implements TraceViewer {
     traceViewerPanel?.loadTraceRequested(file);
   }
 
+  async reveal() {
+    await this._startIfNeeded();
+  }
+
   close() {
     this._traceViewerPanelPromise?.then(panel => panel?.dispose()).catch(() => {});
     this._traceViewerPanelPromise = undefined;
@@ -78,6 +82,7 @@ export class EmbeddedTraceViewer implements TraceViewer {
       serverUrlPrefix: traceViewerPanel?.serverUrlPrefix,
       testConfigFile: this._config.configFile,
       traceFile: this._currentFile,
+      visible: !!traceViewerPanel?.visibleForTest(),
     };
   }
 }
@@ -152,6 +157,10 @@ class EmbeddedTraceViewerPanel extends DisposableBase {
   dispose() {
     this._clearTraceLoadRequestedTimeout();
     super.dispose();
+  }
+
+  visibleForTest() {
+    return this._isVisible;
   }
 
   private _clearTraceLoadRequestedTimeout() {
