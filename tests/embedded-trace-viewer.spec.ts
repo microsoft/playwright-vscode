@@ -276,7 +276,7 @@ test('should not open trace viewer if selected test item did not run', async ({ 
   expect(vscode.warnings).toHaveLength(0);
 });
 
-test('should not open trace viewer if selected test item has no trace', async ({ activate }) => {
+test('should show trace viewer with empty state if selected test item has no trace', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
@@ -301,9 +301,13 @@ test('should not open trace viewer if selected test item has no trace', async ({
   await configuration.update('showTrace', true, true);
   selectTestItem(testItems[0]);
 
-  // wait to ensure no async webview is opened
+  // wait to make sure no trace is not opened asynchronously
   await new Promise(f => setTimeout(f, 1000));
-  await expect.poll(() => vscode.webViewsByPanelType('playwright.traceviewer.view')).toHaveLength(0);
+  await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
+    type: 'embedded',
+    visible: true,
+    traceFile: '',
+  });
   expect(vscode.warnings).toHaveLength(0);
 });
 
