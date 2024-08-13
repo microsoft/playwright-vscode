@@ -14,111 +14,82 @@
  * limitations under the License.
  */
 
-import { ChildProcess, spawn } from 'child_process';
+import { EmbeddedTraceViewer } from './embeddedTraceViewer';
+import { PlaywrightTestServer } from './playwrightTestServer';
 import type { TestConfig } from './playwrightTestTypes';
-import { findNode } from './utils';
+import { SpawnTraceViewer } from './spawnTraceViewer';
+import { TestModelCollection, TestModelEmbedder } from './testModel';
 import * as vscodeTypes from './vscodeTypes';
 
-export type TraceViewer = SpawnTraceViewer;
+export type TraceViewer = {
+  currentFile(): string | undefined;
+  willRunTests(): Promise<void>;
+  open(file?: string): Promise<void>;
+  reveal?(): Promise<void>;
+  close(): void;
+  infoForTest(): Promise<{
+    type: string;
+    serverUrlPrefix?: string;
+    testConfigFile: string;
+    traceFile?: string;
+    visible: boolean;
+  } | undefined>;
+};
 
-export class SpawnTraceViewer {
+export class TraceViewerFactory {
+  private _embedder: TestModelEmbedder;
   private _vscode: vscodeTypes.VSCode;
-  private _envProvider: () => NodeJS.ProcessEnv;
-  private _traceViewerProcess: ChildProcess | undefined;
-  private _currentFile?: string;
   private _config: TestConfig;
-  private _serverUrlPrefixForTest?: string;
+  private _testServer?: PlaywrightTestServer;
 
-  constructor(vscode: vscodeTypes.VSCode, envProvider: () => NodeJS.ProcessEnv, config: TestConfig) {
-    this._vscode = vscode;
-    this._envProvider = envProvider;
+  constructor(collection: TestModelCollection, config: TestConfig, testServer?: PlaywrightTestServer) {
+    this._vscode = collection.vscode;
+    this._embedder = collection.embedder;
     this._config = config;
+    this._testServer = testServer;
   }
 
-  isStarted() {
-    return !!this._traceViewerProcess;
+  create(): TraceViewer | null {
+    if (this._checkEmbeddedSupport(true))
+      return new EmbeddedTraceViewer(this._vscode, this._embedder.context.extensionUri, this._config, this._testServer!);
+    else if (this._checkSpawnSupport(true))
+      return new SpawnTraceViewer(this._vscode, this._embedder.envProvider, this._config);
+    return null;
   }
 
-  currentFile() {
-    return this._currentFile;
+  isSupported(traceViewer: TraceViewer) {
+    if (traceViewer instanceof EmbeddedTraceViewer && this._checkEmbeddedSupport())
+      return true;
+    if (traceViewer instanceof SpawnTraceViewer && this._checkSpawnSupport())
+      return true;
+    return false;
   }
 
-  async willRunTests() {
-    await this._startIfNeeded();
-  }
-
-  async open(file: string) {
-    await this._startIfNeeded();
-    this._traceViewerProcess?.stdin?.write(file + '\n');
-    this._currentFile = file;
-  }
-
-  private async _startIfNeeded() {
-    const node = await findNode(this._vscode, this._config.workspaceFolder);
-    if (this._traceViewerProcess)
-      return;
-    const allArgs = [this._config.cli, 'show-trace', `--stdin`];
-    if (this._vscode.env.remoteName) {
-      allArgs.push('--host', '0.0.0.0');
-      allArgs.push('--port', '0');
-    }
-    const traceViewerProcess = spawn(node, allArgs, {
-      cwd: this._config.workspaceFolder,
-      stdio: 'pipe',
-      detached: true,
-      env: {
-        ...process.env,
-        ...this._envProvider(),
-      },
-    });
-    this._traceViewerProcess = traceViewerProcess;
-
-    traceViewerProcess.stdout?.on('data', data => console.log(data.toString()));
-    traceViewerProcess.stderr?.on('data', data => console.log(data.toString()));
-    traceViewerProcess.on('exit', () => {
-      this._traceViewerProcess = undefined;
-      this._currentFile = undefined;
-    });
-    traceViewerProcess.on('error', error => {
-      this._vscode.window.showErrorMessage(error.message);
-      this.close();
-    });
-    if (this._vscode.isUnderTest) {
-      traceViewerProcess.stdout?.on('data', data => {
-        const match = data.toString().match(/Listening on (.*)/);
-        if (match)
-          this._serverUrlPrefixForTest = match[1];
-      });
-    }
-  }
-
-  checkVersion() {
-    const version = 1.35;
-    if (this._config.version < version) {
-      const message = this._vscode.l10n.t('this feature');
-      this._vscode.window.showWarningMessage(
-          this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, this._config.version)
-      );
+  private _checkSpawnSupport(userGesture?: boolean) {
+    if (!this._embedder.settingsModel.showTrace.get())
       return false;
-    }
+    if (!this._checkVersion(1.35, this._vscode.l10n.t('this feature'), userGesture))
+      return false;
     return true;
   }
 
-  close() {
-    this._traceViewerProcess?.stdin?.end();
-    this._traceViewerProcess = undefined;
-    this._currentFile = undefined;
-    this._serverUrlPrefixForTest = undefined;
+  private _checkEmbeddedSupport(userGesture?: boolean) {
+    if (!this._embedder.settingsModel.showTrace.get() || !this._embedder.settingsModel.embeddedTraceViewer.get())
+      return false;
+    if (!this._checkVersion(1.46, this._vscode.l10n.t('embedded trace viewer'), userGesture))
+      return false;
+    return true;
   }
 
-  infoForTest() {
-    if (!this._serverUrlPrefixForTest)
-      return;
-    return {
-      type: 'spawn',
-      serverUrlPrefix: this._serverUrlPrefixForTest,
-      testConfigFile: this._config.configFile,
-      traceFile: this.currentFile(),
-    };
+  private _checkVersion(version: number, message: string, userGesture?: boolean) {
+    if (this._config.version < version) {
+      if (userGesture) {
+        this._vscode.window.showWarningMessage(
+            this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, this._config.version)
+        );
+      }
+      return false;
+    }
+    return true;
   }
 }

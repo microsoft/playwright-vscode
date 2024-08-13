@@ -30,7 +30,7 @@ import type { PlaywrightTestRunOptions, RunHooks, TestConfig } from './playwrigh
 import { PlaywrightTestCLI } from './playwrightTestCLI';
 import { upstreamTreeItem } from './testTree';
 import { collectTestIds } from './upstream/testTree';
-import { SpawnTraceViewer } from './traceViewer';
+import { TraceViewer, TraceViewerFactory } from './traceViewer';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
@@ -80,7 +80,8 @@ export class TestModel extends DisposableBase {
   private _startedDevServer = false;
   private _useLegacyCLIDriver: boolean;
   private _collection: TestModelCollection;
-  private _spawnTraceViewer: SpawnTraceViewer;
+  private _traceViewerFactory: TraceViewerFactory;
+  private _traceViewer: TraceViewer | null | undefined;
 
   constructor(collection: TestModelCollection, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }) {
     super();
@@ -89,26 +90,49 @@ export class TestModel extends DisposableBase {
     this._collection = collection;
     this.config = { ...playwrightInfo, workspaceFolder, configFile };
     this._useLegacyCLIDriver = playwrightInfo.version < 1.44;
-    this._playwrightTest =  this._useLegacyCLIDriver ? new PlaywrightTestCLI(this._vscode, this, collection.embedder) : new PlaywrightTestServer(this._vscode, this, collection.embedder);
+    if (this._useLegacyCLIDriver) {
+      this._playwrightTest = new PlaywrightTestCLI(this._vscode, this, collection.embedder);
+      this._traceViewerFactory = new TraceViewerFactory(collection, this.config);
+    } else {
+      this._playwrightTest = new PlaywrightTestServer(this._vscode, this, collection.embedder);
+      this._traceViewerFactory = new TraceViewerFactory(collection, this.config, this._playwrightTest);
+    }
     this.tag = new this._vscode.TestTag(this.config.configFile);
-    this._spawnTraceViewer = new SpawnTraceViewer(this._vscode, this._embedder.envProvider, this.config);
 
     this._disposables = [
-      this._embedder.settingsModel.showTrace.onChange(() => this._closeTraceViewerIfNeeded()),
+      this._embedder.settingsModel.showTrace.onChange(() => {
+        this._closeTraceViewerIfNeeded();
+        this._revealTraceViewer();
+      }),
+      this._embedder.settingsModel.embeddedTraceViewer.onChange(() => this._closeTraceViewerIfNeeded()),
       this._collection.onUpdated(() => this._closeTraceViewerIfNeeded()),
     ];
   }
 
   traceViewer() {
-    if (!this._embedder.settingsModel.showTrace.get())
-      return;
-    if (this._spawnTraceViewer.checkVersion())
-      return this._spawnTraceViewer;
+    return this._traceViewer;
   }
 
-  _closeTraceViewerIfNeeded() {
-    if (this._collection.selectedModel() !== this || !this._embedder.settingsModel.showTrace.get())
-      this._spawnTraceViewer.close();
+  ensureTraceViewer(): TraceViewer | null {
+    if (this._traceViewer === undefined)
+      this._traceViewer = this._traceViewerFactory.create();
+
+    return this._traceViewer;
+  }
+
+  private _closeTraceViewerIfNeeded() {
+    if (this._traceViewer && this._collection.selectedModel() === this && this._traceViewerFactory.isSupported(this._traceViewer))
+      return;
+    this._traceViewer?.close();
+    this._traceViewer = undefined;
+  }
+
+  private _revealTraceViewer() {
+    if (!this._embedder.settingsModel.showTrace)
+      return;
+    if (this._collection.selectedModel() !== this)
+      return;
+    this.ensureTraceViewer()?.reveal?.().catch(() => {});
   }
 
   async _loadModelIfNeeded(configSettings: ConfigSettings | undefined) {
@@ -147,7 +171,8 @@ export class TestModel extends DisposableBase {
     this._playwrightTest.reset();
     this._watches.clear();
     this._ranGlobalSetup = false;
-    this._spawnTraceViewer.close();
+    this._traceViewer?.close();
+    this._traceViewer = undefined;
   }
 
   projects(): TestProject[] {

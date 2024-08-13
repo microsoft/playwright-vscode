@@ -255,8 +255,8 @@ export async function singleWebViewByPanelType(vscode: VSCode, viewType: string)
   return vscode.webViewsByPanelType(viewType)[0];
 }
 
-export function traceViewerInfo(vscode: VSCode): { type: 'spawn' | 'embedded', serverUrlPrefix?: string, testConfigFile: string } | undefined {
-  return vscode.extensions[0].traceViewerInfoForTest();
+export async function traceViewerInfo(vscode: VSCode): Promise<{ type: 'spawn' | 'embedded', serverUrlPrefix?: string, testConfigFile: string, traceFile: string } | undefined> {
+  return await vscode.extensions[0].traceViewerInfoForTest();
 }
 
 async function waitForLatch(latchFile: string) {

@@ -32,6 +32,7 @@ export class PlaywrightTestServer {
   private _options: PlaywrightTestOptions;
   private _model: TestModel;
   private _testServerPromise: Promise<TestServerConnection | null> | undefined;
+  private _serverUrlPrefix?: string;
 
   constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
@@ -41,6 +42,12 @@ export class PlaywrightTestServer {
 
   reset() {
     this._disposeTestServer();
+  }
+
+  async ensureStartedForTraceViewer() {
+    // ensure test server is running
+    await this._testServer();
+    return this._serverUrlPrefix;
   }
 
   async listFiles(): Promise<ConfigListFilesReport> {
@@ -328,12 +335,25 @@ export class PlaywrightTestServer {
       return null;
     const testServer = new TestServerConnection(wsEndpoint);
     testServer.onTestFilesChanged(params => this._testFilesChanged(params.testFiles));
-    await testServer.initialize({
-      serializer: require.resolve('./oopReporter'),
-      interceptStdio: true,
-      closeOnDisconnect: true,
-    });
+    const [serverUrlPrefix] = await Promise.all([
+      this._computeServerUrlPrefix(wsEndpoint),
+      testServer.initialize({
+        serializer: require.resolve('./oopReporter'),
+        interceptStdio: true,
+        closeOnDisconnect: true,
+      }),
+    ]);
+    this._serverUrlPrefix = serverUrlPrefix;
     return testServer;
+  }
+
+  private async _computeServerUrlPrefix(wsEndpoint: string) {
+    const serverUrl = new URL(wsEndpoint);
+    serverUrl.protocol = serverUrl.protocol === 'wss' ? 'https' : 'http';
+    if (this._vscode.env.remoteName && ['[::1]', '0.0.0.0'].includes(serverUrl.hostname))
+      serverUrl.hostname = 'localhost';
+    const serverUri = await this._vscode.env.asExternalUri(this._vscode.Uri.parse(serverUrl.origin));
+    return serverUri.toString().replace(/\/$/, '');
   }
 
   private async _wireTestServer(testServer: TestServerConnection, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {

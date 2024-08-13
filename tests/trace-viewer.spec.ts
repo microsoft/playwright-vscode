@@ -77,7 +77,9 @@ test('should not open trace viewer if test did not run', async ({ activate }) =>
   await testController.expandTestItems(/test.spec/);
   selectTestItem(testController.findTestItems(/pass/)[0]);
 
-  await expect.poll(() => traceViewerInfo(vscode)).toBeUndefined();
+  await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
+    traceFile: undefined,
+  });
 });
 
 test('should refresh trace viewer while test is running', async ({ activate, createLatch, traceViewerMode }) => {
