@@ -14,7 +14,6 @@
   "contributes.command.pw.extension.command.toggleModels": "Toggle Playwright configs",
   "contributes.command.pw.extension.toggle.reuseBrowser": "Toggle Playwright browser reuse",
   "contributes.command.pw.extension.toggle.showTrace": "Toggle Playwright Trace Viewer",
-  "configuration.playwright.embeddedTraceViewer": "Toggle Embedded Playwright Trace Viewer",
   "configuration.playwright.env": "Environment variables to pass to Playwright Test.",
   "configuration.playwright.reuseBrowser": "Show & reuse browser between tests.",
   "configuration.playwright.showTrace": "Show Trace Viewer.",

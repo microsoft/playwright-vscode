@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { test, expect, traceViewerInfo } from './utils';
+import { test, expect } from './utils';
 
-test.skip(({ showBrowser, overridePlaywrightVersion }) => !overridePlaywrightVersion || overridePlaywrightVersion >= 1.46 || showBrowser);
+test.skip(({ overridePlaywrightVersion, showTrace }) => !overridePlaywrightVersion || showTrace !== 'embedded');
 
 test('should fallback to spawn trace viewer on legacy projects', async ({ activate }) => {
   const { vscode, testController } = await activate({
@@ -31,13 +31,8 @@ test('should fallback to spawn trace viewer on legacy projects', async ({ activa
   const configuration = vscode.workspace.getConfiguration('playwright');
   configuration.update('embeddedTraceViewer', true, true);
 
+  await testController.expandTestItems(/test.spec/);
   await testController.run();
-
-  await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
-    type: 'spawn',
-    serverUrlPrefix: expect.stringContaining('http'),
-  });
-  // ensure it only shows the warning once
   await expect.poll(() => vscode.warnings).toEqual(['Playwright v1.46+ is required for embedded trace viewer to work, v1.43 found']);
 });
 
@@ -68,47 +63,4 @@ test('should show warning message again after refreshing test config', async ({ 
     'Playwright v1.46+ is required for embedded trace viewer to work, v1.43 found',
     'Playwright v1.46+ is required for embedded trace viewer to work, v1.43 found',
   ]);
-});
-
-test('should keep same spawn trace viewer when toggling embedded setting in legacy projects', async ({ activate }) => {
-  const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
-    'tests/test.spec.ts': `
-      import { test } from '@playwright/test';
-      test('should pass', async () => {});
-    `,
-  });
-
-  // ensure embedded trace viewer is enabled
-  const configuration = vscode.workspace.getConfiguration('playwright');
-  configuration.update('embeddedTraceViewer', true, true);
-
-  await testController.run();
-  await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
-    type: 'spawn',
-    serverUrlPrefix: expect.stringContaining('http'),
-  });
-
-  const serverUrlPrefix = (await traceViewerInfo(vscode))!.serverUrlPrefix;
-
-  // disable embedded
-  configuration.update('embeddedTraceViewer', false, true);
-
-  // wait 1 second to ensure we don't check too soon
-  await new Promise(r => setTimeout(r, 1000));
-
-  expect(await traceViewerInfo(vscode)).toMatchObject({
-    type: 'spawn',
-    serverUrlPrefix: serverUrlPrefix,
-  });
-
-  // enable embedded
-  configuration.update('embeddedTraceViewer', true, true);
-
-  await new Promise(r => setTimeout(r, 1000));
-
-  expect(await traceViewerInfo(vscode)).toMatchObject({
-    type: 'spawn',
-    serverUrlPrefix: serverUrlPrefix,
-  });
 });

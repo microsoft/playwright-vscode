@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { PlaywrightTestConfig } from '@playwright/test';
+import { defineConfig } from '@playwright/test';
 import { WorkerOptions } from './tests/utils';
 
-const config: PlaywrightTestConfig<WorkerOptions> = {
+export default defineConfig<WorkerOptions>({
   testDir: './tests',
   outputDir: './test-results/inner',
   fullyParallel: true,
@@ -31,10 +31,6 @@ const config: PlaywrightTestConfig<WorkerOptions> = {
   projects: [
     {
       name: 'default',
-      use: {
-        showBrowser: false,
-        traceViewerMode: 'embedded'
-      }
     },
     {
       name: 'default-reuse',
@@ -43,11 +39,22 @@ const config: PlaywrightTestConfig<WorkerOptions> = {
       }
     },
     {
+      name: 'default-trace',
+      use: {
+        showTrace: 'spawn',
+      }
+    },
+    {
+      name: 'default-trace-embedded',
+      testMatch: '*trace-viewer*.spec.ts',
+      use: {
+        showTrace: 'embedded',
+      }
+    },
+    {
       name: 'legacy',
       use: {
         overridePlaywrightVersion: 1.43,
-        showBrowser: false,
-        traceViewerMode: 'spawn'
       }
     },
     {
@@ -57,6 +64,20 @@ const config: PlaywrightTestConfig<WorkerOptions> = {
         showBrowser: true,
       }
     },
+    {
+      name: 'legacy-trace',
+      use: {
+        overridePlaywrightVersion: 1.43,
+        showTrace: 'spawn',
+      }
+    },
+    {
+      name: 'legacy-trace-embedded',
+      testMatch: '*trace-viewer*.spec.ts',
+      use: {
+        overridePlaywrightVersion: 1.43,
+        showTrace: 'embedded',
+      }
+    },
   ]
-};
-export default config;
+});

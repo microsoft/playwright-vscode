@@ -43,8 +43,8 @@ type TestFixtures = {
 export type WorkerOptions = {
   overridePlaywrightVersion?: number;
   showBrowser: boolean;
+  showTrace?: 'spawn' | 'embedded';
   vsCodeVersion: number;
-  traceViewerMode?: 'spawn' | 'embedded';
 };
 
 // Make sure connect tests work with the locally-rolled version.
@@ -123,14 +123,14 @@ export const expect = baseExpect.extend({
 export const test = baseTest.extend<TestFixtures, WorkerOptions>({
   overridePlaywrightVersion: [undefined, { option: true, scope: 'worker' }],
   showBrowser: [false, { option: true, scope: 'worker' }],
+  showTrace: [undefined, { option: true, scope: 'worker' }],
   vsCodeVersion: [1.86, { option: true, scope: 'worker' }],
-  traceViewerMode: [undefined, { option: true, scope: 'worker' }],
 
   vscode: async ({ browser, vsCodeVersion }, use) => {
     await use(new VSCode(vsCodeVersion, path.resolve(__dirname, '..'), browser));
   },
 
-  activate: async ({ vscode, showBrowser, overridePlaywrightVersion, traceViewerMode }, use, testInfo) => {
+  activate: async ({ vscode, showBrowser, overridePlaywrightVersion, showTrace }, use, testInfo) => {
     const instances: VSCode[] = [];
     await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][], env?: Record<string, any> }) => {
       if (options?.workspaceFolders) {
@@ -145,14 +145,14 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
         configuration.update('env', options.env);
       if (showBrowser)
         configuration.update('reuseBrowser', true);
-      if (traceViewerMode) {
+      if (showTrace) {
         configuration.update('showTrace', true);
 
         // prevents spawn trace viewer process from opening app and browser
         vscode.env.remoteName = 'ssh-remote';
         process.env.PWTEST_UNDER_TEST = '1';
       }
-      if (traceViewerMode === 'embedded')
+      if (showTrace === 'embedded')
         configuration.update('embeddedTraceViewer', true);
 
       const extension = new Extension(vscode, vscode.context);

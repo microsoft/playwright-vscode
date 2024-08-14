@@ -3,13 +3,12 @@
     "module": "commonjs",
     "target": "ES2019",
     "lib": ["esnext"],
-    "outDir": "out",
-    "sourceMap": true,
     "strict": true,
-    "rootDir": "src",
+    "rootDir": ".",
+    "skipLibCheck": true,
     "esModuleInterop": true,
     "noEmit": true
   },
-  "include": ["src"],
+  "include": ["src", "tests/mock"],
   "exclude": ["node_modules"]
 }
