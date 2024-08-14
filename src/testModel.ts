@@ -30,7 +30,9 @@ import type { PlaywrightTestRunOptions, RunHooks, TestConfig } from './playwrigh
 import { PlaywrightTestCLI } from './playwrightTestCLI';
 import { upstreamTreeItem } from './testTree';
 import { collectTestIds } from './upstream/testTree';
-import { TraceViewer, TraceViewerFactory } from './traceViewer';
+import { TraceViewer } from './traceViewer';
+import { EmbeddedTraceViewer } from './embeddedTraceViewer';
+import { SpawnTraceViewer } from './spawnTraceViewer';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
@@ -80,8 +82,7 @@ export class TestModel extends DisposableBase {
   private _startedDevServer = false;
   private _useLegacyCLIDriver: boolean;
   private _collection: TestModelCollection;
-  private _traceViewerFactory: TraceViewerFactory;
-  private _traceViewer: TraceViewer | null | undefined;
+  private _traceViewer: TraceViewer | null = null;
 
   constructor(collection: TestModelCollection, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }) {
     super();
@@ -90,49 +91,19 @@ export class TestModel extends DisposableBase {
     this._collection = collection;
     this.config = { ...playwrightInfo, workspaceFolder, configFile };
     this._useLegacyCLIDriver = playwrightInfo.version < 1.44;
-    if (this._useLegacyCLIDriver) {
+    if (this._useLegacyCLIDriver)
       this._playwrightTest = new PlaywrightTestCLI(this._vscode, this, collection.embedder);
-      this._traceViewerFactory = new TraceViewerFactory(collection, this.config);
-    } else {
+    else
       this._playwrightTest = new PlaywrightTestServer(this._vscode, this, collection.embedder);
-      this._traceViewerFactory = new TraceViewerFactory(collection, this.config, this._playwrightTest);
-    }
     this.tag = new this._vscode.TestTag(this.config.configFile);
 
+    this.updateTraceViewer(false);
+
     this._disposables = [
-      this._embedder.settingsModel.showTrace.onChange(() => {
-        this._closeTraceViewerIfNeeded();
-        this._revealTraceViewer();
-      }),
-      this._embedder.settingsModel.embeddedTraceViewer.onChange(() => this._closeTraceViewerIfNeeded()),
-      this._collection.onUpdated(() => this._closeTraceViewerIfNeeded()),
+      this._embedder.settingsModel.showTrace.onChange(() => this.updateTraceViewer(false)),
+      this._embedder.settingsModel.embeddedTraceViewer.onChange(() => this.updateTraceViewer(false)),
+      this._collection.onUpdated(() => this.updateTraceViewer(false)),
     ];
-  }
-
-  traceViewer() {
-    return this._traceViewer;
-  }
-
-  ensureTraceViewer(): TraceViewer | null {
-    if (this._traceViewer === undefined)
-      this._traceViewer = this._traceViewerFactory.create();
-
-    return this._traceViewer;
-  }
-
-  private _closeTraceViewerIfNeeded() {
-    if (this._traceViewer && this._collection.selectedModel() === this && this._traceViewerFactory.isSupported(this._traceViewer))
-      return;
-    this._traceViewer?.close();
-    this._traceViewer = undefined;
-  }
-
-  private _revealTraceViewer() {
-    if (!this._embedder.settingsModel.showTrace)
-      return;
-    if (this._collection.selectedModel() !== this)
-      return;
-    this.ensureTraceViewer()?.reveal?.().catch(() => {});
   }
 
   async _loadModelIfNeeded(configSettings: ConfigSettings | undefined) {
@@ -172,7 +143,7 @@ export class TestModel extends DisposableBase {
     this._watches.clear();
     this._ranGlobalSetup = false;
     this._traceViewer?.close();
-    this._traceViewer = undefined;
+    this._traceViewer = null;
   }
 
   projects(): TestProject[] {
@@ -677,6 +648,49 @@ export class TestModel extends DisposableBase {
     }
 
     return { locations: locations.size ? [...locations] : null, testIds: testIds.length ? testIds : undefined };
+  }
+
+  traceViewer(): TraceViewer | null {
+    return this._traceViewer;
+  }
+
+  updateTraceViewer(userGesture: boolean): TraceViewer | null {
+    const settingsModel = this._embedder.settingsModel;
+    if (!this._traceViewer && !settingsModel.showTrace.get())
+      return null;
+
+    if (!settingsModel.showTrace.get() || this._collection.selectedModel() !== this) {
+      this._traceViewer?.close();
+      this._traceViewer = null;
+      return null;
+    }
+
+    if (settingsModel.embeddedTraceViewer.get() && this._traceViewer instanceof EmbeddedTraceViewer)
+      return this._traceViewer;
+
+    if (!settingsModel.embeddedTraceViewer.get() && this._traceViewer instanceof SpawnTraceViewer)
+      return this._traceViewer;
+
+    if (settingsModel.embeddedTraceViewer.get()) {
+      if (this._checkVersion(1.46, this._vscode.l10n.t('embedded trace viewer'), userGesture))
+        this._traceViewer = new EmbeddedTraceViewer(this._vscode, this._embedder.context.extensionUri, this.config, this._playwrightTest as PlaywrightTestServer);
+    } else {
+      if (this._checkVersion(1.35, this._vscode.l10n.t('this feature'), userGesture))
+        this._traceViewer = new SpawnTraceViewer(this._vscode, this._embedder.envProvider, this.config);
+    }
+
+    return this._traceViewer;
+  }
+
+  private _checkVersion(version: number, message: string, userGesture?: boolean) {
+    if (this.config.version >= version)
+      return true;
+    if (userGesture) {
+      this._vscode.window.showWarningMessage(
+          this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, this.config.version)
+      );
+    }
+    return false;
   }
 }
 

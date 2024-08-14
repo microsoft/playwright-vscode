@@ -97,7 +97,7 @@ export class Extension implements RunHooks {
       },
     });
 
-    this._settingsModel = new SettingsModel(vscode, context);
+    this._settingsModel = new SettingsModel(vscode, this._isUnderTest, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._models = new TestModelCollection(vscode, {
@@ -406,7 +406,7 @@ export class Extension implements RunHooks {
           continue;
         if (!model.enabledProjects().length)
           continue;
-        await this._runTest(this._testRun, items, testItemForGlobalErrors, new Set(), model, mode === 'debug', enqueuedTests.length === 1);
+        await this._runTest(this._testRun, items, testItemForGlobalErrors, new Set(), model, mode, enqueuedTests.length === 1);
       }
     } finally {
       this._activeSteps.clear();
@@ -439,7 +439,7 @@ export class Extension implements RunHooks {
     testItemForGlobalErrors: vscodeTypes.TestItem | undefined,
     testFailures: Set<vscodeTypes.TestItem>,
     model: TestModel,
-    isDebug: boolean,
+    mode: 'run' | 'debug' | 'watch',
     enqueuedSingleTest: boolean) {
     const testListener: reporterTypes.ReporterV2 = {
       ...this._errorReportingListener(testRun, testItemForGlobalErrors),
@@ -463,8 +463,8 @@ export class Extension implements RunHooks {
         }
 
         if (testItem && enqueuedSingleTest)
-          this._showTrace(testItem);
-        if (isDebug) {
+          this._showTraceOnTestProgress(testItem);
+        if (mode === 'debug') {
           // Debugging is always single-workers.
           this._testItemUnderDebug = testItem;
         }
@@ -484,7 +484,7 @@ export class Extension implements RunHooks {
         const prevTrace = (testItem as any)[traceUrlSymbol];
         (testItem as any)[traceUrlSymbol] = trace;
         if (enqueuedSingleTest || prevTrace === this._models.selectedModel()?.traceViewer()?.currentFile())
-          this._showTrace(testItem);
+          this._showTraceOnTestProgress(testItem);
 
         if (result.status === test.expectedStatus) {
           if (!testFailures.has(testItem)) {
@@ -532,10 +532,11 @@ export class Extension implements RunHooks {
       },
     };
 
-    if (isDebug) {
+    if (mode === 'debug') {
       await model.debugTests(items, testListener, testRun.token);
     } else {
-      await this._models.selectedModel()?.ensureTraceViewer()?.willRunTests();
+      // Force trace viewer update to surface check version errors.
+      await this._models.selectedModel()?.updateTraceViewer(mode === 'run')?.willRunTests();
       await model.runTests(items, testListener, testRun.token);
     }
   }
@@ -756,16 +757,16 @@ export class Extension implements RunHooks {
     return await this._models.selectedModel()?.traceViewer()?.infoForTest();
   }
 
-  private _showTrace(testItem: vscodeTypes.TestItem) {
+  private _showTraceOnTestProgress(testItem: vscodeTypes.TestItem) {
     const traceUrl = (testItem as any)[traceUrlSymbol];
-    this._models.selectedModel()?.ensureTraceViewer()?.open(traceUrl);
+    this._models.selectedModel()?.traceViewer()?.open(traceUrl);
   }
 
   private _treeItemSelected(treeItem: vscodeTypes.TreeItem | null) {
     if (!treeItem)
       return;
     const traceUrl = (treeItem as any)[traceUrlSymbol];
-    this._models.selectedModel()?.ensureTraceViewer()?.open(traceUrl);
+    this._models.selectedModel()?.traceViewer()?.open(traceUrl);
   }
 
   private _queueCommand<T>(callback: () => Promise<T>, defaultValue: T): Promise<T> {
