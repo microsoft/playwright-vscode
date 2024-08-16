@@ -387,3 +387,30 @@ test('should restore webview state when moving', async ({ activate }) => {
   ]);
 
 });
+
+test('should open source location in vscode', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async ({ page }) => {
+        await page.setContent('Hello world');
+      });
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const [testItem] = testController.findTestItems(/pass/);
+
+  await testController.run();
+
+  selectTestItem(testItem);
+
+  const webview = await singleWebViewByPanelType(vscode, 'playwright.traceviewer.view')!;
+  const iframe = webview.frameLocator('iframe');
+  await iframe.getByTestId('actions-tree').getByRole('listitem').filter({ hasText: 'page.setContent' }).click();
+  await iframe.getByTitle('Source').click();
+  await iframe.getByTitle('Open in VS Code').click();
+
+  await expect.poll(() => vscode.window.visibleTextEditors[0]?.document.uri.fsPath).toMatch(/test\.spec\.ts/);
+});

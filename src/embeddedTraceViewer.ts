@@ -191,8 +191,22 @@ class EmbeddedTraceViewerPanel extends DisposableBase {
       // should be a Uri, but due to https://github.com/microsoft/vscode/issues/85930
       // we pass a string instead
       await this._vscode.env.openExternal(params.url);
+    else if (method === 'openSourceLocation' && params)
+      await this._openSourceFile(params);
     else if (method === 'showErrorMessage')
       await this._vscode.window.showErrorMessage(params.message);
+  }
+
+  private async _openSourceFile({ file, line, column }: { file: string, line: number, column: number }) {
+    try {
+      const document = await this._vscode.workspace.openTextDocument(file);
+      // received line and column are 1-based
+      const pos = new this._vscode.Position(line - 1, column - 1);
+      const selection = new this._vscode.Range(pos, pos);
+      await this._vscode.window.showTextDocument(document, { selection });
+    } catch (e) {
+      // ignore
+    }
   }
 
   private _applyTheme() {
