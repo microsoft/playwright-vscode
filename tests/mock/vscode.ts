@@ -883,7 +883,6 @@ export class VSCode {
   readonly extensions: any[] = [];
   private _webviewProviders = new Map<string, any>();
   private _browser: Browser;
-  private _webViewsByPanelType = new Map<string, Set<Page>>();
   readonly webViews = new Map<string, Page>();
   readonly commandLog: string[] = [];
   readonly l10n = new L10n();
@@ -956,38 +955,6 @@ export class VSCode {
     this.window.registerWebviewViewProvider = (name: string, provider: any) => {
       this._webviewProviders.set(name, provider);
       return disposable;
-    };
-    this.window.createWebviewPanel = (viewType: string) => {
-      const { webview, pagePromise } = this._createWebviewAndPage();
-      const didDispose = new EventEmitter<void>();
-      const didChangeViewState = new EventEmitter<{ webviewPanel: any }>();
-      const panel: any = {};
-      panel.onDidDispose = didDispose.event;
-      panel.onDidChangeViewState = didChangeViewState.event;
-      panel.webview = webview;
-      panel.visible = true;
-      webview.onDidChangeVisibility((visibilityState: string) => {
-        panel.visible = visibilityState === 'visible';
-        didChangeViewState.fire({ webviewPanel: panel });
-      });
-      pagePromise.then(webview => {
-        if (!webview) {
-          // test ended.
-          return;
-        }
-        webview.on('close', () => {
-          panel.dispose();
-          webviews.delete(webview);
-        });
-        const webviews = this._webViewsByPanelType.get(viewType) ?? new Set();
-        webviews.add(webview);
-        this._webViewsByPanelType.set(viewType, webviews);
-      });
-      panel.dispose = () => {
-        pagePromise.then(page => page?.close());
-        didDispose.fire();
-      };
-      return panel;
     };
     this.window.createInputBox = () => {
       const didAccept = new EventEmitter<void>();
@@ -1143,11 +1110,6 @@ export class VSCode {
   dispose() {
     for (const d of this.context.subscriptions)
       d.dispose();
-  }
-
-  webViewsByPanelType(viewType: string) {
-    const webviews = this._webViewsByPanelType.get(viewType);
-    return webviews ? [...webviews] : [];
   }
 
   async changeVisibility(webview: Page, state: 'visible' | 'hidden') {
