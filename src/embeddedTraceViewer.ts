@@ -17,27 +17,25 @@
 import type { TestConfig } from './playwrightTestTypes';
 import { getNonce } from './utils';
 import * as vscodeTypes from './vscodeTypes';
-import { DisposableBase } from './disposableBase';
-import { PlaywrightTestServer } from './playwrightTestServer';
 import { TraceViewer } from './traceViewer';
+import { PlaywrightTestServer } from './playwrightTestServer';
 
 export class EmbeddedTraceViewer implements TraceViewer {
   readonly vscode: vscodeTypes.VSCode;
-  readonly extensionUri: vscodeTypes.Uri;
-  private _currentFile?: string;
-  private _traceViewerPanelPromise?: Promise<EmbeddedTraceViewerPanel | undefined>;
   private _config: TestConfig;
   private _testServer: PlaywrightTestServer;
+  private _traceViewerView: EmbeddedTraceViewerView;
 
-  constructor(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri, config: TestConfig, testServer: PlaywrightTestServer) {
+  constructor(vscode: vscodeTypes.VSCode, config: TestConfig, testServer: PlaywrightTestServer, traceViewerView: EmbeddedTraceViewerView) {
     this.vscode = vscode;
-    this.extensionUri = extensionUri;
     this._config = config;
     this._testServer = testServer;
+    this._traceViewerView = traceViewerView;
+    this._startIfNeeded();
   }
 
   currentFile() {
-    return this._currentFile;
+    return this._traceViewerView.currentFile();
   }
 
   async willRunTests() {
@@ -45,94 +43,68 @@ export class EmbeddedTraceViewer implements TraceViewer {
   }
 
   async open(file?: string) {
-    this._currentFile = file;
-    if (!file && !this._traceViewerPanelPromise)
-      return;
-    const traceViewerPanel = await this._startIfNeeded();
-    traceViewerPanel?.loadTraceRequested(file);
+    this._traceViewerView.loadTraceRequested(file);
   }
 
   close() {
-    this._traceViewerPanelPromise?.then(panel => panel?.dispose()).catch(() => {});
-    this._traceViewerPanelPromise = undefined;
-    this._currentFile = undefined;
+    this._traceViewerView.reset();
   }
 
   private async _startIfNeeded() {
-    if (!this._traceViewerPanelPromise)
-      this._traceViewerPanelPromise = this._createTraceViewerPanel();
-    return await this._traceViewerPanelPromise;
-  }
-
-  private async _createTraceViewerPanel() {
     const serverUrlPrefix = await this._testServer.ensureStartedForTraceViewer();
-    if (!serverUrlPrefix)
-      return;
-    return new EmbeddedTraceViewerPanel(this, serverUrlPrefix);
+    this._traceViewerView.resetIfTestServerChanged(serverUrlPrefix);
   }
 
   async infoForTest() {
-    const traceViewerPanel = await this._traceViewerPanelPromise;
     return {
       type: 'embedded',
-      serverUrlPrefix: traceViewerPanel?.serverUrlPrefix,
+      serverUrlPrefix: this._traceViewerView.serverUrlPrefixForTest(),
       testConfigFile: this._config.configFile,
-      traceFile: this._currentFile,
-      visible: !!traceViewerPanel?.visibleForTest(),
+      traceFile: this._traceViewerView.currentFile(),
+      visible: this._traceViewerView.visible(),
     };
   }
 }
 
-class EmbeddedTraceViewerPanel extends DisposableBase {
-
-  public static readonly viewType = 'playwright.traceviewer.view';
-
+export class EmbeddedTraceViewerView {
   private _vscode: vscodeTypes.VSCode;
   private _extensionUri: vscodeTypes.Uri;
-  private _webviewPanel: vscodeTypes.WebviewPanel;
-  readonly serverUrlPrefix: string;
-  private _isVisible: boolean = false;
-  private _viewColumn: vscodeTypes.ViewColumn | undefined;
+  private _view: vscodeTypes.WebviewView | undefined;
   private _traceUrl?: string;
   private _traceLoadRequestedTimeout?: NodeJS.Timeout;
+  private _serverUrlPrefix: string | undefined;
 
-  constructor(
-    embeddedTestViewer: EmbeddedTraceViewer,
-    serverUrlPrefix: string
-  ) {
-    super();
-    this._vscode = embeddedTestViewer.vscode;
-    this._extensionUri = embeddedTestViewer.extensionUri;
-    this.serverUrlPrefix = serverUrlPrefix;
-    this._isVisible = false;
-    this._webviewPanel = this._vscode.window.createWebviewPanel(EmbeddedTraceViewerPanel.viewType, 'Trace Viewer', {
-      viewColumn: this._vscode.ViewColumn.Active,
-      preserveFocus: true,
-    }, {
+  constructor(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri) {
+    this._vscode = vscode;
+    this._extensionUri = extensionUri;
+  }
+
+  currentFile() {
+    return this._traceUrl;
+  }
+
+  async resolveWebviewView(view: vscodeTypes.WebviewView) {
+    this._view = view;
+    view.webview.options = {
       enableScripts: true,
-      enableForms: true,
-    });
-    this._viewColumn = this._webviewPanel.viewColumn;
-    this._webviewPanel.iconPath = this._vscode.Uri.joinPath(this._extensionUri, 'images', 'playwright-logo.svg');
-    this._webviewPanel.webview.html = this._getHtml();
-    this._disposables = [
-      this._webviewPanel,
-      this._webviewPanel.onDidDispose(() => {
-        embeddedTestViewer.close();
+      localResourceRoots: [this._extensionUri]
+    };
+    const viewDisposables = [
+      view.onDidDispose(() => {
+        for (const disposable of viewDisposables)
+          disposable.dispose();
+        this._view = undefined;
+        this.reset(this._serverUrlPrefix);
       }),
-      this._webviewPanel.onDidChangeViewState(({ webviewPanel }) => {
-        if (this._isVisible === webviewPanel.visible && this._viewColumn === webviewPanel.viewColumn)
-          return;
-        this._isVisible = webviewPanel.visible;
-        this._viewColumn = webviewPanel.viewColumn;
-        if (this._isVisible) {
-          this._applyTheme();
+      view.onDidChangeVisibility(() => {
+        if (view.visible) {
+          this.resetIfTestServerChanged(this._serverUrlPrefix);
           this.loadTraceRequested(this._traceUrl);
         } else {
           this._clearTraceLoadRequestedTimeout();
         }
       }),
-      this._webviewPanel.webview.onDidReceiveMessage(message => {
+      view.webview.onDidReceiveMessage(message => {
         const methodRequest = this._extractMethodRequest(message);
         if (!methodRequest)
           return;
@@ -143,20 +115,54 @@ class EmbeddedTraceViewerPanel extends DisposableBase {
           this._applyTheme();
       }),
     ];
+
+    this.reset(this._serverUrlPrefix);
+  }
+
+  show() {
+    this._view?.show();
+  }
+
+  resetIfTestServerChanged(serverUrlPrefix?: string) {
+    if (this._serverUrlPrefix === serverUrlPrefix)
+      return;
+    this.reset(serverUrlPrefix);
+  }
+
+  reset(serverUrlPrefix?: string) {
+    this._clearTraceLoadRequestedTimeout();
+    this._serverUrlPrefix = serverUrlPrefix;
+    this._traceUrl = undefined;
+
+    if (!this._view)
+      return;
+
+    this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+
+    if (serverUrlPrefix) {
+      this._view.show();
+      this._applyTheme();
+    }
   }
 
   loadTraceRequested(traceUrl?: string) {
+    if (traceUrl && traceUrl !== this._traceUrl)
+      this._view?.show();
     this._traceUrl = traceUrl;
+
     this._fireLoadTraceRequestedIfNeeded();
   }
 
   dispose() {
-    this._clearTraceLoadRequestedTimeout();
-    super.dispose();
+    this.reset();
   }
 
-  visibleForTest() {
-    return this._isVisible;
+  visible() {
+    return !!this._view?.visible;
+  }
+
+  serverUrlPrefixForTest() {
+    return this._serverUrlPrefix;
   }
 
   private _clearTraceLoadRequestedTimeout() {
@@ -167,13 +173,10 @@ class EmbeddedTraceViewerPanel extends DisposableBase {
   }
 
   private _fireLoadTraceRequestedIfNeeded() {
-    if (this._traceLoadRequestedTimeout) {
-      clearTimeout(this._traceLoadRequestedTimeout);
-      this._traceLoadRequestedTimeout = undefined;
-    }
-    if (!this._isVisible)
+    this._clearTraceLoadRequestedTimeout();
+    if (!this._view?.visible)
       return;
-    this._webviewPanel.webview.postMessage({ method: 'loadTraceRequested', params: { traceUrl: this._traceUrl } });
+    this._view.webview.postMessage({ method: 'loadTraceRequested', params: { traceUrl: this._traceUrl } });
     if (this._traceUrl?.endsWith('.json'))
       this._traceLoadRequestedTimeout = setTimeout(() => this._fireLoadTraceRequestedIfNeeded(), 500);
   }
@@ -196,18 +199,21 @@ class EmbeddedTraceViewerPanel extends DisposableBase {
   }
 
   private _applyTheme() {
-    if (!this._webviewPanel.visible)
+    if (!this._view?.visible)
       return;
     const themeKind = this._vscode.window.activeColorTheme.kind;
     const theme = [this._vscode.ColorThemeKind.Dark, this._vscode.ColorThemeKind.HighContrast].includes(themeKind) ? 'dark-mode' : 'light-mode';
-    this._webviewPanel.webview.postMessage({ method: 'applyTheme', params: { theme } });
+    this._view.webview.postMessage({ method: 'applyTheme', params: { theme } });
   }
 
-  private _getHtml() {
+  private _getHtmlForWebview(webview: vscodeTypes.Webview) {
+    if (!this._serverUrlPrefix)
+      return 'No server URL found';
+
     const nonce = getNonce();
-    const cspSource = this._webviewPanel.webview.cspSource;
-    const origin = new URL(this.serverUrlPrefix).origin;
-    const stylesheet = this._webviewPanel.webview.asWebviewUri(this._vscode.Uri.joinPath(this._extensionUri, 'media', 'traceViewer.css'));
+    const cspSource = webview.cspSource;
+    const origin = new URL(this._serverUrlPrefix).origin;
+    const stylesheet = webview.asWebviewUri(this._vscode.Uri.joinPath(this._extensionUri, 'media', 'traceViewer.css'));
 
     return /* html */ `<!DOCTYPE html>
       <html lang="en">
@@ -223,7 +229,7 @@ class EmbeddedTraceViewerPanel extends DisposableBase {
         <link rel="stylesheet" href="${stylesheet}" type="text/css" media="screen">
       </head>
       <body data-vscode-context='{ "preventDefaultContextMenuItems": true }'>
-        <iframe id="traceviewer" src="${this.serverUrlPrefix}/trace/embedded.html"></iframe>
+        <iframe id="traceviewer" src="${this._serverUrlPrefix}/trace/embedded.html"></iframe>
         <script nonce="${nonce}">
           const vscode = acquireVsCodeApi();
           const iframe = document.getElementById('traceviewer');

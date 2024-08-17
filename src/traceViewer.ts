@@ -18,7 +18,6 @@ export type TraceViewer = {
   currentFile(): string | undefined;
   willRunTests(): Promise<void>;
   open(file?: string): Promise<void>;
-  reveal?(): Promise<void>;
   close(): void;
   infoForTest(): Promise<{
     type: string;

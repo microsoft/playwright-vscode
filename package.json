@@ -122,6 +122,12 @@
           "type": "webview",
           "id": "pw.extension.settingsView",
           "name": "%views.test.pw.extension.settingsView%"
+        },
+        {
+          "type": "webview",
+          "id": "pw.extension.embeddedTraceViewerView",
+          "name": "%views.test.pw.extension.embeddedTraceViewerView%",
+          "when": "config.playwright.showTrace"
         }
       ]
     }

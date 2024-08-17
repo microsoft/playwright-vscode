@@ -31,6 +31,7 @@ import { PlaywrightTestCLI } from './playwrightTestCLI';
 import { upstreamTreeItem } from './testTree';
 import { collectTestIds } from './upstream/testTree';
 import { TraceViewer } from './traceViewer';
+import { EmbeddedTraceViewerView } from './embeddedTraceViewer';
 import { EmbeddedTraceViewer } from './embeddedTraceViewer';
 import { SpawnTraceViewer } from './spawnTraceViewer';
 
@@ -673,7 +674,7 @@ export class TestModel extends DisposableBase {
 
     if (settingsModel.embeddedTraceViewer.get()) {
       if (this._checkVersion(1.46, this._vscode.l10n.t('embedded trace viewer'), userGesture))
-        this._traceViewer = new EmbeddedTraceViewer(this._vscode, this._embedder.context.extensionUri, this.config, this._playwrightTest as PlaywrightTestServer);
+        this._traceViewer = new EmbeddedTraceViewer(this._vscode, this.config, this._playwrightTest as PlaywrightTestServer, this._collection.traceViewerView);
     } else {
       if (this._checkVersion(1.35, this._vscode.l10n.t('this feature'), userGesture))
         this._traceViewer = new SpawnTraceViewer(this._vscode, this._embedder.envProvider, this.config);
@@ -700,11 +701,13 @@ export class TestModelCollection extends DisposableBase {
   private _didUpdate: vscodeTypes.EventEmitter<void>;
   readonly onUpdated: vscodeTypes.Event<void>;
   readonly vscode: vscodeTypes.VSCode;
+  readonly traceViewerView: EmbeddedTraceViewerView;
   readonly embedder: TestModelEmbedder;
 
-  constructor(vscode: vscodeTypes.VSCode, embedder: TestModelEmbedder) {
+  constructor(vscode: vscodeTypes.VSCode, traceViewerView: EmbeddedTraceViewerView, embedder: TestModelEmbedder) {
     super();
     this.vscode = vscode;
+    this.traceViewerView = traceViewerView;
     this.embedder = embedder;
     this._didUpdate = new vscode.EventEmitter();
     this.onUpdated = this._didUpdate.event;
