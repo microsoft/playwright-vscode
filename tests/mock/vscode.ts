@@ -1103,13 +1103,41 @@ export class VSCode {
     for (const extension of this.extensions)
       await extension.activate();
 
-    for (const [name, provider] of this._webviewProviders) {
-      const { webview, pagePromise } = this._createWebviewAndPage();
-      provider?.resolveWebviewView({ webview, onDidChangeVisibility: () => disposable });
-      const page = await pagePromise;
-      if (page)
-        this.webViews.set(name, page);
+    for (const name of this._webviewProviders.keys())
+      await this.ensureWebview(name);
+  }
+
+  async ensureWebview(name: string) {
+    if (this.webViews.has(name))
+      return this.webViews.get(name)!;
+    const { webview, pagePromise } = this._createWebviewAndPage();
+    const webviewView: any = {};
+    const didDispose = new EventEmitter<void>();
+    const didChangeVisibility = new EventEmitter<any>();
+    webviewView.webview = webview;
+    webviewView.onDidDispose = didDispose.event;
+    webviewView.onDidChangeVisibility = didChangeVisibility.event;
+
+    webviewView.visible = true;
+    function show(show: boolean) {
+      if (webviewView.visible !== show) {
+        webviewView.visible = show;
+        didChangeVisibility.fire(webviewView);
+      }
     }
+    webviewView.show = () => show(true);
+    const provider = this._webviewProviders.get(name)!;
+    provider.resolveWebviewView(webviewView);
+    const page = (await pagePromise)!;
+    page.on('close', () => {
+      this.webViews.delete(name);
+      didDispose.fire();
+    });
+    page.on('load', frame => {
+      show(frame.url() !== 'http://localhost/hidden');
+    });
+    this.webViews.set(name, page);
+    return page;
   }
 
   dispose() {
@@ -1131,16 +1159,37 @@ export class VSCode {
 
   private _createWebviewAndPage() {
     let initializedPage: Page | undefined = undefined;
-    const webview: any = {};
+    let html = '';
+    // setting webview.html is synchronous, but page can only load it asynchronously,
+    // so we mark it as loading so that messages are not sent before page loads
+    let loading = false;
+    const webview: any = {
+      get html() {
+        return html;
+      },
+      set html(value) {
+        html = value;
+        loading = true;
+        initializedPage?.reload().then(postPendingMessages).catch(() => {});
+      }
+    };
     webview.asWebviewUri = (uri: Uri) => path.relative(this.context.extensionUri.fsPath, uri.fsPath).replace(/\\/g, '/');
     const didReceiveMessage = new EventEmitter<any>();
     const didChangeVisibility = new EventEmitter<'visible' | 'hidden'>();
     webview.onDidReceiveMessage = didReceiveMessage.event;
     webview.onDidChangeVisibility = didChangeVisibility.event;
     webview.cspSource = 'http://localhost/';
-    const pendingMessages: any[] = [];
+    let pendingMessages: any[] = [];
+    function postPendingMessages() {
+      for (const m of pendingMessages)
+        webview.postMessage(m);
+      pendingMessages = [];
+    }
     webview.postMessage = (data: any) => {
-      if (!initializedPage) {
+      if (initializedPage?.url() === 'http://localhost/hidden')
+        return;
+
+      if (!initializedPage || loading) {
         pendingMessages.push(data);
         return;
       }
@@ -1168,11 +1217,15 @@ export class VSCode {
         }
       });
       page.on('load', () => {
+        loading = false;
         const url = page.url();
-        if (url === 'http://localhost/')
+        if (url === 'http://localhost/') {
+          if (initializedPage)
+            postPendingMessages();
           didChangeVisibility.fire('visible');
-        else if (url === 'http://localhost/hidden')
+        } else if (url === 'http://localhost/hidden') {
           didChangeVisibility.fire('hidden');
+        }
       });
       await page.addInitScript(() => {
         (globalThis as any).acquireVsCodeApi = () => globalThis;
@@ -1185,8 +1238,7 @@ export class VSCode {
         }
       });
       initializedPage = page;
-      for (const m of pendingMessages)
-        webview.postMessage(m);
+      postPendingMessages();
       return page;
     };
     const pagePromise = createPage().catch(() => null);
