@@ -5,6 +5,11 @@ trigger:
     include:
     - '*'
 
+# Required for Microbuild
+variables:
+  - name: TeamName
+    value: Playwright
+
 resources:
   repositories:
   - repository: 1esPipelines
@@ -12,18 +17,14 @@ resources:
     name: 1ESPipelineTemplates/1ESPipelineTemplates
     ref: refs/tags/release
 
+# VSCode extension signing: https://aka.ms/vsm-ms-publisher-sign
 extends:
   template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
   parameters:
     pool:
-      name: DevDivPlaywrightAzurePipelinesUbuntu2204
-      os: linux
-    sdl:
-      sourceAnalysisPool:
-        name: DevDivPlaywrightAzurePipelinesWindows2022
-        # The image must be windows-based due to restrictions of the SDL tools. See: https://aka.ms/AAo6v8e
-        # In the case of a windows build, this can be the same as the above pool image.
-        os: windows
+      # https://aka.ms/MicroBuild
+      name: VSEngSS-MicroBuild2022-1ES
+      os: windows
     stages:
     - stage: Stage
       jobs:
@@ -33,8 +34,21 @@ extends:
           inputs:
             version: '20.x'
           displayName: 'Install Node.js'
+        - task: MicroBuildSigningPlugin@3
+          inputs:
+            signType: real
+            feedSource: 'https://devdiv.pkgs.visualstudio.com/DefaultCollection/_packaging/MicroBuildToolset/nuget/v3/index.json'
         - script: npm ci
           displayName: 'Install dependencies'
+        - script: npx vsce package --out extension.vsix
+          displayName: 'Package the extension'
+        - script: npx vsce generate-manifest -i extension.vsix -o extension.manifest
+          displayName: 'Generate the manifest'
+        - task: DotNetCoreCLI@2
+          displayName: Sign
+          inputs:
+            command: 'build'
+            projects: 'PlaywrightVSCode.signproj'
         - task: AzureCLI@2
           displayName: 'Publishing with Managed Identity'  
           inputs:
@@ -45,7 +59,7 @@ extends:
               $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
               npx vsce verify-pat --pat $aadToken ms-playwright
               if ("$(Build.Reason)" -eq "Manual") {
-                npx vsce publish --pre-release --pat $aadToken
+                # npx vsce publish --pre-release --pat $aadToken --manifestPath extension.manifest --signaturePath extension.signature.p7s
               } else {
-                npx vsce publish --pat $aadToken
+                # npx vsce publish --pat $aadToken --manifestPath extension.manifest --signaturePath extension.signature.p7s
               }
