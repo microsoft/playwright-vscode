@@ -5,8 +5,8 @@ trigger:
     include:
     - '*'
 
-# Required for Microbuild
 variables:
+  # Required for Microbuild
   - name: TeamName
     value: Playwright
 
