@@ -40,8 +40,16 @@ extends:
             feedSource: 'https://devdiv.pkgs.visualstudio.com/DefaultCollection/_packaging/MicroBuildToolset/nuget/v3/index.json'
         - script: npm ci
           displayName: 'Install dependencies'
-        - script: npx vsce package --out extension.vsix
+        - task: PowerShell@2
           displayName: 'Package the extension'
+          inputs:
+            targetType: 'inline'
+            script: |
+              if ("$(Build.Reason)" -eq "Manual") {
+                npm run package -- --out extension.vsix --pre-release
+              } else {
+                npm run package -- --out extension.vsix
+              }
         - script: npx vsce generate-manifest -i extension.vsix -o extension.manifest
           displayName: 'Generate the manifest'
         - task: DotNetCoreCLI@2
@@ -59,7 +67,7 @@ extends:
               $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
               npx vsce verify-pat --pat $aadToken ms-playwright
               if ("$(Build.Reason)" -eq "Manual") {
-                npx vsce publish --pre-release --pat $aadToken --manifestPath extension.manifest --signaturePath extension.signature.p7s
+                npx vsce publish --pre-release --pat $aadToken --packagePath extension.vsix --manifestPath extension.manifest --signaturePath extension.signature.p7s
               } else {
-                npx vsce publish --pat $aadToken --manifestPath extension.manifest --signaturePath extension.signature.p7s
+                npx vsce publish --pat $aadToken --packagePath extension.vsix --manifestPath extension.manifest --signaturePath extension.signature.p7s
               }
