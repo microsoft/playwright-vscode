@@ -349,6 +349,7 @@ class TestRunProfile {
 
   dispose() {
     this.runProfiles.splice(this.runProfiles.indexOf(this), 1);
+    this.didChangeDefault.dispose();
   }
 }
 
@@ -559,6 +560,11 @@ export class TestController {
     const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Debug)!;
     return profile.run(include, exclude);
   }
+
+  dispose() {
+    this.didChangeTestItem.dispose();
+    this._didCreateTestRun.dispose();
+  }
 }
 
 type Decoration = { type?: number, range: Range, renderOptions?: any };
@@ -653,6 +659,9 @@ class FileSystemWatcher {
 
   dispose() {
     this.vscode.fsWatchers.delete(this);
+    this.didCreate.dispose();
+    this.didChange.dispose();
+    this.didDelete.dispose();
   }
 }
 
@@ -745,6 +754,11 @@ class Debug {
         ],
       }
     });
+  }
+
+  dispose() {
+    this._didStartDebugSession.dispose();
+    this._didTerminateDebugSession.dispose();
   }
 }
 
@@ -913,6 +927,16 @@ export class VSCode {
       this.commandLog.push(name);
     };
     this.debug = new Debug();
+    this.context.subscriptions.push(
+        this.debug,
+        this._didChangeActiveTextEditor,
+        this._didChangeVisibleTextEditors,
+        this._didChangeTextEditorSelection,
+        this._didChangeWorkspaceFolders,
+        this._didChangeTextDocument,
+        this._didChangeConfiguration,
+        this._didShowInputBox,
+    );
 
     const diagnosticsCollections: DiagnosticsCollection[] = [];
     this.languages.registerHoverProvider = (language: string, provider: HoverProvider) => {

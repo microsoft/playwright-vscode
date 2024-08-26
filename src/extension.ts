@@ -224,6 +224,7 @@ export class Extension implements RunHooks {
         if (event.affectsConfiguration('playwright.env'))
           this._rebuildModels(false);
       }),
+      this._testTree,
       this._models,
       this._models.onUpdated(() => this._modelsUpdated()),
       this._treeItemObserver.onTreeItemSelected(item => this._treeItemSelected(item)),
@@ -809,6 +810,7 @@ class TreeItemObserver implements vscodeTypes.Disposable{
 
   dispose() {
     clearTimeout(this._timeout);
+    this._treeItemSelected.dispose();
   }
 
   selectedTreeItem(): vscodeTypes.TreeItem | null {
