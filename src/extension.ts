@@ -29,6 +29,7 @@ import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { RunHooks, TestConfig } from './playwrightTestTypes';
+import { EmbeddedTraceViewerView } from './embeddedTraceViewer';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -68,6 +69,7 @@ export class Extension implements RunHooks {
   private _reusedBrowser: ReusedBrowser;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
+  private _traceViewerView!: EmbeddedTraceViewerView;
   private _diagnostics: vscodeTypes.DiagnosticCollection;
   private _treeItemObserver: TreeItemObserver;
   private _runProfile: vscodeTypes.TestRunProfile;
@@ -100,7 +102,8 @@ export class Extension implements RunHooks {
     this._settingsModel = new SettingsModel(vscode, this._isUnderTest, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
-    this._models = new TestModelCollection(vscode, {
+    this._traceViewerView = new EmbeddedTraceViewerView(this._vscode, context.extensionUri);
+    this._models = new TestModelCollection(vscode, this._traceViewerView, {
       context,
       playwrightTestLog: this._playwrightTestLog,
       settingsModel: this._settingsModel,
@@ -224,10 +227,12 @@ export class Extension implements RunHooks {
         if (event.affectsConfiguration('playwright.env'))
           this._rebuildModels(false);
       }),
+      vscode.window.registerWebviewViewProvider('pw.extension.embeddedTraceViewerView', this._traceViewerView),
       this._models,
       this._models.onUpdated(() => this._modelsUpdated()),
       this._treeItemObserver.onTreeItemSelected(item => this._treeItemSelected(item)),
       this._settingsView,
+      this._traceViewerView,
       this._testController,
       this._runProfile,
       this._debugProfile,

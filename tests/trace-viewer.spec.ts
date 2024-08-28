@@ -112,7 +112,7 @@ test('should refresh trace viewer while test is running', async ({ activate, cre
   });
 });
 
-test('should close trace viewer if test configs refreshed', async ({ activate, showTrace }) => {
+test('should reset trace viewer if test configs refreshed', async ({ activate, showTrace }) => {
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
@@ -130,16 +130,15 @@ test('should close trace viewer if test configs refreshed', async ({ activate, s
     traceFile: expect.stringContaining('pass'),
   });
 
-  await testController.refreshHandler(null);
+  await testController.refreshHandler!(null);
 
   await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
     type: showTrace,
     traceFile: undefined,
-    visible: false,
   });
 });
 
-test('should open new trace viewer when another test config is selected', async ({ activate, showTrace }) => {
+test('should reset trace viewer when another test config is selected', async ({ activate, showTrace }) => {
   const { vscode, testController } = await activate({
     'playwright1.config.js': `module.exports = { testDir: 'tests1' }`,
     'playwright2.config.js': `module.exports = { testDir: 'tests2' }`,
@@ -164,18 +163,17 @@ test('should open new trace viewer when another test config is selected', async 
 
   await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
     type: showTrace,
-    serverUrlPrefix: expect.stringContaining('http'),
     testConfigFile: expect.stringContaining('playwright1.config.js'),
+    traceFile: expect.anything(),
   });
-  const serverUrlPrefix1 = traceViewerInfo(vscode);
 
-  // closes opened trace viewer
+  // resets opened trace viewer
   await selectConfig(vscode, 'playwright2.config.js');
 
   await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
     type: showTrace,
-    traceFile: undefined,
-    visible: false,
+    testConfigFile: expect.stringContaining('playwright2.config.js'),
+    traceFile: undefined
   });
 
   // opens trace viewer from selected test config
@@ -183,10 +181,7 @@ test('should open new trace viewer when another test config is selected', async 
 
   await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
     type: showTrace,
-    serverUrlPrefix: expect.stringContaining('http'),
     testConfigFile: expect.stringContaining('playwright2.config.js'),
+    traceFile: expect.anything(),
   });
-  const serverUrlPrefix2 = traceViewerInfo(vscode);
-
-  expect(serverUrlPrefix2).not.toBe(serverUrlPrefix1);
 });
