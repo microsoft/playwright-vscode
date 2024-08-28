@@ -10,7 +10,7 @@ Join our community [Discord Server][discord-server] to connect with other develo
 
 ## Microsoft Support Policy  
 
-Support for Playwright is limited to the resources listed above.
+Support for Playwright Test for VS Code is limited to the resources listed above.
 
 [gh-issues]: https://github.com/microsoft/playwright/issues/
 [docs]: https://playwright.dev/
