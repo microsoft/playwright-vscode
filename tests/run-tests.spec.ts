@@ -1247,7 +1247,7 @@ test('should force workers=1 when reusing the browser', async ({ activate, showB
   expect(testRun.renderLog({ output: true })).toContain('Running 3 tests using 1 worker');
 });
 
-test.describe('dontReuseGlobalSetup', () => {
+test.describe('dontReuseGlobalSetup', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/32121' } }, () => {
   test.skip(({ overridePlaywrightVersion }) => !!overridePlaywrightVersion, 'old world doesnt have globalSetup');
 
   function expectOrdering(log: string, items: string[]) {
