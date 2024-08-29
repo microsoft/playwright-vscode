@@ -17,6 +17,7 @@
   "Select Playwright Config": "Sélectionner la configuration Playwright",
   "Show browser mode does not work in the Web mode": "Le mode affichage de navigateur ne peut être utilisé en mode Web",
   "Show browser": "Afficher le navigateur",
+  "Don't reuse global setup": "Ne pas réutiliser setup globale",
   "Show trace viewer": "Afficher le Trace Viewer",
   "Start dev server": "Démarrer le serveur de développement",
   "Stop dev server": "Arrêter le serveur de développement",

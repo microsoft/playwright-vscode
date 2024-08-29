@@ -17,6 +17,7 @@
   "Select Playwright Config": "选择 Playwright 配置",
   "Show browser mode does not work in remote vscode": "显示浏览器模式在远程vscode中不起作用",
   "Show browser": "显示浏览器",
+  "Don't reuse global setup": "不要重复使用全局设置",
   "Show trace viewer": "显示 Trace Viewer",
   "Start dev server": "启动 dev 服务器",
   "Stop dev server": "停止 dev 服务器",

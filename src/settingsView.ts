@@ -85,6 +85,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
 
     this._disposables.push(this._settingsModel.onChange(() => {
       this._updateSettings();
+      this._updateActions();
     }));
 
     this._disposables.push(webviewView.onDidChangeVisibility(() => {
@@ -277,6 +278,12 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           <label>
             <input type="checkbox" setting="showTrace"></input>
             ${vscode.l10n.t('Show trace viewer')}
+          </label>
+        </div>
+        <div>
+          <label>
+            <input type="checkbox" setting="dontReuseGlobalSetup"></input>
+            ${vscode.l10n.t("Don't reuse global setup")}
           </label>
         </div>
       </div>
