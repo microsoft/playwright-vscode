@@ -286,7 +286,6 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <div class="section-header">${vscode.l10n.t('TOOLS')}</div>
       <div id="actions" class="list"></div>
       <div class="section-header">${vscode.l10n.t('SETUP')}</div>
-      <div id="rareActions" class="list"></div>
       <div class="list">
         <div>
           <label>
@@ -295,6 +294,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           </label>
         </div>
       </div>
+      <div id="rareActions" class="list"></div>
     </body>
     <script nonce="${nonce}">
       let selectConfig;
