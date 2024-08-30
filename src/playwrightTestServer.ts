@@ -218,7 +218,7 @@ export class PlaywrightTestServer {
     const testDirs = this._model.enabledProjects().map(project => project.project.testDir);
 
     let debugTestServer: TestServerConnection | undefined;
-    let disposable: vscodeTypes.Disposable | undefined;
+    const disposables: vscodeTypes.Disposable[] = [];
     try {
       await this._vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
@@ -272,19 +272,19 @@ export class PlaywrightTestServer {
       };
       debugTestServer.runTests(options);
 
-      token.onCancellationRequested(() => {
+      disposables.push(token.onCancellationRequested(() => {
         debugTestServer!.stopTestsNoReply({});
-      });
-      disposable = debugTestServer.onStdio(params => {
+      }));
+      disposables.push(debugTestServer.onStdio(params => {
         if (params.type === 'stdout')
           reporter.onStdOut?.(unwrapString(params));
         if (params.type === 'stderr')
           reporter.onStdErr?.(unwrapString(params));
-      });
+      }));
       const testEndPromise = this._wireTestServer(debugTestServer, reporter, token);
       await testEndPromise;
     } finally {
-      disposable?.dispose();
+      disposables.forEach(disposable => disposable.dispose());
       if (!token.isCancellationRequested && debugTestServer && !debugTestServer.isClosed())
         await this._runGlobalHooksInServer(debugTestServer, 'teardown', reporter);
       debugTestServer?.close();
