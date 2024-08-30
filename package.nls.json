@@ -14,10 +14,10 @@
   "contributes.command.pw.extension.command.toggleModels": "Toggle Playwright configs",
   "contributes.command.pw.extension.toggle.reuseBrowser": "Toggle Playwright browser reuse",
   "contributes.command.pw.extension.toggle.showTrace": "Toggle Playwright Trace Viewer",
-  "contributes.command.pw.extension.toggle.dontReuseGlobalSetup": "Toggle Playwright global setup reuse",
+  "contributes.command.pw.extension.toggle.runGlobalSetupOnEachRun": "Toggle Playwright global setup reuse",
   "configuration.playwright.env": "Environment variables to pass to Playwright Test.",
   "configuration.playwright.reuseBrowser": "Show & reuse browser between tests.",
   "configuration.playwright.showTrace": "Show Trace Viewer.",
-  "configuration.playwright.dontReuseGlobalSetup": "Don't reuse global setup.",
+  "configuration.playwright.runGlobalSetupOnEachRun": "Run global setup on each run.",
   "views.test.pw.extension.settingsView": "Playwright"
 }

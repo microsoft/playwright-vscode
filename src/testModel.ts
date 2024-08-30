@@ -453,7 +453,7 @@ export class TestModel extends DisposableBase {
       return false;
 
     if (type === 'setup') {
-      if (this._embedder.settingsModel.dontReuseGlobalSetup.get())
+      if (this._embedder.settingsModel.runGlobalSetupOnEachRun.get())
         return true;
 
       return !this._ranGlobalSetup;

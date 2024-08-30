@@ -280,17 +280,19 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             ${vscode.l10n.t('Show trace viewer')}
           </label>
         </div>
-        <div>
-          <label>
-            <input type="checkbox" setting="dontReuseGlobalSetup"></input>
-            ${vscode.l10n.t("Don't reuse global setup")}
-          </label>
-        </div>
       </div>
       <div class="section-header">${vscode.l10n.t('TOOLS')}</div>
       <div id="actions" class="list"></div>
       <div class="section-header">${vscode.l10n.t('SETUP')}</div>
       <div id="rareActions" class="list"></div>
+      <div class="list">
+        <div>
+          <label>
+            <input type="checkbox" setting="runGlobalSetupOnEachRun"></input>
+            ${vscode.l10n.t('Run global setup on each run')}
+          </label>
+        </div>
+      </div>
     </body>
     <script nonce="${nonce}">
       let selectConfig;

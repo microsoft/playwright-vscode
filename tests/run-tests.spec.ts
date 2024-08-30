@@ -1247,7 +1247,7 @@ test('should force workers=1 when reusing the browser', async ({ activate, showB
   expect(testRun.renderLog({ output: true })).toContain('Running 3 tests using 1 worker');
 });
 
-test.describe('dontReuseGlobalSetup', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/32121' } }, () => {
+test.describe('runGlobalSetupOnEachRun', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/32121' } }, () => {
   test.skip(({ overridePlaywrightVersion }) => !!overridePlaywrightVersion, 'old world doesnt have globalSetup');
 
   function expectOrdering(log: string, items: string[]) {
@@ -1290,8 +1290,8 @@ test.describe('dontReuseGlobalSetup', { annotation: { type: 'issue', description
     expect(secondRun).not.toContain('RUNNING TEARDOWN');
   });
 
-  test('should always run global setup and teardown if dontReuseGlobalSetup is enabled', async ({ activate }) => {
-    const { testController } = await activate(files, { dontReuseGlobalSetup: true });
+  test('should always run global setup and teardown if runGlobalSetupOnEachRun is enabled', async ({ activate }) => {
+    const { testController } = await activate(files, { runGlobalSetupOnEachRun: true });
 
     const firstRun = (await testController.run()).renderOutput();
     expectOrdering(firstRun, ['RUNNING SETUP', 'RUNNING TEST']);

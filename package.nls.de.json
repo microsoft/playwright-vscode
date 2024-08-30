@@ -14,10 +14,10 @@
   "contributes.command.pw.extension.command.toggleModels": "Playwright Konfigurationen umschalten",
   "contributes.command.pw.extension.toggle.reuseBrowser": "Wiederverwendung des Playwright Browsers umschalten",
   "contributes.command.pw.extension.toggle.showTrace": "Playwright Trace Viewer umschalten",
-  "contributes.command.pw.extension.toggle.dontReuseGlobalSetup": "Wiederverwendung des globalen Setups umschalten",
+  "contributes.command.pw.extension.toggle.runGlobalSetupOnEachRun": "Wiederverwendung des globalen Setups umschalten",
   "configuration.playwright.env": "Umgebungsvariablen, die an Playwright Test übergeben werden.",
   "configuration.playwright.reuseBrowser": "Browser zwischen Tests anzeigen & wiederverwenden.",
   "configuration.playwright.showTrace": "Trace Viewer anzeigen.",
-  "configuration.playwright.dontReuseGlobalSetup": "Globales Setup nicht wiederverwenden.",
+  "configuration.playwright.runGlobalSetupOnEachRun": "Globales Setup nicht wiederverwenden.",
   "views.test.pw.extension.settingsView": "Playwright"
 }

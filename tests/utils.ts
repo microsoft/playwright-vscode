@@ -36,7 +36,7 @@ type Latch = {
 
 type TestFixtures = {
   vscode: VSCode,
-  activate: (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][], env?: Record<string, any>, dontReuseGlobalSetup?: boolean }) => Promise<ActivateResult>;
+  activate: (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][], env?: Record<string, any>, runGlobalSetupOnEachRun?: boolean }) => Promise<ActivateResult>;
   createLatch: () => Latch;
 };
 
@@ -132,7 +132,7 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
 
   activate: async ({ vscode, showBrowser, overridePlaywrightVersion, showTrace }, use, testInfo) => {
     const instances: VSCode[] = [];
-    await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][], env?: Record<string, any>, dontReuseGlobalSetup?: boolean }) => {
+    await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][], env?: Record<string, any>, runGlobalSetupOnEachRun?: boolean }) => {
       if (options?.workspaceFolders) {
         for (const wf of options?.workspaceFolders)
           await vscode.addWorkspaceFolder(wf[0], wf[1]);
@@ -143,8 +143,8 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
       const configuration = vscode.workspace.getConfiguration('playwright');
       if (options?.env)
         configuration.update('env', options.env);
-      if (options?.dontReuseGlobalSetup)
-        configuration.update('dontReuseGlobalSetup', true);
+      if (options?.runGlobalSetupOnEachRun)
+        configuration.update('runGlobalSetupOnEachRun', true);
       if (showBrowser)
         configuration.update('reuseBrowser', true);
       if (showTrace) {

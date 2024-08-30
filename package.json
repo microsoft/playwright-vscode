@@ -72,8 +72,8 @@
       },
       {
         "category": "Test",
-        "command": "pw.extension.toggle.dontReuseGlobalSetup",
-        "title": "%contributes.command.pw.extension.toggle.dontReuseGlobalSetup%"
+        "command": "pw.extension.toggle.runGlobalSetupOnEachRun",
+        "title": "%contributes.command.pw.extension.toggle.runGlobalSetupOnEachRun%"
       },
       {
         "category": "Test",
@@ -119,10 +119,10 @@
           "default": false,
           "description": "%configuration.playwright.showTrace%"
         },
-        "playwright.dontReuseGlobalSetup": {
+        "playwright.runGlobalSetupOnEachRun": {
           "type": "boolean",
           "default": false,
-          "description": "%configuration.playwright.dontReuseGlobalSetup%"
+          "description": "%configuration.playwright.runGlobalSetupOnEachRun%"
         }
       }
     },

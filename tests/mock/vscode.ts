@@ -1079,7 +1079,7 @@ export class VSCode {
       'playwright.reuseBrowser': false,
       'playwright.showTrace': false,
       'playwright.embeddedTraceViewer': false,
-      'playwright.dontReuseGlobalSetup': false,
+      'playwright.runGlobalSetupOnEachRun': false,
       'workbench.colorTheme': 'Dark Modern',
     };
     this.workspace.getConfiguration = (scope: string) => {
