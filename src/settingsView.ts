@@ -145,6 +145,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         text: this._vscode.l10n.t('Run global setup'),
         location: 'rareActions',
         disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canRunGlobalHooks('setup'),
+        hidden: this._settingsModel.runGlobalSetupOnEachRun.get(),
       },
       {
         command: 'pw.extension.command.runGlobalTeardown',
@@ -152,6 +153,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         text: this._vscode.l10n.t('Run global teardown'),
         location: 'rareActions',
         disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canRunGlobalHooks('teardown'),
+        hidden: this._settingsModel.runGlobalSetupOnEachRun.get(),
       },
       {
         command: 'pw.extension.command.startDevServer',
