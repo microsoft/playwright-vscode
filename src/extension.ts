@@ -533,7 +533,10 @@ export class Extension implements RunHooks {
     };
 
     if (mode === 'debug') {
-      await model.debugTests(items, testListener, testRun.token);
+      const debugEnd = new this._vscode.CancellationTokenSource();
+      testRun.token.onCancellationRequested(() => debugEnd.cancel());
+      this._vscode.debug.onDidTerminateDebugSession(() => debugEnd.cancel());
+      await model.debugTests(items, testListener, debugEnd.token);
     } else {
       // Force trace viewer update to surface check version errors.
       await this._models.selectedModel()?.updateTraceViewer(mode === 'run')?.willRunTests();

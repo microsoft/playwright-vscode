@@ -255,10 +255,11 @@ export class PlaywrightTestServer {
       if (!locations && !testIds)
         return;
 
-      const result = await this._runGlobalHooksInServer(debugTestServer, 'setup', reporter);
+      const result = await Promise.race([
+        this._runGlobalHooksInServer(debugTestServer, 'setup', reporter),
+        new Promise<'cancellationRequested'>(f => token.onCancellationRequested(() => f('cancellationRequested'))),
+      ]);
       if (result !== 'passed')
-        return;
-      if (token?.isCancellationRequested)
         return;
 
       // Locations are regular expressions.
