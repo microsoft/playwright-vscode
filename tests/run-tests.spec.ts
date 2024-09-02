@@ -1246,3 +1246,60 @@ test('should force workers=1 when reusing the browser', async ({ activate, showB
   const testRun = await testController.run();
   expect(testRun.renderLog({ output: true })).toContain('Running 3 tests using 1 worker');
 });
+
+test.describe('runGlobalSetupOnEachRun', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/32121' } }, () => {
+  test.skip(({ overridePlaywrightVersion }) => !!overridePlaywrightVersion, 'old world doesnt have globalSetup');
+
+  function expectOrdering(log: string, items: string[]) {
+    items.forEach(item => expect(log).toContain(item));
+
+    const indices = items.map(item => log.indexOf(item));
+    expect(indices, `log contains entries ${JSON.stringify(items)} in order`).toEqual(indices.sort());
+  }
+
+  const files = {
+    'playwright.config.js': `module.exports = {
+      testDir: 'tests',
+      globalSetup: './globalSetup.js',
+      globalTeardown: './globalTeardown.js',
+    }`,
+    'globalSetup.js': `
+      export default () => console.log('RUNNING SETUP');
+    `,
+    'globalTeardown.js': `
+      export default () => console.log('RUNNING TEARDOWN');
+    `,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', () => {
+        console.log('RUNNING TEST');
+      });
+    `,
+  };
+
+  test('if disabled, should run global setup only once and teardown never automatically', async ({ activate }) => {
+    const { testController } = await activate(files);
+
+    const firstRun = (await testController.run()).renderOutput();
+    expectOrdering(firstRun, ['RUNNING SETUP', 'RUNNING TEST']);
+    expect(firstRun).not.toContain('RUNNING TEARDOWN');
+
+    const secondRun = (await testController.run()).renderOutput();
+    expect(secondRun).toContain('RUNNING TEST');
+    expect(secondRun).not.toContain('RUNNING SETUP');
+    expect(secondRun).not.toContain('RUNNING TEARDOWN');
+  });
+
+  test('should always run global setup and teardown if runGlobalSetupOnEachRun is enabled', async ({ activate }) => {
+    const { testController } = await activate(files, { runGlobalSetupOnEachRun: true });
+
+    const firstRun = (await testController.run()).renderOutput();
+    expectOrdering(firstRun, ['RUNNING SETUP', 'RUNNING TEST']);
+    expect(firstRun).not.toContain('RUNNING TEARDOWN');
+
+    const secondRun = (await testController.run()).renderOutput();
+    expectOrdering(secondRun, ['RUNNING TEARDOWN', 'RUNNING SETUP', 'RUNNING TEST']);
+  });
+});
+
+

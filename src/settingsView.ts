@@ -85,6 +85,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
 
     this._disposables.push(this._settingsModel.onChange(() => {
       this._updateSettings();
+      this._updateActions();
     }));
 
     this._disposables.push(webviewView.onDidChangeVisibility(() => {
@@ -144,6 +145,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         text: this._vscode.l10n.t('Run global setup'),
         location: 'rareActions',
         disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canRunGlobalHooks('setup'),
+        hidden: this._settingsModel.runGlobalSetupOnEachRun.get(),
       },
       {
         command: 'pw.extension.command.runGlobalTeardown',
@@ -151,6 +153,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         text: this._vscode.l10n.t('Run global teardown'),
         location: 'rareActions',
         disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canRunGlobalHooks('teardown'),
+        hidden: this._settingsModel.runGlobalSetupOnEachRun.get(),
       },
       {
         command: 'pw.extension.command.startDevServer',
@@ -283,6 +286,14 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <div class="section-header">${vscode.l10n.t('TOOLS')}</div>
       <div id="actions" class="list"></div>
       <div class="section-header">${vscode.l10n.t('SETUP')}</div>
+      <div class="list">
+        <div>
+          <label>
+            <input type="checkbox" setting="runGlobalSetupOnEachRun"></input>
+            ${vscode.l10n.t('Run global setup on each run')}
+          </label>
+        </div>
+      </div>
       <div id="rareActions" class="list"></div>
     </body>
     <script nonce="${nonce}">
