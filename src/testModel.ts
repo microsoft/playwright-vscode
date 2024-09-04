@@ -462,13 +462,13 @@ export class TestModel extends DisposableBase {
     return false;
   }
 
-  async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2): Promise<reporterTypes.FullResult['status']> {
+  async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<reporterTypes.FullResult['status']> {
     if (!this.canRunGlobalHooks(type))
       return 'passed';
     if (type === 'setup') {
       if (this._ranGlobalSetup)
         return 'passed';
-      const status = await this._playwrightTest.runGlobalHooks('setup', testListener);
+      const status = await this._playwrightTest.runGlobalHooks('setup', testListener, token);
       if (status === 'passed')
         this._ranGlobalSetup = true;
       return status;
@@ -476,7 +476,7 @@ export class TestModel extends DisposableBase {
 
     if (!this._ranGlobalSetup)
       return 'passed';
-    const status = await this._playwrightTest.runGlobalHooks('teardown', testListener);
+    const status = await this._playwrightTest.runGlobalHooks('teardown', testListener, token);
     this._ranGlobalSetup = false;
     return status;
   }
