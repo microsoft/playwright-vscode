@@ -449,8 +449,16 @@ export class TestModel extends DisposableBase {
   }
 
   canRunGlobalHooks(type: 'setup' | 'teardown') {
-    if (type === 'setup')
-      return !this._useLegacyCLIDriver && !this._ranGlobalSetup;
+    if (this._useLegacyCLIDriver)
+      return false;
+
+    if (type === 'setup') {
+      if (this._embedder.settingsModel.runGlobalSetupOnEachRun.get())
+        return true;
+
+      return !this._ranGlobalSetup;
+    }
+
     return this._ranGlobalSetup;
   }
 
@@ -466,7 +474,7 @@ export class TestModel extends DisposableBase {
     if (!this.canRunGlobalHooks(type))
       return 'passed';
     if (type === 'setup') {
-      if (this._ranGlobalSetup)
+      if (!this.canRunGlobalHooks('setup'))
         return 'passed';
       const status = await this._playwrightTest.runGlobalHooks('setup', testListener, token);
       if (status === 'passed')

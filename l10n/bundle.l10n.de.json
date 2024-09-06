@@ -17,6 +17,7 @@
   "Select Playwright Config": "Playwright-Konfiguration auswählen",
   "Show browser mode does not work in remote vscode": "Der Browser kann nicht mit Remote VSCode angezeigt werden", 
   "Show browser": "Browser anzeigen",
+  "Run global setup on each run": "Globales Setup jedesmal ausführen",
   "Show trace viewer": "Trace Viewer anzeigen",
   "Start dev server": "Entwicklungsserver starten",
   "Stop dev server": "Entwicklungsserver stoppen",
