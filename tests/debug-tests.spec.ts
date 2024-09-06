@@ -180,6 +180,49 @@ test('should end test run when stopping the debugging', async ({ activate }, tes
   testRun.token.source.cancel();
 });
 
+test('should end test run when stopping the debugging during config parsing', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'package.json': JSON.stringify({ type: 'module' }),
+    'playwright.config.js': `
+      // Simulate breakpoint via stalling.
+      async function stall() {
+        console.log('READY TO BREAK');
+        await new Promise(() => {});
+      }
+      
+      process.env.STALL_CONFIG === '1' && await stall();
+      export default { testDir: 'tests' }
+    `,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should fail', async () => {});
+    `,
+  }, { env: { STALL_CONFIG: '0' } });
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/fail/);
+
+  const configuration = vscode.workspace.getConfiguration('playwright');
+  configuration.update('env', { STALL_CONFIG: '1' });
+
+  const profile = testController.debugProfile();
+  const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
+  profile.run(testItems);
+  const testRun = await testRunPromise;
+  await expect.poll(() => vscode.debug.output).toContain('READY TO BREAK');
+
+  const endPromise = new Promise(f => testRun.onDidEnd(f));
+  vscode.debug.stopDebugging();
+  await endPromise;
+
+  expect(testRun.renderLog({ messages: true })).toBe(`
+    tests > test.spec.ts > should fail [2:0]
+      enqueued
+  `);
+
+  testRun.token.source.cancel();
+});
+
 test('should pass all args as string[] when debugging', async ({ activate }) => {
   test.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/30829' });
   const { vscode, testController } = await activate({
