@@ -209,9 +209,8 @@ test('should end test run when stopping the debugging during config parsing', as
   const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
   profile.run(testItems);
   const testRun = await testRunPromise;
-  await expect.poll(() => vscode.debug.output).toContain('READY TO BREAK');
-
   const endPromise = new Promise(f => testRun.onDidEnd(f));
+  await expect.poll(() => vscode.debug.output).toContain('READY TO BREAK');
   vscode.debug.stopDebugging();
   await endPromise;
 
