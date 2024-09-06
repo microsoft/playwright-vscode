@@ -524,7 +524,7 @@ export class TestModel extends DisposableBase {
     // Run global setup with the first test.
     let globalSetupResult: reporterTypes.FullResult['status'] = 'passed';
     if (this.canRunGlobalHooks('setup'))
-      globalSetupResult = await this.runGlobalHooks('setup', reporter);
+      globalSetupResult = await this.runGlobalHooks('setup', reporter, token);
     if (globalSetupResult !== 'passed')
       return;
 
@@ -568,7 +568,7 @@ export class TestModel extends DisposableBase {
       return;
 
     // Underlying debugTest implementation will run the global setup.
-    await this.runGlobalHooks('teardown', reporter);
+    await this.runGlobalHooks('teardown', reporter, token);
     if (token?.isCancellationRequested)
       return;
 
