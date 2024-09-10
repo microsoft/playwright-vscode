@@ -107,14 +107,14 @@ export class PlaywrightTestServer {
       teleReceiver.dispatch(message);
   }
 
-  async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
+  async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
     const testServer = await this._testServer();
     if (!testServer)
       return 'failed';
-    return await this._runGlobalHooksInServer(testServer, type, testListener);
+    return await this._runGlobalHooksInServer(testServer, type, testListener, token);
   }
 
-  private async _runGlobalHooksInServer(testServer: TestServerConnection, type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
+  private async _runGlobalHooksInServer(testServer: TestServerConnection, type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
     const teleReceiver = new TeleReporterReceiver(testListener, {
       mergeProjects: true,
       mergeTestCases: true,
@@ -130,12 +130,18 @@ export class PlaywrightTestServer {
     try {
       if (type === 'setup') {
         testListener.onStdOut?.('\x1b[2mRunning global setup if any\u2026\x1b[0m\n');
-        const { report, status } = await testServer.runGlobalSetup({});
+        const { report, status } = await Promise.race([
+          testServer.runGlobalSetup({}),
+          new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
+        ]);
         for (const message of report)
           teleReceiver.dispatch(message);
         return status;
       }
-      const { report, status } = await testServer.runGlobalTeardown({});
+      const { report, status } = await Promise.race([
+        testServer.runGlobalTeardown({}),
+        new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
+      ]);
       for (const message of report)
         teleReceiver.dispatch(message);
       return status;
@@ -218,7 +224,7 @@ export class PlaywrightTestServer {
     const testDirs = this._model.enabledProjects().map(project => project.project.testDir);
 
     let debugTestServer: TestServerConnection | undefined;
-    let disposable: vscodeTypes.Disposable | undefined;
+    const disposables: vscodeTypes.Disposable[] = [];
     try {
       await this._vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
@@ -255,10 +261,8 @@ export class PlaywrightTestServer {
       if (!locations && !testIds)
         return;
 
-      const result = await this._runGlobalHooksInServer(debugTestServer, 'setup', reporter);
+      const result = await this._runGlobalHooksInServer(debugTestServer, 'setup', reporter, token);
       if (result !== 'passed')
-        return;
-      if (token?.isCancellationRequested)
         return;
 
       // Locations are regular expressions.
@@ -271,21 +275,21 @@ export class PlaywrightTestServer {
       };
       debugTestServer.runTests(options);
 
-      token.onCancellationRequested(() => {
+      disposables.push(token.onCancellationRequested(() => {
         debugTestServer!.stopTestsNoReply({});
-      });
-      disposable = debugTestServer.onStdio(params => {
+      }));
+      disposables.push(debugTestServer.onStdio(params => {
         if (params.type === 'stdout')
           reporter.onStdOut?.(unwrapString(params));
         if (params.type === 'stderr')
           reporter.onStdErr?.(unwrapString(params));
-      });
+      }));
       const testEndPromise = this._wireTestServer(debugTestServer, reporter, token);
       await testEndPromise;
     } finally {
-      disposable?.dispose();
+      disposables.forEach(disposable => disposable.dispose());
       if (!token.isCancellationRequested && debugTestServer && !debugTestServer.isClosed())
-        await this._runGlobalHooksInServer(debugTestServer, 'teardown', reporter);
+        await this._runGlobalHooksInServer(debugTestServer, 'teardown', reporter, token);
       debugTestServer?.close();
       await this._options.runHooks.onDidRunTests(true);
     }
