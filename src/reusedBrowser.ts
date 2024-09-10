@@ -56,10 +56,15 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this.onHighlightRequestedForTest = this._onHighlightRequestedForTestEvent.event;
     this._settingsModel = settingsModel;
 
-    this._disposables.push(settingsModel.showBrowser.onChange(value => {
-      if (!value)
-        this.closeAllBrowsers();
-    }));
+    this._disposables.push(
+        this._onPageCountChangedEvent,
+        this._onHighlightRequestedForTestEvent,
+        this._onRunningTestsChangedEvent,
+        settingsModel.showBrowser.onChange(value => {
+          if (!value)
+            this.closeAllBrowsers();
+        }),
+    );
   }
 
   dispose() {

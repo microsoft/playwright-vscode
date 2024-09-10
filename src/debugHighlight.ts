@@ -41,6 +41,8 @@ export class DebugHighlight {
 
     const self = this;
     this._disposables = [
+      this._onErrorInDebuggerEmitter,
+      this._onStdOutEmitter,
       vscode.debug.onDidStartDebugSession(session => {
         if (isPlaywrightSession(session))
           this._debugSessions.set(session.id, session);

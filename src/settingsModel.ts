@@ -60,14 +60,17 @@ export class SettingsModel extends DisposableBase {
     this.runGlobalSetupOnEachRun = this._createSetting('runGlobalSetupOnEachRun');
     this.embeddedTraceViewer = this._createHiddenSetting('embeddedTraceViewer', false);
 
-    this.showBrowser.onChange(enabled => {
-      if (enabled && this.showTrace.get())
-        this.showTrace.set(false);
-    });
-    this.showTrace.onChange(enabled => {
-      if (enabled && this.showBrowser.get())
-        this.showBrowser.set(false);
-    });
+    this._disposables.push(
+        this._onChange,
+        this.showBrowser.onChange(enabled => {
+          if (enabled && this.showTrace.get())
+            this.showTrace.set(false);
+        }),
+        this.showTrace.onChange(enabled => {
+          if (enabled && this.showBrowser.get())
+            this.showBrowser.set(false);
+        }),
+    );
 
     this._modernize();
   }
@@ -140,6 +143,7 @@ class PersistentSetting<T> extends SettingBase<T> {
 
     const settingFQN = `playwright.${settingName}`;
     this._disposables = [
+      this._onChange,
       vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration(settingFQN))
           this._onChange.fire(this.get());
