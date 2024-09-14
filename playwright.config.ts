@@ -41,7 +41,7 @@ export default defineConfig<WorkerOptions>({
     {
       name: 'default-trace',
       use: {
-        showTrace: 'spawn',
+        showTrace: 'test-server',
       }
     },
     {

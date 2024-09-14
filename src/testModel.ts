@@ -32,6 +32,7 @@ import { upstreamTreeItem } from './testTree';
 import { collectTestIds } from './upstream/testTree';
 import { TraceViewer } from './traceViewer';
 import { SpawnTraceViewer } from './spawnTraceViewer';
+import { TestServerTraceViewer } from './testServerTraceViewer';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
@@ -674,8 +675,10 @@ export class TestModel extends DisposableBase {
     if (this._traceViewer)
       return this._traceViewer;
 
-      if (this._checkVersion(1.35, this._vscode.l10n.t('this feature'), userGesture))
-        this._traceViewer = new SpawnTraceViewer(this._vscode, this._embedder.envProvider, this.config);
+    if (this._checkVersion(1.48, this._vscode.l10n.t('this feature'), false))
+      this._traceViewer = new TestServerTraceViewer(this.config, this._playwrightTest as PlaywrightTestServer);
+    else if (this._checkVersion(1.35, this._vscode.l10n.t('this feature'), userGesture))
+      this._traceViewer = new SpawnTraceViewer(this._vscode, this._embedder.envProvider, this.config);
 
     return this._traceViewer;
   }

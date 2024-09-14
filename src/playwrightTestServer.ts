@@ -19,20 +19,21 @@ import { ConfigFindRelatedTestFilesReport, ConfigListFilesReport } from './listT
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
 import { TeleReporterReceiver } from './upstream/teleReceiver';
-import { TestServerConnection } from './upstream/testServerConnection';
+import { TestServerConnection, WebSocketTestServerTransport } from './upstream/testServerConnection';
 import { startBackend } from './backend';
 import type { PlaywrightTestOptions, PlaywrightTestRunOptions } from './playwrightTestTypes';
 import { escapeRegex, pathSeparator } from './utils';
 import { debugSessionName } from './debugSessionName';
 import type { TestModel } from './testModel';
 import { TestServerInterface } from './upstream/testServerInterface';
+import { TraceViewerApp } from './traceViewerApp';
 
 export class PlaywrightTestServer {
   private _vscode: vscodeTypes.VSCode;
   private _options: PlaywrightTestOptions;
   private _model: TestModel;
   private _testServerPromise: Promise<TestServerConnection | null> | undefined;
-  private _serverUrlPrefix?: string;
+  private _wsEndpoint?: string;
 
   constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
@@ -47,7 +48,7 @@ export class PlaywrightTestServer {
   async ensureStartedForTraceViewer() {
     // ensure test server is running
     await this._testServer();
-    return this._serverUrlPrefix;
+    return this._wsEndpoint;
   }
 
   async listFiles(): Promise<ConfigListFilesReport> {
@@ -249,7 +250,7 @@ export class PlaywrightTestServer {
       if (token?.isCancellationRequested)
         return;
       const address = await addressPromise;
-      debugTestServer = new TestServerConnection(address);
+      debugTestServer = new TestServerConnection(new WebSocketTestServerTransport(address));
       await debugTestServer.initialize({
         serializer: require.resolve('./oopReporter'),
         closeOnDisconnect: true,
@@ -309,6 +310,13 @@ export class PlaywrightTestServer {
     return await testServer.findRelatedTestFiles({ files });
   }
 
+  async openTraceViewer(onClose: () => void): Promise<TraceViewerApp> {
+    const testServer = await this._testServer();
+    if (!testServer)
+      throw new Error('Internal error: unable to connect to the test server');
+    return new TraceViewerApp(this._vscode, testServer, this._wsEndpoint!, onClose);
+  }
+
   private _testServer() {
     if (this._testServerPromise)
       return this._testServerPromise;
@@ -317,7 +325,8 @@ export class PlaywrightTestServer {
   }
 
   private async _createTestServer(): Promise<TestServerConnection | null> {
-    const args = [this._model.config.cli, 'test-server', '-c', this._model.config.configFile];
+    const ideArgs = this._model.config.version < 1.48 ? [] : ['--ide-mode'];
+    const args = [this._model.config.cli, 'test-server', '-c', this._model.config.configFile, ...ideArgs];
     const wsEndpoint = await startBackend(this._vscode, {
       args,
       cwd: this._model.config.workspaceFolder,
@@ -337,27 +346,15 @@ export class PlaywrightTestServer {
     });
     if (!wsEndpoint)
       return null;
-    const testServer = new TestServerConnection(wsEndpoint);
+    const testServer = new TestServerConnection(new WebSocketTestServerTransport(wsEndpoint));
     testServer.onTestFilesChanged(params => this._testFilesChanged(params.testFiles));
-    const [serverUrlPrefix] = await Promise.all([
-      this._computeServerUrlPrefix(wsEndpoint),
-      testServer.initialize({
-        serializer: require.resolve('./oopReporter'),
-        interceptStdio: true,
-        closeOnDisconnect: true,
-      }),
-    ]);
-    this._serverUrlPrefix = serverUrlPrefix;
+    await testServer.initialize({
+      serializer: require.resolve('./oopReporter'),
+      interceptStdio: true,
+      closeOnDisconnect: true,
+    });
+    this._wsEndpoint = wsEndpoint;
     return testServer;
-  }
-
-  private async _computeServerUrlPrefix(wsEndpoint: string) {
-    const serverUrl = new URL(wsEndpoint);
-    serverUrl.protocol = serverUrl.protocol === 'wss' ? 'https' : 'http';
-    if (this._vscode.env.remoteName && ['[::1]', '0.0.0.0'].includes(serverUrl.hostname))
-      serverUrl.hostname = 'localhost';
-    const serverUri = await this._vscode.env.asExternalUri(this._vscode.Uri.parse(serverUrl.origin));
-    return serverUri.toString().replace(/\/$/, '');
   }
 
   private async _wireTestServer(testServer: TestServerConnection, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {

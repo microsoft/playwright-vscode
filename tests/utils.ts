@@ -43,7 +43,7 @@ type TestFixtures = {
 export type WorkerOptions = {
   overridePlaywrightVersion?: number;
   showBrowser: boolean;
-  showTrace?: 'spawn';
+  showTrace?: 'spawn' | 'test-server';
   vsCodeVersion: number;
 };
 
