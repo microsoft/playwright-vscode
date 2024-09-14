@@ -21,6 +21,7 @@ import { JsonEvent } from './teleReceiver';
 // -- Reuse boundary -- Everything below this line is taken from playwright core.
 
 export type ReportEntry = JsonEvent;
+export type TraceViewerEvent = JsonEvent;
 
 export interface TestServerInterface {
   initialize(params: {
@@ -28,6 +29,7 @@ export interface TestServerInterface {
     closeOnDisconnect?: boolean,
     interceptStdio?: boolean,
     watchTestDirs?: boolean,
+    populateDependenciesOnList?: boolean,
   }): Promise<void>;
 
   ping(params: {}): Promise<void>;
@@ -44,7 +46,7 @@ export interface TestServerInterface {
 
   installBrowsers(params: {}): Promise<void>;
 
-  runGlobalSetup(params: {}): Promise<{
+  runGlobalSetup(params: { outputDir?: string }): Promise<{
     report: ReportEntry[],
     status: reporterTypes.FullResult['status']
   }>;
@@ -79,6 +81,9 @@ export interface TestServerInterface {
   listTests(params: {
     projects?: string[];
     locations?: string[];
+    grep?: string;
+    grepInvert?: string;
+    outputDir?: string;
   }): Promise<{
     report: ReportEntry[],
     status: reporterTypes.FullResult['status']
@@ -110,21 +115,27 @@ export interface TestServerInterface {
 
   stopTests(params: {}): Promise<void>;
 
+  openTraceViewer(params: { traceViewerURL: string; openInBrowser?: boolean }): Promise<void>;
+
+  closeTraceViewer(params: {}): Promise<void>;
+
+  dispatchTraceViewerEvent(params: { method: string; params: any; }): Promise<void>;
+
   closeGracefully(params: {}): Promise<void>;
 }
 
 export interface TestServerInterfaceEvents {
   onReport: Event<any>;
   onStdio: Event<{ type: 'stdout' | 'stderr', text?: string, buffer?: string }>;
-  onListChanged: Event<void>;
   onTestFilesChanged: Event<{ testFiles: string[] }>;
   onLoadTraceRequested: Event<{ traceUrl: string }>;
+  onTraceViewerEvent: Event<{ method: string; params: any; }>;
 }
 
 export interface TestServerInterfaceEventEmitters {
   dispatchEvent(event: 'report', params: ReportEntry): void;
   dispatchEvent(event: 'stdio', params: { type: 'stdout' | 'stderr', text?: string, buffer?: string }): void;
-  dispatchEvent(event: 'listChanged', params: {}): void;
   dispatchEvent(event: 'testFilesChanged', params: { testFiles: string[] }): void;
   dispatchEvent(event: 'loadTraceRequested', params: { traceUrl: string }): void;
+  dispatchEvent(event: 'traceViewerEvent', params: { method: string; params: any; }): void;
 }
