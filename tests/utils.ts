@@ -43,7 +43,7 @@ type TestFixtures = {
 export type WorkerOptions = {
   overridePlaywrightVersion?: number;
   showBrowser: boolean;
-  showTrace?: 'spawn' | 'embedded';
+  showTrace?: 'spawn';
   vsCodeVersion: number;
 };
 
@@ -150,12 +150,10 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
       if (showTrace) {
         configuration.update('showTrace', true);
 
-        // prevents spawn trace viewer process from opening app and browser
+        // prevents trace viewer from opening app and browser
         vscode.env.remoteName = 'ssh-remote';
         process.env.PWTEST_UNDER_TEST = '1';
       }
-      if (showTrace === 'embedded')
-        configuration.update('embeddedTraceViewer', true);
 
       const extension = new Extension(vscode, vscode.context);
       if (overridePlaywrightVersion)
