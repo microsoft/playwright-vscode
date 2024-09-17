@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import { t, parse, ParseResult, traverse, SourceLocation } from './babelBundle';
+import path from 'path';
+import { t, parse, ParseResult, traverse, SourceLocation, babelPresetTypescript, babelPluginProposalDecorators } from './babelBundle';
 import { asyncMatchers, pageMethods, locatorMethods } from './methodNames';
 
 const astCache = new Map<string, { text: string, ast?: ParseResult }>();
@@ -37,7 +38,16 @@ export function locatorForSourcePosition(text: string, vars: { pages: string[], 
   let ast = cached?.ast;
   if (!cached || cached.text !== text) {
     try {
-      ast = parse(text, { errorRecovery: true, plugins: ['typescript', 'jsx'], sourceType: 'module' });
+      ast = parse(text, {
+        filename: path.basename(fsPath),
+        plugins: [
+          [babelPluginProposalDecorators, { version: '2023-05' }],
+        ],
+        presets: [[babelPresetTypescript, { onlyRemoveTypeImports: false }]],
+        babelrc: false,
+        configFile: false,
+        sourceType: 'module',
+      });
       astCache.set(fsPath, { text, ast });
     } catch (e) {
       astCache.set(fsPath, { text, ast: undefined });

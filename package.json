@@ -137,7 +137,7 @@
     }
   },
   "scripts": {
-    "esbuild": "esbuild ./src/babelBundle.ts ./src/extension.ts ./src/oopReporter.ts ./src/debugTransform.ts  ./src/playwrightFinder.ts --bundle --outdir=out --external:vscode --external:./babelBundle --external:./debugTransform --external:./oopReporter --external:./playwrightFinder --format=cjs --platform=node --target=ES2019",
+    "esbuild": "esbuild ./src/babelBundle.ts ./src/extension.ts ./src/oopReporter.ts ./src/debugTransform.ts ./src/playwrightFinder.ts --bundle --outdir=out --external:vscode --external:./babelBundle --external:./debugTransform --external:./oopReporter --external:./playwrightFinder --format=cjs --platform=node --target=ES2019",
     "build": "npm run esbuild -- --minify",
     "watch": "npm run esbuild -- --sourcemap --watch",
     "l10n": "npx @vscode/l10n-dev export -o ./l10n ./src",
@@ -165,7 +165,7 @@
     "@typescript-eslint/parser": "^7.3.1",
     "@vscode/l10n-dev": "^0.0.24",
     "@vscode/vsce": "^3.0.0",
-    "esbuild": "^0.15.15",
+    "esbuild": "^0.23.1",
     "eslint": "^8.57.0",
     "eslint-plugin-notice": "^0.9.10",
     "eslint-plugin-react-hooks": "^4.6.0",
@@ -175,7 +175,7 @@
   "dependencies": {
     "@babel/core": "^7.23.2",
     "@babel/helper-plugin-utils": "^7.22.5",
-    "@babel/parser": "^7.23.0",
+    "@babel/plugin-proposal-decorators": "^7.24.7",
     "@babel/traverse": "^7.23.2",
     "stack-utils": "^2.0.6",
     "which": "^4.0.0",
