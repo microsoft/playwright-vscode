@@ -54,6 +54,18 @@ test('should work', async ({ activate }) => {
           this.myElementTwo1 = this._page.getByRole('button', { name: 'two' }); // line 16
           this.myElementOne2 = this.page.getByRole('button', { name: 'one' });  // line 17
         }
+
+        @step // decorators require a babel plugin
+        myMethod() {}
+      }
+
+      function step(target: Function, context: ClassMethodDecoratorContext) {
+        return function replacementMethod(...args: any) {
+          const name = this.constructor.name + '.' + (context.name as string);
+          return test.step(name, async () => {
+            return await target.call(this, ...args);
+          });
+        };
       }
     `,
   });
