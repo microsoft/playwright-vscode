@@ -113,8 +113,12 @@ class Range {
     }
   }
 
+  clone(): Range {
+    return new Range(this.start.line, this.start.character, this.end.line, this.end.character);
+  }
+
   toString() {
-    return `[${this.start.toString()} - ${this.start.toString()}]`;
+    return `[${this.start.toString()} - ${this.end.toString()}]`;
   }
 }
 
@@ -571,27 +575,41 @@ type Decoration = { type?: number, range: Range, renderOptions?: any };
 
 class TextDocument {
   uri: Uri;
-  text: string = '';
   lines: string[] = [];
 
   constructor(uri: Uri) {
     this.uri = uri;
   }
 
-  getText() {
-    return this.text;
+  get text() {
+    return this.lines.join('\n');
+  }
+
+  getText(selection?: Range) {
+    if (!selection)
+      return this.text;
+    const start = selection.start;
+    const end = selection.end;
+    if (start.line === end.line)
+      return this.lines[start.line].substring(start.character, end.character);
+    const result = [];
+    result.push(this.lines[start.line].substring(start.character));
+    for (let i = start.line + 1; i < end.line; ++i)
+      result.push(this.lines[i]);
+    result.push(this.lines[end.line].substring(0, end.character));
+    return result.join('\n');
   }
 
   async _load() {
-    this.text = await fs.promises.readFile(this.uri.fsPath, 'utf-8');
-    this.lines = this.text.split('\n');
+    const text = await fs.promises.readFile(this.uri.fsPath, 'utf-8');
+    this.lines = text.split('\n');
   }
 
   lineAt(i: number) {
     const line = this.lines[i];
     return {
       text: line,
-      isEmptyOrWhitespace: !!line.replace(/\s/g, '').trim(),
+      isEmptyOrWhitespace: !line.replace(/\s/g, '').trim(),
       firstNonWhitespaceCharacterIndex: line.match(/^\s*/g)![0].length
     };
   }
@@ -601,7 +619,7 @@ class TextEditor {
   readonly document: TextDocument;
   private _log: string[] = [];
   private _state = new Map<number, Decoration[]>();
-  readonly edits: { text: string, range: string }[] = [];
+  readonly edits: { range: string, from: string, to: string }[] = [];
   selection = new Selection(0, 0, 0, 0);
 
   constructor(document: TextDocument) {
@@ -633,16 +651,37 @@ class TextEditor {
     return trimLog(result.join(`\n${indent}`)) + `\n${indent}`;
   }
 
+  renderWithSelection() {
+    // render with selection wrapped with <selection> tag
+    const prefix = this.document.getText(new Range(0, 0, this.selection.start.line, this.selection.start.character));
+    const selection = this.document.getText(this.selection);
+    const suffix = this.document.getText(new Range(this.selection.end.line, this.selection.end.character, this.document.lines.length - 1, this.document.lines[this.document.lines.length - 1].length));
+    return `${prefix}<selection>${selection}</selection>${suffix}`;
+  }
+
   edit(editCallback: any) {
     editCallback({
       replace: (range: Range, text: string) => {
-        this.edits.push({ range: range.toString(), text });
-        this.selection = range;
-        const lines = text.split('\n');
-        const lastLine = lines[lines.length - 1];
-        const endOfLastLine = new Position(range.end.line + (lines.length - 1), lines.length > 1 ? lastLine.length : range.end.character + lastLine.length);
-        this.selection.start = endOfLastLine;
+        const from = this.renderWithSelection();
+        const lines = this.document.text.split('\n');
+        const editLines = text.split('\n');
+        const newLines = lines.slice(0, range.start.line);
+        if (editLines.length === 1) {
+          newLines.push(lines[range.start.line].substring(0, range.start.character) + text + lines[range.end.line].substring(range.end.character));
+        } else {
+          newLines.push(lines[range.start.line].substring(0, range.start.character) + editLines[0]);
+          newLines.push(...editLines.slice(1, -1));
+          newLines.push(editLines[editLines.length - 1] + lines[range.end.line].substring(range.end.character));
+        }
+        newLines.push(...lines.slice(range.end.line + 1));
+        this.document.lines = newLines;
+
+        this.selection = range.clone();
+        const lastLine = editLines[editLines.length - 1];
+        const endOfLastLine = new Position(range.start.line + (editLines.length - 1), editLines.length > 1 ? lastLine.length : range.start.character + lastLine.length);
         this.selection.end = endOfLastLine;
+
+        this.edits.push({ range: range.toString(), from, to: this.renderWithSelection() });
       }
     });
   }
