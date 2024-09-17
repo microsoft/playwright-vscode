@@ -164,7 +164,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
             if (!this._editor)
               return;
             const action = params.actions[params.actions.length - 1];
-            editBuilder.replace(this._editor.selection, indentBlock(action, targetIndentation));
+            const newText = indentBlock(action, targetIndentation);
+            if (this._editor.document.getText(this._editor.selection) !== newText)
+              editBuilder.replace(this._editor.selection, newText);
           });
           const selectionEnd = this._editor.selection.end;
           this._editor.selection = new this._vscode.Selection(selectionStart, selectionEnd);

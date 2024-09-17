@@ -35,16 +35,45 @@ test('should generate code', async ({ activate }) => {
   await expect.poll(() => {
     return vscode.window.visibleTextEditors[0]?.edits;
   }).toEqual([{
-    range: '[3:2 - 3:2]',
-    text: `await page.goto('about:blank');`,
+    from: `import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  <selection>// Recording...</selection>
+});`,
+    range: '[3:2 - 3:17]',
+    to: `import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  <selection>await page.goto('about:blank');</selection>
+});`
   },
   {
-    range: '[3:48 - 3:48]',
-    text: `
-`,
+    from: `import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  <selection>await page.goto('about:blank');</selection>
+});`,
+    range: '[3:33 - 3:33]',
+    to: `import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  await page.goto('about:blank');<selection>
+  </selection>
+});`
   },
   {
-    range: '[4:0 - 4:0]',
-    text: `await page.locator('body').click();`,
+    from: `import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  await page.goto('about:blank');
+  <selection></selection>
+});`,
+    range: '[4:2 - 4:2]',
+    to: `import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  await page.goto('about:blank');
+  <selection>await page.locator('body').click();</selection>
+});`
   }]);
 });
