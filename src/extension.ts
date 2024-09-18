@@ -156,6 +156,28 @@ export class Extension implements RunHooks {
       vscode.window.onDidChangeVisibleTextEditors(() => {
         this._updateVisibleEditorItems();
       }),
+      vscode.workspace.onDidSaveTextDocument(savedDocument => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document !== savedDocument)
+          return;
+
+        const root = this._testTree.testItemForFile(editor.document.fileName);
+        if (!root)
+          return;
+
+        const tests = this._testTree.collectTestsInside(root);
+        tests.sort((a, b) => a.range!.start.compareTo(b.range!.start));
+
+        const testsToRun: vscodeTypes.TestItem[] = [];
+        for (const savedRange of editor.selections) {
+          // ideally, we also knew the test end and could check for containment instead of order
+          const firstMatchingTest = tests.findLast(test => test.range?.start.isBeforeOrEqual(savedRange.start));
+          if (firstMatchingTest)
+            testsToRun.push(firstMatchingTest);
+        }
+
+        this._queueTestRun(testsToRun, 'run');
+      }),
       vscode.commands.registerCommand('pw.extension.install', async () => {
         await installPlaywright(this._vscode);
       }),
