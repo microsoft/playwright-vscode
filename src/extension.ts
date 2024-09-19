@@ -353,7 +353,7 @@ export class Extension implements RunHooks {
     const testRun = this._testController.createTestRun(request);
     const testListener = this._errorReportingListener(testRun);
     try {
-      const status = (await this._models.selectedModel()?.runGlobalHooks(type, testListener, testRun.token)) || 'failed';
+      const status = (await this._models.selectedModel()?.runGlobalHooks(type, testListener)) || 'failed';
       return status;
     } finally {
       testRun.end();
@@ -534,10 +534,7 @@ export class Extension implements RunHooks {
     };
 
     if (mode === 'debug') {
-      const debugEnd = new this._vscode.CancellationTokenSource();
-      testRun.token.onCancellationRequested(() => debugEnd.cancel());
-      this._vscode.debug.onDidTerminateDebugSession(() => debugEnd.cancel());
-      await model.debugTests(items, testListener, debugEnd.token);
+      await model.debugTests(items, testListener, testRun.token);
     } else {
       // Force trace viewer update to surface check version errors.
       await this._models.selectedModel()?.updateTraceViewer(mode === 'run')?.willRunTests();
