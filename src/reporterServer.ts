@@ -66,9 +66,15 @@ export class ReporterServer {
     return wsEndpoint;
   }
 
+  private _close() {
+    this._wsServer?.close();
+  }
+
   async wireTestListener(listener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
     let timeout: NodeJS.Timeout | undefined;
-    const transport = await this._waitForTransport();
+    const transport = await this._waitForTransport(token);
+    if (transport === 'cancellationRequested')
+      return;
 
     const killTestProcess = () => {
       if (!transport.isClosed()) {
@@ -105,8 +111,13 @@ export class ReporterServer {
       clearTimeout(timeout);
   }
 
-  private async _waitForTransport(): Promise<ConnectionTransport> {
-    const socket = await this._clientSocketPromise;
+  private async _waitForTransport(token: vscodeTypes.CancellationToken): Promise<ConnectionTransport | 'cancellationRequested'> {
+    const socket = await Promise.race([
+      this._clientSocketPromise,
+      new Promise<'cancellationRequested'>(f => token.onCancellationRequested(() => { this._close(); f('cancellationRequested'); }))
+    ]);
+    if (socket === 'cancellationRequested')
+      return 'cancellationRequested';
 
     const transport: ConnectionTransport = {
       send: function(message): void {

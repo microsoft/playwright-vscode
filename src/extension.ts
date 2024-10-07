@@ -353,7 +353,7 @@ export class Extension implements RunHooks {
     const testRun = this._testController.createTestRun(request);
     const testListener = this._errorReportingListener(testRun);
     try {
-      const status = (await this._models.selectedModel()?.runGlobalHooks(type, testListener)) || 'failed';
+      const status = (await this._models.selectedModel()?.runGlobalHooks(type, testListener, testRun.token)) || 'failed';
       return status;
     } finally {
       testRun.end();
