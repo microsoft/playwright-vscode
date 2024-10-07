@@ -316,10 +316,15 @@ export class PlaywrightTestServer {
   }
 
   private async _createTestServer(): Promise<TestServerConnection | null> {
-    const args = [this._model.config.cli, 'test-server', '-c', this._configPath()];
+    const cwd = this._model.config.workspaceFolder;
+    const args = [
+      path.relative(cwd, this._model.config.cli),
+      'test-server',
+      '-c', this._configPath()
+    ];
     const wsEndpoint = await startBackend(this._vscode, {
       args,
-      cwd: this._model.config.workspaceFolder,
+      cwd,
       envProvider: () => {
         return {
           ...this._options.envProvider(),
