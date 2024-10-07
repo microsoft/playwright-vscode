@@ -175,6 +175,23 @@ export class PlaywrightTestCLI {
     const reporterServer = new ReporterServer(this._vscode);
     const testOptions = await this._options.runHooks.onWillRunTests(this._model.config, true);
     try {
+      const debugEnd = new this._vscode.CancellationTokenSource();
+      token.onCancellationRequested(() => debugEnd.cancel());
+
+      let mainDebugRun: vscodeTypes.DebugSession | undefined;
+      this._vscode.debug.onDidStartDebugSession(session => {
+        if (session.name === debugSessionName)
+          mainDebugRun ??= session;
+      });
+      this._vscode.debug.onDidTerminateDebugSession(session => {
+        // child processes have their own debug sessions,
+        // but we only want to stop debugging if the user cancels the main session
+        if (session.id === mainDebugRun?.id)
+          debugEnd.cancel();
+      });
+
+      token = debugEnd.token;
+
       await this._vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
         name: debugSessionName,
