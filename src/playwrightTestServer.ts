@@ -199,11 +199,14 @@ export class PlaywrightTestServer {
     disposable.dispose();
   }
 
-  async debugTests(items: vscodeTypes.TestItem[], runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+  private _configPath() {
     // Important, VSCode will change c:\\ to C:\\ in the program argument.
     // This forks globals into 2 worlds, hence we specify it relative than absolute.
-    const configFile = path.relative(this._model.config.workspaceFolder, this._model.config.configFile);
-    const args = ['test-server', '-c', configFile];
+    return path.relative(this._model.config.workspaceFolder, this._model.config.configFile);
+  }
+
+  async debugTests(items: vscodeTypes.TestItem[], runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+    const args = ['test-server', '-c', this._configPath()];
 
     const addressPromise = new Promise<string>(f => {
       const disposable = this._options.onStdOut(output => {
@@ -313,7 +316,7 @@ export class PlaywrightTestServer {
   }
 
   private async _createTestServer(): Promise<TestServerConnection | null> {
-    const args = [this._model.config.cli, 'test-server', '-c', this._model.config.configFile];
+    const args = [this._model.config.cli, 'test-server', '-c', this._configPath()];
     const wsEndpoint = await startBackend(this._vscode, {
       args,
       cwd: this._model.config.workspaceFolder,
