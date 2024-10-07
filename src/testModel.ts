@@ -648,7 +648,7 @@ export class TestModel extends DisposableBase {
       if (treeItem.kind === 'group' && (treeItem.subKind === 'folder' || treeItem.subKind === 'file')) {
         for (const file of this.enabledFiles()) {
           if (file === treeItem.location.file || file.startsWith(treeItem.location.file))
-            locations.add(treeItem.location.file);
+            locations.add(path.relative(this.config.workspaceFolder, treeItem.location.file));
         }
       } else {
         testIds.push(...collectTestIds(treeItem));
