@@ -231,7 +231,7 @@ export class PlaywrightTestServer {
 
       let mainDebugRun: vscodeTypes.DebugSession | undefined;
       this._vscode.debug.onDidStartDebugSession(session => {
-        if (session.name === 'Playwright Test')
+        if (session.name === debugSessionName)
           mainDebugRun ??= session;
       });
       this._vscode.debug.onDidTerminateDebugSession(session => {
