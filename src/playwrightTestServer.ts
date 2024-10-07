@@ -226,6 +226,23 @@ export class PlaywrightTestServer {
     let debugTestServer: TestServerConnection | undefined;
     const disposables: vscodeTypes.Disposable[] = [];
     try {
+      const debugEnd = new this._vscode.CancellationTokenSource();
+      token.onCancellationRequested(() => debugEnd.cancel());
+
+      let mainDebugRun: vscodeTypes.DebugSession | undefined;
+      this._vscode.debug.onDidStartDebugSession(session => {
+        if (session.name === 'Playwright Test')
+          mainDebugRun ??= session;
+      });
+      this._vscode.debug.onDidTerminateDebugSession(session => {
+        // child processes have their own debug sessions,
+        // but we only want to stop debugging if the user cancels the main session
+        if (session.id === mainDebugRun?.id)
+          debugEnd.cancel();
+      });
+
+      token = debugEnd.token;
+
       await this._vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
         name: debugSessionName,
