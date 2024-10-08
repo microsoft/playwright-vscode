@@ -17,7 +17,6 @@
 import { enableConfigs, expect, selectConfig, selectTestItem, test, traceViewerInfo } from './utils';
 
 test.skip(({ showTrace }) => !showTrace);
-test.skip(({ showTrace, overridePlaywrightVersion }) => overridePlaywrightVersion && showTrace === 'embedded');
 
 test('@smoke should open trace viewer', async ({ activate, showTrace }) => {
   const { vscode, testController } = await activate({
@@ -130,7 +129,7 @@ test('should close trace viewer if test configs refreshed', async ({ activate, s
     traceFile: expect.stringContaining('pass'),
   });
 
-  await testController.refreshHandler(null);
+  await testController.refreshHandler?.(null);
 
   await expect.poll(() => traceViewerInfo(vscode)).toMatchObject({
     type: showTrace,

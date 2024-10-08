@@ -1141,7 +1141,6 @@ export class VSCode {
       'playwright.env': {},
       'playwright.reuseBrowser': false,
       'playwright.showTrace': false,
-      'playwright.embeddedTraceViewer': false,
       'playwright.runGlobalSetupOnEachRun': false,
       'workbench.colorTheme': 'Dark Modern',
     };
