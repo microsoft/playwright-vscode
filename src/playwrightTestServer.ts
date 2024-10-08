@@ -205,6 +205,17 @@ export class PlaywrightTestServer {
     return path.relative(this._model.config.workspaceFolder, this._model.config.configFile);
   }
 
+  private _ensureUpperCaseDriveLetter(cwd: string) {
+    if (process.platform !== 'win32')
+      return cwd;
+
+    // Important, VSCode gives us paths starting with c:\\
+    // Using that as CWD leads to https://github.com/microsoft/playwright/issues/9193,
+    // which is very hard to fix.
+    // We can work around by always uppercasing our CWD drive letter.
+    return cwd[0].toUpperCase() + cwd.substring(1);
+  }
+
   async debugTests(items: vscodeTypes.TestItem[], runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const args = ['test-server', '-c', this._configPath()];
 
@@ -324,7 +335,7 @@ export class PlaywrightTestServer {
     ];
     const wsEndpoint = await startBackend(this._vscode, {
       args,
-      cwd,
+      cwd: this._ensureUpperCaseDriveLetter(cwd),
       envProvider: () => {
         return {
           ...this._options.envProvider(),
