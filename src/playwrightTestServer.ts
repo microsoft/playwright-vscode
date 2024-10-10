@@ -202,7 +202,20 @@ export class PlaywrightTestServer {
   private _normalizePaths() {
     let cwd = this._model.config.workspaceFolder;
     if (process.platform === 'win32') {
-      // TODO: long comment
+      /**
+       * The Windows Filesystem is case-insensitive, but Node.js module loading is case-sensitive.
+       * That means that on Windows, C:\foo and c:\foo point to the same file,
+       * but on Node.js require-ing both of them will result in two instances of the file.
+       * This can lead to two instances of @playwright/test being loaded, which can't happen.
+       *
+       * On top of that, Node.js' require algorithm sometimes turns `c:\foo` into `C:\foo`.
+       * So we need to make sure that we always pass uppercase paths to Node.js.
+       *
+       * VS Code knows about this problem and already performs this for us, e.g. when we call `vscode.debug.startDebugging`.
+       * But lots of other places do not, like Playwright's `--config <file>` or the CWD passed into node:child_process.
+       *
+       * More on this in https://github.com/microsoft/playwright-vscode/pull/538#issuecomment-2404265216.
+       */
       cwd = cwd[0].toUpperCase() + cwd.substring(1);
     }
     return {
@@ -324,13 +337,12 @@ export class PlaywrightTestServer {
 
   private async _createTestServer(): Promise<TestServerConnection | null> {
     const paths = this._normalizePaths();
-    const args = [
-      paths.cli,
-      'test-server',
-      '-c', paths.config,
-    ];
     const wsEndpoint = await startBackend(this._vscode, {
-      args,
+      args: [
+        paths.cli,
+        'test-server',
+        '-c', paths.config,
+      ],
       cwd: paths.cwd,
       envProvider: () => {
         return {
