@@ -199,26 +199,20 @@ export class PlaywrightTestServer {
     disposable.dispose();
   }
 
-  private _configPath() {
-    // Important, VSCode will change c:\\ to C:\\ in the program argument.
-    // This forks globals into 2 worlds, hence we specify it relative than absolute.
-    return path.relative(this._model.config.workspaceFolder, this._model.config.configFile);
-  }
-
-  private _ensureUpperCaseDriveLetter(cwd: string) {
-    if (process.platform !== 'win32')
-      return cwd;
-
-    // Important, VSCode gives us paths starting with c:\\
-    // Using that as CWD leads to https://github.com/microsoft/playwright/issues/9193,
-    // which is very hard to fix.
-    // We can work around by always uppercasing our CWD drive letter.
-    return cwd[0].toUpperCase() + cwd.substring(1);
+  private _normalizePaths() {
+    let cwd = this._model.config.workspaceFolder;
+    if (process.platform === 'win32') {
+      // TODO: long comment
+      cwd = cwd[0].toUpperCase() + cwd.substring(1);
+    }
+    return {
+      cwd,
+      cli: path.relative(cwd, this._model.config.cli),
+      config: path.relative(cwd, this._model.config.configFile),
+    };
   }
 
   async debugTests(items: vscodeTypes.TestItem[], runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
-    const args = ['test-server', '-c', this._configPath()];
-
     const addressPromise = new Promise<string>(f => {
       const disposable = this._options.onStdOut(output => {
         const match = output.match(/Listening on (.*)/);
@@ -234,11 +228,13 @@ export class PlaywrightTestServer {
     let debugTestServer: TestServerConnection | undefined;
     let disposable: vscodeTypes.Disposable | undefined;
     try {
+      const paths = this._normalizePaths();
+
       await this._vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
         name: debugSessionName,
         request: 'launch',
-        cwd: this._model.config.workspaceFolder,
+        cwd: paths.cwd,
         env: {
           ...process.env,
           CI: this._options.isUnderTest ? undefined : process.env.CI,
@@ -250,8 +246,8 @@ export class PlaywrightTestServer {
           PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
           PWDEBUG: 'console',
         },
-        program: this._model.config.cli,
-        args,
+        program: paths.cli,
+        args: ['test-server', '-c', paths.config],
       });
 
       if (token?.isCancellationRequested)
@@ -327,15 +323,15 @@ export class PlaywrightTestServer {
   }
 
   private async _createTestServer(): Promise<TestServerConnection | null> {
-    const cwd = this._model.config.workspaceFolder;
+    const paths = this._normalizePaths();
     const args = [
-      path.relative(cwd, this._model.config.cli),
+      paths.cli,
       'test-server',
-      '-c', this._configPath()
+      '-c', paths.config,
     ];
     const wsEndpoint = await startBackend(this._vscode, {
       args,
-      cwd: this._ensureUpperCaseDriveLetter(cwd),
+      cwd: paths.cwd,
       envProvider: () => {
         return {
           ...this._options.envProvider(),
