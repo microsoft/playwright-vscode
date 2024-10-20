@@ -33,9 +33,9 @@ test('should show tracer when test runs', async ({ activate }) => {
 
   const webview = await singleWebViewByPanelType(vscode, 'playwright.traceviewer.view')!;
 
-  const listItem = webview.frameLocator('iframe').getByTestId('actions-tree').getByRole('listitem');
+  const treeItem = webview.frameLocator('iframe').getByTestId('actions-tree').getByRole('treeitem');
   await expect(
-      listItem,
+      treeItem,
       'action list'
   ).toHaveText([
     /Before Hooks[\d.]+m?s/,
@@ -377,7 +377,7 @@ test('should restore webview state when moving', async ({ activate }) => {
 
   await vscode.changeVisibility(webview, 'visible');
 
-  const listItem = webview.frameLocator('iframe').getByTestId('actions-tree').getByRole('listitem');
+  const listItem = webview.frameLocator('iframe').getByTestId('actions-tree').getByRole('treeitem');
   await expect(
       listItem,
       'action list'
@@ -408,7 +408,7 @@ test('should open source location in vscode', async ({ activate }) => {
 
   const webview = await singleWebViewByPanelType(vscode, 'playwright.traceviewer.view')!;
   const iframe = webview.frameLocator('iframe');
-  await iframe.getByTestId('actions-tree').getByRole('listitem').filter({ hasText: 'page.setContent' }).click();
+  await iframe.getByTestId('actions-tree').getByRole('treeitem').filter({ hasText: 'page.setContent' }).click();
   await iframe.getByTitle('Source').click();
   await iframe.getByTitle('Open in VS Code').click();
 
