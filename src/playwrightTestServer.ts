@@ -369,6 +369,8 @@ export class PlaywrightTestServer {
         return {
           ...this._options.envProvider(),
           FORCE_COLOR: '1',
+          // Reset VSCode's options that affect nested Electron.
+          ELECTRON_RUN_AS_NODE: undefined,
         };
       },
       dumpIO: false,
