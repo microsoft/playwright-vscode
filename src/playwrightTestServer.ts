@@ -271,6 +271,7 @@ export class PlaywrightTestServer {
         name: debugSessionName,
         request: 'launch',
         cwd: paths.cwd,
+        skipFiles: ['<node_internals>/**', '**/node_modules/playwright/**', '**/node_modules/playwright-core/**'],
         env: {
           ...process.env,
           CI: this._options.isUnderTest ? undefined : process.env.CI,

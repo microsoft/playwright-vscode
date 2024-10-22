@@ -197,6 +197,7 @@ export class PlaywrightTestCLI {
         name: debugSessionName,
         request: 'launch',
         cwd: configFolder,
+        skipFiles: ['<node_internals>/**', '**/node_modules/playwright/**', '**/node_modules/playwright-core/**'],
         env: {
           ...process.env,
           CI: this._options.isUnderTest ? undefined : process.env.CI,
