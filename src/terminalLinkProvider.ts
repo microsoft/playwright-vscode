@@ -18,17 +18,18 @@ import * as vscodeTypes from './vscodeTypes';
 export function registerTerminalLinkProvider(vscode: vscodeTypes.VSCode): vscodeTypes.Disposable {
   return vscode.window.registerTerminalLinkProvider({
     provideTerminalLinks: (context, token) => {
-      const supportedCommands = /(npx|pnpm exec|yarn) playwright (show-report|show-trace|install).*$/;
+      // The end is either two spaces (box is expanded) or the right box character (end of box is reached).
+      const supportedCommands = /((npx|pnpm exec|yarn) playwright (show-report|show-trace|install).*?)(  | ║|$)/;
       const match = context.line.match(supportedCommands);
       if (!match)
         return [];
-
+      const command = match[1];
       return [
         {
-          command: match[0],
+          command,
           startIndex: match.index!,
-          length: match[0].length,
-          tooltip: 'Show HTML report',
+          length: command.length,
+          tooltip: `Run ${command}`,
         }
       ];
     },
