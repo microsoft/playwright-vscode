@@ -104,7 +104,7 @@ export class PlaywrightTestCLI {
     const reporterServer = new ReporterServer(this._vscode);
     const paths = normalizePaths(this._model.config);
     const node = await findNode(this._vscode, paths.cwd);
-    const configFolder = path.dirname(paths.config);
+    const configFolder = path.dirname(path.resolve(paths.cwd, paths.config));
     const configFile = path.basename(paths.config);
     const escapedLocations = locations.map(escapeRegex).sort();
 
@@ -143,8 +143,8 @@ export class PlaywrightTestCLI {
     });
 
     const stdio = childProcess.stdio;
-    stdio[1].on('data', data => reporter.onStdOut?.(data));
-    stdio[2].on('data', data => reporter.onStdErr?.(data));
+    stdio[1].on('data', data => console.log(data.toString()) || reporter.onStdOut?.(data));
+    stdio[2].on('data', data => console.log(data.toString()) || reporter.onStdErr?.(data));
     await reporterServer.wireTestListener(reporter, token);
   }
 
