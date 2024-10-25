@@ -24,6 +24,7 @@ import * as reporterTypes from './upstream/reporter';
 import type { PlaywrightTestOptions, PlaywrightTestRunOptions } from './playwrightTestTypes';
 import { debugSessionName } from './debugSessionName';
 import type { TestModel } from './testModel';
+import { normalizePaths } from './playwrightTestServer';
 
 export class PlaywrightTestCLI {
   private _vscode: vscodeTypes.VSCode;
@@ -101,20 +102,22 @@ export class PlaywrightTestCLI {
     // Playwright will restart itself as child process in the ESM mode and won't inherit the 3/4 pipes.
     // Always use ws transport to mitigate it.
     const reporterServer = new ReporterServer(this._vscode);
-    const node = await findNode(this._vscode, this._model.config.workspaceFolder);
-    const configFolder = path.dirname(this._model.config.configFile);
-    const configFile = path.basename(this._model.config.configFile);
+    const paths = normalizePaths(this._model.config);
+    const node = await findNode(this._vscode, paths.cwd);
+    const configFolder = path.dirname(paths.config);
+    const configFile = path.basename(paths.config);
     const escapedLocations = locations.map(escapeRegex).sort();
 
     {
       // For tests.
       const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex).sort();
       const printArgs = extraArgs.filter(a => !a.includes('--repeat-each') && !a.includes('--retries') && !a.includes('--workers') && !a.includes('--trace'));
-      this._log(`${escapeRegex(path.relative(this._model.config.workspaceFolder, configFolder))}> playwright test -c ${configFile}${printArgs.length ? ' ' + printArgs.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
+      this._log(`${escapeRegex(path.relative(paths.cwd, configFolder))}> playwright test -c ${configFile}${printArgs.length ? ' ' + printArgs.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
     }
 
+
     const childProcess = spawn(node, [
-      this._model.config.cli,
+      paths.cli,
       'test',
       '-c', configFile,
       ...extraArgs,
