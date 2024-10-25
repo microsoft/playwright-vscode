@@ -143,8 +143,8 @@ export class PlaywrightTestCLI {
     });
 
     const stdio = childProcess.stdio;
-    stdio[1].on('data', data => console.log(data.toString()) || reporter.onStdOut?.(data));
-    stdio[2].on('data', data => console.log(data.toString()) || reporter.onStdErr?.(data));
+    stdio[1].on('data', data => reporter.onStdOut?.(data));
+    stdio[2].on('data', data => reporter.onStdErr?.(data));
     await reporterServer.wireTestListener(reporter, token);
   }
 
