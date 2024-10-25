@@ -1,0 +1,23 @@
+{
+  "description": "Esegui Playwright Test da Visual Studio Code.",
+  "contributes.command.pw.extension.install": "Installa Playwright",
+  "contributes.command.pw.extension.installBrowsers": "Installa i browser di Playwright",
+  "contributes.command.pw.extension.command.inspect": "Seleziona il locator",
+  "contributes.command.pw.extension.command.clearCache": "Pulisci cache",
+  "contributes.command.pw.extension.command.closeBrowsers": "Chiudi tutti i browser di Playwright",
+  "contributes.command.pw.extension.command.recordNew": "Nuova registrazione",
+  "contributes.command.pw.extension.command.recordAtCursor": "Registra dal cursore",
+  "contributes.command.pw.extension.command.runGlobalSetup": "Esegui il setup globale",
+  "contributes.command.pw.extension.command.runGlobalTeardown": "Esegui il teardown globale",
+  "contributes.command.pw.extension.command.startDevServer": "Inizia il dev server",
+  "contributes.command.pw.extension.command.stopDevServer": "Ferma il dev server",
+  "contributes.command.pw.extension.command.toggleModels": "Attiva/disattiva Playwright configs",
+  "contributes.command.pw.extension.toggle.reuseBrowser": "Attiva/disattiva il riuso del browser Playwright",
+  "contributes.command.pw.extension.toggle.showTrace": "Attiva/disattiva il Trace Viewer di Playwright",
+  "contributes.command.pw.extension.toggle.runGlobalSetupOnEachRun": "Attiva/disattiva il riuso del Playwright global setup",
+  "configuration.playwright.env": "Variabili d'ambiente da passare a Playwright Test.",
+  "configuration.playwright.reuseBrowser": "Mostra & riusa il browser tra i test",
+  "configuration.playwright.showTrace": "Mostra il Trace Viewer.",
+  "configuration.playwright.runGlobalSetupOnEachRun": "Esegui il global setup ad ogni run.",
+  "views.test.pw.extension.settingsView": "Playwright"
+}
