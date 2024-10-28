@@ -742,15 +742,10 @@ export class Extension implements RunHooks {
     return testMessage;
   }
 
-  private _formatError(error: reporterTypes.TestError, tab: string = ''): string {
+  private _formatError(error: reporterTypes.TestError): string {
     const tokens = [error.stack || error.message || error.value || ''];
-    if (error.cause) {
-      tab += '  ';
-      tokens.push(indent('[cause]: ' + this._formatError(error.cause, tab), tab));
-    }
-    function indent(lines: string, tab: string) {
-      return lines.replace(/^(?=.+$)/gm, tab);
-    }
+    if (error.cause)
+      tokens.push('[cause]: ' + this._formatError(error.cause));
     return tokens.join('\n');
   }
 

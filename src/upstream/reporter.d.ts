@@ -696,7 +696,7 @@ export interface TestError {
    * [cause](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause) for the
    * error. Will be null if there is no cause or if the cause is not an instance of [Error] (or its subclass).
    */
-  cause?: TestInfoError;
+  cause?: TestError;
 
   /**
    * Error location in the source code.
