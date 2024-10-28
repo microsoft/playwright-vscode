@@ -719,7 +719,7 @@ export class Extension implements RunHooks {
   }
 
   private _testMessageForTestError(error: reporterTypes.TestError, testItem?: vscodeTypes.TestItem): vscodeTypes.TestMessage {
-    const text = error.stack || error.message || error.value!;
+    const text = this._formatError(error);
     let testMessage: vscodeTypes.TestMessage;
     if (text.includes('Looks like Playwright Test or Playwright')) {
       testMessage = this._testMessageFromHtml(`
@@ -740,6 +740,13 @@ export class Extension implements RunHooks {
       testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.file), position);
     }
     return testMessage;
+  }
+
+  private _formatError(error: reporterTypes.TestError): string {
+    const tokens = [error.stack || error.message || error.value || ''];
+    if (error.cause)
+      tokens.push('[cause]: ' + this._formatError(error.cause));
+    return tokens.join('\n');
   }
 
   playwrightTestLog(): string[] {
