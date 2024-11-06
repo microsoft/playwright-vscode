@@ -17,6 +17,7 @@
 import { TestRun } from './mock/vscode';
 import { enableConfigs, enableProjects, escapedPathSep, expect, selectConfig, test } from './utils';
 import path from 'path';
+import { writeFile } from 'node:fs/promises';
 
 test.skip(({ overridePlaywrightVersion }) => !!overridePlaywrightVersion);
 
@@ -407,6 +408,75 @@ test('should watch two tests in a file', async ({ activate }) => {
       })
     },
   ]);
+});
+
+test('should batch watched tests, not queue', async ({ activate }, testInfo) => {
+  const semaphore = testInfo.outputPath('semaphore.txt');
+  const { testController, workspaceFolder } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/watched.spec.ts': `
+      import { test } from '@playwright/test';
+      test('foo', async () => {
+        console.log('watched content #1');
+      });
+    `,
+    'tests/long-test.spec.ts': `
+      import { test } from '@playwright/test';
+      import { existsSync } from 'node:fs';
+      import { setTimeout } from 'node:timers/promises';
+      test('long test', async () => {
+        console.log('long test started');
+        while (!existsSync('${semaphore}'))
+          await setTimeout(10);
+      });
+    `,
+  });
+
+  await testController.expandTestItems(/.*/);
+  await testController.watch(testController.findTestItems(/watched/));
+
+  // start blocking run
+  const longTestRun = await new Promise<TestRun>(f => {
+    testController.onDidCreateTestRun(f);
+    testController.run(testController.findTestItems(/long-test/));
+  });
+  await expect.poll(() => longTestRun.renderOutput()).toContain('long test started');
+
+  // fill up queue
+  const queuedTestRuns: TestRun[] = [];
+  testController.onDidCreateTestRun(r => queuedTestRuns.push(r));
+  await workspaceFolder.changeFile('tests/watched.spec.ts', `
+    import { test } from '@playwright/test';
+    test('foo', async () => {
+      console.log('watched content #2');
+    });
+  `);
+  await workspaceFolder.changeFile('tests/watched.spec.ts', `
+    import { test } from '@playwright/test';
+    test('foo', async () => {
+      console.log('watched content #3');
+    });
+  `);
+  await workspaceFolder.changeFile('tests/watched.spec.ts', `
+    import { test } from '@playwright/test';
+    test('foo', async () => {
+      console.log('watched content #4');
+    });
+  `);
+
+  // end blocking run to start queued runs
+  await new Promise(async f => {
+    longTestRun.onDidEnd(f);
+    await writeFile(semaphore, '');
+  });
+
+  // wait for another run to be done, so we know the queue is empty
+  await testController.run(testController.findTestItems(/watched/));
+
+  console.log(queuedTestRuns.map(r => r.renderOutput()));
+
+  // one batched run for all changes plus the one above
+  expect(queuedTestRuns.length).toBe(2);
 });
 
 test('should only watch a test from the enabled project when multiple projects share the same test directory', async ({ activate }) => {

@@ -74,6 +74,7 @@ export class Extension implements RunHooks {
   private _debugProfile: vscodeTypes.TestRunProfile;
   private _playwrightTestLog: string[] = [];
   private _commandQueue = Promise.resolve();
+  private _watchRunBatches: Record<string, vscodeTypes.TestItem[]> = {};
   overridePlaywrightVersion: number | null = null;
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
@@ -338,8 +339,24 @@ export class Extension implements RunHooks {
     }
   }
 
-  private async _queueTestRun(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug' | 'watch') {
+  private async _queueTestRun(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug') {
     await this._queueCommand(() => this._runTests(include, mode), undefined);
+  }
+
+  private async _queueWatchRun(include: readonly vscodeTypes.TestItem[], key: 'files' | 'items') {
+    if (key in this._watchRunBatches) {
+      this._watchRunBatches[key].push(...include);
+      return;
+    }
+
+    this._watchRunBatches[key] = [...include];
+    await this._queueCommand(() => {
+      const items = this._watchRunBatches[key];
+      if (items === null)
+        throw new Error(`_watchRunBatches['${key}'] is null, expected array`);
+      delete this._watchRunBatches[key];
+      return this._runTests(items, 'watch');
+    }, undefined);
   }
 
   private async _queueGlobalHooks(type: 'setup' | 'teardown'): Promise<reporterTypes.FullResult['status']> {
@@ -573,10 +590,10 @@ export class Extension implements RunHooks {
     // Run either locations or test ids to always be compatible with the test server (it can run either or).
     if (files.length) {
       const fileItems = files.map(f => this._testTree.testItemForFile(f)).filter(Boolean) as vscodeTypes.TestItem[];
-      await this._queueTestRun(fileItems, 'watch');
+      await this._queueWatchRun(fileItems, 'files');
     }
     if (testItems.length)
-      await this._queueTestRun(testItems, 'watch');
+      await this._queueWatchRun(testItems, 'items');
   }
 
   private async _updateVisibleEditorItems() {
