@@ -550,12 +550,12 @@ export class TestController {
     return [...this.allTestItems.values()].filter(t => label.exec(t.label));
   }
 
-  async run(include?: TestItem[], exclude?: TestItem[], continuous?: boolean): Promise<TestRun> {
+  async run(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {
     const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Run)!;
     return profile.run(include, exclude);
   }
 
-  async watch(include?: TestItem[], exclude?: TestItem[], continuous?: boolean): Promise<TestRunRequest> {
+  async watch(include?: TestItem[], exclude?: TestItem[]): Promise<TestRunRequest> {
     const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Run)!;
     return profile.watch(include, exclude);
   }
