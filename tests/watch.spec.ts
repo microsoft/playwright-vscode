@@ -81,8 +81,7 @@ test('should watch all tests', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${escapedPathSep}test-1\\.spec\\.ts`)],
-        testIds: undefined
+        testIds: [expect.any(String)]
       })
     },
   ]);
@@ -248,8 +247,7 @@ test('should watch tests via helper', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
-        testIds: undefined
+        testIds: [expect.any(String)]
       })
     },
   ]);

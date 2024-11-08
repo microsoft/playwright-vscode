@@ -569,14 +569,29 @@ export class Extension implements RunHooks {
     return testListener;
   }
 
-  private async _runWatchedTests(files: string[], testItems: vscodeTypes.TestItem[]) {
-    // Run either locations or test ids to always be compatible with the test server (it can run either or).
-    if (files.length) {
-      const fileItems = files.map(f => this._testTree.testItemForFile(f)).filter(Boolean) as vscodeTypes.TestItem[];
-      await this._queueTestRun(fileItems, 'watch');
+  private async _runWatchedTests(files: string[], vsCodeItems: vscodeTypes.TestItem[]) {
+    // sync tree for changed files
+    const filesToList = new Set([...files]);
+    for (const item of vsCodeItems) {
+      if (item.uri?.fsPath)
+        filesToList.add(item.uri.fsPath);
     }
-    if (testItems.length)
-      await this._queueTestRun(testItems, 'watch');
+    await this._ensureTestsInAllModels([...filesToList]);
+
+    // collect all files and test items into test ID items.
+    const testItems = [];
+    for (const file of files) {
+      const fileItem = this._testTree.testItemForFile(file);
+      if (!fileItem)
+        continue;
+      testItems.push(...this._testTree.collectTestsInside(fileItem));
+    }
+
+    for (const vsCodeItem of vsCodeItems)
+      testItems.push(...this._testTree.collectTestsInside(vsCodeItem));
+
+    // run the test IDs
+    await this._queueTestRun(testItems, 'watch');
   }
 
   private async _updateVisibleEditorItems() {
