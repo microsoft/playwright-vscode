@@ -345,7 +345,7 @@ export class Extension implements RunHooks {
 
   private async _queueWatchRun(include: readonly vscodeTypes.TestItem[], key: 'files' | 'items') {
     if (key in this._watchRunBatches) {
-      this._watchRunBatches[key].push(...include);
+      this._watchRunBatches[key].push(...include); // `narrowDownLocations` dedupes before sending to the testserver, no need to dedupe here
       return;
     }
 
