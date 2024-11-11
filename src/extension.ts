@@ -74,7 +74,8 @@ export class Extension implements RunHooks {
   private _debugProfile: vscodeTypes.TestRunProfile;
   private _playwrightTestLog: string[] = [];
   private _commandQueue = Promise.resolve();
-  private _watchRunBatches: Record<string, vscodeTypes.TestItem[]> = {};
+  private _watchFilesBatch?: vscodeTypes.TestItem[];
+  private _watchItemsBatch?: vscodeTypes.TestItem[];
   overridePlaywrightVersion: number | null = null;
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
@@ -343,18 +344,28 @@ export class Extension implements RunHooks {
     await this._queueCommand(() => this._runTests(include, mode), undefined);
   }
 
-  private async _queueWatchRun(include: readonly vscodeTypes.TestItem[], key: 'files' | 'items') {
-    if (key in this._watchRunBatches) {
-      this._watchRunBatches[key].push(...include); // `narrowDownLocations` dedupes before sending to the testserver, no need to dedupe here
+  private async _queueWatchRun(include: readonly vscodeTypes.TestItem[], type: 'files' | 'items') {
+    const batch = type === 'files' ? this._watchFilesBatch : this._watchItemsBatch;
+    if (batch) {
+      batch.push(...include); // `narrowDownLocations` dedupes before sending to the testserver, no need to dedupe here
       return;
     }
 
-    this._watchRunBatches[key] = [...include];
+    if (type === 'files')
+      this._watchFilesBatch = [...include];
+    else
+      this._watchItemsBatch = [...include];
+
     await this._queueCommand(() => {
-      const items = this._watchRunBatches[key];
-      if (items === null)
-        throw new Error(`_watchRunBatches['${key}'] is null, expected array`);
-      delete this._watchRunBatches[key];
+      const items = type === 'files' ? this._watchFilesBatch : this._watchItemsBatch;
+      if (typeof items === 'undefined')
+        throw new Error(`_watchRunBatches['${type}'] is undefined, expected array`);
+
+      if (type === 'files')
+        this._watchFilesBatch = undefined;
+      else
+        this._watchItemsBatch = undefined;
+
       return this._runTests(items, 'watch');
     }, undefined);
   }
