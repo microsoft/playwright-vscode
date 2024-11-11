@@ -569,17 +569,10 @@ export class Extension implements RunHooks {
     return testListener;
   }
 
-  private async _runWatchedTests(files: string[], vsCodeItems: vscodeTypes.TestItem[]) {
-    // sync tree for changed files
-    const filesToList = new Set([...files]);
-    for (const item of vsCodeItems) {
-      if (item.uri?.fsPath)
-        filesToList.add(item.uri.fsPath);
-    }
-    await this._ensureTestsInAllModels([...filesToList]);
+  private async _runWatchedTests(files: string[], testItems: vscodeTypes.TestItem[]) {
+    await this._ensureTestsInChangedFiles(files, testItems);
 
-    // collect all files and test items into test ID items.
-    const testItems = [];
+    const items = [];
     for (const file of files) {
       const fileItem = this._testTree.testItemForFile(file);
       if (!fileItem)
@@ -587,16 +580,24 @@ export class Extension implements RunHooks {
       testItems.push(...this._testTree.collectTestsInside(fileItem));
     }
 
-    for (const vsCodeItem of vsCodeItems)
-      testItems.push(...this._testTree.collectTestsInside(vsCodeItem));
+    for (const testItem of testItems)
+      items.push(...this._testTree.collectTestsInside(testItem));
 
-    // run the test IDs
-    await this._queueTestRun(testItems, 'watch');
+    await this._queueTestRun(items, 'watch');
   }
 
   private async _updateVisibleEditorItems() {
     const files = this._vscode.window.visibleTextEditors.map(e => e.document.uri.fsPath);
     await this._ensureTestsInAllModels(files);
+  }
+
+  private async _ensureTestsInChangedFiles(files: string[], testItems: vscodeTypes.TestItem[]) {
+    const filesToList = new Set([...files]);
+    for (const item of testItems) {
+      if (item.uri?.fsPath)
+        filesToList.add(item.uri.fsPath);
+    }
+    await this._ensureTestsInAllModels([...filesToList]);
   }
 
   private async _ensureTestsInAllModels(inputFiles: string[]): Promise<void> {
