@@ -411,6 +411,9 @@ test('should watch two tests in a file', async ({ activate }) => {
 });
 
 test('should batch watched tests, not queue', async ({ activate }, testInfo) => {
+  if (process.platform === 'win32')
+    test.slow();
+
   const semaphore = testInfo.outputPath('semaphore.txt');
   const { testController, workspaceFolder } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
