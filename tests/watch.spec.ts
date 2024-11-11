@@ -473,8 +473,6 @@ test('should batch watched tests, not queue', async ({ activate }, testInfo) => 
   // wait for another run to be done, so we know the queue is empty
   await testController.run(testController.findTestItems(/watched/));
 
-  console.log(queuedTestRuns.map(r => r.renderOutput()));
-
   // one batched run for all changes plus the one above
   expect(queuedTestRuns.length).toBe(2);
 });
