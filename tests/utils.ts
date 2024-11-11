@@ -43,7 +43,7 @@ type TestFixtures = {
 export type WorkerOptions = {
   overridePlaywrightVersion?: number;
   showBrowser: boolean;
-  showTrace?: 'spawn' | 'embedded';
+  showTrace?: boolean;
   vsCodeVersion: number;
 };
 
@@ -154,8 +154,6 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
         vscode.env.remoteName = 'ssh-remote';
         process.env.PWTEST_UNDER_TEST = '1';
       }
-      if (showTrace === 'embedded')
-        configuration.update('embeddedTraceViewer', true);
 
       const extension = new Extension(vscode, vscode.context);
       if (overridePlaywrightVersion)
@@ -257,7 +255,7 @@ export async function singleWebViewByPanelType(vscode: VSCode, viewType: string)
   return vscode.webViewsByPanelType(viewType)[0];
 }
 
-export async function traceViewerInfo(vscode: VSCode): Promise<{ type: 'spawn' | 'embedded', serverUrlPrefix?: string, testConfigFile: string, traceFile: string } | undefined> {
+export async function traceViewerInfo(vscode: VSCode): Promise<{ type: 'spawn', serverUrlPrefix?: string, testConfigFile: string, traceFile: string } | undefined> {
   return await vscode.extensions[0].traceViewerInfoForTest();
 }
 
