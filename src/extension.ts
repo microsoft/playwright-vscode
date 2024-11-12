@@ -74,6 +74,8 @@ export class Extension implements RunHooks {
   private _debugProfile: vscodeTypes.TestRunProfile;
   private _playwrightTestLog: string[] = [];
   private _commandQueue = Promise.resolve();
+  private _watchFilesBatch?: vscodeTypes.TestItem[];
+  private _watchItemsBatch?: vscodeTypes.TestItem[];
   overridePlaywrightVersion: number | null = null;
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
@@ -338,8 +340,34 @@ export class Extension implements RunHooks {
     }
   }
 
-  private async _queueTestRun(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug' | 'watch') {
+  private async _queueTestRun(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug') {
     await this._queueCommand(() => this._runTests(include, mode), undefined);
+  }
+
+  private async _queueWatchRun(include: readonly vscodeTypes.TestItem[], type: 'files' | 'items') {
+    const batch = type === 'files' ? this._watchFilesBatch : this._watchItemsBatch;
+    if (batch) {
+      batch.push(...include); // `narrowDownLocations` dedupes before sending to the testserver, no need to dedupe here
+      return;
+    }
+
+    if (type === 'files')
+      this._watchFilesBatch = [...include];
+    else
+      this._watchItemsBatch = [...include];
+
+    await this._queueCommand(() => {
+      const items = type === 'files' ? this._watchFilesBatch : this._watchItemsBatch;
+      if (typeof items === 'undefined')
+        throw new Error(`_watchRunBatches['${type}'] is undefined, expected array`);
+
+      if (type === 'files')
+        this._watchFilesBatch = undefined;
+      else
+        this._watchItemsBatch = undefined;
+
+      return this._runTests(items, 'watch');
+    }, undefined);
   }
 
   private async _queueGlobalHooks(type: 'setup' | 'teardown'): Promise<reporterTypes.FullResult['status']> {
@@ -573,10 +601,10 @@ export class Extension implements RunHooks {
     // Run either locations or test ids to always be compatible with the test server (it can run either or).
     if (files.length) {
       const fileItems = files.map(f => this._testTree.testItemForFile(f)).filter(Boolean) as vscodeTypes.TestItem[];
-      await this._queueTestRun(fileItems, 'watch');
+      await this._queueWatchRun(fileItems, 'files');
     }
     if (testItems.length)
-      await this._queueTestRun(testItems, 'watch');
+      await this._queueWatchRun(testItems, 'items');
   }
 
   private async _updateVisibleEditorItems() {
