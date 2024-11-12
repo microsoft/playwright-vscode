@@ -240,7 +240,7 @@ test('should pass all args as string[] when debugging', async ({ activate }) => 
   const onDidTerminateDebugSession = new Promise(resolve => vscode.debug.onDidTerminateDebugSession(resolve));
   profile.run(testItems);
   const session = await onDidStartDebugSession;
-  expect(session.configuration.args.filter(arg => typeof arg !== 'string')).toEqual([]);
+  expect(session.configuration.args.filter((arg: any) => typeof arg !== 'string')).toEqual([]);
   await onDidTerminateDebugSession;
 });
 
