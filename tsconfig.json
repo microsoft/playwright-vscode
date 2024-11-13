@@ -9,6 +9,6 @@
     "esModuleInterop": true,
     "noEmit": true
   },
-  "include": ["src", "tests/mock"],
+  "include": ["src", "tests"],
   "exclude": ["node_modules"]
 }

@@ -22,14 +22,22 @@ import readline from 'readline';
 import which from 'which';
 import * as vscodeTypes from './vscodeTypes';
 
-export function calculateSha1(buffer: Buffer | string): string {
-  const hash = crypto.createHash('sha1');
-  hash.update(buffer);
-  return hash.digest('hex');
-}
-
 export function createGuid(): string {
   return crypto.randomBytes(16).toString('hex');
+}
+
+const ansiRegex = new RegExp('([\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~])))', 'g');
+export function stripAnsi(str: string): string {
+  return str.replace(ansiRegex, '');
+}
+
+export function stripBabelFrame(text: string) {
+  const result: string[] =  [];
+  for (const line of text.split('\n')) {
+    if (!line.trim().match(/>?\s*\d*\s*\|/))
+      result.push(line);
+  }
+  return result.join('\n').trim();
 }
 
 export function ansiToHtml(text: string): string {

@@ -54,7 +54,7 @@ test('should show warning message again after refreshing test config', async ({ 
     'Playwright v1.46+ is required for embedded trace viewer to work, v1.43 found'
   ]);
 
-  await testController.refreshHandler(null);
+  await testController.refreshHandler!(null);
 
   await testController.run();
 
