@@ -24,7 +24,7 @@ import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
 import { TestModel, TestModelCollection } from './testModel';
 import { TestTree } from './testTree';
-import { NodeJSNotFoundError, ansiToHtml, getPlaywrightInfo } from './utils';
+import { NodeJSNotFoundError, ansiToHtml, getPlaywrightInfo, stripAnsi, stripBabelFrame } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
@@ -74,6 +74,8 @@ export class Extension implements RunHooks {
   private _debugProfile: vscodeTypes.TestRunProfile;
   private _playwrightTestLog: string[] = [];
   private _commandQueue = Promise.resolve();
+  private _watchFilesBatch?: vscodeTypes.TestItem[];
+  private _watchItemsBatch?: vscodeTypes.TestItem[];
   overridePlaywrightVersion: number | null = null;
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
@@ -338,8 +340,34 @@ export class Extension implements RunHooks {
     }
   }
 
-  private async _queueTestRun(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug' | 'watch') {
+  private async _queueTestRun(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug') {
     await this._queueCommand(() => this._runTests(include, mode), undefined);
+  }
+
+  private async _queueWatchRun(include: readonly vscodeTypes.TestItem[], type: 'files' | 'items') {
+    const batch = type === 'files' ? this._watchFilesBatch : this._watchItemsBatch;
+    if (batch) {
+      batch.push(...include); // `narrowDownLocations` dedupes before sending to the testserver, no need to dedupe here
+      return;
+    }
+
+    if (type === 'files')
+      this._watchFilesBatch = [...include];
+    else
+      this._watchItemsBatch = [...include];
+
+    await this._queueCommand(() => {
+      const items = type === 'files' ? this._watchFilesBatch : this._watchItemsBatch;
+      if (typeof items === 'undefined')
+        throw new Error(`_watchRunBatches['${type}'] is undefined, expected array`);
+
+      if (type === 'files')
+        this._watchFilesBatch = undefined;
+      else
+        this._watchItemsBatch = undefined;
+
+      return this._runTests(items, 'watch');
+    }, undefined);
   }
 
   private async _queueGlobalHooks(type: 'setup' | 'teardown'): Promise<reporterTypes.FullResult['status']> {
@@ -573,10 +601,10 @@ export class Extension implements RunHooks {
     // Run either locations or test ids to always be compatible with the test server (it can run either or).
     if (files.length) {
       const fileItems = files.map(f => this._testTree.testItemForFile(f)).filter(Boolean) as vscodeTypes.TestItem[];
-      await this._queueTestRun(fileItems, 'watch');
+      await this._queueWatchRun(fileItems, 'files');
     }
     if (testItems.length)
-      await this._queueTestRun(testItems, 'watch');
+      await this._queueWatchRun(testItems, 'items');
   }
 
   private async _updateVisibleEditorItems() {
@@ -609,7 +637,7 @@ export class Extension implements RunHooks {
           severity: this._vscode.DiagnosticSeverity.Error,
           source: 'playwright',
           range: new this._vscode.Range(Math.max(error.location!.line - 1, 0), Math.max(error.location!.column - 1, 0), error.location!.line, 0),
-          message: error.message!,
+          message: this._linkifyStack(stripBabelFrame(stripAnsi(error.message!))),
         });
       }
     };
@@ -663,49 +691,28 @@ export class Extension implements RunHooks {
 
   }
 
-  private _testMessageFromText(text: string): vscodeTypes.TestMessage {
-    let isLog = false;
-    const md: string[] = [];
-    const logMd: string[] = [];
+  private _linkifyStack(text: string): string {
+    const result: string[] = [];
+    const prefixes = (this._vscode.workspace.workspaceFolders || []).map(f => f.uri.fsPath.toLowerCase() + path.sep);
     for (let line of text.split('\n')) {
-      if (line.startsWith('    at ')) {
-        // Render relative stack.
-        for (const workspaceFolder of this._vscode.workspace.workspaceFolders || []) {
-          const prefix1 = ('    at ' + workspaceFolder.uri.fsPath + path.sep).toLowerCase();
-          const prefix2 = ('    at fn (' + workspaceFolder.uri.fsPath + path.sep).toLowerCase();
-          const lowerLine = line.toLowerCase();
-          if (lowerLine.startsWith(prefix1)) {
-            line = '    at ' + line.substring(prefix1.length);
-            break;
-          }
-          if (lowerLine.startsWith(prefix2)) {
-            line = '    at ' + line.substring(prefix2.length, line.length - 1);
-            break;
-          }
+      const lowerLine = line.toLowerCase();
+      for (const prefix of prefixes) {
+        const index = lowerLine.indexOf(prefix);
+        if (index !== -1) {
+          line = line.substring(0, index) + line.substring(index + prefix.length);
+          break;
         }
       }
-      if (line.includes('=====') && line.includes('log')) {
-        isLog = true;
-        logMd.push('\n\n**Execution log**');
-        continue;
-      }
-      if (line.includes('=====')) {
-        isLog = false;
-        continue;
-      }
-      if (isLog) {
-        const [, indent, body] = line.match(/(\s*)(.*)/)!;
-        logMd.push(indent + ' - ' + ansiToHtml(body));
-      } else {
-        md.push(line);
-      }
+      result.push(line);
     }
+    return result.join('\n');
+  }
+
+  private _testMessageFromText(text: string): vscodeTypes.TestMessage {
     const markdownString = new this._vscode.MarkdownString();
     markdownString.isTrusted = true;
     markdownString.supportHtml = true;
-    markdownString.appendMarkdown(ansiToHtml(md.join('\n')));
-    if (logMd.length)
-      markdownString.appendMarkdown(logMd.join('\n'));
+    markdownString.appendMarkdown(ansiToHtml(this._linkifyStack(text)));
     return new this._vscode.TestMessage(markdownString);
   }
 

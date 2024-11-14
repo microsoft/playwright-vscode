@@ -32,7 +32,7 @@ test('should reuse browsers', async ({ activate }) => {
 
   const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
   const events: number[] = [];
-  reusedBrowser.onPageCountChanged(count => events.push(count));
+  reusedBrowser.onPageCountChanged((count: number) => events.push(count));
   await testController.run();
   await expect.poll(() => events).toEqual([1]);
   expect(reusedBrowser._backend).toBeTruthy();

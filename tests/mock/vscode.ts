@@ -550,12 +550,12 @@ export class TestController {
     return [...this.allTestItems.values()].filter(t => label.exec(t.label));
   }
 
-  async run(include?: TestItem[], exclude?: TestItem[], continuous?: boolean): Promise<TestRun> {
+  async run(include?: TestItem[], exclude?: TestItem[]): Promise<TestRun> {
     const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Run)!;
     return profile.run(include, exclude);
   }
 
-  async watch(include?: TestItem[], exclude?: TestItem[], continuous?: boolean): Promise<TestRunRequest> {
+  async watch(include?: TestItem[], exclude?: TestItem[]): Promise<TestRunRequest> {
     const profile = this.runProfiles.find(p => p.kind === this.vscode.TestRunProfileKind.Run)!;
     return profile.watch(include, exclude);
   }
@@ -945,6 +945,7 @@ export class VSCode {
   readonly version: string;
   readonly connectionLog: any[] = [];
   readonly openExternalUrls: string[] = [];
+  readonly diagnosticsCollections: DiagnosticsCollection[] = [];
 
   constructor(readonly versionNumber: number, baseDir: string, browser: Browser) {
     this.version = String(versionNumber);
@@ -977,7 +978,6 @@ export class VSCode {
         this._didShowInputBox,
     );
 
-    const diagnosticsCollections: DiagnosticsCollection[] = [];
     this.languages.registerHoverProvider = (language: string, provider: HoverProvider) => {
       this._hoverProviders.set(language, provider);
       return disposable;
@@ -990,7 +990,7 @@ export class VSCode {
     };
     this.languages.getDiagnostics = () => {
       const result: Diagnostic[] = [];
-      for (const collection of diagnosticsCollections) {
+      for (const collection of this.diagnosticsCollections) {
         for (const diagnostics of collection._entries.values())
           result.push(...diagnostics);
       }
@@ -998,7 +998,7 @@ export class VSCode {
     };
     this.languages.createDiagnosticCollection = () => {
       const diagnosticsCollection = new DiagnosticsCollection();
-      diagnosticsCollections.push(diagnosticsCollection);
+      this.diagnosticsCollections.push(diagnosticsCollection);
       return diagnosticsCollection;
     };
     this.tests.createTestController = this._createTestController.bind(this);

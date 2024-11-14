@@ -15,6 +15,7 @@
  */
 
 import { expect as baseExpect, test as baseTest, Browser, chromium, Page } from '@playwright/test';
+// @ts-ignore
 import { Extension } from '../out/extension';
 import { TestController, VSCode, WorkspaceFolder, TestRun, TestItem } from './mock/vscode';
 
@@ -58,7 +59,7 @@ export const expect = baseExpect.extend({
     } catch (e) {
       return {
         pass: false,
-        message: () => e.toString()
+        message: () => String(e)
       };
     }
   },
@@ -72,7 +73,7 @@ export const expect = baseExpect.extend({
     } catch (e) {
       return {
         pass: false,
-        message: () => e.toString()
+        message: () => String(e)
       };
     }
   },
@@ -84,7 +85,7 @@ export const expect = baseExpect.extend({
     } catch (e) {
       return {
         pass: false,
-        message: () => e.toString()
+        message: () => String(e)
       };
     }
   },
@@ -96,7 +97,7 @@ export const expect = baseExpect.extend({
     } catch (e) {
       return {
         pass: false,
-        message: () => e.toString()
+        message: () => String(e)
       };
     }
   },
@@ -114,7 +115,7 @@ export const expect = baseExpect.extend({
     } catch (e) {
       return {
         pass: false,
-        message: () => e.toString()
+        message: () => String(e)
       };
     }
   },
@@ -208,7 +209,7 @@ export async function enableConfigs(vscode: VSCode, labels: string[]) {
   let success = false;
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
   while (!success) {
-    vscode.window.mockQuickPick = async items => {
+    vscode.window.mockQuickPick = async (items: TestItem[]) => {
       let allFound = true;
       for (const label of labels) {
         if (!items.find(i => i.label === label))
