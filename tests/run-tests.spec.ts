@@ -267,7 +267,6 @@ test('should show error message', async ({ activate }) => {
         Received: <span style='color:#f14c4c;'>1</span>
         <br>
             at tests/test.spec.ts:4:19
-        </span></br>
   `);
 });
 
@@ -286,7 +285,7 @@ test('should escape error log', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog({ messages: true })).toContain(
-      `<b>&lt;</b>div class=&quot;foo bar baz&quot;<b>&gt;</b><b>&lt;</b>/div<b>&gt;`);
+      `&lt;div class=&quot;foo bar baz&quot;&gt;&lt;/div&gt;`);
 });
 
 test('should show soft error messages', async ({ activate }) => {
@@ -321,7 +320,6 @@ test('should show soft error messages', async ({ activate }) => {
         Received: <span style='color:#f14c4c;'>1</span>
         <br>
             at tests/test.spec.ts:4:24
-        </span></br>
         test.spec.ts:[4:23 - 4:23]
         Error: <span style='color:#666;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
         <br>
@@ -332,7 +330,6 @@ test('should show soft error messages', async ({ activate }) => {
         Received: <span style='color:#f14c4c;'>2</span>
         <br>
             at tests/test.spec.ts:5:24
-        </span></br>
   `);
 });
 

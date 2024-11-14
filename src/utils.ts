@@ -40,63 +40,6 @@ export function stripBabelFrame(text: string) {
   return result.join('\n').trim();
 }
 
-export function ansiToHtml(text: string): string {
-  let isOpen = false;
-  let hasTags = false;
-  const tokens: string[] = [];
-  for (let i = 0; i < text.length; ++i) {
-    const c = text.charAt(i);
-    if (c === '\u001b') {
-      hasTags = true;
-      const end = text.indexOf('m', i + 1);
-      const code = text.substring(i + 1, end);
-      if (!code.match(/\[\d+/))
-        continue;
-      if (isOpen) {
-        tokens.push('</span>');
-        isOpen = false;
-      }
-      switch (code) {
-        case '[2': {
-          tokens.push(`<span style='color:#666;'>`);
-          isOpen = true;
-          break;
-        }
-        case '[22': break;
-        case '[31': {
-          tokens.push(`<span style='color:#f14c4c;'>`);
-          isOpen = true;
-          break;
-        }
-        case '[32': {
-          tokens.push(`<span style='color:#73c991;'>`);
-          isOpen = true;
-          break;
-        }
-        case '[39': break;
-      }
-      i = end;
-    } else {
-      if (c === '\n') {
-        // Don't close to work around html parsing bug.
-        tokens.push('\n<br>\n');
-      } else if (c === ' ') {
-        tokens.push('&nbsp;');
-      } else {
-        tokens.push(escapeHTML(c));
-      }
-    }
-  }
-  // Work around html parsing bugs.
-  if (hasTags)
-    tokens.push('\n</span></br>');
-  return tokens.join('');
-}
-
-function escapeHTML(text: string): string {
-  return text.replace(/[&"<>]/g, c => ({ '&': '&amp;', '"': '&quot;', '<': '<b>&lt;</b>', '>': '<b>&gt;</b>' }[c]!));
-}
-
 export async function spawnAsync(executable: string, args: string[], cwd?: string, settingsEnv?: NodeJS.ProcessEnv): Promise<string> {
   const childProcess = spawn(executable, args, {
     stdio: 'pipe',

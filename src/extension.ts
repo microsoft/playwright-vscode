@@ -24,11 +24,12 @@ import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
 import { TestModel, TestModelCollection } from './testModel';
 import { TestTree } from './testTree';
-import { NodeJSNotFoundError, ansiToHtml, getPlaywrightInfo, stripAnsi, stripBabelFrame } from './utils';
+import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { RunHooks, TestConfig } from './playwrightTestTypes';
+import { ansi2html } from './ansi2html';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -712,7 +713,7 @@ export class Extension implements RunHooks {
     const markdownString = new this._vscode.MarkdownString();
     markdownString.isTrusted = true;
     markdownString.supportHtml = true;
-    markdownString.appendMarkdown(ansiToHtml(this._linkifyStack(text)));
+    markdownString.appendMarkdown(ansi2html(this._linkifyStack(text)));
     return new this._vscode.TestMessage(markdownString);
   }
 
