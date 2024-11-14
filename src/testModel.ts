@@ -531,16 +531,25 @@ export class TestModel extends DisposableBase {
     const externalOptions = await this._embedder.runHooks.onWillRunTests(this.config, false);
     const showBrowser = this._embedder.settingsModel.showBrowser.get() && !!externalOptions.connectWsEndpoint;
 
+    let trace: 'on' | 'off' | undefined;
+    let video: 'on' | 'off' | undefined;
+
+    if (this._embedder.settingsModel.showTrace.get())
+      trace = 'on';
+    // "Show browser" mode forces context reuse that survives over multiple test runs.
+    // Playwright Test sets up `tracesDir` inside the `test-results` folder, so it will be removed between runs.
+    // When context is reused, its ongoing tracing will fail with ENOENT because trace files
+    // were suddenly removed. So we disable tracing in this case.
+    if (this._embedder.settingsModel.showBrowser.get()) {
+      trace = 'off';
+      video = 'off';
+    }
+
     const options: PlaywrightTestRunOptions = {
       headed: showBrowser && !this._embedder.isUnderTest,
       workers: showBrowser ? 1 : undefined,
-      // Note: we used to disable trace in "show browser" mode, but it's not necessary anymore:
-      // - output directory is not removed;
-      // - tracesDir is not respected when connecting to a reused browser.
-      trace: this._embedder.settingsModel.showTrace.get() ? 'on' : undefined,
-      // Disable video when reusing context, because video cannot be chunked between multiple
-      // tests that use a single context.
-      video: this._embedder.settingsModel.showBrowser.get() ? 'off' : undefined,
+      trace,
+      video,
       reuseContext: showBrowser,
       connectWsEndpoint: showBrowser ? externalOptions.connectWsEndpoint : undefined,
     };

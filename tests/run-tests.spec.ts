@@ -1206,30 +1206,22 @@ test('should produce output twice', async ({ activate, overridePlaywrightVersion
   `);
 });
 
-test('should not crash with tracing no matter reusing context', async ({ activate }) => {
+test('should disable tracing when reusing context', async ({ activate, showBrowser }) => {
+  test.skip(!showBrowser);
+
   const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests', use: { trace: 'on' } }`,
-    'tests/test1.spec.ts': `
+    'tests/test.spec.ts': `
       import { test } from '@playwright/test';
       test('one', async ({ page }) => {});
     `,
-    'tests/test2.spec.ts': `
-      import { test } from '@playwright/test';
-      test('two', async ({ page }) => {});
-    `,
   });
 
-  const testItems1 = testController.findTestItems(/test1.spec.ts/);
-  expect(testItems1.length).toBe(1);
-  await testController.run(testItems1);
-  expect(fs.existsSync(test.info().outputPath('test-results', 'test1-one', 'trace.zip'))).toBe(true);
+  const testItems = testController.findTestItems(/test.spec.ts/);
+  expect(testItems.length).toBe(1);
+  await testController.run(testItems);
 
-  const testItems2 = testController.findTestItems(/test2.spec.ts/);
-  expect(testItems2.length).toBe(1);
-  await testController.run(testItems2);
-  // We do not clear output dir, so both traces should be present.
-  expect(fs.existsSync(test.info().outputPath('test-results', 'test1-one', 'trace.zip'))).toBe(true);
-  expect(fs.existsSync(test.info().outputPath('test-results', 'test2-two', 'trace.zip'))).toBe(true);
+  expect(fs.existsSync(test.info().outputPath('test-results', 'test-one', 'trace.zip'))).toBe(false);
 });
 
 test('should force workers=1 when reusing the browser', async ({ activate, showBrowser }) => {
