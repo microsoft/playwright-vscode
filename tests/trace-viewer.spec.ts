@@ -16,6 +16,7 @@
 
 import { enableConfigs, expect, selectConfig, selectTestItem, test, traceViewerInfo } from './utils';
 
+test.skip(({ showTrace }) => !showTrace);
 test.skip(({ overridePlaywrightVersion }) => !!overridePlaywrightVersion);
 
 test('@smoke should open trace viewer', async ({ activate }) => {
