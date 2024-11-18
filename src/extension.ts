@@ -100,7 +100,7 @@ export class Extension implements RunHooks {
       },
     });
 
-    this._settingsModel = new SettingsModel(vscode, this._isUnderTest, context);
+    this._settingsModel = new SettingsModel(vscode, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._models = new TestModelCollection(vscode, {

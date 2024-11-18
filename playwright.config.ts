@@ -41,14 +41,7 @@ export default defineConfig<WorkerOptions>({
     {
       name: 'default-trace',
       use: {
-        showTrace: 'spawn',
-      }
-    },
-    {
-      name: 'default-trace-embedded',
-      testMatch: '*trace-viewer*.spec.ts',
-      use: {
-        showTrace: 'embedded',
+        showTrace: true,
       }
     },
     {
@@ -68,15 +61,7 @@ export default defineConfig<WorkerOptions>({
       name: 'legacy-trace',
       use: {
         overridePlaywrightVersion: 1.43,
-        showTrace: 'spawn',
-      }
-    },
-    {
-      name: 'legacy-trace-embedded',
-      testMatch: '*trace-viewer*.spec.ts',
-      use: {
-        overridePlaywrightVersion: 1.43,
-        showTrace: 'embedded',
+        showTrace: true,
       }
     },
   ]

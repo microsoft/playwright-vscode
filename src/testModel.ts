@@ -31,7 +31,6 @@ import { PlaywrightTestCLI } from './playwrightTestCLI';
 import { upstreamTreeItem } from './testTree';
 import { collectTestIds } from './upstream/testTree';
 import { TraceViewer } from './traceViewer';
-import { EmbeddedTraceViewer } from './embeddedTraceViewer';
 import { SpawnTraceViewer } from './spawnTraceViewer';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
@@ -101,7 +100,6 @@ export class TestModel extends DisposableBase {
 
     this._disposables = [
       this._embedder.settingsModel.showTrace.onChange(() => this.updateTraceViewer(false)),
-      this._embedder.settingsModel.embeddedTraceViewer.onChange(() => this.updateTraceViewer(false)),
       this._collection.onUpdated(() => this.updateTraceViewer(false)),
     ];
   }
@@ -673,19 +671,8 @@ export class TestModel extends DisposableBase {
       return null;
     }
 
-    if (settingsModel.embeddedTraceViewer.get() && this._traceViewer instanceof EmbeddedTraceViewer)
-      return this._traceViewer;
-
-    if (!settingsModel.embeddedTraceViewer.get() && this._traceViewer instanceof SpawnTraceViewer)
-      return this._traceViewer;
-
-    if (settingsModel.embeddedTraceViewer.get()) {
-      if (this._checkVersion(1.46, this._vscode.l10n.t('embedded trace viewer'), userGesture))
-        this._traceViewer = new EmbeddedTraceViewer(this._vscode, this._embedder.context.extensionUri, this.config, this._playwrightTest as PlaywrightTestServer);
-    } else {
-      if (this._checkVersion(1.35, this._vscode.l10n.t('this feature'), userGesture))
-        this._traceViewer = new SpawnTraceViewer(this._vscode, this._embedder.envProvider, this.config);
-    }
+    if (!this._traceViewer && this._checkVersion(1.35, this._vscode.l10n.t('this feature'), userGesture))
+      this._traceViewer = new SpawnTraceViewer(this._vscode, this._embedder.envProvider, this.config);
 
     return this._traceViewer;
   }
