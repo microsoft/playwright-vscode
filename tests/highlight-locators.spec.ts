@@ -80,24 +80,30 @@ test('should work', async ({ activate }) => {
     expect(browser.contexts()[0].pages()).toHaveLength(1);
   }
   const page = browser.contexts()[0].pages()[0];
+  const boxOne = await page.getByRole('button', { name: 'one' }).boundingBox();
+  const boxTwo = await page.getByRole('button', { name: 'two' }).boundingBox();
 
   for (const language of ['javascript', 'typescript']) {
-    for (const [[line, column], expectedLocator] of [
-      [[9, 26], page.getByRole('button', { name: 'two' })],
-      [[8, 26], page.getByRole('button', { name: 'one' })],
+    for (const [[line, column], expectedBox] of [
+      [[9, 26], boxTwo],
+      [[8, 26], boxOne],
       [[10, 26], null],
-      [[15, 30], page.getByRole('button', { name: 'one' })],
-      [[16, 30], page.getByRole('button', { name: 'two' })],
-      [[17, 30], page.getByRole('button', { name: 'one' })],
+      [[15, 30], boxOne],
+      [[16, 30], boxTwo],
+      [[17, 30], boxOne],
     ] as const) {
       await test.step(`should highlight ${language} ${line}:${column}`, async () => {
+        // Clear highlight.
+        vscode.languages.emitHoverEvent(language, vscode.window.activeTextEditor.document, new vscode.Position(0, 0));
+        // Let highlight poll update its state.
+        await new Promise(f => setTimeout(f, 500));
         vscode.languages.emitHoverEvent(language, vscode.window.activeTextEditor.document, new vscode.Position(line, column));
-        await expect(async () => {
-          if (!expectedLocator)
-            await expect(page.locator('x-pw-highlight')).toBeHidden();
-          else
-            expect(await page.locator('x-pw-highlight').boundingBox()).toEqual(await expectedLocator.boundingBox());
-        }).toPass();
+        if (!expectedBox) {
+          await expect(page.locator('x-pw-highlight')).toBeHidden();
+        } else {
+          await expect(page.locator('x-pw-highlight')).toBeVisible();
+          expect(await page.locator('x-pw-highlight').boundingBox()).toEqual(expectedBox);
+        }
       });
     }
   }
