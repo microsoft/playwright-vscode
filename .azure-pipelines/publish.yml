@@ -34,7 +34,7 @@ extends:
           inputs:
             version: '20.x'
           displayName: 'Install Node.js'
-        - task: MicroBuildSigningPlugin@3
+        - task: MicroBuildSigningPlugin@4
           inputs:
             signType: real
             feedSource: 'https://devdiv.pkgs.visualstudio.com/DefaultCollection/_packaging/MicroBuildToolset/nuget/v3/index.json'
