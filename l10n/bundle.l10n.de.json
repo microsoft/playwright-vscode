@@ -26,6 +26,6 @@
   "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "Wenn aktiviert, wird Playwright die Browserinstanz zwischen den Tests wiederverwenden. Dies deaktiviert die parallele Ausführung.",
   "SETTINGS": "EINSTELLUNGEN",
   "PROJECTS": "PROJEKTE",
-  "TOOLS": "WERKZEUGE",
-  "SETUP": "KONFIGURATION"
+  "SETUP": "KONFIGURATION",
+  "Update snapshots": "Snapshots aktualisieren"
 }

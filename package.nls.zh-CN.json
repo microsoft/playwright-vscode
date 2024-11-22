@@ -15,9 +15,11 @@
   "contributes.command.pw.extension.toggle.reuseBrowser": "是否复用 Playwright 浏览器",
   "contributes.command.pw.extension.toggle.showTrace": "是否显示 Playwright 浏览器的跟踪",
   "contributes.command.pw.extension.toggle.runGlobalSetupOnEachRun": "切换 Playwright 全局设置的重用",
+  "contributes.command.pw.extension.toggle.updateSnapshots": "切换快照更新",
   "configuration.playwright.env": "Playwright Test 运行环境变量",
   "configuration.playwright.reuseBrowser": "在测试用例间显示并复用 Playwright 浏览器",
   "configuration.playwright.showTrace": "显示 Playwright 浏览器的跟踪",
+  "configuration.playwright.updateSnapshots": "更新快照",
   "configuration.playwright.runGlobalSetupOnEachRun": "不要重复使用全局设置",
   "views.test.pw.extension.settingsView": "Playwright"
 }

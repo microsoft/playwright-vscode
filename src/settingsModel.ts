@@ -44,6 +44,7 @@ export class SettingsModel extends DisposableBase {
   showBrowser: Setting<boolean>;
   showTrace: Setting<boolean>;
   runGlobalSetupOnEachRun: Setting<boolean>;
+  updateSnapshots: Setting<boolean>;
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     super();
@@ -55,6 +56,7 @@ export class SettingsModel extends DisposableBase {
     this.showBrowser = this._createSetting('reuseBrowser');
     this.showTrace = this._createSetting('showTrace');
     this.runGlobalSetupOnEachRun = this._createSetting('runGlobalSetupOnEachRun');
+    this.updateSnapshots = this._createSetting('updateSnapshots');
 
     this._disposables.push(
         this._onChange,

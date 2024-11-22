@@ -258,6 +258,8 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <title>Playwright</title>
     </head>
     <body>
+      <div id="actions" class="list"></div>
+      <div class="section-header">${vscode.l10n.t('PROJECTS')}</div>
       <div class="list" id="model-selector">
         <div>
           <label title="${vscode.l10n.t('Select Playwright Config')}">
@@ -266,7 +268,6 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           <span id="configToolbar"></span>
         </div>
       </div>
-      <div class="section-header">${vscode.l10n.t('PROJECTS')}</div>
       <div data-testid="projects" id="projects" class="list"></div>
       <div class="section-header">${vscode.l10n.t('SETTINGS')}</div>
       <div class="list">
@@ -282,11 +283,12 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             ${vscode.l10n.t('Show trace viewer')}
           </label>
         </div>
-      </div>
-      <div class="section-header">${vscode.l10n.t('TOOLS')}</div>
-      <div id="actions" class="list"></div>
-      <div class="section-header">${vscode.l10n.t('SETUP')}</div>
-      <div class="list">
+        <div>
+          <label>
+            <input type="checkbox" setting="updateSnapshots"></input>
+            ${vscode.l10n.t('Update snapshots')}
+          </label>
+        </div>
         <div>
           <label>
             <input type="checkbox" setting="runGlobalSetupOnEachRun"></input>
@@ -294,6 +296,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           </label>
         </div>
       </div>
+      <div class="section-header">${vscode.l10n.t('SETUP')}</div>
       <div id="rareActions" class="list"></div>
     </body>
     <script nonce="${nonce}">

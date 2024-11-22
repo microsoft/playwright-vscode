@@ -23,5 +23,9 @@
   "Stop dev server": "Stop dev server",
   "this feature": "this feature",
   "Toggle Playwright Configs": "Toggle Playwright Configs",
-  "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution."
+  "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.",
+  "SETTINGS": "SETTINGS",
+  "PROJECTS": "PROJECTS",
+  "SETUP": "SETUP",
+  "Update snapshots": "Update snapshots"
 }
