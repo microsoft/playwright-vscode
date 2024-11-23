@@ -270,7 +270,7 @@ export class Extension implements RunHooks {
     this._testTree.startedLoading();
 
     const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mts,mjs}', '**/node_modules/**');
-    // configFiles are not sorted, sort them to ensure consistent order when we enable the first model.
+    // findFiles returns results in a non-deterministic order - sort them to ensure consistent order when we enable the first model by default.
     configFiles.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
     for (const configFileUri of configFiles) {
       const configFilePath = configFileUri.fsPath;
