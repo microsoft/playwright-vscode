@@ -335,7 +335,7 @@ export class Extension implements RunHooks {
     if (this._testRun && !request.continuous)
       return;
 
-    await this._queueTestRun(request.include, isDebug ? 'debug' : 'run');
+    await this._queueTestRun(request, isDebug ? 'debug' : 'run');
 
     if (request.continuous) {
       for (const model of this._models.enabledModels())
@@ -343,8 +343,8 @@ export class Extension implements RunHooks {
     }
   }
 
-  private async _queueTestRun(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug') {
-    await this._queueCommand(() => this._runTests(include, mode), undefined);
+  private async _queueTestRun(request: vscodeTypes.TestRunRequest, mode: 'run' | 'debug') {
+    await this._queueCommand(() => this._runTests(request, mode), undefined);
   }
 
   private async _queueWatchRun(include: readonly vscodeTypes.TestItem[], type: 'files' | 'items') {
@@ -369,7 +369,7 @@ export class Extension implements RunHooks {
       else
         this._watchItemsBatch = undefined;
 
-      return this._runTests(items, 'watch');
+      return this._runTests(new this._vscode.TestRunRequest([], [], undefined, true), 'watch');
     }, undefined);
   }
 
@@ -391,54 +391,42 @@ export class Extension implements RunHooks {
     }
   }
 
-  private async _runTests(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug' | 'watch') {
+  private async _runTests(request: vscodeTypes.TestRunRequest, mode: 'run' | 'debug' | 'watch') {
     this._completedSteps.clear();
     this._executionLinesChanged();
 
-    // Create a test run that potentially includes all the test items.
-    // This allows running setup tests that are outside of the scope of the
-    // selected test items.
-    const rootItems: vscodeTypes.TestItem[] = [];
-    this._testController.items.forEach(item => rootItems.push(item));
-    const requestWithDeps = new this._vscode.TestRunRequest(rootItems, [], undefined, mode === 'watch');
+    const include = [...request.include ?? []];
 
     // Global errors are attributed to the first test item in the request.
     // If the request is global, find the first root test item (folder, file) that has
     // children. It will be reveal with an error.
     let testItemForGlobalErrors = include?.[0];
     if (!testItemForGlobalErrors) {
-      for (const rootItem of rootItems) {
-        if (!rootItem.children.size)
-          continue;
-        rootItem.children.forEach(c => {
-          if (!testItemForGlobalErrors)
-            testItemForGlobalErrors = c;
+      this._testController.items.forEach(item => {
+        item.children.forEach(item => {
+          if (item.children.size)
+            testItemForGlobalErrors = item;
         });
-        if (testItemForGlobalErrors)
-          break;
-      }
+      });
     }
-
-    this._testRun = this._testController.createTestRun(requestWithDeps);
+    this._testRun = this._testController.createTestRun(request);
     const enqueuedTests: vscodeTypes.TestItem[] = [];
     // Provisionally mark tests (not files and not suits) as enqueued to provide immediate feedback.
-    const toEnqueue = include?.length ? include : rootItems;
-    for (const item of toEnqueue) {
+    for (const item of include) {
       for (const test of this._testTree.collectTestsInside(item)) {
         this._testRun.enqueued(test);
         enqueuedTests.push(test);
       }
     }
 
-    const items: vscodeTypes.TestItem[] = include ? [...include] : [];
     try {
       for (const model of this._models.enabledModels()) {
-        const result = model.narrowDownLocations(items);
+        const result = model.narrowDownLocations(include);
         if (!result.testIds && !result.locations)
           continue;
         if (!model.enabledProjects().length)
           continue;
-        await this._runTest(this._testRun, items, testItemForGlobalErrors, new Set(), model, mode, enqueuedTests.length === 1);
+        await this._runTest(this._testRun, include, testItemForGlobalErrors, new Set(), model, mode, enqueuedTests.length === 1);
       }
     } finally {
       this._activeSteps.clear();
