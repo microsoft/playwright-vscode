@@ -23,5 +23,9 @@
   "Stop dev server": "停止 dev 服务器",
   "this feature": "该功能",
   "Toggle Playwright Configs": "切换 Playwright 配置",
-  "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "启用后，Playwright 将在测试之间重复使用浏览器实例。这将禁用并行执行。"
+  "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "启用后，Playwright 将在测试之间重复使用浏览器实例。这将禁用并行执行。",
+  "SETTINGS": "设置",
+  "PROJECTS": "项目",
+  "SETUP": "设置",
+  "Update snapshots": "更新快照"
 }
