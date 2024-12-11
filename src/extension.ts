@@ -397,9 +397,6 @@ export class Extension implements RunHooks {
     this._executionLinesChanged();
     const include = request.include;
 
-    // Create a test run that potentially includes all the test items.
-    // This allows running setup tests that are outside of the scope of the
-    // selected test items.
     const rootItems: vscodeTypes.TestItem[] = [];
     this._testController.items.forEach(item => rootItems.push(item));
 
@@ -528,7 +525,7 @@ export class Extension implements RunHooks {
           return;
         }
         testFailures.add(testItem);
-        testRun.failed(testItem, result.errors.map(error => this._testMessageForTestError(error, testItem)), result.duration);
+        testRun.failed(testItem, result.errors.map(error => this._testMessageForTestError(error)), result.duration);
       },
 
       onStepBegin: (test: reporterTypes.TestCase, result: reporterTypes.TestResult, testStep: reporterTypes.TestStep) => {
@@ -640,7 +637,7 @@ export class Extension implements RunHooks {
           severity: this._vscode.DiagnosticSeverity.Error,
           source: 'playwright',
           range: new this._vscode.Range(Math.max(error.location!.line - 1, 0), Math.max(error.location!.column - 1, 0), error.location!.line, 0),
-          message: this._linkifyStack(stripBabelFrame(stripAnsi(error.message!))),
+          message: this._abbreviateStack(stripBabelFrame(stripAnsi(error.message!))),
         });
       }
     };
@@ -694,7 +691,18 @@ export class Extension implements RunHooks {
 
   }
 
-  private _linkifyStack(text: string): string {
+  private _trimStack(text: string): string {
+    const result: string[] = [];
+    for (const line of text.split('\n')) {
+      const frame = stackUtils.parseLine(line);
+      if (frame?.file && frame.line)
+        continue;
+      result.push(line);
+    }
+    return result.join('\n');
+  }
+
+  private _abbreviateStack(text: string): string {
     const result: string[] = [];
     const prefixes = (this._vscode.workspace.workspaceFolders || []).map(f => f.uri.fsPath.toLowerCase() + path.sep);
     for (let line of text.split('\n')) {
@@ -715,7 +723,7 @@ export class Extension implements RunHooks {
     const markdownString = new this._vscode.MarkdownString();
     markdownString.isTrusted = true;
     markdownString.supportHtml = true;
-    markdownString.appendMarkdown(ansi2html(this._linkifyStack(text)));
+    markdownString.appendMarkdown(ansi2html(this._trimStack(text)));
     return new this._vscode.TestMessage(markdownString);
   }
 
@@ -728,7 +736,7 @@ export class Extension implements RunHooks {
     return new this._vscode.TestMessage(markdownString);
   }
 
-  private _testMessageForTestError(error: reporterTypes.TestError, testItem?: vscodeTypes.TestItem): vscodeTypes.TestMessage {
+  private _testMessageForTestError(error: reporterTypes.TestError): vscodeTypes.TestMessage {
     const text = this._formatError(error);
     let testMessage: vscodeTypes.TestMessage;
     if (text.includes('Looks like Playwright Test or Playwright')) {
@@ -744,11 +752,12 @@ export class Extension implements RunHooks {
     } else {
       testMessage = this._testMessageFromText(text);
     }
-    const location = error.location || parseLocationFromStack(error.stack, testItem);
-    if (location) {
-      const position = new this._vscode.Position(location.line - 1, location.column - 1);
-      testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.file), position);
-    }
+    const stackTrace = error.stack ? parseStack(this._vscode, error.stack) : [];
+    const location = error.location ? parseLocation(this._vscode, error.location) : topStackFrame(this._vscode, stackTrace);
+    if (stackTrace.length)
+      testMessage.stackTrace = stackTrace;
+    if (location)
+      testMessage.location = location;
     return testMessage;
   }
 
@@ -794,21 +803,29 @@ export class Extension implements RunHooks {
   }
 }
 
-function parseLocationFromStack(stack: string | undefined, testItem?: vscodeTypes.TestItem): reporterTypes.Location | undefined {
+function parseLocation(vscode: vscodeTypes.VSCode, location: reporterTypes.Location): vscodeTypes.Location {
+  return new vscode.Location(
+      vscode.Uri.file(location.file),
+      new vscode.Position(location.line - 1, location.column - 1));
+}
+
+function topStackFrame(vscode: vscodeTypes.VSCode, stackTrace: vscodeTypes.TestMessageStackFrame[]): vscodeTypes.Location | undefined {
+  return stackTrace.length ? new vscode.Location(stackTrace[0].uri!, stackTrace[0].position!) : undefined;
+}
+
+function parseStack(vscode: vscodeTypes.VSCode, stack: string): vscodeTypes.TestMessageStackFrame[] {
   const lines = stack?.split('\n') || [];
+  const result: vscodeTypes.TestMessageStackFrame[] = [];
   for (const line of lines) {
     const frame = stackUtils.parseLine(line);
     if (!frame || !frame.file || !frame.line || !frame.column)
       continue;
-    frame.file = frame.file.replace(/\//g, path.sep);
-    if (!testItem || testItem.uri!.fsPath === frame.file) {
-      return {
-        file: frame.file,
-        line: frame.line,
-        column: frame.column,
-      };
-    }
+    result.push(new vscode.TestMessageStackFrame(
+        frame.method || '',
+        vscode.Uri.file(frame.file),
+        new vscode.Position(frame.line - 1, frame.column - 1)));
   }
+  return result;
 }
 
 class TreeItemObserver implements vscodeTypes.Disposable{

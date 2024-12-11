@@ -378,7 +378,8 @@ export class TestMessage {
     readonly message: MarkdownString,
     readonly expectedOutput?: string,
     readonly actualOutput?: string,
-    readonly location?: Location) {}
+    readonly location?: Location,
+    readonly stackTrace?: TestMessageStackFrame[]) {}
 
   render(indent: string, result: string[]) {
     if (this.location)
@@ -392,7 +393,19 @@ export class TestMessage {
         line = line.replace(/\\/g, '/');
       result.push(indent + line);
     }
+    if (this.stackTrace?.length) {
+      result.push(indent + 'Stack trace:');
+      for (const frame of this.stackTrace)
+        result.push(`${indent}  ${frame.label} (${path.basename(frame.uri.fsPath)}:${frame.position.line + 1})`);
+    }
   }
+}
+
+export class TestMessageStackFrame {
+  constructor(
+    readonly label: string,
+    readonly uri: Uri,
+    readonly position: Position) {}
 }
 
 type LogEntry = { status: string, duration?: number, messages?: TestMessage | TestMessage[] };
@@ -891,6 +904,7 @@ export class VSCode {
   Selection = Selection;
   TestTag = TestTag;
   TestMessage = TestMessage;
+  TestMessageStackFrame = TestMessageStackFrame;
   TestRunProfileKind = TestRunProfileKind;
   TestRunRequest = TestRunRequest;
   Uri = Uri;

@@ -36,6 +36,7 @@ export type {
   TestItem,
   TestItemCollection,
   TestMessage,
+  TestMessageStackFrame,
   TestRun,
   TestRunProfile,
   TestRunRequest,
