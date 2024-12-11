@@ -75,8 +75,8 @@ export class PlaywrightTestCLI {
   async clearCache() {
   }
 
-  async runTests(items: vscodeTypes.TestItem[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
-    const { locations, parametrizedTestTitle } = this._narrowDownLocations(items);
+  async runTests(request: vscodeTypes.TestRunRequest, options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+    const { locations, parametrizedTestTitle } = this._narrowDownLocations(request);
     if (!locations)
       return;
     const args = [];
@@ -145,10 +145,10 @@ export class PlaywrightTestCLI {
     await reporterServer.wireTestListener(reporter, token);
   }
 
-  async debugTests(items: vscodeTypes.TestItem[], options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+  async debugTests(request: vscodeTypes.TestRunRequest, options: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const configFolder = path.dirname(this._model.config.configFile);
     const configFile = path.basename(this._model.config.configFile);
-    const { locations, parametrizedTestTitle } = this._narrowDownLocations(items);
+    const { locations, parametrizedTestTitle } = this._narrowDownLocations(request);
     if (!locations)
       return;
     const testDirs = this._model.enabledProjects().map(p => p.project.testDir);
@@ -255,9 +255,10 @@ export class PlaywrightTestCLI {
     this._options.playwrightTestLog.push(line);
   }
 
-  private _narrowDownLocations(items: vscodeTypes.TestItem[]): { locations: string[] | null, parametrizedTestTitle: string | undefined } {
-    if (!items.length)
+  private _narrowDownLocations(request: vscodeTypes.TestRunRequest): { locations: string[] | null, parametrizedTestTitle: string | undefined } {
+    if (!request.include?.length)
       return { locations: [], parametrizedTestTitle: undefined };
+    const items = request.include;
 
     let parametrizedTestTitle: string | undefined;
     // When we are given one item, check if it is parametrized (more than 1 item on that line).

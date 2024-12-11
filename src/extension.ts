@@ -335,7 +335,7 @@ export class Extension implements RunHooks {
     if (this._testRun && !request.continuous)
       return;
 
-    await this._queueTestRun(request.include, isDebug ? 'debug' : 'run');
+    await this._queueTestRun(request, isDebug ? 'debug' : 'run');
 
     if (request.continuous) {
       for (const model of this._models.enabledModels())
@@ -343,12 +343,13 @@ export class Extension implements RunHooks {
     }
   }
 
-  private async _queueTestRun(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug') {
-    await this._queueCommand(() => this._runTests(include, mode), undefined);
+  private async _queueTestRun(request: vscodeTypes.TestRunRequest, mode: 'run' | 'debug') {
+    await this._queueCommand(() => this._runTests(request, mode), undefined);
   }
 
-  private async _queueWatchRun(include: readonly vscodeTypes.TestItem[], type: 'files' | 'items') {
+  private async _queueWatchRun(request: vscodeTypes.TestRunRequest, type: 'files' | 'items') {
     const batch = type === 'files' ? this._watchFilesBatch : this._watchItemsBatch;
+    const include = request.include || [];
     if (batch) {
       batch.push(...include); // `narrowDownLocations` dedupes before sending to the testserver, no need to dedupe here
       return;
@@ -369,7 +370,7 @@ export class Extension implements RunHooks {
       else
         this._watchItemsBatch = undefined;
 
-      return this._runTests(items, 'watch');
+      return this._runTests(request, 'watch');
     }, undefined);
   }
 
@@ -391,16 +392,16 @@ export class Extension implements RunHooks {
     }
   }
 
-  private async _runTests(include: readonly vscodeTypes.TestItem[] | undefined, mode: 'run' | 'debug' | 'watch') {
+  private async _runTests(request: vscodeTypes.TestRunRequest, mode: 'run' | 'debug' | 'watch') {
     this._completedSteps.clear();
     this._executionLinesChanged();
+    const include = request.include;
 
     // Create a test run that potentially includes all the test items.
     // This allows running setup tests that are outside of the scope of the
     // selected test items.
     const rootItems: vscodeTypes.TestItem[] = [];
     this._testController.items.forEach(item => rootItems.push(item));
-    const requestWithDeps = new this._vscode.TestRunRequest(rootItems, [], undefined, mode === 'watch');
 
     // Global errors are attributed to the first test item in the request.
     // If the request is global, find the first root test item (folder, file) that has
@@ -419,7 +420,7 @@ export class Extension implements RunHooks {
       }
     }
 
-    this._testRun = this._testController.createTestRun(requestWithDeps);
+    this._testRun = this._testController.createTestRun(request);
     const enqueuedTests: vscodeTypes.TestItem[] = [];
     // Provisionally mark tests (not files and not suits) as enqueued to provide immediate feedback.
     const toEnqueue = include?.length ? include : rootItems;
@@ -430,15 +431,14 @@ export class Extension implements RunHooks {
       }
     }
 
-    const items: vscodeTypes.TestItem[] = include ? [...include] : [];
     try {
       for (const model of this._models.enabledModels()) {
-        const result = model.narrowDownLocations(items);
+        const result = model.narrowDownLocations(request);
         if (!result.testIds && !result.locations)
           continue;
         if (!model.enabledProjects().length)
           continue;
-        await this._runTest(this._testRun, items, testItemForGlobalErrors, new Set(), model, mode, enqueuedTests.length === 1);
+        await this._runTest(this._testRun, request, testItemForGlobalErrors, new Set(), model, mode, enqueuedTests.length === 1);
       }
     } finally {
       this._activeSteps.clear();
@@ -467,7 +467,7 @@ export class Extension implements RunHooks {
 
   private async _runTest(
     testRun: vscodeTypes.TestRun,
-    items: vscodeTypes.TestItem[],
+    request: vscodeTypes.TestRunRequest,
     testItemForGlobalErrors: vscodeTypes.TestItem | undefined,
     testFailures: Set<vscodeTypes.TestItem>,
     model: TestModel,
@@ -565,11 +565,11 @@ export class Extension implements RunHooks {
     };
 
     if (mode === 'debug') {
-      await model.debugTests(items, testListener, testRun.token);
+      await model.debugTests(request, testListener, testRun.token);
     } else {
       // Force trace viewer update to surface check version errors.
       await this._models.selectedModel()?.updateTraceViewer(mode === 'run')?.willRunTests();
-      await model.runTests(items, testListener, testRun.token);
+      await model.runTests(request, testListener, testRun.token);
     }
   }
 
@@ -604,10 +604,10 @@ export class Extension implements RunHooks {
     // Run either locations or test ids to always be compatible with the test server (it can run either or).
     if (files.length) {
       const fileItems = files.map(f => this._testTree.testItemForFile(f)).filter(Boolean) as vscodeTypes.TestItem[];
-      await this._queueWatchRun(fileItems, 'files');
+      await this._queueWatchRun(new this._vscode.TestRunRequest(fileItems), 'files');
     }
     if (testItems.length)
-      await this._queueWatchRun(testItems, 'items');
+      await this._queueWatchRun(new this._vscode.TestRunRequest(testItems), 'items');
   }
 
   private async _updateVisibleEditorItems() {
