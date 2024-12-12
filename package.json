@@ -126,12 +126,28 @@
         }
       }
     },
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "playwrightContainer",
+          "title": "Playwright",
+          "icon": "images/playwright-logo.png"
+        }
+      ]
+    },
     "views": {
       "test": [
         {
           "type": "webview",
           "id": "pw.extension.settingsView",
           "name": "%views.test.pw.extension.settingsView%"
+        }
+      ],
+      "playwrightContainer": [
+        {
+          "type": "webview",
+          "id": "pw.extension.locatorsView",
+          "name": "%views.test.pw.extension.locatorsView%"
         }
       ]
     }

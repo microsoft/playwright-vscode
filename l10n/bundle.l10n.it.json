@@ -4,6 +4,7 @@
   "Can't record while running tests": "Non e' possibile registrare mentre si eseguono i test",
   "Clear cache": "Pulire la cache",
   "Close all browsers": "Chiudere tutti i browser",
+  "Locator": "Locator",
   "No Playwright tests found.": "0 Playwright test trovati.",
   "Pick locator": "Seleziona il locator",
   "Playwright Test v{0} or newer is required": "Playwright Test v{0} o una piu' recenbte e' richiesta",

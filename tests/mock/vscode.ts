@@ -1100,6 +1100,7 @@ export class VSCode {
     this.window.showTextDocument = (document: TextDocument) => {
       const editor = new TextEditor(document);
       this.window.visibleTextEditors.push(editor);
+      this.window.activeTextEditor = editor;
       this._didChangeVisibleTextEditors.fire(this.window.visibleTextEditors);
       this._didChangeActiveTextEditor.fire(this.window.activeTextEditor);
       return editor;

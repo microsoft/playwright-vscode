@@ -118,7 +118,7 @@ export class DebugHighlight {
       return;
     const result = await locatorToHighlight(this._debugSessions, document, position, token);
     if (result)
-      this._reusedBrowser.highlight(result);
+      this._reusedBrowser.highlight(result).catch(() => {});
     else
       this._hideHighlight();
   }

@@ -245,6 +245,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
 }
 
 function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri, webview: vscodeTypes.Webview) {
+  const themeUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'theme.css'));
   const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'settingsView.css'));
   const nonce = getNonce();
 
@@ -254,6 +255,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <meta charset="UTF-8">
       <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link href="${themeUri}" rel="stylesheet">
       <link href="${styleUri}" rel="stylesheet">
       <title>Playwright</title>
     </head>
