@@ -164,14 +164,14 @@ export class PlaywrightTestServer {
     await testServer?.clearCache({});
   }
 
-  async runTests(items: vscodeTypes.TestItem[], runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+  async runTests(request: vscodeTypes.TestRunRequest, runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const testServer = await this._testServer();
     if (token?.isCancellationRequested)
       return;
     if (!testServer)
       return;
 
-    const { locations, testIds } = this._model.narrowDownLocations(items);
+    const { locations, testIds } = this._model.narrowDownLocations(request);
     if (!locations && !testIds)
       return;
 
@@ -224,7 +224,7 @@ export class PlaywrightTestServer {
     };
   }
 
-  async debugTests(items: vscodeTypes.TestItem[], runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
+  async debugTests(request: vscodeTypes.TestRunRequest, runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const addressPromise = new Promise<string>(f => {
       const disposable = this._options.onStdOut(output => {
         const match = output.match(/Listening on (.*)/);
@@ -291,7 +291,7 @@ export class PlaywrightTestServer {
       if (token?.isCancellationRequested)
         return;
 
-      const { locations, testIds } = this._model.narrowDownLocations(items);
+      const { locations, testIds } = this._model.narrowDownLocations(request);
       if (!locations && !testIds)
         return;
 

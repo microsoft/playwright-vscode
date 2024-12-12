@@ -515,7 +515,7 @@ export class TestModel extends DisposableBase {
     await this._playwrightTest.clearCache();
   }
 
-  async runTests(items: vscodeTypes.TestItem[], reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
+  async runTests(request: vscodeTypes.TestRunRequest, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
     if (token?.isCancellationRequested)
       return;
 
@@ -555,13 +555,13 @@ export class TestModel extends DisposableBase {
     try {
       if (token?.isCancellationRequested)
         return;
-      await this._playwrightTest.runTests(items, options, reporter, token);
+      await this._playwrightTest.runTests(request, options, reporter, token);
     } finally {
       await this._embedder.runHooks.onDidRunTests(false);
     }
   }
 
-  async debugTests(items: vscodeTypes.TestItem[], reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
+  async debugTests(request: vscodeTypes.TestRunRequest, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
     if (token?.isCancellationRequested)
       return;
 
@@ -582,7 +582,7 @@ export class TestModel extends DisposableBase {
     try {
       if (token?.isCancellationRequested)
         return;
-      await this._playwrightTest.debugTests(items, options, reporter, token);
+      await this._playwrightTest.debugTests(request, options, reporter, token);
     } finally {
       await this._embedder.runHooks.onDidRunTests(false);
     }
@@ -636,12 +636,12 @@ export class TestModel extends DisposableBase {
     await this._playwrightTest.watchFiles([...filesToWatch]);
   }
 
-  narrowDownLocations(items: vscodeTypes.TestItem[]): { locations: string[] | null, testIds?: string[] } {
-    if (!items.length)
+  narrowDownLocations(request: vscodeTypes.TestRunRequest): { locations: string[] | null, testIds?: string[] } {
+    if (!request.include?.length)
       return { locations: [] };
     const locations = new Set<string>();
     const testIds: string[] = [];
-    for (const item of items) {
+    for (const item of request.include) {
       const treeItem = upstreamTreeItem(item);
       if (treeItem.kind === 'group' && (treeItem.subKind === 'folder' || treeItem.subKind === 'file')) {
         for (const file of this.enabledFiles()) {
