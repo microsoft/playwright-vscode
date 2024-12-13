@@ -100,7 +100,3 @@ body[data-vscode-theme-kind=vscode-dark] div.separator {
   width: 4px;
   height: 4px;
 }
-
-.select-projects:disabled {
-  display: none;
-}
