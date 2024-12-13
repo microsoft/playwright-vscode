@@ -71,6 +71,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
 
     webviewView.webview.html = htmlForWebview(this._vscode, this._extensionUri, webviewView.webview);
     this._disposables.push(webviewView.webview.onDidReceiveMessage(data => {
+      console.log(data);
       if (data.method === 'execute') {
         this._vscode.commands.executeCommand(data.params.command);
       } else if (data.method === 'toggle') {
@@ -267,6 +268,8 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
         </div>
       </div>
       <div class="section-header">${vscode.l10n.t('PROJECTS')}</div>
+      <button class="select-projects" id="select-all-projects" disabled>Select all</button>
+      <button class="select-projects" id="unselect-all-projects" disabled>Unselect all</button>
       <div data-testid="projects" id="projects" class="list"></div>
       <div class="section-header">${vscode.l10n.t('SETTINGS')}</div>
       <div class="list">
@@ -296,10 +299,15 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       </div>
       <div id="rareActions" class="list"></div>
     </body>
-    <script nonce="${nonce}">
+      <script nonce="${nonce}">
+
+      const selectAllProjectsButton = document.getElementById('select-all-projects');
+      const unselectProjectsButton = document.getElementById('unselect-all-projects');
+      const projectsElement = document.getElementById('projects');
+      
+
       let selectConfig;
       function updateProjects(projects) {
-        const projectsElement = document.getElementById('projects');
         projectsElement.textContent = '';
         for (const project of projects) {
           const { name, enabled } = project;
@@ -316,7 +324,22 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           div.appendChild(label);
           projectsElement.appendChild(div);
         }
+
+        const allEnabled = projects.every(p => p.enabled);
+        selectAllProjectsButton.disabled = allEnabled;
+        unselectProjectsButton.disabled = !allEnabled;
       }
+
+      function setAllProjects(enabled) {
+        vscode.postMessage({ "type": "log", enabled })
+        for (const checkbox of projectsElement.querySelectorAll('input[type=checkbox]')) {
+          checkbox.checked = enabled;
+          checkbox.dispatchEvent(new Event('change'));
+        }
+      }
+
+      selectAllProjectsButton.addEventListener('click', () => setAllProjects(true));
+      unselectProjectsButton.addEventListener('click', () => setAllProjects(false));
 
       const vscode = acquireVsCodeApi();
       for (const input of document.querySelectorAll('input[type=checkbox]')) {
