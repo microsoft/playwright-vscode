@@ -268,9 +268,9 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
         </div>
       </div>
       <div class="section-header">${vscode.l10n.t('PROJECTS')}</div>
-      <button class="select-projects" id="select-all-projects" disabled>Select all</button>
-      <button class="select-projects" id="unselect-all-projects" disabled>Unselect all</button>
-      <div data-testid="projects" id="projects" class="list"></div>
+      <div class="list"><div><label><input type="checkbox" id="selectAll"/> Select all</label></div></div>
+      <div data-testid="projects" id="projects" class="list">
+      </div>
       <div class="section-header">${vscode.l10n.t('SETTINGS')}</div>
       <div class="list">
         <div>
@@ -300,11 +300,8 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <div id="rareActions" class="list"></div>
     </body>
       <script nonce="${nonce}">
-
-      const selectAllProjectsButton = document.getElementById('select-all-projects');
-      const unselectProjectsButton = document.getElementById('unselect-all-projects');
       const projectsElement = document.getElementById('projects');
-      
+      const selectAllCheckbox = document.getElementById('selectAll');
 
       let selectConfig;
       function updateProjects(projects) {
@@ -325,26 +322,33 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           projectsElement.appendChild(div);
         }
 
-        const allEnabled = projects.every(p => p.enabled);
-        selectAllProjectsButton.disabled = allEnabled;
-        unselectProjectsButton.disabled = !allEnabled;
-      }
-
-      function setAllProjects(enabled) {
-        vscode.postMessage({ "type": "log", enabled })
-        for (const checkbox of projectsElement.querySelectorAll('input[type=checkbox]')) {
-          checkbox.checked = enabled;
-          checkbox.dispatchEvent(new Event('change'));
+        const allEnabled = projects.every(p => p.enabled);  
+        if (projects.every(p => p.enabled)) {
+          selectAllCheckbox.checked = true;
+          selectAllCheckbox.indeterminate = false;
+        }
+        else if (projects.some(p => p.enabled)) {
+          selectAllCheckbox.indeterminate = true;
+        }
+        else {
+          selectAllCheckbox.checked = false;
+          selectAllCheckbox.indeterminate = false;
         }
       }
 
-      selectAllProjectsButton.addEventListener('click', () => setAllProjects(true));
-      unselectProjectsButton.addEventListener('click', () => setAllProjects(false));
+      selectAllCheckbox.addEventListener('change', event => {
+        for (const checkbox of projectsElement.querySelectorAll('input[type=checkbox]')) {
+          checkbox.checked = selectAllCheckbox.checked;
+          checkbox.dispatchEvent(new Event('change'));
+        }
+      });
 
       const vscode = acquireVsCodeApi();
       for (const input of document.querySelectorAll('input[type=checkbox]')) {
         input.addEventListener('change', event => {
-          vscode.postMessage({ method: 'toggle', params: { setting: event.target.getAttribute('setting') } });
+          const setting = event.target.getAttribute('setting');
+          if (setting)
+            vscode.postMessage({ method: 'toggle', params: { setting } });
         });
       }
       window.addEventListener('message', event => {
