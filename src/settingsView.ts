@@ -320,7 +320,6 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           projectsElement.appendChild(div);
         }
 
-        const allEnabled = projects.every(p => p.enabled);
         if (projects.every(p => p.enabled)) {
           selectAllCheckbox.checked = true;
           selectAllCheckbox.indeterminate = false;
