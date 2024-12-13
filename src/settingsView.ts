@@ -71,7 +71,6 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
 
     webviewView.webview.html = htmlForWebview(this._vscode, this._extensionUri, webviewView.webview);
     this._disposables.push(webviewView.webview.onDidReceiveMessage(data => {
-      console.log(data);
       if (data.method === 'execute') {
         this._vscode.commands.executeCommand(data.params.command);
       } else if (data.method === 'toggle') {
