@@ -268,8 +268,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       </div>
       <div class="section-header">${vscode.l10n.t('PROJECTS')}</div>
       <div class="list"><div><label><input type="checkbox" id="selectAll"/> Select all</label></div></div>
-      <div data-testid="projects" id="projects" class="list">
-      </div>
+      <div data-testid="projects" id="projects" class="list"></div>
       <div class="section-header">${vscode.l10n.t('SETTINGS')}</div>
       <div class="list">
         <div>
@@ -298,7 +297,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       </div>
       <div id="rareActions" class="list"></div>
     </body>
-      <script nonce="${nonce}">
+    <script nonce="${nonce}">
       const projectsElement = document.getElementById('projects');
       const selectAllCheckbox = document.getElementById('selectAll');
 
@@ -321,7 +320,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           projectsElement.appendChild(div);
         }
 
-        const allEnabled = projects.every(p => p.enabled);  
+        const allEnabled = projects.every(p => p.enabled);
         if (projects.every(p => p.enabled)) {
           selectAllCheckbox.checked = true;
           selectAllCheckbox.indeterminate = false;
