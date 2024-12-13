@@ -550,6 +550,7 @@ export class TestModel extends DisposableBase {
       video,
       reuseContext: showBrowser,
       connectWsEndpoint: showBrowser ? externalOptions.connectWsEndpoint : undefined,
+      updateSnapshots: this._embedder.settingsModel.updateSnapshots.get() ? 'all' : undefined,
     };
 
     try {

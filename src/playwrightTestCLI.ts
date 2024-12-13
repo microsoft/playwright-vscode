@@ -91,6 +91,8 @@ export class PlaywrightTestCLI {
       args.push(`--workers=${options.workers}`);
     if (options.trace)
       args.push(`--trace=${options.trace}`);
+    if (options.updateSnapshots === 'all')
+      args.push(`--update-snapshots`);
     await this._innerSpawn(locations, args, options, reporter, token);
   }
 

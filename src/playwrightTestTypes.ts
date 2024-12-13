@@ -32,6 +32,7 @@ export type PlaywrightTestRunOptions = {
   video?: 'on' | 'off';
   reuseContext?: boolean;
   connectWsEndpoint?: string;
+  updateSnapshots?: 'all' | 'none' | 'missing';
 };
 
 export interface RunHooks {
