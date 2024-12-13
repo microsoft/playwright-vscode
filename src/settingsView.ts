@@ -267,6 +267,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
         </div>
       </div>
       <div class="section-header">${vscode.l10n.t('PROJECTS')}</div>
+      <div class="list"><div><label><input type="checkbox" id="selectAll"/> Select all</label></div></div>
       <div data-testid="projects" id="projects" class="list"></div>
       <div class="section-header">${vscode.l10n.t('SETTINGS')}</div>
       <div class="list">
@@ -297,9 +298,11 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <div id="rareActions" class="list"></div>
     </body>
     <script nonce="${nonce}">
+      const projectsElement = document.getElementById('projects');
+      const selectAllCheckbox = document.getElementById('selectAll');
+
       let selectConfig;
       function updateProjects(projects) {
-        const projectsElement = document.getElementById('projects');
         projectsElement.textContent = '';
         for (const project of projects) {
           const { name, enabled } = project;
@@ -316,10 +319,29 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           div.appendChild(label);
           projectsElement.appendChild(div);
         }
+
+        if (projects.every(p => p.enabled)) {
+          selectAllCheckbox.checked = true;
+          selectAllCheckbox.indeterminate = false;
+        }
+        else if (projects.some(p => p.enabled)) {
+          selectAllCheckbox.indeterminate = true;
+        }
+        else {
+          selectAllCheckbox.checked = false;
+          selectAllCheckbox.indeterminate = false;
+        }
       }
 
+      selectAllCheckbox.addEventListener('change', event => {
+        for (const checkbox of projectsElement.querySelectorAll('input[type=checkbox]')) {
+          checkbox.checked = selectAllCheckbox.checked;
+          checkbox.dispatchEvent(new Event('change'));
+        }
+      });
+
       const vscode = acquireVsCodeApi();
-      for (const input of document.querySelectorAll('input[type=checkbox]')) {
+      for (const input of document.querySelectorAll('input[type=checkbox][setting]')) {
         input.addEventListener('change', event => {
           vscode.postMessage({ method: 'toggle', params: { setting: event.target.getAttribute('setting') } });
         });
