@@ -19,5 +19,6 @@
   "configuration.playwright.reuseBrowser": "Afficher et réutiliser le navigateur entre les tests.",
   "configuration.playwright.showTrace": "Afficher les traces avec Trace Viewer.",
   "configuration.playwright.runGlobalSetupOnEachRun": "Ne pas réutiliser la setup globale.",
+  "views.test.pw.extension.locatorsView": "Localisateurs",
   "views.test.pw.extension.settingsView": "Playwright"
 }

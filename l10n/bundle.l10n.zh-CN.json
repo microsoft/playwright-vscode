@@ -4,6 +4,7 @@
   "Can't record while running tests": "运行测试时不能录制",
   "Clear cache": "清除缓存",
   "Close all browsers": "关闭全部 Playwright 浏览器",
+  "Locator": "定位器",
   "No Playwright tests found.": "没有找到 Playwright Test",
   "Pick locator": "拾取选择器",
   "Playwright Test v{0} or newer is required": "需要 v{0} 或以上版本的 Playwright Test",

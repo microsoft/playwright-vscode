@@ -18,6 +18,8 @@ import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 
 test.beforeAll(async () => {
   process.env.PW_DEBUG_CONTROLLER_HEADLESS = '1';
+  // the x-pw-highlight element has otherwise a closed shadow root.
+  process.env.PWTEST_UNDER_TEST = '1';
 });
 
 test('should pick locator', async ({ activate }) => {
@@ -25,20 +27,39 @@ test('should pick locator', async ({ activate }) => {
     'playwright.config.js': `module.exports = {}`,
   });
 
-  const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  const [inputBox] = await Promise.all([
-    new Promise<any>(f => vscode.onDidShowInputBox(f)),
-    webView.getByText('Pick locator').click(),
-  ]);
-  expect(inputBox.title).toBe('Pick locator');
-  expect(inputBox.value).toBe('');
-  expect(inputBox.prompt).toBe('Accept to copy locator into clipboard');
+  const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
+  await settingsView.getByText('Pick locator').click();
 
-  // It is important that we await for input to be visible to want for the context to be set up.
-  const valuePromise = new Promise(f => inputBox.onDidAssignValue(f));
   const browser = await connectToSharedBrowser(vscode);
   const page = await waitForPage(browser);
   await page.locator('body').click();
-  const value = await valuePromise;
-  expect(value).toBe('locator(\'body\')');
+
+  const locatorsView = vscode.webViews.get('pw.extension.locatorsView')!;
+  await expect(locatorsView.locator('body')).toMatchAriaSnapshot(`
+    - text: Locator
+    - textbox "Locator": locator('body')
+  `);
+});
+
+test('should highlight locator on edit', async ({ activate }) => {
+  const { vscode } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+  });
+
+  const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
+  await settingsView.getByText('Pick locator').click();
+
+  const browser = await connectToSharedBrowser(vscode);
+  const page = await waitForPage(browser);
+  await page.setContent(`
+    <h1>Hello</h1>
+    <button>World</button>
+  `);
+  const box = await page.getByRole('heading', { name: 'Hello' }).boundingBox();
+
+  const locatorsView = vscode.webViews.get('pw.extension.locatorsView')!;
+  await locatorsView.getByRole('textbox', { name: 'Locator' }).fill('h1');
+
+  await expect(page.locator('x-pw-highlight')).toBeVisible();
+  expect(await page.locator('x-pw-highlight').boundingBox()).toEqual(box);
 });

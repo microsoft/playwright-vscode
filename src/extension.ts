@@ -30,6 +30,7 @@ import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { RunHooks, TestConfig } from './playwrightTestTypes';
 import { ansi2html } from './ansi2html';
+import { LocatorsView } from './locatorsView';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -69,6 +70,7 @@ export class Extension implements RunHooks {
   private _reusedBrowser: ReusedBrowser;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
+  private _locatorsView!: LocatorsView;
   private _diagnostics: vscodeTypes.DiagnosticCollection;
   private _treeItemObserver: TreeItemObserver;
   private _runProfile: vscodeTypes.TestRunProfile;
@@ -149,6 +151,7 @@ export class Extension implements RunHooks {
   async activate() {
     const vscode = this._vscode;
     this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, this._context.extensionUri);
+    this._locatorsView = new LocatorsView(vscode, this._reusedBrowser, this._context.extensionUri);
     const messageNoPlaywrightTestsFound = this._vscode.l10n.t('No Playwright tests found.');
     this._disposables = [
       this._debugHighlight,
@@ -232,6 +235,7 @@ export class Extension implements RunHooks {
       this._models.onUpdated(() => this._modelsUpdated()),
       this._treeItemObserver.onTreeItemSelected(item => this._treeItemSelected(item)),
       this._settingsView,
+      this._locatorsView,
       this._testController,
       this._runProfile,
       this._debugProfile,

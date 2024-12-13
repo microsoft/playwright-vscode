@@ -14,19 +14,6 @@
  * limitations under the License.
  */
 
-body {
-  margin: 0;
-  padding: 0;
-}
-
-svg {
-  transform: scale(0.3);
-  fill: var(--vscode-editor-foreground);
-  margin: -18px;
-  width: 56px;
-  pointer-events: none;
-}
-
 .list {
   display: flex;
   flex-direction: column;
@@ -87,13 +74,6 @@ label {
 
 body[data-vscode-theme-kind=vscode-dark] div.separator {
   border-color: rgba(204, 204, 204, 0.2);
-}
-
-.section-header {
-  font-size: 11px;
-  margin: 10px 0 3px 8px;
-  font-weight: 700;
-  color: var(--vscode-editor-inlineValuesForeground);
 }
 
 .action-indent {
