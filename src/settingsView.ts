@@ -341,11 +341,9 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       });
 
       const vscode = acquireVsCodeApi();
-      for (const input of document.querySelectorAll('input[type=checkbox]')) {
+      for (const input of document.querySelectorAll('input[type=checkbox][setting]')) {
         input.addEventListener('change', event => {
-          const setting = event.target.getAttribute('setting');
-          if (setting)
-            vscode.postMessage({ method: 'toggle', params: { setting } });
+          vscode.postMessage({ method: 'toggle', params: { setting: event.target.getAttribute('setting') } });
         });
       }
       window.addEventListener('message', event => {
