@@ -19,6 +19,8 @@
   "configuration.playwright.reuseBrowser": "Show & reuse browser between tests.",
   "configuration.playwright.showTrace": "Show Trace Viewer.",
   "configuration.playwright.runGlobalSetupOnEachRun": "Run global setup on each run.",
+  "configuration.playwright.updateSnapshots": "Update snapshots",
+  "configuration.playwright.updateSourceMethod": "Update source method",
   "views.test.pw.extension.locatorsView": "Locators",
   "views.test.pw.extension.settingsView": "Playwright"
 }

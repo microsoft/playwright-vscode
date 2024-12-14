@@ -18,7 +18,6 @@ import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 
 test.beforeEach(async ({ showBrowser }) => {
   test.skip(!showBrowser);
-  process.env.PW_DEBUG_CONTROLLER_HEADLESS = '1';
 });
 
 test('should reuse browsers', async ({ activate }) => {

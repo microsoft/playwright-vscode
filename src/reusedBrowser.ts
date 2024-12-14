@@ -147,6 +147,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       this._pageCountChanged(params.pageCount);
     });
     this._backend.on('sourceChanged', async params => {
+      if (!this._cancelRecording)
+        return;
       this._scheduleEdit(async () => {
         const editor = this._vscode.window.activeTextEditor;
         if (!editor)

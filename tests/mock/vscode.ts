@@ -1153,12 +1153,12 @@ export class VSCode {
       }
     };
     const settings: Record<string, any> = {
-      'playwright.env': {},
-      'playwright.reuseBrowser': false,
-      'playwright.showTrace': false,
-      'playwright.runGlobalSetupOnEachRun': false,
       'workbench.colorTheme': 'Dark Modern',
     };
+    const { properties } = require('../../package.json').contributes.configuration;
+    for (const [key, value] of Object.entries(properties))
+      settings[key] = (value as any).default;
+
     this.workspace.getConfiguration = (scope: string) => {
       return {
         get: (key: string) => settings[scope + '.' + key],

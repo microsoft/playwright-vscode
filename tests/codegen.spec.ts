@@ -16,10 +16,6 @@
 
 import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 
-test.beforeAll(async () => {
-  process.env.PW_DEBUG_CONTROLLER_HEADLESS = '1';
-});
-
 test('should generate code', async ({ activate }) => {
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = {}`,

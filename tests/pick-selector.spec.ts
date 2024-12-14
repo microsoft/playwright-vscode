@@ -16,13 +16,7 @@
 
 import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 
-test.beforeAll(async () => {
-  process.env.PW_DEBUG_CONTROLLER_HEADLESS = '1';
-  // the x-pw-highlight element has otherwise a closed shadow root.
-  process.env.PWTEST_UNDER_TEST = '1';
-});
-
-test('should pick locator', async ({ activate }) => {
+test('should pick locator', async ({ activate, overridePlaywrightVersion }) => {
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = {}`,
   });
@@ -32,13 +26,26 @@ test('should pick locator', async ({ activate }) => {
 
   const browser = await connectToSharedBrowser(vscode);
   const page = await waitForPage(browser);
-  await page.locator('body').click();
+  await page.setContent(`
+    <h1>Hello</h1>
+    <h1>World</h1>
+  `);
+  await page.locator('h1').first().click();
 
   const locatorsView = vscode.webViews.get('pw.extension.locatorsView')!;
   await expect(locatorsView.locator('body')).toMatchAriaSnapshot(`
     - text: Locator
-    - textbox "Locator": locator('body')
+    - textbox "Locator": "getByRole('heading', { name: 'Hello' })"
   `);
+
+  if (!overridePlaywrightVersion) {
+    await expect(locatorsView.locator('body')).toMatchAriaSnapshot(`
+      - text: Locator
+      - textbox "Locator": "getByRole('heading', { name: 'Hello' })"
+      - text: Aria
+      - textbox "Aria": "- heading \\"Hello\\" [level=1]"
+    `);
+  }
 });
 
 test('should highlight locator on edit', async ({ activate }) => {
