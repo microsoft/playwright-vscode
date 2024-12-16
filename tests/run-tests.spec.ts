@@ -528,7 +528,7 @@ test('should group projects by config', async ({ activate }) => {
   await expect(vscode).toHaveProjectTree(`
     config: tests2/playwright.config.js
     [x] projectOne
-    [ ] projectTwo
+    [x] projectTwo
   `);
 
   await enableProjects(vscode, ['projectOne', 'projectTwo']);
@@ -954,8 +954,9 @@ test('should filter selected project', async ({ activate }) => {
     `,
   });
 
+  await enableProjects(vscode, ['project 1']);
+
   const testItems = testController.findTestItems(/test.spec/);
-  expect(testItems.length).toBe(1);
   const testRun = await testController.run(testItems);
   expect(testRun.renderLog()).toBe(`
     tests1 > test.spec.ts > one [2:0]

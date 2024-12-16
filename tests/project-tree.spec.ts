@@ -37,7 +37,7 @@ test('should switch between configs', async ({ activate }) => {
   await expect(vscode).toHaveProjectTree(`
     config: tests1/playwright.config.js
     [x] projectOne
-    [ ] projectTwo
+    [x] projectTwo
   `);
 
   await expect(vscode).toHaveExecLog(`
@@ -52,7 +52,7 @@ test('should switch between configs', async ({ activate }) => {
   await expect(vscode).toHaveProjectTree(`
     config: tests2/playwright.config.js
     [x] projectThree
-    [ ] projectFour
+    [x] projectFour
   `);
 
   await expect(testController).toHaveTestTree(`
@@ -87,6 +87,7 @@ test('should switch between projects', async ({ activate }) => {
     `,
   });
 
+  await enableProjects(vscode, ['projectOne']);
   await expect(testController).toHaveTestTree(`
     -   tests1
       -   test.spec.ts
