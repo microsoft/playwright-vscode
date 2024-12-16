@@ -109,14 +109,12 @@ export class TestModel extends DisposableBase {
       return;
     await this._listFiles();
     if (configSettings) {
-      let firstProject = true;
       for (const project of this.projects()) {
         const projectSettings = configSettings.projects.find(p => p.name === project.name);
         if (projectSettings)
           project.isEnabled = projectSettings.enabled;
-        else if (firstProject)
-          project.isEnabled = true;
-        firstProject = false;
+        else
+          project.isEnabled = false;
       }
     } else {
       for (const project of this.projects())
