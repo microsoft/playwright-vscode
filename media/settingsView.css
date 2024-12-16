@@ -80,3 +80,12 @@ body[data-vscode-theme-kind=vscode-dark] div.separator {
   width: 4px;
   height: 4px;
 }
+
+.section-toolbar > a {
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.section-toolbar > a:hover {
+  background-color: var(--vscode-toolbar-hoverBackground);
+}

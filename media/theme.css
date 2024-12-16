@@ -58,7 +58,11 @@ textarea {
 
 .section-header {
   font-size: 11px;
-  margin: 10px 0 3px 8px;
+  margin: 10px 8px 3px 8px;
   font-weight: 700;
   color: var(--vscode-editor-inlineValuesForeground);
+  
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
 }

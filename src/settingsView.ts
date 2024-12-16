@@ -268,7 +268,17 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           <span id="configToolbar"></span>
         </div>
       </div>
-      <div class="section-header">${vscode.l10n.t('PROJECTS')}</div>
+      <div class="section-header">
+        ${vscode.l10n.t('PROJECTS')}
+        <div class="section-toolbar">
+          <a id="selectAll" role="button" title="Select All">
+            <svg width="48" height="48" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M9 9H4v1h5V9z"/><path d="M7 12V7H6v5h1z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M5 3l1-1h7l1 1v7l-1 1h-2v2l-1 1H3l-1-1V6l1-1h2V3zm1 2h4l1 1v4h2V3H6v2zm4 1H3v7h7V6z"/></svg>
+          </a>
+          <a id="unselectAll" role="button" title="Unselect All" hidden>
+            <svg width="48" height="48" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M9 9H4v1h5V9z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M5 3l1-1h7l1 1v7l-1 1h-2v2l-1 1H3l-1-1V6l1-1h2V3zm1 2h4l1 1v4h2V3H6v2zm4 1H3v7h7V6z"/></svg>
+          </a>
+        </div>
+      </div>
       <div data-testid="projects" id="projects" class="list"></div>
       <div class="section-header">${vscode.l10n.t('SETTINGS')}</div>
       <div class="list">
@@ -299,9 +309,12 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <div id="rareActions" class="list"></div>
     </body>
     <script nonce="${nonce}">
+      const projectsElement = document.getElementById('projects');
+      const selectAllButton = document.getElementById('selectAll');
+      const unselectAllButton = document.getElementById('unselectAll');
+
       let selectConfig;
       function updateProjects(projects) {
-        const projectsElement = document.getElementById('projects');
         projectsElement.textContent = '';
         for (const project of projects) {
           const { name, enabled } = project;
@@ -318,7 +331,21 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           div.appendChild(label);
           projectsElement.appendChild(div);
         }
+        
+        const allEnabled = projects.every(p => p.enabled);
+        selectAllButton.hidden = allEnabled;
+        unselectAllButton.hidden = !allEnabled;
       }
+      
+      function setAllProjects(checked) {
+        for (const input of projectsElement.querySelectorAll('input[type=checkbox]')) {
+          input.checked = checked;
+          input.dispatchEvent(new Event('change'));
+        }
+      }
+
+      selectAllButton.addEventListener('click', () => setAllProjects(true));
+      unselectAllButton.addEventListener('click', () => setAllProjects(false));
 
       const vscode = acquireVsCodeApi();
       for (const input of document.querySelectorAll('input[type=checkbox]')) {
