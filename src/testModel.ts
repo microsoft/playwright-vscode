@@ -716,9 +716,9 @@ export class TestModelCollection extends DisposableBase {
     model.reset();
     const configSettings = this._configSettings(model.config);
     model._loadModelIfNeeded(configSettings).then(() => {
-      this._didUpdate.fire();
       if (userGesture)
         this._saveSettings();
+      this._didUpdate.fire();
     });
   }
 
