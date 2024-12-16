@@ -132,7 +132,7 @@ test('should reload when playwright.env changes', async ({ activate }) => {
   expect(output).toContain(`bar={"prop":"bar-value"}`);
 });
 
-test('should track project enabled state', async ({ activate }) => {
+test('should sync project enabled state to workspace settings', async ({ activate }) => {
   const { vscode } = await activate({
     'playwright.config.ts': `
       import { defineConfig } from '@playwright/test';
