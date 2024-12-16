@@ -123,6 +123,27 @@
           "type": "boolean",
           "default": false,
           "description": "%configuration.playwright.runGlobalSetupOnEachRun%"
+        },
+        "playwright.updateSnapshots": {
+          "type": "string",
+          "enum": [
+            "all",
+            "changed",
+            "missing",
+            "none"
+          ],
+          "default": "missing",
+          "description": "%configuration.playwright.updateSnapshots%"
+        },
+        "playwright.updateSourceMethod": {
+          "type": "string",
+          "enum": [
+            "overwrite",
+            "patch",
+            "3way"
+          ],
+          "default": "3way",
+          "description": "%configuration.playwright.updateSourceMethod%"
         }
       }
     },
@@ -167,7 +188,7 @@
   },
   "devDependencies": {
     "@babel/preset-typescript": "^7.23.2",
-    "@playwright/test": "1.49.0-beta-1733521450000",
+    "@playwright/test": "1.50.0-alpha-2024-12-15",
     "@types/babel__core": "^7.20.3",
     "@types/babel__helper-plugin-utils": "^7.10.2",
     "@types/babel__traverse": "^7.20.3",

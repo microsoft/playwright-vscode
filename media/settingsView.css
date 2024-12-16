@@ -77,6 +77,6 @@ body[data-vscode-theme-kind=vscode-dark] div.separator {
 }
 
 .action-indent {
-  width: 4px;
-  height: 4px;
+  flex: none;
+  width: 20px;
 }

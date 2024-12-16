@@ -19,6 +19,8 @@
   "configuration.playwright.reuseBrowser": "在测试用例间显示并复用 Playwright 浏览器",
   "configuration.playwright.showTrace": "显示 Playwright 浏览器的跟踪",
   "configuration.playwright.runGlobalSetupOnEachRun": "不要重复使用全局设置",
+  "configuration.playwright.updateSnapshots": "更新快照",
+  "configuration.playwright.updateSourceMethod": "更新源方法",
   "views.test.pw.extension.locatorsView": "定位器",
   "views.test.pw.extension.settingsView": "Playwright"
 }
