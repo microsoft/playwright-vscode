@@ -131,3 +131,84 @@ test('should reload when playwright.env changes', async ({ activate }) => {
   expect(output).toContain(`foo=foo-value`);
   expect(output).toContain(`bar={"prop":"bar-value"}`);
 });
+
+test('should track project enabled state', async ({ activate }) => {
+  const { vscode } = await activate({
+    'playwright.config.ts': `
+      import { defineConfig } from '@playwright/test';
+      export default defineConfig({
+        projects: [
+          { name: 'foo', testMatch: 'foo.ts' },
+          { name: 'bar', testMatch: 'bar.ts' },
+        ]
+      });
+    `,
+  });
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+
+  await expect(webView.locator('body')).toMatchAriaSnapshot(`
+    - text: PROJECTS
+    - checkbox "foo" [checked]
+    - checkbox "bar" [checked]
+  `);
+  expect(vscode.context.workspaceState.get('pw.workspace-settings')).toBeUndefined();
+
+  await webView.getByRole('checkbox', { name: 'bar' }).uncheck();
+
+  await expect(webView.locator('body')).toMatchAriaSnapshot(`
+    - checkbox "foo" [checked]
+    - checkbox "bar" [checked=false]
+  `);
+
+  console.log(JSON.stringify(vscode.context.workspaceState.get('pw.workspace-settings')));
+
+  expect(vscode.context.workspaceState.get('pw.workspace-settings')).toEqual(expect.objectContaining({
+    configs: [
+      expect.objectContaining({
+        enabled: true,
+        projects: [
+          expect.objectContaining({ name: 'foo', enabled: true }),
+          expect.objectContaining({ name: 'bar', enabled: false }),
+        ]
+      })
+    ]
+  }));
+});
+
+test('should read project enabled state from workspace settings', async ({ vscode, activate }) => {
+  vscode.context.workspaceState.update('pw.workspace-settings', {
+    configs: [
+      {
+        relativeConfigFile: 'playwright.config.ts',
+        selected: true,
+        enabled: true,
+        projects: [
+          { name: 'foo', enabled: true },
+          { name: 'bar', enabled: false }
+        ]
+      }
+    ]
+  });
+
+  await activate({
+    'playwright.config.ts': `
+      import { defineConfig } from '@playwright/test';
+      export default defineConfig({
+        projects: [
+          { name: 'foo', testMatch: 'foo.ts' },
+          { name: 'bar', testMatch: 'bar.ts' },
+          { name: 'baz', testMatch: 'baz.ts' },
+        ]
+      });
+    `,
+  });
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await expect(webView.locator('body')).toMatchAriaSnapshot(`
+    - text: PROJECTS
+    - checkbox "foo" [checked]
+    - checkbox "bar" [checked=false]
+    - checkbox "baz" [checked=false]
+  `);
+});
