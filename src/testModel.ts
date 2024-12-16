@@ -119,8 +119,8 @@ export class TestModel extends DisposableBase {
         firstProject = false;
       }
     } else {
-      if (this.projects().length)
-        this.projects()[0].isEnabled = true;
+      for (const project of this.projects())
+        project.isEnabled = true;
     }
   }
 
