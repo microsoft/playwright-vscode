@@ -713,11 +713,13 @@ export class TestModelCollection extends DisposableBase {
     if (model.isEnabled === enabled)
       return;
     model.isEnabled = enabled;
-    if (userGesture)
-      this._saveSettings();
     model.reset();
     const configSettings = this._configSettings(model.config);
-    model._loadModelIfNeeded(configSettings).then(() => this._didUpdate.fire());
+    model._loadModelIfNeeded(configSettings).then(() => {
+      this._didUpdate.fire();
+      if (userGesture)
+        this._saveSettings();
+    });
   }
 
   setProjectEnabled(configFile: string, name: string, enabled: boolean) {
