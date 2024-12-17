@@ -24,18 +24,30 @@ interface WorkspaceVersionState {
 }
 
 export class Migrator {
-  constructor(private readonly context: vscodeTypes.ExtensionContext) {}
+  public isNewWorkspace: boolean;
+  private state: WorkspaceVersionState;
+  constructor(private readonly context: vscodeTypes.ExtensionContext) {
+    const state = this.context.workspaceState.get<WorkspaceVersionState>(workspaceVersionKey);
+    if (state) {
+      this.isNewWorkspace = false;
+      this.state = state;
+    } else {
+      this.isNewWorkspace = true;
+      this.state = { version: '0.0.0', lastMigrationTime: 0, lastMigration: -1 };
+    }
+  }
 
   async migrate() {
-    const state = this.context.workspaceState.get<WorkspaceVersionState>(workspaceVersionKey) ?? { version: '0.0.0', lastMigrationTime: 0, lastMigration: -1 };
-    await this.runMigrations(state.lastMigration);
-    await this.context.workspaceState.update(workspaceVersionKey, { version: pack.version, lastMigrationTime: Date.now(), lastMigration: this.migrations.length - 1 });
+    const lastMigration = await this.runMigrations();
+    this.state = { version: pack.version, lastMigrationTime: Date.now(), lastMigration };
+    await this.context.workspaceState.update(workspaceVersionKey, this.state);
+  }
+
+  private async runMigrations() {
+    for (const migration of this.migrations.slice(this.state.lastMigration + 1))
+      await migration();
+    return this.migrations.length - 1;
   }
 
   private migrations: Function[] = [];
-
-  private async runMigrations(lastMigration: number) {
-    for (let i = lastMigration + 1; i < this.migrations.length; ++i)
-      await this.migrations[i]();
-  }
 }
