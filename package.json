@@ -207,6 +207,7 @@
     "eslint-plugin-notice": "^0.9.10",
     "eslint-plugin-react-hooks": "^4.6.0",
     "glob": "^8.0.3",
+    "minimatch": "^9.0.5",
     "typescript": "^5.4.3"
   },
   "dependencies": {
