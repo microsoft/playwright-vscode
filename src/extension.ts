@@ -31,6 +31,7 @@ import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { RunHooks, TestConfig } from './playwrightTestTypes';
 import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
+import { Migrator } from './migrator';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -50,6 +51,7 @@ export async function activate(context: vscodeTypes.ExtensionContext) {
 export class Extension implements RunHooks {
   private _vscode: vscodeTypes.VSCode;
   private _context: vscodeTypes.ExtensionContext;
+  private _migrator: Migrator;
   private _disposables: vscodeTypes.Disposable[] = [];
 
   // Global test item map.
@@ -84,6 +86,7 @@ export class Extension implements RunHooks {
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     this._vscode = vscode;
     this._context = context;
+    this._migrator = new Migrator(context);
     this._isUnderTest = !!(this._vscode as any).isUnderTest;
     this._activeStepDecorationType = this._vscode.window.createTextEditorDecorationType({
       isWholeLine: true,
@@ -149,6 +152,8 @@ export class Extension implements RunHooks {
   }
 
   async activate() {
+    await this._migrator.migrate();
+
     const vscode = this._vscode;
     this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, this._context.extensionUri);
     this._locatorsView = new LocatorsView(vscode, this._reusedBrowser, this._context.extensionUri);

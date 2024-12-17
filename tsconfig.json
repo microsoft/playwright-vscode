@@ -7,7 +7,8 @@
     "rootDir": ".",
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "noEmit": true
+    "noEmit": true,
+    "resolveJsonModule": true,
   },
   "include": ["src", "tests"],
   "exclude": ["node_modules"]
