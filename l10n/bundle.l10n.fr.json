@@ -26,5 +26,7 @@
   "Toggle Playwright Configs": "Basculer les configurations Playwright",
   "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "Si cette option est activée, Playwright réutilisera l'instance du navigateur entre les tests. Cela désactivera l'exécution parallèle.",
   "Select All": "Tout sélectionner",
-  "Unselect All": "Tout désélectionner"
+  "Unselect All": "Tout désélectionner",
+  "Update snapshots:": "Mettre à jour les captures:",
+  "Update method:" : "Mettre à jour la méthode:"
 }

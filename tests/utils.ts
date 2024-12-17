@@ -23,6 +23,10 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
+process.env.PW_DEBUG_CONTROLLER_HEADLESS = '1';
+// the x-pw-highlight element has otherwise a closed shadow root.
+process.env.PWTEST_UNDER_TEST = '1';
+
 type ActivateResult = {
   vscode: VSCode,
   testController: TestController;
@@ -229,7 +233,7 @@ export async function enableConfigs(vscode: VSCode, labels: string[]) {
 
 export async function selectConfig(vscode: VSCode, label: string) {
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  await webView.locator('select').selectOption({ label });
+  await webView.getByTestId('models').selectOption({ label });
 }
 
 export async function enableProjects(vscode: VSCode, projects: string[]) {

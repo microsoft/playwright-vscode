@@ -550,6 +550,8 @@ export class TestModel extends DisposableBase {
       video,
       reuseContext: showBrowser,
       connectWsEndpoint: showBrowser ? externalOptions.connectWsEndpoint : undefined,
+      updateSnapshots: this._embedder.settingsModel.updateSnapshots.get(),
+      updateSourceMethod: this._embedder.settingsModel.updateSourceMethod.get(),
     };
 
     try {
@@ -578,6 +580,8 @@ export class TestModel extends DisposableBase {
       trace: 'off',
       reuseContext: false,
       connectWsEndpoint: externalOptions.connectWsEndpoint,
+      updateSnapshots: this._embedder.settingsModel.updateSnapshots.get(),
+      updateSourceMethod: this._embedder.settingsModel.updateSourceMethod.get(),
     };
     try {
       if (token?.isCancellationRequested)

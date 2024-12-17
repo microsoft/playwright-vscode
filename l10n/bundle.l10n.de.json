@@ -24,6 +24,8 @@
   "Stop dev server": "Entwicklungsserver stoppen",
   "this feature": "diese Funktion",
   "Toggle Playwright Configs": "Playwright-Konfigurationen umschalten",
+  "Update snapshots:": "Snapshots aktualisieren:",
+  "Update method:" : "Methode aktualisieren:",
   "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "Wenn aktiviert, wird Playwright die Browserinstanz zwischen den Tests wiederverwenden. Dies deaktiviert die parallele Ausführung.",
   "SETTINGS": "EINSTELLUNGEN",
   "PROJECTS": "PROJEKTE",

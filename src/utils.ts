@@ -118,7 +118,9 @@ async function findNodeViaShell(vscode: vscodeTypes.VSCode, cwd: string): Promis
   return new Promise<string | undefined>(resolve => {
     const startToken = '___START_PW_SHELL__';
     const endToken = '___END_PW_SHELL__';
-    const childProcess = spawn(`${vscode.env.shell} -i -c 'echo ${startToken} && which node && echo ${endToken}'`, {
+    // NVM lazily loads Node.js when 'node' alias is invoked. In order to invoke it, we run 'node --version' if 'node' is a function.
+    // See https://github.com/microsoft/playwright/issues/33996
+    const childProcess = spawn(`${vscode.env.shell} -i -c 'if [[ $(type node 2>/dev/null) == *function* ]]; then node --version; fi; echo ${startToken} && which node && echo ${endToken}'`, {
       stdio: 'pipe',
       shell: true,
       cwd,

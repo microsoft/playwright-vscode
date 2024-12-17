@@ -75,6 +75,8 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         this._vscode.commands.executeCommand(data.params.command);
       } else if (data.method === 'toggle') {
         this._vscode.commands.executeCommand(`pw.extension.toggle.${data.params.setting}`);
+      } else if (data.method === 'set') {
+        this._settingsModel.setting(data.params.setting)!.set(data.params.value);
       } else if (data.method === 'setProjectEnabled') {
         const { configFile, projectName, enabled } = data.params;
         this._models.setProjectEnabled(configFile, projectName, enabled);
@@ -147,16 +149,14 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         svg: `<div class="action-indent"></div>`,
         text: this._vscode.l10n.t('Run global setup'),
         location: 'rareActions',
-        disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canRunGlobalHooks('setup'),
-        hidden: this._settingsModel.runGlobalSetupOnEachRun.get(),
+        disabled: this._settingsModel.runGlobalSetupOnEachRun.get() || !this._models.selectedModel() || !this._models.selectedModel()!.canRunGlobalHooks('setup'),
       },
       {
         command: 'pw.extension.command.runGlobalTeardown',
         svg: `<div class="action-indent"></div>`,
         text: this._vscode.l10n.t('Run global teardown'),
         location: 'rareActions',
-        disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canRunGlobalHooks('teardown'),
-        hidden: this._settingsModel.runGlobalSetupOnEachRun.get(),
+        disabled: this._settingsModel.runGlobalSetupOnEachRun.get() || !this._models.selectedModel() || !this._models.selectedModel()!.canRunGlobalHooks('teardown'),
       },
       {
         command: 'pw.extension.command.startDevServer',
@@ -263,6 +263,8 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <title>Playwright</title>
     </head>
     <body>
+      <div class="section-header">${vscode.l10n.t('TOOLS')}</div>
+      <div id="actions" class="list"></div>
       <div class="list" id="model-selector">
         <div>
           <label title="${vscode.l10n.t('Select Playwright Config')}">
@@ -283,6 +285,8 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
         </div>
       </div>
       <div data-testid="projects" id="projects" class="list"></div>
+      <div class="section-header">${vscode.l10n.t('SETUP')}</div>
+      <div id="rareActions" class="list"></div>
       <div class="section-header">${vscode.l10n.t('SETTINGS')}</div>
       <div class="list">
         <div>
@@ -297,19 +301,32 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             ${vscode.l10n.t('Show trace viewer')}
           </label>
         </div>
-      </div>
-      <div class="section-header">${vscode.l10n.t('TOOLS')}</div>
-      <div id="actions" class="list"></div>
-      <div class="section-header">${vscode.l10n.t('SETUP')}</div>
-      <div class="list">
         <div>
           <label>
             <input type="checkbox" setting="runGlobalSetupOnEachRun"></input>
             ${vscode.l10n.t('Run global setup on each run')}
           </label>
         </div>
+        <div>
+          <div class="action-indent"></div>
+          <label id="updateSnapshotLabel">${vscode.l10n.t('Update snapshots:')}</label>
+          <select setting="updateSnapshots" aria-labelledby="updateSnapshotLabel">
+            <option value="all">all</option>
+            <option value="changed">changed</option>
+            <option value="missing">missing</option>
+            <option value="none">none</option>
+          </select>
+        </div>
+        <div>
+          <div class="action-indent"></div>
+          <label id="updateSourceMethod">${vscode.l10n.t('Update method:')}</label>
+          <select setting="updateSourceMethod" aria-labelledby="updateSourceMethod">
+            <option value="overwrite">overwrite</option>
+            <option value="patch">patch</option>
+            <option value="3way">3-way</option>
+          </select>
+        </div>
       </div>
-      <div id="rareActions" class="list"></div>
     </body>
     <script nonce="${nonce}">
       const projectsElement = document.getElementById('projects');
@@ -353,17 +370,25 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           vscode.postMessage({ method: 'toggle', params: { setting: event.target.getAttribute('setting') } });
         });
       }
+      for (const select of document.querySelectorAll('select[setting]')) {
+        select.addEventListener('change', event => {
+          vscode.postMessage({ method: 'set', params: { setting: event.target.getAttribute('setting'), value: select.value } });
+        });
+      }
       window.addEventListener('message', event => {
         const { method, params } = event.data;
         if (method === 'settings') {
           for (const [key, value] of Object.entries(params.settings)) {
             const input = document.querySelector('input[setting=' + key + ']');
-            if (!input)
-              continue;
-            if (typeof value === 'boolean')
-              input.checked = value;
-            else
-              input.value = value;
+            if (input) {
+              if (typeof value === 'boolean')
+                input.checked = value;
+              else
+                input.value = value;
+            }
+            const select = document.querySelector('select[setting=' + key + ']');
+            if (select)
+              select.value = value;
           }
         } else if (method === 'actions') {
           const actionsElement = document.getElementById('actions');
