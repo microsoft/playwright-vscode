@@ -736,6 +736,19 @@ export class TestModelCollection extends DisposableBase {
     this._didUpdate.fire();
   }
 
+  setAllProjectsEnabled(configFile: string, enabled: boolean) {
+    const model = this._models.find(m => m.config.configFile === configFile);
+    if (!model)
+      return;
+    const projectsToUpdate = model.projects().filter(p => p.isEnabled !== enabled);
+    if (projectsToUpdate.length === 0)
+      return;
+    for (const project of projectsToUpdate)
+      project.isEnabled = enabled;
+    this._saveSettings();
+    this._didUpdate.fire();
+  }
+
   testDirs(): Set<string> {
     const result = new Set<string>();
     for (const model of this._models) {

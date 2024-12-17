@@ -78,6 +78,9 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
       } else if (data.method === 'setProjectEnabled') {
         const { configFile, projectName, enabled } = data.params;
         this._models.setProjectEnabled(configFile, projectName, enabled);
+      } else if (data.method === 'setAllProjectsEnabled') {
+        const { configFile, enabled } = data.params;
+        this._models.setAllProjectsEnabled(configFile, enabled);
       } else if (data.method === 'selectModel') {
         this._models.selectModel(data.params.configFile);
       }
@@ -337,15 +340,12 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
         unselectAllButton.hidden = !allEnabled;
       }
       
-      function setAllProjects(checked) {
-        for (const input of projectsElement.querySelectorAll('input[type=checkbox]')) {
-          input.checked = checked;
-          input.dispatchEvent(new Event('change'));
-        }
+      function setAllProjectsEnabled(enabled) {
+        vscode.postMessage({ method: 'setAllProjectsEnabled', params: { configFile: selectConfig.configFile, enabled } })
       }
 
-      selectAllButton.addEventListener('click', () => setAllProjects(true));
-      unselectAllButton.addEventListener('click', () => setAllProjects(false));
+      selectAllButton.addEventListener('click', () => setAllProjectsEnabled(true));
+      unselectAllButton.addEventListener('click', () => setAllProjectsEnabled(false));
 
       const vscode = acquireVsCodeApi();
       for (const input of document.querySelectorAll('input[type=checkbox]')) {
