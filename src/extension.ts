@@ -129,6 +129,7 @@ export class Extension implements RunHooks {
   }
 
   async onWillRunTests(config: TestConfig, debug: boolean) {
+    this._models.onWillRunTests();
     await this._reusedBrowser.onWillRunTests(config, debug);
     return {
       connectWsEndpoint: this._reusedBrowser.browserServerWSEndpoint(),

@@ -836,6 +836,10 @@ export class TestModelCollection extends DisposableBase {
     }
     this.embedder.context.workspaceState.update(workspaceStateKey, workspaceSettings);
   }
+
+  onWillRunTests() {
+    this._saveSettings();
+  }
 }
 
 export function projectFiles(project: TestProject): Map<string, reporterTypes.Suite> {
