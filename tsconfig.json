@@ -2,13 +2,14 @@
   "compilerOptions": {
     "module": "commonjs",
     "target": "ES2019",
-    "lib": ["esnext"],
+    "lib": ["esnext", "DOM"],
     "strict": true,
     "rootDir": ".",
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "noEmit": true
+    "noEmit": true,
+    "allowJs": true
   },
-  "include": ["src", "tests"],
+  "include": ["src", "tests", "media"],
   "exclude": ["node_modules"]
 }
