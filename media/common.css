@@ -81,9 +81,22 @@ textarea {
 
 .section-header {
   font-size: 11px;
-  margin: 0 8px;
+  margin: 10px 8px 3px 8px;
   font-weight: 700;
   color: var(--vscode-editor-inlineValuesForeground);
+  
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.section-toolbar > a {
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.section-toolbar > a:hover {
+  background-color: var(--vscode-toolbar-hoverBackground);
 }
 
 .action, .combobox {
