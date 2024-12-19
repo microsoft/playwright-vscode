@@ -16,6 +16,7 @@
 
 import { DisposableBase } from './disposableBase';
 import { ReusedBrowser } from './reusedBrowser';
+import { pickElementAction } from './settingsView';
 import { getNonce } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
@@ -41,7 +42,9 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
         this._locator = { locator: locator || '' };
         this._ariaSnapshot = { yaml: ariaSnapshot || '' };
         this._updateValues();
-      })
+      }),
+      reusedBrowser.onRunningTestsChanged(() => this._updateActions()),
+      reusedBrowser.onPageCountChanged(() => this._updateActions()),
     ];
   }
 
@@ -55,7 +58,9 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
 
     webviewView.webview.html = htmlForWebview(this._vscode, this._extensionUri, webviewView.webview);
     this._disposables.push(webviewView.webview.onDidReceiveMessage(data => {
-      if (data.method === 'locatorChanged') {
+      if (data.method === 'execute') {
+        this._vscode.commands.executeCommand(data.params.command);
+      } else if (data.method === 'locatorChanged') {
         this._locator.locator = data.params.locator;
         this._reusedBrowser.highlight(this._locator.locator).then(() => {
           this._locator.error = undefined;
@@ -64,8 +69,7 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
           this._locator.error = e.message;
           this._updateValues();
         });
-      }
-      if (data.method === 'ariaSnapshotChanged') {
+      } else if (data.method === 'ariaSnapshotChanged') {
         this._ariaSnapshot.yaml = data.params.ariaSnapshot;
         this._reusedBrowser.highlightAria(this._ariaSnapshot.yaml).then(() => {
           this._ariaSnapshot.error = undefined;
@@ -82,7 +86,16 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
         return;
       this._updateValues();
     }));
+    this._updateActions();
     this._updateValues();
+  }
+
+  private _updateActions() {
+    const actions = [
+      pickElementAction(this._vscode),
+    ];
+    if (this._view)
+      this._view.webview.postMessage({ method: 'actions', params: { actions } });
   }
 
   private _updateValues() {
@@ -98,8 +111,9 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
 }
 
 function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri, webview: vscodeTypes.Webview) {
-  const themeUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'theme.css'));
-  const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'locatorsView.css'));
+  const style = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'common.css'));
+  const script = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'locatorsView.js'));
+  const commonScript = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'common.js'));
   const nonce = getNonce();
 
   return `
@@ -109,13 +123,16 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <meta charset="UTF-8">
       <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <link href="${themeUri}" rel="stylesheet">
-      <link href="${styleUri}" rel="stylesheet">
+      <link href="${style}" rel="stylesheet">
+      <script nonce="${nonce}" src="${commonScript}"></script>
       <title>Playwright</title>
     </head>
-    <body>
+    <body class="locators-view">
       <div class="section">
-        <label id="locatorLabel">${vscode.l10n.t('Locator')}</label>
+        <div class="hbox">
+          <div id="actions"></div>
+          <label id="locatorLabel">${vscode.l10n.t('Locator')}</label>
+        </div>
         <input id="locator" placeholder="${vscode.l10n.t('Locator')}" aria-labelledby="locatorLabel">
         <p id="locatorError" class="error"></p>
       </div>
@@ -125,33 +142,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
         <p id="ariaSnapshotError" class="error"></p>
       </div>
     </body>
-    <script nonce="${nonce}">
-      const vscode = acquireVsCodeApi();
-      const input = document.getElementById('locator');
-      const locatorError = document.getElementById('locatorError');
-      const textarea = document.getElementById('ariaSnapshot');
-      const ariaSnapshotError = document.getElementById('ariaSnapshotError');
-      const ariaSection = document.getElementById('ariaSection');
-
-      input.addEventListener('input', event => {
-        vscode.postMessage({ method: 'locatorChanged', params: { locator: input.value } });
-      });
-      textarea.addEventListener('input', event => {
-        vscode.postMessage({ method: 'ariaSnapshotChanged', params: { ariaSnapshot: textarea.value } });
-      });
-      window.addEventListener('message', event => {
-        const { method, params } = event.data;
-        if (method === 'update') {
-          input.value = params.locator.locator;
-          locatorError.textContent = params.locator.error || '';
-          locatorError.style.display = params.locator.error ? 'inherit' : 'none';
-          textarea.value = params.ariaSnapshot.yaml;
-          ariaSnapshotError.textContent = params.ariaSnapshot.error || '';
-          ariaSnapshotError.style.display = params.ariaSnapshot.error ? 'inherit' : 'none';
-          ariaSection.style.display = params.hideAria ? 'none' : 'flex';
-        }
-      });
-    </script>
+    <script nonce="${nonce}" src="${script}"></script>
     </html>
   `;
 }

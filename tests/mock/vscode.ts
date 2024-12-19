@@ -18,7 +18,8 @@ import fs from 'fs';
 import glob from 'glob';
 import path from 'path';
 import { Disposable, EventEmitter, Event } from '../../src/upstream/events';
-import minimatch from 'minimatch';
+// @ts-ignore
+import { minimatch } from 'minimatch';
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import which from 'which';
 import { Browser, Page } from '@playwright/test';
@@ -1316,7 +1317,7 @@ export class VSCode {
   async renderProjectTree(): Promise<string> {
     const result: string[] = [''];
     const webView = this.webViews.get('pw.extension.settingsView')!;
-    const selectedConfig = await webView.getByTestId('models').evaluate(e => e.selectedOptions[0].textContent);
+    const selectedConfig = await webView.getByTestId('models').evaluate((e: HTMLSelectElement) => e.selectedOptions[0].textContent);
     result.push(`    config: ${selectedConfig}`);
     const projectLocators = await webView.getByTestId('projects').locator('div').locator('label').all();
     for (const projectLocator of projectLocators) {

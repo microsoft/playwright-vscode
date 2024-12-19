@@ -24,9 +24,9 @@
   "Stop dev server": "Ferma dev server",
   "this feature": "questo feature",
   "Toggle Playwright Configs": "Attiva/disattiva Playwright Configs",
-  "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "Quando attivata, Playwright riusa l'instanza browser tra i test. Questo disattiva l'esecuzione parallela.",
+  "Update snapshots": "Aggiorna snapshots",
+  "Update method" : "Aggiorna metodo",
   "Select All": "Seleziona tutto",
   "Unselect All": "Deseleziona tutto",
-  "Update snapshots:": "Aggiorna snapshots:",
-  "Update method:" : "Aggiorna metodo:"
+  "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "Quando attivata, Playwright riusa l'instanza browser tra i test. Questo disattiva l'esecuzione parallela."
 }

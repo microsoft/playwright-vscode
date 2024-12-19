@@ -36,8 +36,8 @@ for (const mode of ['3-way', 'overwrite', 'patch'] as const) {
     });
 
     const webView = vscode.webViews.get('pw.extension.settingsView')!;
-    await webView.getByRole('combobox', { name: 'Update method:' }).selectOption(mode);
-    await webView.getByRole('combobox', { name: 'Update snapshots:' }).selectOption('missing');
+    await webView.getByRole('combobox', { name: 'Update method' }).selectOption(mode);
+    await webView.getByRole('combobox', { name: 'Update snapshots' }).selectOption('missing');
 
     await testController.run();
 
@@ -87,8 +87,8 @@ for (const mode of ['3-way' , 'overwrite', 'patch'] as const) {
     });
 
     const webView = vscode.webViews.get('pw.extension.settingsView')!;
-    await webView.getByRole('combobox', { name: 'Update method:' }).selectOption(mode);
-    await webView.getByRole('combobox', { name: 'Update snapshots:' }).selectOption('all');
+    await webView.getByRole('combobox', { name: 'Update method' }).selectOption(mode);
+    await webView.getByRole('combobox', { name: 'Update snapshots' }).selectOption('all');
 
     await testController.run();
 

@@ -116,75 +116,25 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
 
   private _updateActions() {
     const actions = [
+      pickElementAction(this._vscode),
+      recordNewAction(this._vscode, this._reusedBrowser),
+      recordAtCursorAction(this._vscode, this._reusedBrowser),
+      revealTestOutputAction(this._vscode),
+      closeBrowsersAction(this._vscode, this._reusedBrowser),
       {
-        command: 'pw.extension.command.inspect',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M18 42h-7.5c-3 0-4.5-1.5-4.5-4.5v-27C6 7.5 7.5 6 10.5 6h27C42 6 42 10.404 42 10.5V18h-3V9H9v30h9v3Zm27-15-9 6 9 9-3 3-9-9-6 9-6-24 24 6Z"/></svg>`,
-        text: this._vscode.l10n.t('Pick locator'),
-      },
-      {
-        command: 'pw.extension.command.recordNew',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M22.65 34h3v-8.3H34v-3h-8.35V14h-3v8.7H14v3h8.65ZM24 44q-4.1 0-7.75-1.575-3.65-1.575-6.375-4.3-2.725-2.725-4.3-6.375Q4 28.1 4 23.95q0-4.1 1.575-7.75 1.575-3.65 4.3-6.35 2.725-2.7 6.375-4.275Q19.9 4 24.05 4q4.1 0 7.75 1.575 3.65 1.575 6.35 4.275 2.7 2.7 4.275 6.35Q44 19.85 44 24q0 4.1-1.575 7.75-1.575 3.65-4.275 6.375t-6.35 4.3Q28.15 44 24 44Zm.05-3q7.05 0 12-4.975T41 23.95q0-7.05-4.95-12T24 7q-7.05 0-12.025 4.95Q7 16.9 7 24q0 7.05 4.975 12.025Q16.95 41 24.05 41ZM24 24Z"/></svg>`,
-        text: this._vscode.l10n.t('Record new'),
-        disabled: !this._reusedBrowser.canRecord(),
-      },
-      {
-        command: 'pw.extension.command.recordAtCursor',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M9 39h2.2l22.15-22.15-2.2-2.2L9 36.8Zm30.7-24.3-6.4-6.4 2.1-2.1q.85-.85 2.1-.85t2.1.85l2.2 2.2q.85.85.85 2.1t-.85 2.1Zm-2.1 2.1L12.4 42H6v-6.4l25.2-25.2Zm-5.35-1.05-1.1-1.1 2.2 2.2Z"/></svg>`,
-        text: this._vscode.l10n.t('Record at cursor'),
-        disabled: !this._reusedBrowser.canRecord(),
-      },
-      {
-        command: 'testing.showMostRecentOutput',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M11.85 25.3H29.9v-3H11.85Zm0-6.45H29.9v-3H11.85ZM7 40q-1.2 0-2.1-.9Q4 38.2 4 37V11q0-1.2.9-2.1Q5.8 8 7 8h34q1.2 0 2.1.9.9.9.9 2.1v26q0 1.2-.9 2.1-.9.9-2.1.9Zm0-3h34V11H7v26Zm0 0V11v26Z"/></svg>`,
-        text: this._vscode.l10n.t('Reveal test output'),
-      },
-      {
-        command: 'pw.extension.command.closeBrowsers',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path xmlns="http://www.w3.org/2000/svg" d="m12.45 37.65-2.1-2.1L21.9 24 10.35 12.45l2.1-2.1L24 21.9l11.55-11.55 2.1 2.1L26.1 24l11.55 11.55-2.1 2.1L24 26.1Z"/></svg>`,
-        text: this._vscode.l10n.t('Close all browsers'),
-        disabled: !this._reusedBrowser.canClose(),
-      },
-      {
-        command: 'pw.extension.command.runGlobalSetup',
-        svg: `<div class="action-indent"></div>`,
-        text: this._vscode.l10n.t('Run global setup'),
+        ...runGlobalSetupAction(this._vscode, this._settingsModel, this._models),
         location: 'rareActions',
-        disabled: this._settingsModel.runGlobalSetupOnEachRun.get() || !this._models.selectedModel() || !this._models.selectedModel()!.canRunGlobalHooks('setup'),
       },
       {
-        command: 'pw.extension.command.runGlobalTeardown',
-        svg: `<div class="action-indent"></div>`,
-        text: this._vscode.l10n.t('Run global teardown'),
+        ...runGlobalTeardownAction(this._vscode, this._settingsModel, this._models),
         location: 'rareActions',
-        disabled: this._settingsModel.runGlobalSetupOnEachRun.get() || !this._models.selectedModel() || !this._models.selectedModel()!.canRunGlobalHooks('teardown'),
       },
       {
-        command: 'pw.extension.command.startDevServer',
-        svg: `<div class="action-indent"></div>`,
-        text: this._vscode.l10n.t('Start dev server'),
+        ...clearCacheAction(this._vscode, this._models),
         location: 'rareActions',
-        disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canStartDevServer(),
-        hidden: true,
       },
       {
-        command: 'pw.extension.command.stopDevServer',
-        svg: `<div class="action-indent"></div>`,
-        text: this._vscode.l10n.t('Stop dev server'),
-        location: 'rareActions',
-        disabled: !this._models.selectedModel() || !this._models.selectedModel()!.canStopDevServer(),
-        hidden: true,
-      },
-      {
-        command: 'pw.extension.command.clearCache',
-        svg: `<div class="action-indent"></div>`,
-        text: this._vscode.l10n.t('Clear cache'),
-        location: 'rareActions',
-        disabled: !this._models.selectedModel(),
-      },
-      {
-        command: 'pw.extension.command.toggleModels',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" viewBox="0 -960 960 960" width="48"><path d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm48-60h88l14-112q33-8 62.5-25t53.5-41l106 46 40-72-94-69q4-17 6.5-33.5T715-480q0-17-2-33.5t-7-33.5l94-69-40-72-106 46q-23-26-52-43.5T538-708l-14-112h-88l-14 112q-34 7-63.5 24T306-642l-106-46-40 72 94 69q-4 17-6.5 33.5T245-480q0 17 2.5 33.5T254-413l-94 69 40 72 106-46q24 24 53.5 41t62.5 25l14 112Zm44-210q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm0-130Z"/></svg>`,
-        title: this._vscode.l10n.t('Toggle Playwright Configs'),
+        ...toggleModelsAction(this._vscode),
         location: 'configToolbar',
       },
     ];
@@ -248,8 +198,9 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
 }
 
 function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri, webview: vscodeTypes.Webview) {
-  const themeUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'theme.css'));
-  const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'settingsView.css'));
+  const style = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'common.css'));
+  const commonScript = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'common.js'));
+  const script = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'settingsView.js'));
   const nonce = getNonce();
 
   return `<!DOCTYPE html>
@@ -258,14 +209,14 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <meta charset="UTF-8">
       <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <link href="${themeUri}" rel="stylesheet">
-      <link href="${styleUri}" rel="stylesheet">
+      <link href="${style}" rel="stylesheet">
+      <script src="${commonScript}" nonce="${nonce}"></script>
       <title>Playwright</title>
     </head>
-    <body>
+    <body class="settings-view">
       <div class="section-header">${vscode.l10n.t('TOOLS')}</div>
-      <div id="actions" class="list"></div>
-      <div class="list" id="model-selector">
+      <div id="actions" class="vbox"></div>
+      <div class="vbox" id="model-selector">
         <div>
           <label title="${vscode.l10n.t('Select Playwright Config')}">
             <select data-testid="models" id="models"></select>
@@ -284,172 +235,138 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           </a>
         </div>
       </div>
-      <div data-testid="projects" id="projects" class="list"></div>
+      <div data-testid="projects" id="projects" class="vbox"></div>
       <div class="section-header">${vscode.l10n.t('SETUP')}</div>
-      <div id="rareActions" class="list"></div>
+      <div id="rareActions" class="vbox"></div>
       <div class="section-header">${vscode.l10n.t('SETTINGS')}</div>
-      <div class="list">
-        <div>
+      <div class="vbox">
+        <div class="action">
           <label title="${vscode.l10n.t('When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.')}">
             <input type="checkbox" setting="reuseBrowser"></input>
             ${vscode.l10n.t('Show browser')}
           </label>
-        </div>
-        <div>
+        </div class="action">
+        <div class="action">
           <label>
             <input type="checkbox" setting="showTrace"></input>
             ${vscode.l10n.t('Show trace viewer')}
           </label>
-        </div>
-        <div>
+        </div class="action">
+        <div class="action">
           <label>
             <input type="checkbox" setting="runGlobalSetupOnEachRun"></input>
             ${vscode.l10n.t('Run global setup on each run')}
           </label>
+        </div class="action">
+        <div class="hbox">
+          <div class="action-indent"></div>
+          <div class="action-indent"></div>
+          <label id="updateSnapshotLabel">${vscode.l10n.t('Update snapshots')}</label>
         </div>
         <div>
-          <div class="action-indent"></div>
-          <label id="updateSnapshotLabel">${vscode.l10n.t('Update snapshots:')}</label>
-          <select setting="updateSnapshots" aria-labelledby="updateSnapshotLabel">
+          <div class="action-big-indent"></div>
+          <select class="combobox" setting="updateSnapshots" aria-labelledby="updateSnapshotLabel">
             <option value="all">all</option>
             <option value="changed">changed</option>
             <option value="missing">missing</option>
             <option value="none">none</option>
           </select>
+          <div class="action-indent"></div>
+        </div>
+        <div class="hbox">
+          <div class="action-indent"></div>
+          <div class="action-indent"></div>
+          <label id="updateSourceMethod">${vscode.l10n.t('Update method')}</label>
         </div>
         <div>
-          <div class="action-indent"></div>
-          <label id="updateSourceMethod">${vscode.l10n.t('Update method:')}</label>
-          <select setting="updateSourceMethod" aria-labelledby="updateSourceMethod">
+          <div class="action-big-indent"></div>
+          <select class="combobox" setting="updateSourceMethod" aria-labelledby="updateSourceMethod">
             <option value="overwrite">overwrite</option>
             <option value="patch">patch</option>
             <option value="3way">3-way</option>
           </select>
+          <div class="action-indent"></div>
         </div>
       </div>
     </body>
-    <script nonce="${nonce}">
-      const projectsElement = document.getElementById('projects');
-      const selectAllButton = document.getElementById('selectAll');
-      const unselectAllButton = document.getElementById('unselectAll');
-
-      let selectConfig;
-      function updateProjects(projects) {
-        projectsElement.textContent = '';
-        for (const project of projects) {
-          const { name, enabled } = project;
-          const div = document.createElement('div');
-          const label = document.createElement('label');
-          const input = document.createElement('input');
-          input.type = 'checkbox';
-          input.checked = enabled;
-          input.addEventListener('change', event => {
-            vscode.postMessage({ method: 'setProjectEnabled', params: { configFile: selectConfig.configFile, projectName: name, enabled: input.checked } });
-          });
-          label.appendChild(input);
-          label.appendChild(document.createTextNode(name || '<untitled>'));
-          div.appendChild(label);
-          projectsElement.appendChild(div);
-        }
-        
-        const allEnabled = projects.every(p => p.enabled);
-        selectAllButton.hidden = allEnabled;
-        unselectAllButton.hidden = !allEnabled;
-      }
-      
-      function setAllProjectsEnabled(enabled) {
-        vscode.postMessage({ method: 'setAllProjectsEnabled', params: { configFile: selectConfig.configFile, enabled } })
-      }
-
-      selectAllButton.addEventListener('click', () => setAllProjectsEnabled(true));
-      unselectAllButton.addEventListener('click', () => setAllProjectsEnabled(false));
-
-      const vscode = acquireVsCodeApi();
-      for (const input of document.querySelectorAll('input[type=checkbox]')) {
-        input.addEventListener('change', event => {
-          vscode.postMessage({ method: 'toggle', params: { setting: event.target.getAttribute('setting') } });
-        });
-      }
-      for (const select of document.querySelectorAll('select[setting]')) {
-        select.addEventListener('change', event => {
-          vscode.postMessage({ method: 'set', params: { setting: event.target.getAttribute('setting'), value: select.value } });
-        });
-      }
-      window.addEventListener('message', event => {
-        const { method, params } = event.data;
-        if (method === 'settings') {
-          for (const [key, value] of Object.entries(params.settings)) {
-            const input = document.querySelector('input[setting=' + key + ']');
-            if (input) {
-              if (typeof value === 'boolean')
-                input.checked = value;
-              else
-                input.value = value;
-            }
-            const select = document.querySelector('select[setting=' + key + ']');
-            if (select)
-              select.value = value;
-          }
-        } else if (method === 'actions') {
-          const actionsElement = document.getElementById('actions');
-          actionsElement.textContent = '';
-          const configToolbarElement = document.getElementById('configToolbar');
-          configToolbarElement.textContent = '';
-          const rareActionsElement = document.getElementById('rareActions');
-          rareActionsElement.textContent = '';
-          for (const action of params.actions) {
-            const actionElement = document.createElement('div');
-            if (action.hidden)
-              continue;
-            if (action.disabled)
-              actionElement.setAttribute('disabled', 'true');
-            const label = document.createElement('label');
-            if (!action.disabled) {
-              label.addEventListener('click', event => {
-                vscode.postMessage({ method: 'execute', params: { command: event.target.getAttribute('command') } });
-              });
-            }
-            label.setAttribute('role', 'button');
-            label.setAttribute('command', action.command);
-            const svg = document.createElement('svg');
-            actionElement.appendChild(label);
-            label.appendChild(svg);
-            if (action.text)
-              label.appendChild(document.createTextNode(action.text));
-            label.title = action.title || action.text;
-            if (action.location === 'configToolbar')
-              configToolbarElement.appendChild(actionElement);
-            else if (action.location === 'rareActions')
-              rareActionsElement.appendChild(actionElement);
-            else
-              actionsElement.appendChild(actionElement);
-            svg.outerHTML = action.svg;
-          }
-        } else if (method === 'models') {
-          const { configs, showModelSelector } = params;
-          const select = document.getElementById('models');
-          select.textContent = '';
-          const configsMap = new Map();
-          for (const config of configs) {
-            configsMap.set(config.configFile, config);
-            const option = document.createElement('option');
-            option.value = config.configFile;
-            option.textContent = config.label;
-            select.appendChild(option);
-            if (config.selected) {
-              selectConfig = config;
-              select.value = config.configFile;
-              updateProjects(config.projects);
-            }
-          }
-          select.addEventListener('change', event => {
-            vscode.postMessage({ method: 'selectModel', params: { configFile: select.value } });
-            updateProjects(configsMap.get(select.value).projects);
-          });
-          const modelSelector = document.getElementById('model-selector');
-          modelSelector.style.display = showModelSelector ? 'block' : 'none';
-        }
-      });
-    </script>
-    </html>`;
+    <script src="${script}" nonce="${nonce}"></script>
+  </html>`;
 }
+
+export const pickElementAction = (vscode: vscodeTypes.VSCode) => {
+  return {
+    command: 'pw.extension.command.inspect',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M18 42h-7.5c-3 0-4.5-1.5-4.5-4.5v-27C6 7.5 7.5 6 10.5 6h27C42 6 42 10.404 42 10.5V18h-3V9H9v30h9v3Zm27-15-9 6 9 9-3 3-9-9-6 9-6-24 24 6Z"/></svg>`,
+    text: vscode.l10n.t('Pick locator'),
+  };
+};
+
+export const recordNewAction = (vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser) => {
+  return {
+    command: 'pw.extension.command.recordNew',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M22.65 34h3v-8.3H34v-3h-8.35V14h-3v8.7H14v3h8.65ZM24 44q-4.1 0-7.75-1.575-3.65-1.575-6.375-4.3-2.725-2.725-4.3-6.375Q4 28.1 4 23.95q0-4.1 1.575-7.75 1.575-3.65 4.3-6.35 2.725-2.7 6.375-4.275Q19.9 4 24.05 4q4.1 0 7.75 1.575 3.65 1.575 6.35 4.275 2.7 2.7 4.275 6.35Q44 19.85 44 24q0 4.1-1.575 7.75-1.575 3.65-4.275 6.375t-6.35 4.3Q28.15 44 24 44Zm.05-3q7.05 0 12-4.975T41 23.95q0-7.05-4.95-12T24 7q-7.05 0-12.025 4.95Q7 16.9 7 24q0 7.05 4.975 12.025Q16.95 41 24.05 41ZM24 24Z"/></svg>`,
+    text: vscode.l10n.t('Record new'),
+    disabled: !reusedBrowser.canRecord(),
+  };
+};
+
+export const recordAtCursorAction = (vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser) => {
+  return {
+    command: 'pw.extension.command.recordAtCursor',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M9 39h2.2l22.15-22.15-2.2-2.2L9 36.8Zm30.7-24.3-6.4-6.4 2.1-2.1q.85-.85 2.1-.85t2.1.85l2.2 2.2q.85.85.85 2.1t-.85 2.1Zm-2.1 2.1L12.4 42H6v-6.4l25.2-25.2Zm-5.35-1.05-1.1-1.1 2.2 2.2Z"/></svg>`,
+    text: vscode.l10n.t('Record at cursor'),
+    disabled: !reusedBrowser.canRecord(),
+  };
+};
+
+export const revealTestOutputAction = (vscode: vscodeTypes.VSCode) => {
+  return {
+    command: 'testing.showMostRecentOutput',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M11.85 25.3H29.9v-3H11.85Zm0-6.45H29.9v-3H11.85ZM7 40q-1.2 0-2.1-.9Q4 38.2 4 37V11q0-1.2.9-2.1Q5.8 8 7 8h34q1.2 0 2.1.9.9.9.9 2.1v26q0 1.2-.9 2.1-.9.9-2.1.9Zm0-3h34V11H7v26Zm0 0V11v26Z"/></svg>`,
+    text: vscode.l10n.t('Reveal test output'),
+  };
+};
+
+export const closeBrowsersAction = (vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser) => {
+  return {
+    command: 'pw.extension.command.closeBrowsers',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path xmlns="http://www.w3.org/2000/svg" d="m12.45 37.65-2.1-2.1L21.9 24 10.35 12.45l2.1-2.1L24 21.9l11.55-11.55 2.1 2.1L26.1 24l11.55 11.55-2.1 2.1L24 26.1Z"/></svg>`,
+    text: vscode.l10n.t('Close all browsers'),
+    disabled: !reusedBrowser.canClose(),
+  };
+};
+
+export const runGlobalSetupAction = (vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, models: TestModelCollection) => {
+  return {
+    command: 'pw.extension.command.runGlobalSetup',
+    svg: `<div class="action-indent"></div>`,
+    text: vscode.l10n.t('Run global setup'),
+    disabled: settingsModel.runGlobalSetupOnEachRun.get() || !models.selectedModel() || !models.selectedModel()!.canRunGlobalHooks('setup'),
+  };
+};
+
+export const runGlobalTeardownAction = (vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, models: TestModelCollection) => {
+  return {
+    command: 'pw.extension.command.runGlobalTeardown',
+    svg: `<div class="action-indent"></div>`,
+    text: vscode.l10n.t('Run global teardown'),
+    disabled: settingsModel.runGlobalSetupOnEachRun.get() || !models.selectedModel() || !models.selectedModel()!.canRunGlobalHooks('teardown'),
+  };
+};
+
+export const clearCacheAction = (vscode: vscodeTypes.VSCode, models: TestModelCollection) => {
+  return {
+    command: 'pw.extension.command.clearCache',
+    svg: `<div class="action-indent"></div>`,
+    text: vscode.l10n.t('Clear cache'),
+    disabled: !models.selectedModel(),
+  };
+};
+
+export const toggleModelsAction = (vscode: vscodeTypes.VSCode) => {
+  return {
+    command: 'pw.extension.command.toggleModels',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" viewBox="0 -960 960 960" width="48"><path d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm48-60h88l14-112q33-8 62.5-25t53.5-41l106 46 40-72-94-69q4-17 6.5-33.5T715-480q0-17-2-33.5t-7-33.5l94-69-40-72-106 46q-23-26-52-43.5T538-708l-14-112h-88l-14 112q-34 7-63.5 24T306-642l-106-46-40 72 94 69q-4 17-6.5 33.5T245-480q0 17 2.5 33.5T254-413l-94 69 40 72 106-46q24 24 53.5 41t62.5 25l14 112Zm44-210q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm0-130Z"/></svg>`,
+    title: vscode.l10n.t('Toggle Playwright Configs'),
+  };
+};
