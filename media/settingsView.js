@@ -19,8 +19,8 @@
 /** @type {Config} */
 let selectConfig;
 
-const selectAllButton = /** @type {HTMLAnchorElement} */ document.getElementById('selectAll');
-const unselectAllButton = /** @type {HTMLAnchorElement} */ document.getElementById('unselectAll');
+const selectAllButton = /** @type {HTMLAnchorElement} */ (document.getElementById('selectAll'));
+const unselectAllButton = /** @type {HTMLAnchorElement} */ (document.getElementById('unselectAll'));
 
 /**
  * @param {Array<ProjectEntry>} projects
