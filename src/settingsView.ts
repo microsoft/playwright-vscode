@@ -18,7 +18,7 @@ import { DisposableBase } from './disposableBase';
 import type { ReusedBrowser } from './reusedBrowser';
 import type { SettingsModel } from './settingsModel';
 import type { TestModelCollection } from './testModel';
-import { getNonce } from './utils';
+import { getNonce, html } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
 
@@ -203,7 +203,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
   const script = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'settingsView.js'));
   const nonce = getNonce();
 
-  return `<!DOCTYPE html>
+  return html`<!DOCTYPE html>
     <html lang="en">
     <head>
       <meta charset="UTF-8">
