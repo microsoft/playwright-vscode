@@ -54,7 +54,7 @@ function updateProjects(projects) {
  * @param {boolean} enabled
  */
 function setAllProjectsEnabled(enabled) {
-  vscode.postMessage({ method: 'setAllProjectsEnabled', params: { configFile: selectConfig.configFile, enabled } })
+  vscode.postMessage({ method: 'setAllProjectsEnabled', params: { configFile: selectConfig.configFile, enabled } });
 }
 selectAllButton.addEventListener('click', () => setAllProjectsEnabled(true));
 unselectAllButton.addEventListener('click', () => setAllProjectsEnabled(false));
