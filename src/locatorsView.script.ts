@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
+import { createAction, vscode } from './common';
+
 // @ts-check
-const locatorInput = /** @type {HTMLInputElement} */(document.getElementById('locator'));
-const ariaTextArea = /** @type {HTMLTextAreaElement} */(document.getElementById('ariaSnapshot'));
+const locatorInput = document.getElementById('locator') as HTMLInputElement;
+const ariaTextArea = document.getElementById('ariaSnapshot') as HTMLTextAreaElement;
 
 locatorInput.addEventListener('input', () => {
   vscode.postMessage({ method: 'locatorChanged', params: { locator: locatorInput.value } });
@@ -27,10 +29,10 @@ ariaTextArea.addEventListener('input', () => {
 });
 
 window.addEventListener('message', event => {
-  const locatorError = /** @type {HTMLElement} */(document.getElementById('locatorError'));
-  const ariaSnapshotError = /** @type {HTMLElement} */(document.getElementById('ariaSnapshotError'));
-  const ariaSection = /** @type {HTMLElement} */(document.getElementById('ariaSection'));
-  const actionsElement = /** @type {HTMLElement} */(document.getElementById('actions'));
+  const locatorError = document.getElementById('locatorError')!;
+  const ariaSnapshotError = document.getElementById('ariaSnapshotError')!;
+  const ariaSection = document.getElementById('ariaSection')!;
+  const actionsElement = document.getElementById('actions')!;
 
   const { method, params } = event.data;
   if (method === 'update') {

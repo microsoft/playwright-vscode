@@ -14,19 +14,15 @@
  * limitations under the License.
  */
 
-// @ts-check
+import { Config, createAction, ProjectEntry, vscode } from './common';
 
-/** @type {Config} */
-let selectConfig;
+let selectConfig: Config;
 
-const selectAllButton = /** @type {HTMLAnchorElement} */ (document.getElementById('selectAll'));
-const unselectAllButton = /** @type {HTMLAnchorElement} */ (document.getElementById('unselectAll'));
+const selectAllButton = document.getElementById('selectAll') as HTMLAnchorElement;
+const unselectAllButton = document.getElementById('unselectAll') as HTMLAnchorElement;
 
-/**
- * @param {Array<ProjectEntry>} projects
- */
-function updateProjects(projects) {
-  const projectsElement = /** @type {HTMLElement}*/ (document.getElementById('projects'));
+function updateProjects(projects: ProjectEntry[]) {
+  const projectsElement = document.getElementById('projects') as HTMLElement;
   projectsElement.textContent = '';
   for (const project of projects) {
     const { name, enabled } = project;
@@ -50,10 +46,7 @@ function updateProjects(projects) {
   unselectAllButton.hidden = !allEnabled;
 }
 
-/**
- * @param {boolean} enabled
- */
-function setAllProjectsEnabled(enabled) {
+function setAllProjectsEnabled(enabled: boolean) {
   vscode.postMessage({ method: 'setAllProjectsEnabled', params: { configFile: selectConfig.configFile, enabled } });
 }
 selectAllButton.addEventListener('click', () => setAllProjectsEnabled(true));
@@ -64,31 +57,31 @@ for (const input of Array.from(document.querySelectorAll('input[type=checkbox]')
     vscode.postMessage({ method: 'toggle', params: { setting: input.getAttribute('setting') } });
   });
 }
-for (const select of Array.from(document.querySelectorAll('select[setting]'))) {
+for (const select of Array.from(document.querySelectorAll<HTMLSelectElement>('select[setting]'))) {
   select.addEventListener('change', event => {
-    vscode.postMessage({ method: 'set', params: { setting: select.getAttribute('setting'), value: /** @type {HTMLSelectElement} */(select).value } });
+    vscode.postMessage({ method: 'set', params: { setting: select.getAttribute('setting'), value: select.value } });
   });
 }
 
 window.addEventListener('message', event => {
-  const actionsElement = /** @type {HTMLElement} */(document.getElementById('actions'));
-  const configToolbarElement = /** @type {HTMLElement} */(document.getElementById('configToolbar'));
-  const rareActionsElement = /** @type {HTMLElement} */(document.getElementById('rareActions'));
-  const modelSelector = /** @type {HTMLElement} */(document.getElementById('model-selector'));
+  const actionsElement = document.getElementById('actions')!;
+  const configToolbarElement = document.getElementById('configToolbar')!;
+  const rareActionsElement = document.getElementById('rareActions')!;
+  const modelSelector = document.getElementById('model-selector')!;
 
   const { method, params } = event.data;
   if (method === 'settings') {
-    for (const [key, value] of Object.entries(params.settings)) {
-      const input = /** @type {HTMLInputElement} */ (document.querySelector('input[setting=' + key + ']'));
+    for (const [key, value] of Object.entries(params.settings as Record<string, string | boolean>)) {
+      const input = document.querySelector('input[setting=' + key + ']') as HTMLInputElement;
       if (input) {
         if (typeof value === 'boolean')
           input.checked = value;
         else
           input.value = value;
       }
-      const select = /** @type {HTMLSelectElement} */ (document.querySelector('select[setting=' + key + ']'));
+      const select = document.querySelector('select[setting=' + key + ']') as HTMLSelectElement;
       if (select)
-        select.value = value;
+        select.value = value as string;
     }
   } else if (method === 'actions') {
     actionsElement.textContent = '';
@@ -107,7 +100,7 @@ window.addEventListener('message', event => {
     }
   } else if (method === 'models') {
     const { configs, showModelSelector } = params;
-    const select = /** @type {HTMLSelectElement} */ (document.getElementById('models'));
+    const select = document.getElementById('models') as HTMLSelectElement;
     select.textContent = '';
     const configsMap = new Map();
     for (const config of configs) {

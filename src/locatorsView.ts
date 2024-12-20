@@ -112,8 +112,7 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
 
 function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri, webview: vscodeTypes.Webview) {
   const style = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'common.css'));
-  const script = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'locatorsView.js'));
-  const commonScript = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'common.js'));
+  const script = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'out', 'locatorsView.script.js'));
   const nonce = getNonce();
 
   return `
@@ -124,7 +123,6 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <link href="${style}" rel="stylesheet">
-      <script nonce="${nonce}" src="${commonScript}"></script>
       <title>Playwright</title>
     </head>
     <body class="locators-view">
