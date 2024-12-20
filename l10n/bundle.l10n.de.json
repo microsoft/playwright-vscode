@@ -30,5 +30,7 @@
   "SETTINGS": "EINSTELLUNGEN",
   "PROJECTS": "PROJEKTE",
   "TOOLS": "WERKZEUGE",
-  "SETUP": "KONFIGURATION"
+  "SETUP": "KONFIGURATION",
+  "Select All": "Alle auswählen",
+  "Unselect All": "Alle abwählen"
 }

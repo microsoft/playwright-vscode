@@ -46,6 +46,52 @@ test('should toggle setting from webview', async ({ activate }) => {
   expect(configuration.get('reuseBrowser')).toBe(true);
 });
 
+test('should select-all/unselect-all', async ({ activate }) => {
+  const { vscode } = await activate({
+    'playwright.config.ts': `
+      import { defineConfig } from '@playwright/test';
+      export default defineConfig({
+        projects: [
+          { name: 'foo', testMatch: 'foo.ts' },
+          { name: 'bar', testMatch: 'bar.ts' },
+        ]
+      });
+    `,
+  });
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+
+  await expect(webView.locator('body')).toMatchAriaSnapshot(`
+    - text: PROJECTS
+    - button "Select All"
+    - checkbox "foo" [checked]
+    - checkbox "bar" [checked=false]
+  `);
+
+  await webView.getByRole('checkbox', { name: 'bar' }).check();
+
+  await expect(webView.locator('body')).toMatchAriaSnapshot(`
+    - button "Unselect All"
+    - checkbox "foo" [checked]
+    - checkbox "bar" [checked]
+  `);
+
+  await webView.getByRole('button', { name: 'Unselect All' }).click();
+
+  await expect(webView.locator('body')).toMatchAriaSnapshot(`
+    - button "Select All"
+    - checkbox "foo" [checked=false]
+    - checkbox "bar" [checked=false]
+  `);
+
+  await webView.getByRole('button', { name: 'Select All' }).click();
+  await expect(webView.locator('body')).toMatchAriaSnapshot(`
+    - button "Unselect All"
+    - checkbox "foo" [checked]
+    - checkbox "bar" [checked]
+  `);
+});
+
 test('should reflect changes to setting', async ({ activate }) => {
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = {}`,

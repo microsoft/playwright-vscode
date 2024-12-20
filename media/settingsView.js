@@ -19,6 +19,9 @@
 /** @type {Config} */
 let selectConfig;
 
+const selectAllButton = /** @type {HTMLAnchorElement} */ (document.getElementById('selectAll'));
+const unselectAllButton = /** @type {HTMLAnchorElement} */ (document.getElementById('unselectAll'));
+
 /**
  * @param {Array<ProjectEntry>} projects
  */
@@ -41,7 +44,20 @@ function updateProjects(projects) {
     div.appendChild(label);
     projectsElement.appendChild(div);
   }
+
+  const allEnabled = projects.every(p => p.enabled);
+  selectAllButton.hidden = allEnabled;
+  unselectAllButton.hidden = !allEnabled;
 }
+
+/**
+ * @param {boolean} enabled
+ */
+function setAllProjectsEnabled(enabled) {
+  vscode.postMessage({ method: 'setAllProjectsEnabled', params: { configFile: selectConfig.configFile, enabled } });
+}
+selectAllButton.addEventListener('click', () => setAllProjectsEnabled(true));
+unselectAllButton.addEventListener('click', () => setAllProjectsEnabled(false));
 
 for (const input of Array.from(document.querySelectorAll('input[type=checkbox]'))) {
   input.addEventListener('change', event => {
