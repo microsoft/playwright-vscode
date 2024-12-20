@@ -14,38 +14,28 @@
  * limitations under the License.
  */
 
-// @ts-check
+export const vscode = acquireVsCodeApi();
 
-// @ts-ignore
-const vscode = acquireVsCodeApi();
+export interface Config {
+  configFile: string;
+}
 
-/**
-@typedef {{
-  configFile: string,
-}} Config
+export interface ProjectEntry {
+  name: string;
+  enabled: boolean;
+}
 
-@typedef {{
-  name: string,
-  enabled: boolean
-}} ProjectEntry
+export interface ActionDescriptor {
+  command: string;
+  text: string;
+  svg: string;
+  title?: string;
+  location?: string;
+  hidden?: boolean;
+  disabled?: boolean;
+}
 
-@typedef {{
-  command: string,
-  text: string,
-  svg: string,
-  title?: string,
-  location?: string,
-  hidden?: boolean,
-  disabled?: boolean
-}} ActionDescriptor
-*/
-
-/**
- * @param {ActionDescriptor} action
- * @param {{ omitText?: boolean }=} options
- * @returns {HTMLElement|null}
- */
-function createAction(action, options) {
+export function createAction(action: ActionDescriptor, options?: { omitText?: boolean }): HTMLElement | null {
   const actionElement = document.createElement('div');
   actionElement.classList.add('action');
   if (action.hidden)
@@ -69,5 +59,3 @@ function createAction(action, options) {
   actionElement.appendChild(label);
   return actionElement;
 }
-
-globalThis.createAction = createAction;
