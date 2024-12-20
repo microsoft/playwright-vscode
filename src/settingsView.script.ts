@@ -57,9 +57,9 @@ for (const input of Array.from(document.querySelectorAll('input[type=checkbox]')
     vscode.postMessage({ method: 'toggle', params: { setting: input.getAttribute('setting') } });
   });
 }
-for (const select of Array.from(document.querySelectorAll('select[setting]'))) {
+for (const select of Array.from(document.querySelectorAll<HTMLSelectElement>('select[setting]'))) {
   select.addEventListener('change', event => {
-    vscode.postMessage({ method: 'set', params: { setting: select.getAttribute('setting'), value: /** @type {HTMLSelectElement} */(select).value } });
+    vscode.postMessage({ method: 'set', params: { setting: select.getAttribute('setting'), value: select.value } });
   });
 }
 
