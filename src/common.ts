@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+declare global {
+  function acquireVsCodeApi(): { postMessage(msg: any): void };
+}
+
 export const vscode = acquireVsCodeApi();
 
 export interface Config {
