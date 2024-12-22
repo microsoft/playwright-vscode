@@ -170,3 +170,8 @@ export function getNonce() {
     text += possible.charAt(Math.floor(Math.random() * possible.length));
   return text;
 }
+
+// this is a no-op template tag. it instructs the "bierner.lit-html" vscode extension to highlight the string as HTML.
+export function html(strings: TemplateStringsArray, ...expressions: unknown[]) {
+  return strings.reduce((acc, str, i) => acc + expressions[i - 1] + str);
+}

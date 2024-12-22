@@ -17,7 +17,7 @@
 import { DisposableBase } from './disposableBase';
 import { ReusedBrowser } from './reusedBrowser';
 import { pickElementAction } from './settingsView';
-import { getNonce } from './utils';
+import { getNonce, html } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 
 export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewViewProvider {
@@ -115,7 +115,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
   const script = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'out', 'locatorsView.script.js'));
   const nonce = getNonce();
 
-  return `
+  return html`
     <!DOCTYPE html>
     <html lang="en">
     <head>
