@@ -519,6 +519,8 @@ export class TestModel extends DisposableBase {
     if (token?.isCancellationRequested)
       return;
 
+    this._collection._saveSettings();
+
     // Run global setup with the first test.
     let globalSetupResult: reporterTypes.FullResult['status'] = 'passed';
     if (this.canRunGlobalHooks('setup'))
@@ -566,6 +568,8 @@ export class TestModel extends DisposableBase {
   async debugTests(request: vscodeTypes.TestRunRequest, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
     if (token?.isCancellationRequested)
       return;
+
+    this._collection._saveSettings();
 
     // Underlying debugTest implementation will run the global setup.
     await this.runGlobalHooks('teardown', reporter, token);
@@ -837,7 +841,7 @@ export class TestModelCollection extends DisposableBase {
     this._didUpdate.fire();
   }
 
-  private _saveSettings() {
+  _saveSettings() {
     const workspaceSettings: WorkspaceSettings = { configs: [] };
     for (const model of this._models) {
       workspaceSettings.configs!.push({
