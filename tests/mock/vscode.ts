@@ -18,7 +18,6 @@ import fs from 'fs';
 import glob from 'glob';
 import path from 'path';
 import { Disposable, EventEmitter, Event } from '../../src/upstream/events';
-// @ts-ignore
 import { minimatch } from 'minimatch';
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import which from 'which';

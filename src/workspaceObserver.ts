@@ -40,7 +40,7 @@ export class WorkspaceObserver {
       if (this._folderWatchers.has(folder))
         continue;
 
-      const watcher = this._vscode.workspace.createFileSystemWatcher(folder + path.sep + '**');
+      const watcher = this._vscode.workspace.createFileSystemWatcher(folder.replaceAll(path.sep, '/') + '/**');
       const disposables: vscodeTypes.Disposable[] = [
         watcher.onDidCreate(uri => {
           if (uri.scheme === 'file')
