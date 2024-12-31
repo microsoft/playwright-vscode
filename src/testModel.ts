@@ -201,7 +201,7 @@ export class TestModel extends DisposableBase {
     }
 
     if (report.error?.location) {
-      this._errorByFile.set(report.error?.location.file, report.error);
+      this._errorByFile.set(this._vscode.Uri.file(report.error.location.file).fsPath, report.error);
       this._collection._modelUpdated(this);
       return;
     }
@@ -396,7 +396,7 @@ export class TestModel extends DisposableBase {
       this._errorByFile.deleteAll(requestedFile);
     for (const error of errors) {
       if (error.location)
-        this._errorByFile.set(error.location.file, error);
+        this._errorByFile.set(this._vscode.Uri.file(error.location.file).fsPath, error);
     }
 
     for (const [projectName, project] of this._projects) {
@@ -405,7 +405,7 @@ export class TestModel extends DisposableBase {
       const filesToClear = new Set(requestedFiles);
       for (const fileSuite of newProjectSuite?.suites || []) {
         // Do not show partial results in suites with errors.
-        if (this._errorByFile.has(fileSuite.location!.file))
+        if (this._errorByFile.has(this._vscode.Uri.file(fileSuite.location!.file).fsPath))
           continue;
         filesToClear.delete(fileSuite.location!.file);
         files.set(fileSuite.location!.file, fileSuite);
