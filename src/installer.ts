@@ -19,6 +19,7 @@ import fs from 'fs';
 import os from 'os';
 import * as vscodeTypes from './vscodeTypes';
 import { TestModel } from './testModel';
+import { uriToPath } from './utils';
 
 export async function installPlaywright(vscode: vscodeTypes.VSCode) {
   const [workspaceFolder] = vscode.workspace.workspaceFolders || [];
@@ -45,7 +46,7 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
 
   const terminal = vscode.window.createTerminal({
     name: 'Install Playwright',
-    cwd: workspaceFolder.uri.fsPath,
+    cwd: uriToPath(workspaceFolder.uri),
     env: process.env,
   });
 

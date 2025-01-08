@@ -24,6 +24,8 @@ import which from 'which';
 import { Browser, Page } from '@playwright/test';
 import { CancellationToken } from '../../src/vscodeTypes';
 
+/* eslint-disable no-restricted-properties */
+
 export class Uri {
   scheme = 'file';
   authority = '';

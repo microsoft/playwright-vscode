@@ -95,7 +95,7 @@ export class ReporterServer {
     const teleReceiver = new TeleReporterReceiver(listener, {
       mergeProjects: true,
       mergeTestCases: true,
-      resolvePath: (rootDir: string, relativePath: string) => this._vscode.Uri.file(path.join(rootDir, relativePath)).fsPath,
+      resolvePath: (rootDir: string, relativePath: string) => path.join(rootDir, relativePath),
     });
 
     transport.onmessage = message => {

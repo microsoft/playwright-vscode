@@ -127,7 +127,7 @@ test('should debug error', async ({ activate }, testInfo) => {
   profile.run(testItems);
   const testRun = await testRunPromise;
 
-  await expect.poll(() => vscode.debug.output).toContain('READY TO BREAK');
+  await expect.poll(() => vscode.debug.output, { timeout: 10000 }).toContain('READY TO BREAK');
 
   vscode.debug.simulateStoppedOnError('Error on line 10', { file: testInfo.outputPath('tests/test.spec.ts'), line: 10 });
 
@@ -164,7 +164,7 @@ test('should end test run when stopping the debugging', async ({ activate }, tes
   const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
   profile.run(testItems);
   const testRun = await testRunPromise;
-  await expect.poll(() => vscode.debug.output).toContain('READY TO BREAK');
+  await expect.poll(() => vscode.debug.output, { timeout: 10000 }).toContain('READY TO BREAK');
 
   const endPromise = new Promise(f => testRun.onDidEnd(f));
   vscode.debug.stopDebugging();

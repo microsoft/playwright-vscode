@@ -16,7 +16,7 @@
 
 import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
-import { resolveSourceMap } from './utils';
+import { resolveSourceMap, uriToPath } from './utils';
 import { ConfigListFilesReport, ProjectConfigWithFiles } from './listTests';
 import * as reporterTypes from './upstream/reporter';
 import { TeleSuite } from './upstream/teleReceiver';
@@ -186,10 +186,6 @@ export class TestModel extends DisposableBase {
     let report: ConfigListFilesReport;
     try {
       report = await this._playwrightTest.listFiles();
-      for (const project of report.projects)
-        project.files = project.files.map(f => this._vscode.Uri.file(f).fsPath);
-      if (report.error?.location)
-        report.error.location.file = this._vscode.Uri.file(report.error.location.file).fsPath;
     } catch (error: any) {
       report = {
         error: {
@@ -201,7 +197,7 @@ export class TestModel extends DisposableBase {
     }
 
     if (report.error?.location) {
-      this._errorByFile.set(this._vscode.Uri.file(report.error.location.file).fsPath, report.error);
+      this._errorByFile.set(report.error?.location.file, report.error);
       this._collection._modelUpdated(this);
       return;
     }
@@ -319,20 +315,21 @@ export class TestModel extends DisposableBase {
         for (const include of watch.include) {
           if (!include.uri)
             continue;
-          if (!enabledFiles.has(include.uri.fsPath))
+          const fsPath = uriToPath(include.uri);
+          if (!enabledFiles.has(fsPath))
             continue;
           // Folder is watched => add file.
-          if (testFile.startsWith(include.uri.fsPath + path.sep)) {
+          if (testFile.startsWith(fsPath + path.sep)) {
             files.push(testFile);
             continue;
           }
           // File is watched => add file.
-          if (testFile === include.uri.fsPath && !include.range) {
+          if (testFile === fsPath && !include.range) {
             items.push(include);
             continue;
           }
           // Test is watched, use that include as it might be more specific (test).
-          if (testFile === include.uri.fsPath && include.range) {
+          if (testFile === fsPath && include.range) {
             items.push(include);
             continue;
           }
@@ -396,7 +393,7 @@ export class TestModel extends DisposableBase {
       this._errorByFile.deleteAll(requestedFile);
     for (const error of errors) {
       if (error.location)
-        this._errorByFile.set(this._vscode.Uri.file(error.location.file).fsPath, error);
+        this._errorByFile.set(error.location.file, error);
     }
 
     for (const [projectName, project] of this._projects) {
@@ -405,7 +402,7 @@ export class TestModel extends DisposableBase {
       const filesToClear = new Set(requestedFiles);
       for (const fileSuite of newProjectSuite?.suites || []) {
         // Do not show partial results in suites with errors.
-        if (this._errorByFile.has(this._vscode.Uri.file(fileSuite.location!.file).fsPath))
+        if (this._errorByFile.has(fileSuite.location!.file))
           continue;
         filesToClear.delete(fileSuite.location!.file);
         files.set(fileSuite.location!.file, fileSuite);
@@ -638,15 +635,11 @@ export class TestModel extends DisposableBase {
       for (const include of watch.include) {
         if (!include.uri)
           continue;
-        filesToWatch.add(include.uri.fsPath);
+        filesToWatch.add(uriToPath(include.uri));
       }
     }
 
-    // Playwright expects uppercase drive letter on Windows.
-    let files = [...filesToWatch];
-    if (process.platform === 'win32')
-      files = files.map(file => file[0].toUpperCase() + file.substring(1));
-    await this._playwrightTest.watchFiles(files);
+    await this._playwrightTest.watchFiles([...filesToWatch]);
   }
 
   narrowDownLocations(request: vscodeTypes.TestRunRequest): { locations: string[] | null, testIds?: string[] } {
