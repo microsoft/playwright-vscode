@@ -34,6 +34,9 @@ export class Uri {
 
   static file(fsPath: string): Uri {
     const uri = new Uri();
+    // VSCode lowercases drive letters on Windows.
+    if (process.platform === 'win32' && fsPath && fsPath[0] !== '\\' && fsPath[0] !== '/')
+      fsPath = fsPath[0].toLowerCase() + fsPath.substring(1);
     uri.fsPath = fsPath;
     uri.path = fsPath;
     return uri;
