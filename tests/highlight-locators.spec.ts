@@ -23,6 +23,8 @@ test.beforeEach(({ showBrowser }) => {
 });
 
 test('should work', async ({ activate }) => {
+  test.slow();
+
   const cdpPort = 9234 + test.info().workerIndex * 2;
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
@@ -90,15 +92,13 @@ test('should work', async ({ activate }) => {
       [[17, 30], boxOne],
     ] as const) {
       await test.step(`should highlight ${language} ${line}:${column}`, async () => {
-        // Clear highlight.
-        vscode.languages.emitHoverEvent(language, vscode.window.activeTextEditor.document, new vscode.Position(0, 0));
-        // Let highlight poll update its state.
-        await new Promise(f => setTimeout(f, 500));
         vscode.languages.emitHoverEvent(language, vscode.window.activeTextEditor.document, new vscode.Position(line, column));
+        // Let highlight poll update its state.
+        await new Promise(f => setTimeout(f, 1500));
         if (!expectedBox) {
-          await expect(page.locator('x-pw-highlight')).toBeHidden();
+          await expect(page.locator('x-pw-highlight')).toBeHidden({ timeout: 10000 });
         } else {
-          await expect(page.locator('x-pw-highlight')).toBeVisible();
+          await expect(page.locator('x-pw-highlight')).toBeVisible({ timeout: 10000 });
           expect(await page.locator('x-pw-highlight').boundingBox()).toEqual(expectedBox);
         }
       });

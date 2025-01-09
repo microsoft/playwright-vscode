@@ -114,9 +114,13 @@ export class DebugHighlight {
   }
 
   private async _highlightLocator(document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken) {
-    if (!this._reusedBrowser.pageCount())
+    console.log(`debugHighlight._highlightLocator`);
+    if (!this._reusedBrowser.pageCount()) {
+      console.log(`debugHighlight._highlightLocator: no pages!`);
       return;
+    }
     const result = await locatorToHighlight(this._debugSessions, document, position, token);
+    console.log(`debugHighlight._highlightLocator: ${result}`);
     if (result)
       this._reusedBrowser.highlight(result).catch(() => {});
     else
