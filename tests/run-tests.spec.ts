@@ -1175,8 +1175,8 @@ test('should produce output twice', async ({ activate, overridePlaywrightVersion
 
     Running 1 test using 1 worker
 
-    [1/1] test.spec.ts:3:11 › one
-    test.spec.ts:3:11 › one
+    [1/1] tests${path.sep}test.spec.ts:3:11 › one
+    tests${path.sep}test.spec.ts:3:11 › one
     some output
 
       1 passed (XXms)
@@ -1194,8 +1194,8 @@ test('should produce output twice', async ({ activate, overridePlaywrightVersion
 
     Running 1 test using 1 worker
 
-    [1/1] test.spec.ts:3:11 › one
-    test.spec.ts:3:11 › one
+    [1/1] tests${path.sep}test.spec.ts:3:11 › one
+    tests${path.sep}test.spec.ts:3:11 › one
     some output
 
       1 passed (XXms)
