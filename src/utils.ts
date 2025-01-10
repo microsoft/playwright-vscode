@@ -175,3 +175,38 @@ export function getNonce() {
 export function html(strings: TemplateStringsArray, ...expressions: unknown[]) {
   return strings.reduce((acc, str, i) => acc + expressions[i - 1] + str);
 }
+
+/**
+ * This function converts lowercase drive letter to uppercase drive letter.
+ *
+ * ---- Explanation ----
+ *
+ * The Windows Filesystem is case-insensitive, but Node.js module loading is case-sensitive.
+ * That means that on Windows, C:\foo and c:\foo point to the same file,
+ * but on Node.js require-ing both of them will result in two instances of the file.
+ * This can lead to two instances of @playwright/test being loaded, which can't happen.
+ *
+ * On top of that, Node.js' require algorithm sometimes turns `c:\foo` into `C:\foo`.
+ * So we need to make sure that we always pass uppercase paths to Node.js.
+ *
+ * VS Code knows about this problem and already performs this in some cases, for example in `vscode.debug.startDebugging`.
+ * But lots of other places do not, like Playwright's `--config <file>` or the CWD passed into node:child_process.
+ * More on this in https://github.com/microsoft/playwright-vscode/pull/538#issuecomment-2404265216.
+ *
+ * ---- Solution ----
+ *
+ * Internally, we always use Playwright-style paths with uppercase driver letter.
+ * When receiving a Uri from VSCode apis, we convert it with `uriToPath(uri)`.
+ * When passing a Uri to VSCode apis, we call `vscode.Uri.file(path)`.
+ */
+export function uriToPath(uri: vscodeTypes.Uri): string {
+  // eslint-disable-next-line no-restricted-properties
+  return normalizePath(uri.fsPath);
+}
+
+// See uriToPath for details.
+export function normalizePath(fsPath: string): string {
+  if (process.platform === 'win32' && fsPath?.length && fsPath[0] !== '/' && fsPath[0] !== '\\')
+    return fsPath[0].toUpperCase() + fsPath.substring(1);
+  return fsPath;
+}

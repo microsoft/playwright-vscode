@@ -51,3 +51,42 @@ test('should list tests on expand', async ({ activate }) => {
     ]
   ]);
 });
+
+test('should update diagnostics on file change', async ({ activate }) => {
+  const { vscode, testController, workspaceFolder } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async ({ page }) => {
+        const
+        await page.goto('http://example.com');
+      });
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec.ts/);
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   test.spec.ts
+  `);
+  expect(vscode.diagnosticsCollections.length).toBe(1);
+  expect([...vscode.diagnosticsCollections[0]._entries]).toEqual([
+    [
+      expect.stringContaining('test.spec.ts'),
+      [
+        expect.objectContaining({
+          message: expect.stringContaining('SyntaxError'),
+          source: 'playwright',
+        })
+      ]
+    ]
+  ]);
+
+  await workspaceFolder.changeFile('tests/test.spec.ts', `
+    import { test } from '@playwright/test';
+    test('one', async ({ page }) => {
+      await page.goto('http://example.com');
+    });
+  `);
+  await expect.poll(() => vscode.diagnosticsCollections[0]._entries.size).toBe(0);
+});

@@ -75,7 +75,7 @@ export class PlaywrightTestServer {
     }, {
       mergeProjects: true,
       mergeTestCases: true,
-      resolvePath: (rootDir: string, relativePath: string) => this._vscode.Uri.file(path.join(rootDir, relativePath)).fsPath,
+      resolvePath,
     });
     for (const message of report)
       teleReceiver.dispatch(message);
@@ -94,7 +94,7 @@ export class PlaywrightTestServer {
     const teleReceiver = new TeleReporterReceiver(reporter, {
       mergeProjects: true,
       mergeTestCases: true,
-      resolvePath: (rootDir: string, relativePath: string) => this._vscode.Uri.file(path.join(rootDir, relativePath)).fsPath,
+      resolvePath,
     });
     for (const message of report)
       teleReceiver.dispatch(message);
@@ -111,7 +111,7 @@ export class PlaywrightTestServer {
     const teleReceiver = new TeleReporterReceiver(testListener, {
       mergeProjects: true,
       mergeTestCases: true,
-      resolvePath: (rootDir: string, relativePath: string) => this._vscode.Uri.file(path.join(rootDir, relativePath)).fsPath,
+      resolvePath,
     });
     const disposable = testServer.onStdio(params => {
       if (params.type === 'stdout')
@@ -390,7 +390,7 @@ export class PlaywrightTestServer {
     const teleReceiver = new TeleReporterReceiver(reporter, {
       mergeProjects: true,
       mergeTestCases: true,
-      resolvePath: (rootDir: string, relativePath: string) => this._vscode.Uri.file(path.join(rootDir, relativePath)).fsPath,
+      resolvePath,
     });
     return new Promise<void>(resolve => {
       const disposables = [
@@ -412,7 +412,7 @@ export class PlaywrightTestServer {
   }
 
   private _testFilesChanged(testFiles: string[]) {
-    this._model.testFilesChanged(testFiles.map(f => this._vscode.Uri.file(f).fsPath));
+    this._model.testFilesChanged(testFiles);
   }
 
   private _disposeTestServer() {
@@ -425,4 +425,8 @@ export class PlaywrightTestServer {
 
 function unwrapString(params: { text?: string, buffer?: string }): string | Buffer {
   return params.buffer ? Buffer.from(params.buffer, 'base64') : params.text || '';
+}
+
+function resolvePath(rootDir: string, relativePath: string) {
+  return path.join(rootDir, relativePath);
 }

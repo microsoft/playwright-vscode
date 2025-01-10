@@ -16,6 +16,7 @@
 
 import path from 'path';
 import * as vscodeTypes from './vscodeTypes';
+import { uriToPath } from './utils';
 
 export type WorkspaceChange = {
   created: Set<string>;
@@ -40,19 +41,21 @@ export class WorkspaceObserver {
       if (this._folderWatchers.has(folder))
         continue;
 
-      const watcher = this._vscode.workspace.createFileSystemWatcher(folder.replaceAll(path.sep, '/') + '/**');
+      // Make sure to use lowercase drive letter in the pattern.
+      // eslint-disable-next-line no-restricted-properties
+      const watcher = this._vscode.workspace.createFileSystemWatcher(this._vscode.Uri.file(folder).fsPath.replaceAll(path.sep, '/') + '/**');
       const disposables: vscodeTypes.Disposable[] = [
         watcher.onDidCreate(uri => {
           if (uri.scheme === 'file')
-            this._change().created.add(uri.fsPath);
+            this._change().created.add(uriToPath(uri));
         }),
         watcher.onDidChange(uri => {
           if (uri.scheme === 'file')
-            this._change().changed.add(uri.fsPath);
+            this._change().changed.add(uriToPath(uri));
         }),
         watcher.onDidDelete(uri => {
           if (uri.scheme === 'file')
-            this._change().deleted.add(uri.fsPath);
+            this._change().deleted.add(uriToPath(uri));
         }),
         watcher,
       ];

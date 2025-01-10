@@ -24,7 +24,7 @@ import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
 import { TestModel, TestModelCollection } from './testModel';
 import { TestTree } from './testTree';
-import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame } from './utils';
+import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
@@ -254,9 +254,9 @@ export class Extension implements RunHooks {
 
     const rebuildModelForConfig = (uri: vscodeTypes.Uri) => {
       // TODO: parse .gitignore
-      if (uri.fsPath.includes('node_modules'))
+      if (uriToPath(uri).includes('node_modules'))
         return;
-      if (!this._isUnderTest && uri.fsPath.includes('test-results'))
+      if (!this._isUnderTest && uriToPath(uri).includes('test-results'))
         return;
       this._rebuildModels(false);
     };
@@ -275,16 +275,16 @@ export class Extension implements RunHooks {
 
     const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mts,mjs}', '**/node_modules/**');
     // findFiles returns results in a non-deterministic order - sort them to ensure consistent order when we enable the first model by default.
-    configFiles.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+    configFiles.sort((a, b) => uriToPath(a).localeCompare(uriToPath(b)));
     for (const configFileUri of configFiles) {
-      const configFilePath = configFileUri.fsPath;
+      const configFilePath = uriToPath(configFileUri);
       // TODO: parse .gitignore
       if (!this._isUnderTest && configFilePath.includes('test-results'))
         continue;
 
       // Dog-food support
       const workspaceFolder = this._vscode.workspace.getWorkspaceFolder(configFileUri)!;
-      const workspaceFolderPath = workspaceFolder.uri.fsPath;
+      const workspaceFolderPath = uriToPath(workspaceFolder.uri);
       if (configFilePath.includes('test-results') && !workspaceFolderPath.includes('test-results'))
         continue;
 
@@ -313,7 +313,7 @@ export class Extension implements RunHooks {
 
       if (this.overridePlaywrightVersion)
         playwrightInfo.version = this.overridePlaywrightVersion;
-      await this._models.createModel(workspaceFolderPath, configFileUri.fsPath, playwrightInfo);
+      await this._models.createModel(workspaceFolderPath, uriToPath(configFileUri), playwrightInfo);
     }
 
     await this._models.ensureHasEnabledModels();
@@ -452,7 +452,7 @@ export class Extension implements RunHooks {
   private async _resolveChildren(fileItem: vscodeTypes.TestItem | undefined): Promise<void> {
     if (!fileItem)
       return;
-    await this._ensureTestsInAllModels([fileItem!.uri!.fsPath]);
+    await this._ensureTestsInAllModels([uriToPath(fileItem!.uri!)]);
   }
 
   private async _workspaceChanged(change: WorkspaceChange) {
@@ -612,7 +612,7 @@ export class Extension implements RunHooks {
   }
 
   private async _updateVisibleEditorItems() {
-    const files = this._vscode.window.visibleTextEditors.map(e => e.document.uri.fsPath);
+    const files = this._vscode.window.visibleTextEditors.map(e => uriToPath(e.document.uri));
     await this._ensureTestsInAllModels(files);
   }
 
@@ -671,13 +671,13 @@ export class Extension implements RunHooks {
     for (const editor of this._vscode.window.visibleTextEditors) {
       const activeDecorations: vscodeTypes.DecorationOptions[] = [];
       for (const { location } of active) {
-        if (location.uri.fsPath === editor.document.uri.fsPath)
+        if (uriToPath(location.uri) === uriToPath(editor.document.uri))
           activeDecorations.push({ range: location.range });
       }
 
       const completedDecorations: vscodeTypes.DecorationOptions[] = [];
       for (const { location, duration } of completed) {
-        if (location.uri.fsPath === editor.document.uri.fsPath) {
+        if (uriToPath(location.uri) === uriToPath(editor.document.uri)) {
           completedDecorations.push({
             range: location.range,
             renderOptions: {
@@ -708,7 +708,7 @@ export class Extension implements RunHooks {
 
   private _abbreviateStack(text: string): string {
     const result: string[] = [];
-    const prefixes = (this._vscode.workspace.workspaceFolders || []).map(f => f.uri.fsPath.toLowerCase() + path.sep);
+    const prefixes = (this._vscode.workspace.workspaceFolders || []).map(f => uriToPath(f.uri).toLowerCase() + path.sep);
     for (let line of text.split('\n')) {
       const lowerLine = line.toLowerCase();
       for (const prefix of prefixes) {

@@ -35,6 +35,12 @@ module.exports = {
    */
   'rules': {
     '@typescript-eslint/no-unused-vars': [2, { args: 'none' }],
+
+    'no-restricted-properties': [2, {
+      'property': 'fsPath',
+      'message': 'Please use uriToPath(uri) instead.',
+    }],
+
     /**
        * Enforced rules
        */

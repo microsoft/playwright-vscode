@@ -20,6 +20,7 @@ import { replaceActionWithLocator, locatorMethodRegex } from './methodNames';
 import type { Location } from './upstream/reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import * as vscodeTypes from './vscodeTypes';
+import { normalizePath, uriToPath } from './utils';
 
 export type DebuggerError = { error: string, location: Location };
 
@@ -144,7 +145,7 @@ export type StackFrame = {
 const sessionsWithHighlight = new Set<vscodeTypes.DebugSession>();
 
 async function locatorToHighlight(debugSessions: Map<string, vscodeTypes.DebugSession>, document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken): Promise<string | undefined> {
-  const fsPath = document.uri.fsPath;
+  const fsPath = uriToPath(document.uri);
 
   if (!debugSessions.size) {
     // When not debugging, discover all the locator-alike expressions.
@@ -183,7 +184,7 @@ async function locatorToHighlight(debugSessions: Map<string, vscodeTypes.DebugSe
       if (!stackFrame.source)
         continue;
       const sourcePath = mapRemoteToLocalPath(stackFrame.source.path);
-      if (!sourcePath || document.uri.fsPath !== sourcePath)
+      if (!sourcePath || fsPath !== normalizePath(sourcePath))
         continue;
       if (token?.isCancellationRequested)
         return;

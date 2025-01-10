@@ -18,7 +18,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { ConfigFindRelatedTestFilesReport, ConfigListFilesReport } from './listTests';
 import { ReporterServer } from './reporterServer';
-import { escapeRegex, findNode, pathSeparator, runNode } from './utils';
+import { escapeRegex, findNode, pathSeparator, runNode, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
 import type { PlaywrightTestOptions, PlaywrightTestRunOptions } from './playwrightTestTypes';
@@ -266,9 +266,10 @@ export class PlaywrightTestCLI {
     if (items.length === 1) {
       const test = items[0];
       if (test.uri && test.range) {
+        const testPath = uriToPath(test.uri);
         let testsAtLocation = 0;
         test.parent?.children.forEach(t => {
-          if (t.uri?.fsPath === test.uri?.fsPath && t.range?.start.line === test.range?.start.line)
+          if (t.uri && uriToPath(t.uri) === testPath && t.range?.start.line === test.range?.start.line)
             ++testsAtLocation;
         });
         if (testsAtLocation > 1)
@@ -278,12 +279,12 @@ export class PlaywrightTestCLI {
 
     const locations = new Set<string>();
     for (const item of items) {
-      const itemFsPath = item.uri!.fsPath;
+      const itemFsPath = uriToPath(item.uri!);
       const enabledFiles = this._model.enabledFiles();
       for (const file of enabledFiles) {
         if (file === itemFsPath || file.startsWith(itemFsPath)) {
           const line = item.range ? ':' + (item.range.start.line + 1) : '';
-          locations.add(item.uri!.fsPath + line);
+          locations.add(itemFsPath + line);
         }
       }
     }

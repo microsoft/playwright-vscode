@@ -16,7 +16,7 @@
 
 import path from 'path';
 import { TestModelCollection } from './testModel';
-import { createGuid } from './utils';
+import { createGuid, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
 import * as upstream from './upstream/testTree';
@@ -90,17 +90,18 @@ export class TestTree extends DisposableBase {
 
   private _update() {
     for (const workspaceFolder of this._vscode.workspace.workspaceFolders ?? []) {
+      const workspaceFSPath = uriToPath(workspaceFolder.uri);
       const rootSuite = new TeleSuite('', 'root');
-      for (const model of this._models.enabledModels().filter(m => m.config.workspaceFolder === workspaceFolder.uri.fsPath)) {
+      for (const model of this._models.enabledModels().filter(m => m.config.workspaceFolder === workspaceFSPath)) {
         for (const project of model.enabledProjects())
           rootSuite.suites.push(project.suite as TeleSuite);
       }
-      const upstreamTree = new upstream.TestTree(workspaceFolder.uri.fsPath, rootSuite, [], undefined, path.sep);
+      const upstreamTree = new upstream.TestTree(workspaceFSPath, rootSuite, [], undefined, path.sep);
       upstreamTree.sortAndPropagateStatus();
       upstreamTree.flattenForSingleProject();
       // Create root item if there are test files.
       if (upstreamTree.rootItem.children.length === 0) {
-        this._deleteRootItem(workspaceFolder.uri.fsPath);
+        this._deleteRootItem(workspaceFSPath);
         continue;
       }
       const workspaceRootItem = this._createRootItemIfNeeded(workspaceFolder.uri);
@@ -108,7 +109,7 @@ export class TestTree extends DisposableBase {
     }
     // Remove stale root items.
     for (const itemFsPath of this._rootItems.keys()) {
-      if (!this._vscode.workspace.workspaceFolders!.find(f => f.uri.fsPath === itemFsPath))
+      if (!this._vscode.workspace.workspaceFolders!.find(f => uriToPath(f.uri) === itemFsPath))
         this._deleteRootItem(itemFsPath);
     }
     this._indexTree();
@@ -172,19 +173,20 @@ export class TestTree extends DisposableBase {
       for (const [, child] of item.children)
         visit(child);
       if (item.uri && !item.range)
-        this._testItemByFile.set(item.uri.fsPath, item);
+        this._testItemByFile.set(uriToPath(item.uri), item);
     };
     for (const item of this._rootItems.values())
       visit(item);
   }
 
   private _createRootItemIfNeeded(uri: vscodeTypes.Uri): vscodeTypes.TestItem {
-    if (this._rootItems.has(uri.fsPath))
-      return this._rootItems.get(uri.fsPath)!;
+    const fsPath = uriToPath(uri);
+    if (this._rootItems.has(fsPath))
+      return this._rootItems.get(fsPath)!;
     let item: vscodeTypes.TestItem;
     if (this._vscode.workspace.workspaceFolders!.length === 1) {
       item = {
-        id: this._idWithGeneration(uri.fsPath),
+        id: this._idWithGeneration(fsPath),
         uri: uri,
         children: this._testController.items,
         parent: undefined,
@@ -196,10 +198,10 @@ export class TestTree extends DisposableBase {
         error: undefined,
       };
     } else {
-      item = this._testController.createTestItem(this._idWithGeneration(uri.fsPath), path.basename(uri.fsPath), this._vscode.Uri.file(uri.fsPath));
+      item = this._testController.createTestItem(this._idWithGeneration(fsPath), path.basename(fsPath), uri);
       this._testController.items.add(item);
     }
-    this._rootItems.set(uri.fsPath, item);
+    this._rootItems.set(fsPath, item);
     return item;
   }
 

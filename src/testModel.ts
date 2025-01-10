@@ -16,7 +16,7 @@
 
 import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
-import { resolveSourceMap } from './utils';
+import { resolveSourceMap, uriToPath } from './utils';
 import { ConfigListFilesReport, ProjectConfigWithFiles } from './listTests';
 import * as reporterTypes from './upstream/reporter';
 import { TeleSuite } from './upstream/teleReceiver';
@@ -186,10 +186,6 @@ export class TestModel extends DisposableBase {
     let report: ConfigListFilesReport;
     try {
       report = await this._playwrightTest.listFiles();
-      for (const project of report.projects)
-        project.files = project.files.map(f => this._vscode.Uri.file(f).fsPath);
-      if (report.error?.location)
-        report.error.location.file = this._vscode.Uri.file(report.error.location.file).fsPath;
     } catch (error: any) {
       report = {
         error: {
@@ -319,20 +315,21 @@ export class TestModel extends DisposableBase {
         for (const include of watch.include) {
           if (!include.uri)
             continue;
-          if (!enabledFiles.has(include.uri.fsPath))
+          const fsPath = uriToPath(include.uri);
+          if (!enabledFiles.has(fsPath))
             continue;
           // Folder is watched => add file.
-          if (testFile.startsWith(include.uri.fsPath + path.sep)) {
+          if (testFile.startsWith(fsPath + path.sep)) {
             files.push(testFile);
             continue;
           }
           // File is watched => add file.
-          if (testFile === include.uri.fsPath && !include.range) {
+          if (testFile === fsPath && !include.range) {
             items.push(include);
             continue;
           }
           // Test is watched, use that include as it might be more specific (test).
-          if (testFile === include.uri.fsPath && include.range) {
+          if (testFile === fsPath && include.range) {
             items.push(include);
             continue;
           }
@@ -638,9 +635,10 @@ export class TestModel extends DisposableBase {
       for (const include of watch.include) {
         if (!include.uri)
           continue;
-        filesToWatch.add(include.uri.fsPath);
+        filesToWatch.add(uriToPath(include.uri));
       }
     }
+
     await this._playwrightTest.watchFiles([...filesToWatch]);
   }
 
