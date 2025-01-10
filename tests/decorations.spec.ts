@@ -86,3 +86,26 @@ test('should highlight steps while running', async ({ activate }) => {
     },
   ]);
 });
+
+test('should limit highlights', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test, expect } from '@playwright/test';
+      test('pass', async () => {  
+        for (let i = 0; i < 2000; i++) {
+          expect(i).toBe(i);
+        }
+      });
+    `,
+  });
+
+  await vscode.openEditors('**/test.spec.ts');
+  await new Promise(f => testController.onDidChangeTestItem(f));
+
+  await testController.run();
+
+  const decorationsLog = vscode.window.activeTextEditor.renderDecorations('  ');
+  const lastState = decorationsLog.substring(decorationsLog.lastIndexOf('------'));
+  expect(lastState.split('\n').length).toBeLessThan(2000);
+});

@@ -687,6 +687,9 @@ export class Extension implements RunHooks {
             }
           });
         }
+
+        if (completedDecorations.length > 1000) // too many decorations slow down the editor
+          break;
       }
 
       editor.setDecorations(this._activeStepDecorationType, activeDecorations);
