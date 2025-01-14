@@ -31,7 +31,7 @@ export class PlaywrightTestServer {
   private _vscode: vscodeTypes.VSCode;
   private _options: PlaywrightTestOptions;
   private _model: TestModel;
-  private _testServerPromise: Promise<TestServerConnection | null> | undefined;
+  private _testServerPromise: Promise<TestServerConnectionWrapper> | undefined;
 
   constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
@@ -45,15 +45,17 @@ export class PlaywrightTestServer {
 
   async listFiles(): Promise<ConfigListFilesReport> {
     const testServer = await this._testServer();
-    if (!testServer)
-      throw new Error('Internal error: unable to connect to the test server');
+    if (!testServer.connection) {
+      const errors = testServer.errors.length ? '. Test server errors: ' + testServer.errors.join('\n') : '';
+      throw new Error('Internal error: unable to connect to the test server.' + errors);
+    }
 
     const result: ConfigListFilesReport = {
       projects: [],
     };
 
     // TODO: remove ConfigListFilesReport and report suite directly once CLI is deprecated.
-    const { report } = await testServer.listFiles({});
+    const { report } = await testServer.connection.listFiles({});
     const teleReceiver = new TeleReporterReceiver({
       onBegin(rootSuite) {
         for (const projectSuite of rootSuite.suites) {
@@ -83,14 +85,14 @@ export class PlaywrightTestServer {
   }
 
   async listTests(locations: string[], reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
-    const testServer = await this._testServer();
+    const { connection } = await this._testServer();
     if (token?.isCancellationRequested)
       return;
-    if (!testServer)
+    if (!connection)
       return;
     // Locations are regular expressions.
     locations = locations.map(escapeRegex);
-    const { report } = await testServer.listTests({ locations });
+    const { report } = await connection.listTests({ locations });
     const teleReceiver = new TeleReporterReceiver(reporter, {
       mergeProjects: true,
       mergeTestCases: true,
@@ -101,10 +103,10 @@ export class PlaywrightTestServer {
   }
 
   async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
-    const testServer = await this._testServer();
-    if (!testServer)
+    const { connection } = await this._testServer();
+    if (!connection)
       return 'failed';
-    return await this._runGlobalHooksInServer(testServer, type, testListener, token);
+    return await this._runGlobalHooksInServer(connection, type, testListener, token);
   }
 
   private async _runGlobalHooksInServer(testServer: TestServerConnection, type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
@@ -144,31 +146,31 @@ export class PlaywrightTestServer {
   }
 
   async startDevServer(): Promise<reporterTypes.FullResult['status']> {
-    const testServer = await this._testServer();
-    if (!testServer)
+    const { connection } = await this._testServer();
+    if (!connection)
       return 'failed';
-    const result = await testServer.startDevServer({});
+    const result = await connection.startDevServer({});
     return result.status;
   }
 
   async stopDevServer(): Promise<reporterTypes.FullResult['status']> {
-    const testServer = await this._testServer();
-    if (!testServer)
+    const { connection } = await this._testServer();
+    if (!connection)
       return 'failed';
-    const result = await testServer.stopDevServer({});
+    const result = await connection.stopDevServer({});
     return result.status;
   }
 
   async clearCache(): Promise<void> {
-    const testServer = await this._testServer();
-    await testServer?.clearCache({});
+    const { connection } = await this._testServer();
+    await connection?.clearCache({});
   }
 
   async runTests(request: vscodeTypes.TestRunRequest, runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
-    const testServer = await this._testServer();
+    const { connection } = await this._testServer();
     if (token?.isCancellationRequested)
       return;
-    if (!testServer)
+    if (!connection)
       return;
 
     const { locations, testIds } = this._model.narrowDownLocations(request);
@@ -183,18 +185,18 @@ export class PlaywrightTestServer {
       testIds,
       ...runOptions,
     };
-    testServer.runTests(options);
+    connection.runTests(options);
 
     token.onCancellationRequested(() => {
-      testServer.stopTestsNoReply({});
+      connection.stopTestsNoReply({});
     });
-    const disposable = testServer.onStdio(params => {
+    const disposable = connection.onStdio(params => {
       if (params.type === 'stdout')
         reporter.onStdOut?.(unwrapString(params));
       if (params.type === 'stderr')
         reporter.onStdErr?.(unwrapString(params));
     });
-    await this._wireTestServer(testServer, reporter, token);
+    await this._wireTestServer(connection, reporter, token);
     disposable.dispose();
   }
 
@@ -330,17 +332,15 @@ export class PlaywrightTestServer {
   }
 
   async watchFiles(fileNames: string[]) {
-    const testServer = await this._testServer();
-    if (!testServer)
-      return;
-    await testServer.watch({ fileNames });
+    const { connection } = await this._testServer();
+    await connection?.watch({ fileNames });
   }
 
   async findRelatedTestFiles(files: string[]): Promise<ConfigFindRelatedTestFilesReport> {
     const testServer = await this._testServer();
-    if (!testServer)
+    if (!testServer.connection)
       return { testFiles: files, errors: [{ message: 'Internal error: unable to connect to the test server' }] };
-    return await testServer.findRelatedTestFiles({ files });
+    return await testServer.connection.findRelatedTestFiles({ files });
   }
 
   private _testServer() {
@@ -350,8 +350,9 @@ export class PlaywrightTestServer {
     return this._testServerPromise;
   }
 
-  private async _createTestServer(): Promise<TestServerConnection | null> {
+  private async _createTestServer(): Promise<TestServerConnectionWrapper> {
     const paths = this._normalizePaths();
+    const errors: string[] = [];
     const wsEndpoint = await startBackend(this._vscode, {
       args: [
         paths.cli,
@@ -368,6 +369,7 @@ export class PlaywrightTestServer {
         };
       },
       dumpIO: false,
+      errors,
       onClose: () => {
         this._testServerPromise = undefined;
       },
@@ -376,16 +378,17 @@ export class PlaywrightTestServer {
       },
     });
     if (!wsEndpoint)
-      return null;
-    const testServer = new TestServerConnection(wsEndpoint);
-    testServer.onTestFilesChanged(params => this._testFilesChanged(params.testFiles));
-    await testServer.initialize({
+      return { connection: null, errors };
+    const connection = new TestServerConnection(wsEndpoint);
+    connection.onTestFilesChanged(params => this._testFilesChanged(params.testFiles));
+    await connection.initialize({
       serializer: require.resolve('./oopReporter'),
       interceptStdio: true,
       closeOnDisconnect: true,
     });
-    return testServer;
+    return { connection, errors };
   }
+
   private async _wireTestServer(testServer: TestServerConnection, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
     const teleReceiver = new TeleReporterReceiver(reporter, {
       mergeProjects: true,
@@ -419,7 +422,7 @@ export class PlaywrightTestServer {
     const testServer = this._testServerPromise;
     this._testServerPromise = undefined;
     if (testServer)
-      testServer.then(server => server?.close());
+      testServer.then(server => server.connection?.close());
   }
 }
 
@@ -430,3 +433,8 @@ function unwrapString(params: { text?: string, buffer?: string }): string | Buff
 function resolvePath(rootDir: string, relativePath: string) {
   return path.join(rootDir, relativePath);
 }
+
+type TestServerConnectionWrapper = {
+  connection: TestServerConnection | null;
+  errors: string[];
+};
