@@ -21,10 +21,11 @@ import EventEmitter from 'events';
 import { WebSocketTransport } from './transport';
 
 export type BackendServerOptions = {
-  args: string[],
-  cwd: string,
-  envProvider: () => NodeJS.ProcessEnv,
-  dumpIO?: boolean,
+  args: string[];
+  cwd: string;
+  envProvider: () => NodeJS.ProcessEnv;
+  dumpIO?: boolean;
+  errors: string[];
 };
 
 export class BackendServer<T extends BackendClient> {
@@ -133,6 +134,7 @@ export async function startBackend(vscode: vscodeTypes.VSCode, options: BackendS
   serverProcess.stderr?.on('data', data => {
     if (options.dumpIO)
       console.log('[server err]', data.toString());
+    options.errors.push(data.toString());
   });
   serverProcess.on('error', options.onError);
   serverProcess.on('close', options.onClose);

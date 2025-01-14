@@ -77,11 +77,11 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._disposables = [];
   }
 
-  private async _startBackendIfNeeded(config: TestConfig) {
+  private async _startBackendIfNeeded(config: TestConfig): Promise<{ errors?: string[] }> {
     // Unconditionally close selector dialog, it might send inspect(enabled: false).
     if (this._backend) {
       this._resetNoWait('none');
-      return;
+      return {};
     }
 
     const args = [
@@ -96,14 +96,16 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       PW_EXTENSION_MODE: '1',
     });
 
+    const errors: string[] = [];
     const backendServer = new BackendServer(this._vscode, () => new Backend(this._vscode), {
       args,
       cwd,
-      envProvider
+      envProvider,
+      errors,
     });
     const backend = await backendServer.startAndConnect();
     if (!backend)
-      return;
+      return { errors };
     backend.onClose(() => {
       if (backend === this._backend) {
         this._backend = undefined;
@@ -183,6 +185,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         }
       });
     });
+    return {};
   }
 
   private _scheduleEdit(callback: () => Promise<void>) {
@@ -216,7 +219,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     if (!selectedModel || !this._checkVersion(selectedModel.config, 'selector picker'))
       return;
 
-    await this._startBackendIfNeeded(selectedModel.config);
+    const { errors } = await this._startBackendIfNeeded(selectedModel.config);
+    if (errors)
+      this._vscode.window.showErrorMessage('Error starting the backend: ' + errors.join('\n'));
+    // Keep running, errors could be non-fatal.
     try {
       await this._backend?.setMode({ mode: 'inspecting' });
     } catch (e) {
