@@ -838,12 +838,16 @@ test('should show project-specific tests', async ({ activate }, testInfo) => {
 
   await expect(testController).toHaveTestTree(`
     -   test.spec.ts
+    -    [playwright.config.ts [firefox] — disabled]
+    -    [playwright.config.ts [webkit] — disabled]
   `);
 
   await testController.expandTestItems(/test.spec.ts/);
   await expect(testController).toHaveTestTree(`
     -   test.spec.ts
       -   test [2:0]
+    -    [playwright.config.ts [firefox] — disabled]
+    -    [playwright.config.ts [webkit] — disabled]
   `);
 
   await enableProjects(vscode, ['chromium', 'firefox', 'webkit']);
@@ -859,6 +863,8 @@ test('should show project-specific tests', async ({ activate }, testInfo) => {
   await expect(testController).toHaveTestTree(`
     -   test.spec.ts
       -   test [2:0]
+    -    [playwright.config.ts [chromium] — disabled]
+    -    [playwright.config.ts [firefox] — disabled]
   `);
 });
 

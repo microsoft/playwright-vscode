@@ -63,8 +63,9 @@ input {
   letter-spacing: 0px;  
 }
 
-.combobox {
-  margin: 0 8px;
+.combobox select {
+  margin: 0 6px;
+  flex: auto;
 }
 
 input:focus, textarea:focus {
@@ -87,12 +88,13 @@ textarea {
   
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
 }
 
 .section-toolbar > a {
   border-radius: 5px;
   font-size: 16px;
+  cursor: pointer;
 }
 
 .section-toolbar > a:hover {
@@ -124,7 +126,6 @@ select {
   height: 22px;
   padding: 2px 0;
   cursor: pointer;
-  background: var(--vscode-sideBar-background);
 }
 
 label {

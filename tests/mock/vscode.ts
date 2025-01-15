@@ -202,6 +202,8 @@ export class TestItem {
   tags: readonly TestTag[] = [];
   canResolveChildren = false;
   status: 'none' | 'enqueued' | 'started' | 'skipped' | 'failed' | 'passed' = 'none';
+  description: string | undefined;
+  sortText: string | undefined;
 
   constructor(
       readonly testController: TestController,
@@ -288,7 +290,10 @@ export class TestItem {
     let location = '';
     if (this.range)
       location = ` [${this.range.start.toString()}]`;
-    return `${this.label}${location}`;
+    let description = '';
+    if (this.description)
+      description = ` [${this.description}]`;
+    return `${this.label}${description}${location}`;
   }
 
   flatTitle(): string {
@@ -309,7 +314,7 @@ function itemOrder(item: TestItem) {
   let result = '';
   if (item.range)
     result += item.range.start.line.toString().padStart(5, '0');
-  result += item.label;
+  result += item.sortText || item.label;
   return result;
 }
 

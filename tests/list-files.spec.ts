@@ -275,6 +275,7 @@ test('should support multiple projects', async ({ activate }) => {
     -   tests
       -   test1.spec.ts
       -   test2.spec.ts
+    -    [playwright.config.js [project 2] — disabled]
   `);
 
   await expect(vscode).toHaveExecLog(`
@@ -310,6 +311,7 @@ test('should switch between multiple projects with filter', async ({ activate })
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test1.spec.ts
+    -    [playwright.config.js [project 2] — disabled]
   `);
 
   await expect(vscode).toHaveExecLog(`
@@ -330,6 +332,7 @@ test('should switch between multiple projects with filter', async ({ activate })
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test2.spec.ts
+    -    [playwright.config.js [project 1] — disabled]
   `);
 
   await expect(vscode).toHaveProjectTree(`
