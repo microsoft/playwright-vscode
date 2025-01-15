@@ -121,3 +121,44 @@ test('should switch between projects', async ({ activate }) => {
     [x] projectTwo
   `);
 });
+
+test('should hide unchecked projects', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {
+      projects: [
+        { name: 'projectOne', testDir: 'tests1', },
+        { name: 'projectTwo', testDir: 'tests2', },
+      ]
+    }`,
+    'tests1/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+    'tests2/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('two', async () => {});
+    `,
+  });
+
+  await expect(testController).toHaveTestTree(`
+    -   tests1
+      -   test.spec.ts
+  `);
+
+  await expect(vscode).toHaveProjectTree(`
+    config: playwright.config.js
+    [x] projectOne
+    [ ] projectTwo
+  `);
+
+  await enableProjects(vscode, []);
+
+  await expect(vscode).toHaveProjectTree(`
+    config: playwright.config.js
+    [ ] projectOne
+    [ ] projectTwo
+  `);
+
+  await expect(testController).toHaveTestTree(`
+  `);
+});

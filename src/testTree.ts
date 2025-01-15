@@ -206,7 +206,10 @@ export class TestTree extends DisposableBase {
   }
 
   private _deleteRootItem(fsPath: string): void {
-    this._testController.items.delete(this._idWithGeneration(fsPath));
+    if (this._vscode.workspace.workspaceFolders!.length === 1)
+      this._testController.items.replace([]);
+    else
+      this._testController.items.delete(this._idWithGeneration(fsPath));
     this._rootItems.delete(fsPath);
   }
 
