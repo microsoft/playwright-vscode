@@ -20,6 +20,7 @@ let selectConfig: Config;
 
 const selectAllButton = document.getElementById('selectAll') as HTMLAnchorElement;
 const unselectAllButton = document.getElementById('unselectAll') as HTMLAnchorElement;
+const toggleModels = document.getElementById('toggleModels') as HTMLAnchorElement;
 
 function updateProjects(projects: ProjectEntry[]) {
   const projectsElement = document.getElementById('projects') as HTMLElement;
@@ -51,6 +52,7 @@ function setAllProjectsEnabled(enabled: boolean) {
 }
 selectAllButton.addEventListener('click', () => setAllProjectsEnabled(true));
 unselectAllButton.addEventListener('click', () => setAllProjectsEnabled(false));
+toggleModels.addEventListener('click', () => (vscode.postMessage({ method: 'execute', params: { command: 'pw.extension.command.toggleModels' } })));
 
 for (const input of Array.from(document.querySelectorAll('input[type=checkbox]'))) {
   input.addEventListener('change', event => {
@@ -65,7 +67,6 @@ for (const select of Array.from(document.querySelectorAll<HTMLSelectElement>('se
 
 window.addEventListener('message', event => {
   const actionsElement = document.getElementById('actions')!;
-  const configToolbarElement = document.getElementById('configToolbar')!;
   const rareActionsElement = document.getElementById('rareActions')!;
   const modelSelector = document.getElementById('model-selector')!;
 
@@ -85,15 +86,12 @@ window.addEventListener('message', event => {
     }
   } else if (method === 'actions') {
     actionsElement.textContent = '';
-    configToolbarElement.textContent = '';
     rareActionsElement.textContent = '';
     for (const action of params.actions) {
       const actionElement = createAction(action);
       if (!actionElement)
         continue;
-      if (action.location === 'configToolbar')
-        configToolbarElement.appendChild(actionElement);
-      else if (action.location === 'rareActions')
+      if (action.location === 'rareActions')
         rareActionsElement.appendChild(actionElement);
       else
         actionsElement.appendChild(actionElement);
@@ -119,6 +117,6 @@ window.addEventListener('message', event => {
       vscode.postMessage({ method: 'selectModel', params: { configFile: select.value } });
       updateProjects(configsMap.get(select.value).projects);
     });
-    modelSelector.style.display = showModelSelector ? 'block' : 'none';
+    modelSelector.style.display = showModelSelector ? 'flex' : 'none';
   }
 });

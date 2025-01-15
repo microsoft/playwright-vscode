@@ -87,6 +87,7 @@ test.describe(() => {
       - ✅ teardown [2:0]
     -   test.ts
       - ✅ test [2:0]
+    -    [playwright.config.ts [setup] — disabled]
   `);
 
     const output = testRun.renderLog({ output: true });
@@ -103,6 +104,8 @@ test.describe(() => {
     await expect(testController).toHaveTestTree(`
     -   test.ts
       - ✅ test [2:0]
+    -    [playwright.config.ts [setup] — disabled]
+    -    [playwright.config.ts [teardown] — disabled]
   `);
 
     const output = testRun.renderLog({ output: true });

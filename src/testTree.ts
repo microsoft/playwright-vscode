@@ -16,12 +16,13 @@
 
 import path from 'path';
 import { TestModelCollection } from './testModel';
-import { createGuid, uriToPath } from './utils';
+import { createGuid, normalizePath, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
 import * as upstream from './upstream/testTree';
 import { TeleSuite } from './upstream/teleReceiver';
 import { DisposableBase } from './disposableBase';
+import type { TestConfig } from './playwrightTestTypes';
 
 /**
  * This class maps a collection of TestModels into the UI terms, it merges
@@ -57,6 +58,7 @@ export class TestTree extends DisposableBase {
   startedLoading() {
     this._testGeneration = createGuid() + ':';
     this._testController.items.replace([]);
+    this._rootItems.clear();
     this._testItemByTestId.clear();
     this._testItemByFile.clear();
 
@@ -90,23 +92,32 @@ export class TestTree extends DisposableBase {
 
   private _update() {
     for (const workspaceFolder of this._vscode.workspace.workspaceFolders ?? []) {
+      const disabledProjects = new Map<string, TestConfig>();
       const workspaceFSPath = uriToPath(workspaceFolder.uri);
       const rootSuite = new TeleSuite('', 'root');
       for (const model of this._models.enabledModels().filter(m => m.config.workspaceFolder === workspaceFSPath)) {
-        for (const project of model.enabledProjects())
-          rootSuite.suites.push(project.suite as TeleSuite);
+        for (const project of model.projects()) {
+          if (project.isEnabled)
+            rootSuite.suites.push(project.suite as TeleSuite);
+          else
+            disabledProjects.set(project.name, model.config);
+        }
       }
+
       const upstreamTree = new upstream.TestTree(workspaceFSPath, rootSuite, [], undefined, path.sep);
       upstreamTree.sortAndPropagateStatus();
       upstreamTree.flattenForSingleProject();
-      // Create root item if there are test files.
-      if (upstreamTree.rootItem.children.length === 0) {
+
+      if (upstreamTree.rootItem.children.length === 0 && !disabledProjects.size) {
         this._deleteRootItem(workspaceFSPath);
         continue;
       }
+
       const workspaceRootItem = this._createRootItemIfNeeded(workspaceFolder.uri);
       this._syncSuite(upstreamTree.rootItem, workspaceRootItem);
+      this._syncDisabledProjects(workspaceRootItem, disabledProjects);
     }
+
     // Remove stale root items.
     for (const itemFsPath of this._rootItems.keys()) {
       if (!this._vscode.workspace.workspaceFolders!.find(f => uriToPath(f.uri) === itemFsPath))
@@ -163,6 +174,26 @@ export class TestTree extends DisposableBase {
     }
   }
 
+  private _syncDisabledProjects(workspaceRootItem: vscodeTypes.TestItem, disabledProjects: Map<string, TestConfig>) {
+    const topLevelItems: string[] = [];
+    workspaceRootItem.children.forEach(item => topLevelItems.push(item.id));
+    const oldDisabledProjectIds = new Set(topLevelItems.filter(item => item.startsWith('[disabled] ')));
+    for (const [projectName, config] of disabledProjects) {
+      const projectId = '[disabled] ' + projectName + ' - ' + config.configFile;
+      if (oldDisabledProjectIds.has(projectId)) {
+        oldDisabledProjectIds.delete(projectId);
+        continue;
+      }
+
+      const item = this._testController.createTestItem(projectId, '');
+      item.description = `${path.relative(config.workspaceFolder, normalizePath(config.configFile))} [${projectName}] — disabled`;
+      item.sortText = 'z' + projectName;
+      workspaceRootItem.children.add(item);
+    }
+    for (const projectId of oldDisabledProjectIds)
+      workspaceRootItem.children.delete(projectId);
+  }
+
   private _indexTree() {
     this._testItemByTestId.clear();
     this._testItemByFile.clear();
@@ -206,10 +237,13 @@ export class TestTree extends DisposableBase {
   }
 
   private _deleteRootItem(fsPath: string): void {
-    if (this._vscode.workspace.workspaceFolders!.length === 1)
-      this._testController.items.replace([]);
-    else
+    if (this._vscode.workspace.workspaceFolders!.length === 1) {
+      const items: vscodeTypes.TestItem[] = [];
+      this._testController.items.forEach(item => items.push(item));
+      this._testController.items.replace(items.filter(i => i.id === 'loading' || i.id === 'disabled'));
+    } else {
       this._testController.items.delete(this._idWithGeneration(fsPath));
+    }
     this._rootItems.delete(fsPath);
   }
 
