@@ -543,7 +543,7 @@ export class TestModel extends DisposableBase {
     }
 
     const options: PlaywrightTestRunOptions = {
-      headed: showBrowser && !this._embedder.isUnderTest,
+      headed: (showBrowser && !this._embedder.isUnderTest) ? true : undefined,
       workers: showBrowser ? 1 : undefined,
       trace,
       video,
