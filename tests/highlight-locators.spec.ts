@@ -84,22 +84,18 @@ test('should work', async ({ activate }) => {
     for (const [[line, column], expectedBox] of [
       [[9, 26], boxTwo],
       [[8, 26], boxOne],
-      [[10, 26], null],
       [[15, 30], boxOne],
       [[16, 30], boxTwo],
       [[17, 30], boxOne],
+      [[10, 26], null], // null expectation must come last
     ] as const) {
       await test.step(`should highlight ${language} ${line}:${column}`, async () => {
-        // Clear highlight.
-        vscode.languages.emitHoverEvent(language, vscode.window.activeTextEditor.document, new vscode.Position(0, 0));
-        // Let highlight poll update its state.
-        await new Promise(f => setTimeout(f, 500));
-        vscode.languages.emitHoverEvent(language, vscode.window.activeTextEditor.document, new vscode.Position(line, column));
-        if (!expectedBox) {
-          await expect(page.locator('x-pw-highlight')).toBeHidden();
+        if (expectedBox) {
+          vscode.languages.emitHoverEvent(language, vscode.window.activeTextEditor.document, new vscode.Position(line, column));
+          await expect.poll(() => page.locator('x-pw-highlight').boundingBox()).toEqual(expectedBox);
         } else {
-          await expect(page.locator('x-pw-highlight')).toBeVisible();
-          expect(await page.locator('x-pw-highlight').boundingBox()).toEqual(expectedBox);
+          vscode.languages.emitHoverEvent(language, vscode.window.activeTextEditor.document, new vscode.Position(line, column));
+          await expect(page.locator('x-pw-highlight')).toBeHidden();
         }
       });
     }

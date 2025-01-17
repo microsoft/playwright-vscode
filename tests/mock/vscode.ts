@@ -292,7 +292,7 @@ export class TestItem {
       location = ` [${this.range.start.toString()}]`;
     let description = '';
     if (this.description)
-      description = ` [${this.description}]`;
+      description = ` [${this.description.replaceAll('\\', '/')}]`;
     return `${this.label}${description}${location}`;
   }
 
