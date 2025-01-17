@@ -675,25 +675,23 @@ export class Extension implements RunHooks {
           activeDecorations.push({ range: location.range });
       }
 
-      const completedDecorations: vscodeTypes.DecorationOptions[] = [];
+      const completedDecorations: Record<number, vscodeTypes.DecorationOptions> = {};
       for (const { location, duration } of completed) {
         if (uriToPath(location.uri) === uriToPath(editor.document.uri)) {
-          completedDecorations.push({
+          const line = location.range.start.line;
+          completedDecorations[line] = {
             range: location.range,
             renderOptions: {
               after: {
                 contentText: ` \u2014 ${duration}ms`
               }
             }
-          });
+          };
         }
-
-        if (completedDecorations.length > 1000) // too many decorations slow down the editor
-          break;
       }
 
       editor.setDecorations(this._activeStepDecorationType, activeDecorations);
-      editor.setDecorations(this._completedStepDecorationType, completedDecorations);
+      editor.setDecorations(this._completedStepDecorationType, Object.values(completedDecorations));
     }
 
   }
