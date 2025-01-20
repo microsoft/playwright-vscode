@@ -669,15 +669,16 @@ export class Extension implements RunHooks {
     const completed = [...this._completedSteps.values()];
 
     for (const editor of this._vscode.window.visibleTextEditors) {
+      const editorPath = uriToPath(editor.document.uri);
       const activeDecorations: vscodeTypes.DecorationOptions[] = [];
       for (const { location } of active) {
-        if (uriToPath(location.uri) === uriToPath(editor.document.uri))
+        if (uriToPath(location.uri) === editorPath)
           activeDecorations.push({ range: location.range });
       }
 
       const completedDecorations: Record<number, vscodeTypes.DecorationOptions> = {};
       for (const { location, duration } of completed) {
-        if (uriToPath(location.uri) === uriToPath(editor.document.uri)) {
+        if (uriToPath(location.uri) === editorPath) {
           const line = location.range.start.line;
           completedDecorations[line] = {
             range: location.range,
