@@ -258,7 +258,7 @@ test('should show error message', async ({ activate }) => {
       started
       failed
         test.spec.ts:[3:18 - 3:18]
-        Error: <span style='color:#666;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
+        Error: <span style='color:#888;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#888;'>).</span>toBe<span style='color:#888;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#888;'>) // Object.is equality</span>
         <br>
 
         <br>
@@ -311,7 +311,7 @@ test('should show soft error messages', async ({ activate }) => {
       started
       failed
         test.spec.ts:[3:23 - 3:23]
-        Error: <span style='color:#666;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
+        Error: <span style='color:#888;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#888;'>).</span>toBe<span style='color:#888;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#888;'>) // Object.is equality</span>
         <br>
 
         <br>
@@ -321,7 +321,7 @@ test('should show soft error messages', async ({ activate }) => {
         <br>
             at tests/test.spec.ts:4:24
         test.spec.ts:[4:23 - 4:23]
-        Error: <span style='color:#666;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
+        Error: <span style='color:#888;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#888;'>).</span>toBe<span style='color:#888;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#888;'>) // Object.is equality</span>
         <br>
 
         <br>

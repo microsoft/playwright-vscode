@@ -474,6 +474,9 @@ export class Extension implements RunHooks {
     model: TestModel,
     mode: 'run' | 'debug' | 'watch',
     enqueuedSingleTest: boolean) {
+
+    let browserDoesNotExist = false;
+
     const testListener: reporterTypes.ReporterV2 = {
       ...this._errorReportingListener(testRun, testItemForGlobalErrors),
 
@@ -504,6 +507,9 @@ export class Extension implements RunHooks {
       },
 
       onTestEnd: (test: reporterTypes.TestCase, result: reporterTypes.TestResult) => {
+        if (result.errors.find(e => e.message?.includes(`Error: browserType.launch: Executable doesn't exist`)))
+          browserDoesNotExist = true;
+
         this._testItemUnderDebug = undefined;
         this._activeSteps.clear();
         this._executionLinesChanged();
@@ -572,6 +578,9 @@ export class Extension implements RunHooks {
       await this._models.selectedModel()?.updateTraceViewer(mode === 'run')?.willRunTests();
       await model.runTests(request, testListener, testRun.token);
     }
+
+    if (browserDoesNotExist)
+      await installBrowsers(this._vscode, model);
   }
 
   private _errorReportingListener(testRun: vscodeTypes.TestRun, testItemForGlobalErrors?: vscodeTypes.TestItem) {

@@ -67,7 +67,7 @@ test('should report error in global setup (implicit)', async ({ activate, overri
       started
       failed
         globalSetup.ts:[3:21 - 3:21]
-        Error: <span style='color:#666;'>expect(</span>`);
+        Error: <span style='color:#888;'>expect(</span>`);
 
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js

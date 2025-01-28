@@ -114,7 +114,7 @@ export function ansi2html(text: string, defaultColors?: { bg: string, fg: string
         token = `<i>${token}</i>`;
       const hasOpacity = style['opacity'] === '0.8';
       if (hasOpacity)
-        token = `<span style='color:#666;'>${token}</span>`;
+        token = `<span style='color:#888;'>${token}</span>`;
       const color = reverse ? (bg || '#000') : fg;
       if (color)
         token = `<span style='color:${color};'>${token}</span>`;
