@@ -265,8 +265,8 @@ test('should show error message', async ({ activate }) => {
         Expected: <span style='color:#73c991;'>2</span>
         <br>
         Received: <span style='color:#f14c4c;'>1</span>
-        Stack trace:
-           (test.spec.ts:4)
+        <br>
+            at tests/test.spec.ts:4:19
   `);
 });
 
@@ -318,8 +318,8 @@ test('should show soft error messages', async ({ activate }) => {
         Expected: <span style='color:#73c991;'>2</span>
         <br>
         Received: <span style='color:#f14c4c;'>1</span>
-        Stack trace:
-           (test.spec.ts:4)
+        <br>
+            at tests/test.spec.ts:4:24
         test.spec.ts:[4:23 - 4:23]
         Error: <span style='color:#666;'>expect(</span><span style='color:#f14c4c;'>received</span><span style='color:#666;'>).</span>toBe<span style='color:#666;'>(</span><span style='color:#73c991;'>expected</span><span style='color:#666;'>) // Object.is equality</span>
         <br>
@@ -328,8 +328,8 @@ test('should show soft error messages', async ({ activate }) => {
         Expected: <span style='color:#73c991;'>3</span>
         <br>
         Received: <span style='color:#f14c4c;'>2</span>
-        Stack trace:
-           (test.spec.ts:5)
+        <br>
+            at tests/test.spec.ts:5:24
   `);
 });
 
@@ -1018,24 +1018,24 @@ test('should report project-specific failures', async ({ activate }) => {
       failed
         test.spec.ts:[3:14 - 3:14]
         Error: projectA
-        Stack trace:
-           (test.spec.ts:4)
+        <br>
+            at tests/test.spec.ts:4:15
     tests > test.spec.ts > should pass > projectB [2:0]
       enqueued
       started
       failed
         test.spec.ts:[3:14 - 3:14]
         Error: projectB
-        Stack trace:
-           (test.spec.ts:4)
+        <br>
+            at tests/test.spec.ts:4:15
     tests > test.spec.ts > should pass > projectC [2:0]
       enqueued
       started
       failed
         test.spec.ts:[3:14 - 3:14]
         Error: projectC
-        Stack trace:
-           (test.spec.ts:4)
+        <br>
+            at tests/test.spec.ts:4:15
   `);
 });
 
