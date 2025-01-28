@@ -119,7 +119,8 @@ input[type=checkbox] {
 }
 
 select {
-  background: transparent;
+  /* important for dark theme */
+  background: var(--vscode-sideBar-background);
   color: inherit;
   outline: none !important;
   border: none !important;

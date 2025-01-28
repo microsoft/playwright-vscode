@@ -44,8 +44,8 @@ export class SettingsModel extends DisposableBase {
   showBrowser: Setting<boolean>;
   showTrace: Setting<boolean>;
   runGlobalSetupOnEachRun: Setting<boolean>;
-  updateSnapshots: Setting<'all' | 'changed' | 'missing' | 'none'>;
-  updateSourceMethod: Setting<'overwrite' | 'patch' | '3way'>;
+  updateSnapshots: Setting<'all' | 'changed' | 'missing' | 'none' | 'no-override'>;
+  updateSourceMethod: Setting<'overwrite' | 'patch' | '3way' | 'no-override'>;
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     super();
@@ -105,7 +105,7 @@ export class SettingsModel extends DisposableBase {
 
 export interface Setting<T> extends vscodeTypes.Disposable {
   readonly onChange: vscodeTypes.Event<T>;
-  get(): T;
+  get(): T | undefined;
   set(value: T): Promise<void>;
 }
 
@@ -122,7 +122,7 @@ class SettingBase<T> extends DisposableBase implements Setting<T> {
     this._onChange = new vscode.EventEmitter<T>();
     this.onChange = this._onChange.event;
   }
-  get(): T {
+  get(): T | undefined {
     throw new Error('Method not implemented.');
   }
 
@@ -140,7 +140,7 @@ class PersistentSetting<T> extends SettingBase<T> {
       this._onChange,
       vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration(settingFQN))
-          this._onChange.fire(this.get());
+          this._onChange.fire(this.get()!);
       }),
       vscode.commands.registerCommand(`pw.extension.toggle.${settingName}`, async () => {
         this.set(!this.get() as T);
@@ -148,9 +148,9 @@ class PersistentSetting<T> extends SettingBase<T> {
     ];
   }
 
-  get(): T {
+  get(): T | undefined {
     const configuration = this._vscode.workspace.getConfiguration('playwright');
-    return configuration.get(this.settingName) as T;
+    return configuration.get(this.settingName) as T | undefined;
   }
 
   async set(value: T) {

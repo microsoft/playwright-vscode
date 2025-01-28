@@ -32,8 +32,8 @@ export type PlaywrightTestRunOptions = {
   video?: 'on' | 'off';
   reuseContext?: boolean;
   connectWsEndpoint?: string;
-  updateSnapshots?: 'all' | 'changed' | 'missing' | 'none';
-  updateSourceMethod?: 'overwrite' | 'patch' | '3way';
+  updateSnapshots?: 'all' | 'changed' | 'missing' | 'none' | undefined;
+  updateSourceMethod?: 'overwrite' | 'patch' | '3way' | undefined;
 };
 
 export interface RunHooks {

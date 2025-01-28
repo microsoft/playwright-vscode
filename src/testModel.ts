@@ -549,8 +549,8 @@ export class TestModel extends DisposableBase {
       video,
       reuseContext: showBrowser,
       connectWsEndpoint: showBrowser ? externalOptions.connectWsEndpoint : undefined,
-      updateSnapshots: this._embedder.settingsModel.updateSnapshots.get(),
-      updateSourceMethod: this._embedder.settingsModel.updateSourceMethod.get(),
+      updateSnapshots: noOverrideToUndefined(this._embedder.settingsModel.updateSnapshots.get()),
+      updateSourceMethod: noOverrideToUndefined(this._embedder.settingsModel.updateSourceMethod.get()),
     };
 
     try {
@@ -581,8 +581,8 @@ export class TestModel extends DisposableBase {
       trace: 'off',
       reuseContext: false,
       connectWsEndpoint: externalOptions.connectWsEndpoint,
-      updateSnapshots: this._embedder.settingsModel.updateSnapshots.get(),
-      updateSourceMethod: this._embedder.settingsModel.updateSourceMethod.get(),
+      updateSnapshots: noOverrideToUndefined(this._embedder.settingsModel.updateSnapshots.get()),
+      updateSourceMethod: noOverrideToUndefined(this._embedder.settingsModel.updateSourceMethod.get()),
     };
     try {
       if (token?.isCancellationRequested)
@@ -869,4 +869,8 @@ function isAncestorOf(root: vscodeTypes.TestItem, descendent: vscodeTypes.TestIt
     descendent = descendent.parent;
   }
   return false;
+}
+
+function noOverrideToUndefined<T>(value: T | 'no-override'): T | undefined {
+  return value === 'no-override' ? undefined : value;
 }
