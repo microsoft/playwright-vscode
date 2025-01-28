@@ -698,17 +698,6 @@ export class Extension implements RunHooks {
 
   }
 
-  private _trimStack(text: string): string {
-    const result: string[] = [];
-    for (const line of text.split('\n')) {
-      const frame = stackUtils.parseLine(line);
-      if (frame?.file && frame.line)
-        continue;
-      result.push(line);
-    }
-    return result.join('\n');
-  }
-
   private _abbreviateStack(text: string): string {
     const result: string[] = [];
     const prefixes = (this._vscode.workspace.workspaceFolders || []).map(f => uriToPath(f.uri).toLowerCase() + path.sep);
@@ -730,7 +719,7 @@ export class Extension implements RunHooks {
     const markdownString = new this._vscode.MarkdownString();
     markdownString.isTrusted = true;
     markdownString.supportHtml = true;
-    markdownString.appendMarkdown(ansi2html(this._trimStack(text)));
+    markdownString.appendMarkdown(ansi2html(this._abbreviateStack(text)));
     return new this._vscode.TestMessage(markdownString);
   }
 
@@ -761,8 +750,6 @@ export class Extension implements RunHooks {
     }
     const stackTrace = error.stack ? parseStack(this._vscode, error.stack) : [];
     const location = error.location ? parseLocation(this._vscode, error.location) : topStackFrame(this._vscode, stackTrace);
-    if (stackTrace.length)
-      testMessage.stackTrace = stackTrace;
     if (location)
       testMessage.location = location;
     return testMessage;
