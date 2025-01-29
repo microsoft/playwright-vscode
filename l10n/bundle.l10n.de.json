@@ -32,5 +32,6 @@
   "TOOLS": "WERKZEUGE",
   "SETUP": "KONFIGURATION",
   "Select All": "Alle auswählen",
-  "Unselect All": "Alle abwählen"
+  "Unselect All": "Alle abwählen",
+  "one worker": "ein worker"
 }

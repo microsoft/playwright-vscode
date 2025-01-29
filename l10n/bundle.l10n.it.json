@@ -28,5 +28,6 @@
   "Update method" : "Aggiorna metodo",
   "Select All": "Seleziona tutto",
   "Unselect All": "Deseleziona tutto",
-  "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "Quando attivata, Playwright riusa l'instanza browser tra i test. Questo disattiva l'esecuzione parallela."
+  "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "Quando attivata, Playwright riusa l'instanza browser tra i test. Questo disattiva l'esecuzione parallela.",
+  "one worker": "un worker"
 }

@@ -28,5 +28,6 @@
   "Update method" : "更新方法",
   "Select All": "全选",
   "Unselect All": "取消全选",
-  "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "启用后，Playwright 将在测试之间重复使用浏览器实例。这将禁用并行执行。"
+  "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "启用后，Playwright 将在测试之间重复使用浏览器实例。这将禁用并行执行。",
+  "one worker": "一个 worker"
 }
