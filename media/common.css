@@ -107,10 +107,10 @@ textarea {
   display: flex;
 }
 
-.action[disabled] {
+.action[disabled], .inactive {
   opacity: 0.5;
   cursor: default;
-  background-color: none !important;
+  background: none !important;
 }
 
 input[type=checkbox] {
