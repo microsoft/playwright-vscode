@@ -23,7 +23,7 @@ import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
 import { TestModel, TestModelCollection } from './testModel';
-import { TestTree } from './testTree';
+import { disabledProjectName as disabledProject, TestTree } from './testTree';
 import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
@@ -338,6 +338,20 @@ export class Extension implements RunHooks {
     // Never run tests concurrently.
     if (this._testRun && !request.continuous)
       return;
+
+    if (request.include?.[0]) {
+      const project = disabledProject(request.include[0]);
+      if (project) {
+        const enableProjectTitle = this._vscode.l10n.t('Enable project');
+        this._vscode.window.showInformationMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`), enableProjectTitle, this._vscode.l10n.t('Cancel')).then(result => {
+          if (result === enableProjectTitle) {
+            this._models.setModelEnabled(project.model.config.configFile, true, true);
+            this._models.setProjectEnabled(project.model.config.configFile, project.name, true);
+          }
+        });
+        return;
+      }
+    }
 
     await this._queueTestRun(request, isDebug ? 'debug' : 'run');
 

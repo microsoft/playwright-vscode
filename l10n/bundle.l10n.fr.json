@@ -29,5 +29,8 @@
   "Select All": "Tout sélectionner",
   "Unselect All": "Tout désélectionner",
   "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "Si cette option est activée, Playwright réutilisera l'instance du navigateur entre les tests. Cela désactivera l'exécution parallèle.",
-  "one worker": "un worker"
+  "one worker": "un worker",
+  "Project is disabled in the Playwright sidebar" : "Le projet est désactivé dans la barre latérale Playwright",
+  "Enable project": "Activer le projet",
+  "Cancel": "Annuler"
 }

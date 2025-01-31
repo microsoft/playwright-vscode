@@ -242,20 +242,20 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
         <div class="action">
           <label title="${vscode.l10n.t('When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.')}">
             <input type="checkbox" setting="reuseBrowser"></input>
-            ${vscode.l10n.t('Show browser')}
-            <span class="inactive" style="padding-left: 5px">— ${vscode.l10n.t('one worker')}</span>
+            <div>${vscode.l10n.t('Show browser')}</div>
+            <div class="inactive" style="padding-left: 5px;">— ${vscode.l10n.t('one worker')}</div>
           </label>
         </div class="action">
         <div class="action">
           <label>
             <input type="checkbox" setting="showTrace"></input>
-            ${vscode.l10n.t('Show trace viewer')}
+            <div>${vscode.l10n.t('Show trace viewer')}</div>
           </label>
         </div class="action">
         <div class="action">
           <label>
             <input type="checkbox" setting="runGlobalSetupOnEachRun"></input>
-            ${vscode.l10n.t('Run global setup on each run')}
+            <div>${vscode.l10n.t('Run global setup on each run')}</div>
           </label>
         </div class="action">
         <div class="hbox">

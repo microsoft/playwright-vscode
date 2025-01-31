@@ -84,6 +84,7 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
     this._disposables.push(webviewView.onDidChangeVisibility(() => {
       if (!webviewView.visible)
         return;
+      this._updateActions();
       this._updateValues();
     }));
     this._updateActions();
@@ -93,6 +94,10 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
   private _updateActions() {
     const actions = [
       pickElementAction(this._vscode),
+      {
+        ...pickElementAction(this._vscode),
+        location: 'actions-2',
+      }
     ];
     if (this._view)
       this._view.webview.postMessage({ method: 'actions', params: { actions } });
@@ -128,14 +133,17 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
     <body class="locators-view">
       <div class="section">
         <div class="hbox">
-          <div id="actions"></div>
+          <div class="actions" id="actions"></div>
           <label id="locatorLabel">${vscode.l10n.t('Locator')}</label>
         </div>
         <input id="locator" placeholder="${vscode.l10n.t('Locator')}" aria-labelledby="locatorLabel">
         <p id="locatorError" class="error"></p>
       </div>
       <div id="ariaSection" class="section">
-        <label id="ariaSnapshotLabel">Aria</label>
+        <div class="hbox">
+          <div class="actions" id="actions-2"></div>
+          <label id="locatorLabel">Aria</label>
+        </div>
         <textarea id="ariaSnapshot" placeholder="Aria" rows="10" aria-labelledby="ariaSnapshotLabel"></textarea>
         <p id="ariaSnapshotError" class="error"></p>
       </div>

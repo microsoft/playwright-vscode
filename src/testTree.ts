@@ -16,13 +16,13 @@
 
 import path from 'path';
 import { TestModelCollection } from './testModel';
+import type { TestProject } from './testModel';
 import { createGuid, normalizePath, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
 import * as upstream from './upstream/testTree';
 import { TeleSuite } from './upstream/teleReceiver';
 import { DisposableBase } from './disposableBase';
-import type { TestConfig } from './playwrightTestTypes';
 
 /**
  * This class maps a collection of TestModels into the UI terms, it merges
@@ -92,7 +92,7 @@ export class TestTree extends DisposableBase {
 
   private _update() {
     for (const workspaceFolder of this._vscode.workspace.workspaceFolders ?? []) {
-      const disabledProjects = new Map<string, TestConfig>();
+      const disabledProjects: TestProject[] = [];
       const workspaceFSPath = uriToPath(workspaceFolder.uri);
       const rootSuite = new TeleSuite('', 'root');
       for (const model of this._models.enabledModels().filter(m => m.config.workspaceFolder === workspaceFSPath)) {
@@ -100,7 +100,7 @@ export class TestTree extends DisposableBase {
           if (project.isEnabled)
             rootSuite.suites.push(project.suite as TeleSuite);
           else
-            disabledProjects.set(project.name, model.config);
+            disabledProjects.push(project);
         }
       }
 
@@ -108,7 +108,7 @@ export class TestTree extends DisposableBase {
       upstreamTree.sortAndPropagateStatus();
       upstreamTree.flattenForSingleProject();
 
-      if (upstreamTree.rootItem.children.length === 0 && !disabledProjects.size) {
+      if (upstreamTree.rootItem.children.length === 0 && !disabledProjects.length) {
         this._deleteRootItem(workspaceFSPath);
         continue;
       }
@@ -174,20 +174,27 @@ export class TestTree extends DisposableBase {
     }
   }
 
-  private _syncDisabledProjects(workspaceRootItem: vscodeTypes.TestItem, disabledProjects: Map<string, TestConfig>) {
+  private _syncDisabledProjects(workspaceRootItem: vscodeTypes.TestItem, disabledProjects: TestProject[]) {
     const topLevelItems: string[] = [];
     workspaceRootItem.children.forEach(item => topLevelItems.push(item.id));
     const oldDisabledProjectIds = new Set(topLevelItems.filter(item => item.startsWith('[disabled] ')));
-    for (const [projectName, config] of disabledProjects) {
-      const projectId = '[disabled] ' + projectName + ' - ' + config.configFile;
+    const sortedProject = disabledProjects.sort((a, b) => {
+      const keyA = a.model.config.configFile + ':' + a.name;
+      const keyB = b.model.config.configFile + ':' + b.name;
+      return keyA.localeCompare(keyB);
+    });
+    for (const project of sortedProject) {
+      const config = project.model.config;
+      const projectId = '[disabled] ' + project.name + ' - ' + config.configFile;
       if (oldDisabledProjectIds.has(projectId)) {
         oldDisabledProjectIds.delete(projectId);
         continue;
       }
 
       const item = this._testController.createTestItem(projectId, '');
-      item.description = `${path.relative(config.workspaceFolder, normalizePath(config.configFile))} [${projectName}] — disabled`;
-      item.sortText = 'z' + projectName;
+      item.description = `${path.relative(config.workspaceFolder, normalizePath(config.configFile))} [${project.name}] — disabled`;
+      item.sortText = 'z' + project.name;
+      (item as any)[disabledProjectSymbol] = project;
       workspaceRootItem.children.add(item);
     }
     for (const projectId of oldDisabledProjectIds)
@@ -275,4 +282,9 @@ export function upstreamTreeItem(treeItem: vscodeTypes.TreeItem): upstream.TreeI
   return (treeItem as any)[testTreeItemSymbol] as upstream.TreeItem;
 }
 
+export function disabledProjectName(item: vscodeTypes.TestItem): TestProject | undefined {
+  return (item as any)[disabledProjectSymbol];
+}
+
 const testTreeItemSymbol = Symbol('testTreeItemSymbol');
+const disabledProjectSymbol = Symbol('disabledProjectSymbol');

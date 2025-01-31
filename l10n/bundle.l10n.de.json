@@ -33,5 +33,8 @@
   "SETUP": "KONFIGURATION",
   "Select All": "Alle auswählen",
   "Unselect All": "Alle abwählen",
-  "one worker": "ein worker"
+  "one worker": "ein worker",
+  "Project is disabled in the Playwright sidebar": "Projekt ist im Playwright-Sidebar deaktiviert",
+  "Enable project": "Projekt aktivieren",
+  "Cancel": "Abbrechen"
 }
