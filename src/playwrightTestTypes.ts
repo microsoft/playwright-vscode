@@ -34,6 +34,7 @@ export type PlaywrightTestRunOptions = {
   connectWsEndpoint?: string;
   updateSnapshots?: 'all' | 'changed' | 'missing' | 'none' | undefined;
   updateSourceMethod?: 'overwrite' | 'patch' | '3way' | undefined;
+  pageSnapshot?: 'on' | 'off' | 'only-on-failure';
 };
 
 export interface RunHooks {
