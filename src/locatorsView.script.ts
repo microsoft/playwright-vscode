@@ -33,6 +33,7 @@ window.addEventListener('message', event => {
   const ariaSnapshotError = document.getElementById('ariaSnapshotError')!;
   const ariaSection = document.getElementById('ariaSection')!;
   const actionsElement = document.getElementById('actions')!;
+  const actions2Element = document.getElementById('actions-2')!;
 
   const { method, params } = event.data;
   if (method === 'update') {
@@ -45,10 +46,11 @@ window.addEventListener('message', event => {
     ariaSection.style.display = params.hideAria ? 'none' : 'flex';
   } else if (method === 'actions') {
     actionsElement.textContent = '';
+    actions2Element.textContent = '';
     for (const action of params.actions) {
       const actionElement = createAction(action, { omitText: true });
       if (actionElement)
-        actionsElement.appendChild(actionElement);
+        (action.location === 'actions-2' ? actions2Element : actionsElement).appendChild(actionElement);
     }
   }
 });

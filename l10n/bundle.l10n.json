@@ -29,5 +29,8 @@
   "Select All": "Select All",
   "Unselect All": "Unselect All",
   "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.": "When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.",
-  "one worker": "one worker"
+  "one worker": "one worker",
+  "Project is disabled in the Playwright sidebar": "Project is disabled in the Playwright sidebar",
+  "Enable project": "Enable project",
+  "Cancel": "Cancel"
 }
