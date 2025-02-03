@@ -33,7 +33,7 @@ test('should switch between configs', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests1
       -   test.spec.ts
-    -    [tests1/playwright.config.js [projectTwo] — disabled]
+    -    [tests1${path.sep}playwright.config.js [projectTwo] — disabled]
   `);
   await expect(vscode).toHaveProjectTree(`
     config: tests1/playwright.config.js
@@ -59,7 +59,7 @@ test('should switch between configs', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests2
       -   test.spec.ts
-    -    [tests2/playwright.config.js [projectFour] — disabled]
+    -    [tests2${path.sep}playwright.config.js [projectFour] — disabled]
   `);
   await expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
