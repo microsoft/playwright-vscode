@@ -137,8 +137,10 @@ test('should debug error', async ({ activate }, testInfo) => {
       enqueued
       started
       failed
-        test.spec.ts:[9:-1 - 9:-1]
+        test.spec.ts:[9:0 - 9:0]
         Error on line 10
+        <br>
+         at tests/test.spec.ts:10:1 {matcherResult: ...}
   `);
 
   testRun.token.source.cancel();
