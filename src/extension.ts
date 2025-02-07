@@ -704,8 +704,8 @@ export class Extension implements RunHooks {
       for (const { location, duration } of completed) {
         if (uriToPath(location.uri) === editorPath) {
           const line = location.range.start.line;
-          const count = decorationCount[line] ?? 1;
-          decorationCount[line] = count + 1;
+          decorationCount[line] ??= 0;
+          decorationCount[line]++;
           completedDecorations[line] = {
             range: location.range,
             renderOptions: {
