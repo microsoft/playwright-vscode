@@ -699,15 +699,18 @@ export class Extension implements RunHooks {
           activeDecorations.push({ range: location.range });
       }
 
+      const decorationCount: Record<number, number> = {};
       const completedDecorations: Record<number, vscodeTypes.DecorationOptions> = {};
       for (const { location, duration } of completed) {
         if (uriToPath(location.uri) === editorPath) {
           const line = location.range.start.line;
+          const count = decorationCount[line] ?? 1;
+          decorationCount[line] = count + 1;
           completedDecorations[line] = {
             range: location.range,
             renderOptions: {
               after: {
-                contentText: ` \u2014 ${duration}ms`
+                contentText: ` \u2014 ${duration}ms${count > 1 ? ` (ran ${count}x)` : ''}`,
               }
             }
           };
