@@ -107,5 +107,5 @@ test('should limit highlights', async ({ activate }) => {
 
   const decorationsLog = vscode.window.activeTextEditor.renderDecorations('  ');
   const lastState = decorationsLog.substring(decorationsLog.lastIndexOf('------'));
-  expect(lastState).toContain(`[4:20 - 4:20]: decorator #2 {"after":{"contentText":" — Xms (ran 2000x)"}}`);
+  expect(lastState).toContain(`[4:20 - 4:20]: decorator #2 {"after":{"contentText":" — Xms (ran 2000×)"}}`);
 });
