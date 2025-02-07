@@ -705,12 +705,12 @@ export class Extension implements RunHooks {
         if (uriToPath(location.uri) === editorPath) {
           const line = location.range.start.line;
           decorationCount[line] ??= 0;
-          decorationCount[line]++;
+          const count = decorationCount[line]++;
           completedDecorations[line] = {
             range: location.range,
             renderOptions: {
               after: {
-                contentText: ` \u2014 ${duration}ms${decorationCount[line] > 1 ? ` (ran ${decorationCount[line]}×)` : ''}`,
+                contentText: ` \u2014 ${duration}ms${count > 1 ? ` (ran ${count}×)` : ''}`,
               }
             }
           };
