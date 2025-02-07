@@ -710,7 +710,7 @@ export class Extension implements RunHooks {
             range: location.range,
             renderOptions: {
               after: {
-                contentText: ` \u2014 ${duration}ms${count > 1 ? ` (ran ${count}×)` : ''}`,
+                contentText: ` \u2014 ${duration}ms${decorationCount[line] > 1 ? ` (ran ${decorationCount[line]}×)` : ''}`,
               }
             }
           };
