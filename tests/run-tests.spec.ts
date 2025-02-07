@@ -1299,4 +1299,30 @@ test.describe('runGlobalSetupOnEachRun', { annotation: { type: 'issue', descript
   });
 });
 
+test('should provide page snapshot to copilot', async ({ activate }) => {
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests', workers: 2 }`,
+    'tests/test1.spec.ts': `
+      import { test, expect } from '@playwright/test';
+      import * as fs from 'node:fs/promises';
+
+      // remove once real pageSnapshot lands
+      test.afterEach(async () => {
+        const path = test.info().outputPath('pageSnapshot');
+        await fs.writeFile(path, '- button "click me"');
+        await test.info().attach('pageSnapshot', { path });
+      });
+
+      test('one', async ({ page }) => {
+        expect(1).toBe(2);
+      });
+    `,
+  });
+
+  const testRun = await testController.run();
+  const log = testRun.renderLog({ messages: true });
+  expect(log).toContain(`## Context for AI`);
+  expect(log).toContain(`### Page Snapshot at Failure`);
+  expect(log).toContain(`- button "click me"`);
+});
 
