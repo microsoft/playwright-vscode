@@ -1306,14 +1306,8 @@ test('should provide page snapshot to copilot', async ({ activate }) => {
       import { test, expect } from '@playwright/test';
       import * as fs from 'node:fs/promises';
 
-      // remove once real pageSnapshot lands
-      test.afterEach(async () => {
-        const path = test.info().outputPath('pageSnapshot');
-        await fs.writeFile(path, '- button "click me"');
-        await test.info().attach('pageSnapshot', { path });
-      });
-
       test('one', async ({ page }) => {
+        await page.setContent('<button>click me</button>');
         expect(1).toBe(2);
       });
     `,
