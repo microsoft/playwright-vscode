@@ -1299,7 +1299,9 @@ test.describe('runGlobalSetupOnEachRun', { annotation: { type: 'issue', descript
   });
 });
 
-test('should provide page snapshot to copilot', async ({ activate }) => {
+test('should provide page snapshot to copilot', async ({ activate, overridePlaywrightVersion }) => {
+  test.skip(!!overridePlaywrightVersion, 'requires testserver');
+
   const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests', workers: 2 }`,
     'tests/test1.spec.ts': `
