@@ -520,7 +520,7 @@ export class Extension implements RunHooks {
         }
       },
 
-      onTestEnd: async (test: reporterTypes.TestCase, result: reporterTypes.TestResult) => {
+      onTestEnd: (test: reporterTypes.TestCase, result: reporterTypes.TestResult) => {
         if (result.errors.find(e => e.message?.includes(`Error: browserType.launch: Executable doesn't exist`)))
           browserDoesNotExist = true;
 
@@ -550,14 +550,7 @@ export class Extension implements RunHooks {
         }
         testFailures.add(testItem);
 
-        let aiContext: string | undefined;
-        const snapshot = result.attachments.find(a => a.name === 'pageSnapshot');
-        if (snapshot && snapshot.path) {
-          const contents = await this._vscode.workspace.fs.readFile(this._vscode.Uri.file(snapshot.path));
-          aiContext = `### Page Snapshot at Failure\n${contents.toString()}`; // cannot use ``` codeblocks, vscode markdown does not support it
-        }
-
-        testRun.failed(testItem, result.errors.map(error => this._testMessageForTestError(error, aiContext)), result.duration);
+        void this._markTestRunFailed(testRun, testItem, result);
       },
 
       onStepBegin: (test: reporterTypes.TestCase, result: reporterTypes.TestResult, testStep: reporterTypes.TestStep) => {
@@ -603,6 +596,17 @@ export class Extension implements RunHooks {
 
     if (browserDoesNotExist)
       await installBrowsers(this._vscode, model);
+  }
+
+  private async _markTestRunFailed(testRun: vscodeTypes.TestRun, testItem: vscodeTypes.TestItem, result: reporterTypes.TestResult) {
+    let aiContext: string | undefined;
+    const snapshot = result.attachments.find(a => a.name === 'pageSnapshot');
+    if (snapshot && snapshot.path) {
+      const contents = await this._vscode.workspace.fs.readFile(this._vscode.Uri.file(snapshot.path));
+      aiContext = `### Page Snapshot at Failure\n${contents.toString()}`; // cannot use ``` codeblocks, vscode markdown does not support it
+    }
+
+    testRun.failed(testItem, result.errors.map(error => this._testMessageForTestError(error, aiContext)), result.duration);
   }
 
   private _errorReportingListener(testRun: vscodeTypes.TestRun, testItemForGlobalErrors?: vscodeTypes.TestItem) {
