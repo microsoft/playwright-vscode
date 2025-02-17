@@ -57,7 +57,7 @@ export type FullProject = {
   snapshotDir: string;
   retries: number;
   repeatEach: number;
-  use: unknown;
+  use: { [key: string]: any; };
 };
 
 interface FullReporterV2 {
