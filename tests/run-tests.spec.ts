@@ -202,9 +202,13 @@ test('should run folder', async ({ activate }) => {
       import { test } from '@playwright/test';
       test('two', async () => {});
     `,
+    'tests/folderwithsuffix/test2.spec.ts': `
+      import { test } from '@playwright/test';
+      test('two', async () => {});
+    `,
   });
 
-  const testItems = testController.findTestItems(/folder/);
+  const testItems = testController.findTestItems(/folder$/);
   expect(testItems.length).toBe(1);
   const testRun = await testController.run(testItems);
 

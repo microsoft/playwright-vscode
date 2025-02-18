@@ -650,9 +650,10 @@ export class TestModel extends DisposableBase {
     for (const item of request.include) {
       const treeItem = upstreamTreeItem(item);
       if (treeItem.kind === 'group' && (treeItem.subKind === 'folder' || treeItem.subKind === 'file')) {
+        const treeItemPath = treeItem.location.file + (treeItem.subKind === 'folder' ? path.sep : '');
         for (const file of this.enabledFiles()) {
-          if (file === treeItem.location.file || file.startsWith(treeItem.location.file))
-            locations.add(treeItem.location.file);
+          if (file === treeItemPath || file.startsWith(treeItemPath))
+            locations.add(treeItemPath);
         }
       } else {
         testIds.push(...collectTestIds(treeItem));

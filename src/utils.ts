@@ -210,3 +210,11 @@ export function normalizePath(fsPath: string): string {
     return fsPath[0].toUpperCase() + fsPath.substring(1);
   return fsPath;
 }
+
+// Playwright interprets absolute paths to folders as Regexes.
+export function preventRegexLookalike(location: string) {
+  const path = location.split(':')[0];
+  if (path.startsWith('/') && path.endsWith('/'))
+    return location.substring(1);
+  return location;
+}
