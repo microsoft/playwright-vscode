@@ -18,12 +18,13 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { ConfigFindRelatedTestFilesReport, ConfigListFilesReport } from './listTests';
 import { ReporterServer } from './reporterServer';
-import { escapeRegex, findNode, pathSeparator, runNode, uriToPath } from './utils';
+import { escapeRegex, findNode, pathSeparator, relativePreserveDirectory, runNode, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
 import type { PlaywrightTestOptions, PlaywrightTestRunOptions } from './playwrightTestTypes';
 import { debugSessionName } from './debugSessionName';
 import type { TestModel } from './testModel';
+import { upstreamTreeItem } from './testTree';
 
 export class PlaywrightTestCLI {
   private _vscode: vscodeTypes.VSCode;
@@ -108,7 +109,7 @@ export class PlaywrightTestCLI {
 
     {
       // For tests.
-      const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex).sort();
+      const relativeLocations = locations.map(f => relativePreserveDirectory(configFolder, f)).map(escapeRegex).sort();
       const printArgs = extraArgs.filter(a => !a.includes('--repeat-each') && !a.includes('--retries') && !a.includes('--workers') && !a.includes('--trace'));
       this._log(`${escapeRegex(path.relative(this._model.config.workspaceFolder, configFolder))}> playwright test -c ${configFile}${printArgs.length ? ' ' + printArgs.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
     }
@@ -279,7 +280,9 @@ export class PlaywrightTestCLI {
 
     const locations = new Set<string>();
     for (const item of items) {
-      const itemFsPath = uriToPath(item.uri!);
+      const treeItem = upstreamTreeItem(item);
+      const isDirectory = treeItem.kind === 'group' && treeItem.subKind === 'folder';
+      const itemFsPath = uriToPath(item.uri!) + (isDirectory ? path.sep : '');
       const enabledFiles = this._model.enabledFiles();
       for (const file of enabledFiles) {
         if (file === itemFsPath || file.startsWith(itemFsPath)) {

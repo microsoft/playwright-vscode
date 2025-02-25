@@ -202,9 +202,13 @@ test('should run folder', async ({ activate }) => {
       import { test } from '@playwright/test';
       test('two', async () => {});
     `,
+    'tests/folderwithsuffix/test2.spec.ts': `
+      import { test } from '@playwright/test';
+      test('two', async () => {});
+    `,
   });
 
-  const testItems = testController.findTestItems(/folder/);
+  const testItems = testController.findTestItems(/folder$/);
   expect(testItems.length).toBe(1);
   const testRun = await testController.run(testItems);
 
@@ -221,7 +225,7 @@ test('should run folder', async ({ activate }) => {
 
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js tests/folder
+    > playwright test -c playwright.config.js tests/folder/
   `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
@@ -229,7 +233,7 @@ test('should run folder', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${escapedPathSep}folder`)],
+        locations: [expect.stringContaining(`tests${escapedPathSep}folder${escapedPathSep}`)],
         testIds: undefined
       })
     },
@@ -439,7 +443,7 @@ test('should only create test run if folder belongs to context', async ({ activa
   await expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
-    tests1> playwright test -c playwright.config.js foo1
+    tests1> playwright test -c playwright.config.js foo1/
   `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
