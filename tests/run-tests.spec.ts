@@ -443,7 +443,7 @@ test('should only create test run if folder belongs to context', async ({ activa
   await expect(vscode).toHaveExecLog(`
     tests1> playwright list-files -c playwright.config.js
     tests2> playwright list-files -c playwright.config.js
-    tests1> playwright test -c playwright.config.js foo1
+    tests1> playwright test -c playwright.config.js foo1/
   `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
