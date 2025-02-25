@@ -18,7 +18,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { ConfigFindRelatedTestFilesReport, ConfigListFilesReport } from './listTests';
 import { ReporterServer } from './reporterServer';
-import { escapeRegex, findNode, pathSeparator, preventRegexLookalike, runNode, uriToPath } from './utils';
+import { escapeRegex, findNode, pathSeparator, relativePreserveDirectory, runNode, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
 import type { PlaywrightTestOptions, PlaywrightTestRunOptions } from './playwrightTestTypes';
@@ -109,7 +109,7 @@ export class PlaywrightTestCLI {
 
     {
       // For tests.
-      const relativeLocations = locations.map(f => path.relative(configFolder, f)).map(escapeRegex).sort();
+      const relativeLocations = locations.map(f => relativePreserveDirectory(configFolder, f)).map(escapeRegex).sort();
       const printArgs = extraArgs.filter(a => !a.includes('--repeat-each') && !a.includes('--retries') && !a.includes('--workers') && !a.includes('--trace'));
       this._log(`${escapeRegex(path.relative(this._model.config.workspaceFolder, configFolder))}> playwright test -c ${configFile}${printArgs.length ? ' ' + printArgs.join(' ') : ''}${relativeLocations.length ? ' ' + relativeLocations.join(' ') : ''}`);
     }
@@ -119,7 +119,7 @@ export class PlaywrightTestCLI {
       'test',
       '-c', configFile,
       ...extraArgs,
-      ...escapedLocations.map(preventRegexLookalike),
+      ...escapedLocations,
     ], {
       cwd: configFolder,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],

@@ -22,7 +22,7 @@ import { TeleReporterReceiver } from './upstream/teleReceiver';
 import { TestServerConnection } from './upstream/testServerConnection';
 import { startBackend } from './backend';
 import type { PlaywrightTestOptions, PlaywrightTestRunOptions } from './playwrightTestTypes';
-import { escapeRegex, pathSeparator, preventRegexLookalike } from './utils';
+import { escapeRegex, pathSeparator } from './utils';
 import { debugSessionName } from './debugSessionName';
 import type { TestModel } from './testModel';
 import { TestServerInterface } from './upstream/testServerInterface';
@@ -91,7 +91,7 @@ export class PlaywrightTestServer {
     if (!connection)
       return;
     // Locations are regular expressions.
-    locations = locations.map(preventRegexLookalike).map(escapeRegex);
+    locations = locations.map(escapeRegex);
     const { report } = await connection.listTests({ locations });
     const teleReceiver = new TeleReporterReceiver(reporter, {
       mergeProjects: true,
@@ -178,7 +178,7 @@ export class PlaywrightTestServer {
       return;
 
     // Locations are regular expressions.
-    const locationPatterns = locations ? locations.map(preventRegexLookalike).map(escapeRegex) : undefined;
+    const locationPatterns = locations ? locations.map(escapeRegex) : undefined;
     const options: Parameters<TestServerInterface['runTests']>['0'] = {
       projects: this._model.enabledProjectsFilter(),
       locations: locationPatterns,
@@ -302,7 +302,7 @@ export class PlaywrightTestServer {
         return;
 
       // Locations are regular expressions.
-      const locationPatterns = locations ? locations.map(preventRegexLookalike).map(escapeRegex) : undefined;
+      const locationPatterns = locations ? locations.map(escapeRegex) : undefined;
       const options: Parameters<TestServerInterface['runTests']>['0'] = {
         projects: this._model.enabledProjectsFilter(),
         locations: locationPatterns,

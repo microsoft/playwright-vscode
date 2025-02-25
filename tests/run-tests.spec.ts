@@ -225,7 +225,7 @@ test('should run folder', async ({ activate }) => {
 
   await expect(vscode).toHaveExecLog(`
     > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js tests/folder
+    > playwright test -c playwright.config.js tests/folder/
   `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
@@ -233,7 +233,7 @@ test('should run folder', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: [expect.stringContaining(`tests${escapedPathSep}folder`)],
+        locations: [expect.stringContaining(`tests${escapedPathSep}folder${escapedPathSep}`)],
         testIds: undefined
       })
     },

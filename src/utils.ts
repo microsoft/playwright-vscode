@@ -140,7 +140,16 @@ async function findNodeViaShell(vscode: vscodeTypes.VSCode, cwd: string): Promis
   });
 }
 
+export function relativePreserveDirectory(from: string, to: string) {
+  const relative = path.relative(from, to);
+  return to.endsWith('/') ? relative + '/' : relative;
+}
+
 export function escapeRegex(text: string) {
+  // playwright interprets absolute paths as regex,
+  // removing the leading slash prevents that.
+  if (text.startsWith('/'))
+    text = text.substring(1);
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
@@ -209,12 +218,4 @@ export function normalizePath(fsPath: string): string {
   if (process.platform === 'win32' && fsPath?.length && fsPath[0] !== '/' && fsPath[0] !== '\\')
     return fsPath[0].toUpperCase() + fsPath.substring(1);
   return fsPath;
-}
-
-// Playwright interprets absolute paths to folders as Regexes.
-export function preventRegexLookalike(location: string) {
-  const path = location.split(':')[0];
-  if (path.startsWith('/') && path.endsWith('/'))
-    return location.substring(1);
-  return location;
 }
