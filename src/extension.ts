@@ -603,7 +603,7 @@ export class Extension implements RunHooks {
     const snapshot = result.attachments.find(a => a.name === 'pageSnapshot');
     if (snapshot && snapshot.path) {
       const contents = await this._vscode.workspace.fs.readFile(this._vscode.Uri.file(snapshot.path));
-      aiContext = `### Page Snapshot at Failure\n${contents.toString()}`; // cannot use ``` codeblocks, vscode markdown does not support it
+      aiContext = `### Page Snapshot at Failure\n\n${contents.toString()}`; // cannot use ``` codeblocks, vscode markdown does not support it
     }
 
     testRun.failed(testItem, result.errors.map(error => this._testMessageForTestError(error, aiContext)), result.duration);
