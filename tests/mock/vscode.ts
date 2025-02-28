@@ -784,6 +784,7 @@ class Debug {
   }
 
   simulateStoppedOnError(error: string, location: { file: string; line: number; }) {
+    const errorText = `${error.replace(/\n/g, '\\n')}\n at ${location.file}:${location.line}:1 {matcherResult: ...}`;
     this._dapSniffer.onDidSendMessage({
       success: true,
       type: 'response',
@@ -809,9 +810,9 @@ class Debug {
       body: {
         variables: [
           {
-            type: 'error',
-            name: 'playwrightError',
-            value: error,
+            type: 'ExpectError',
+            name: '__playwright_error__',
+            value: errorText,
           },
         ],
       }

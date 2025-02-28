@@ -38,10 +38,10 @@ export default declare(api => {
               path.node
             ]),
             t.catchClause(
-                t.identifier('playwrightError'),
+                t.identifier('__playwright_error__'),
                 t.blockStatement([
                   t.debuggerStatement(),
-                  t.throwStatement(t.identifier('playwrightError'))
+                  t.throwStatement(t.identifier('__playwright_error__'))
                 ])
             )
         ));

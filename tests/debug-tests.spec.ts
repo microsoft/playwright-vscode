@@ -131,14 +131,16 @@ test('should debug error', async ({ activate }, testInfo) => {
 
   vscode.debug.simulateStoppedOnError('Error on line 10', { file: testInfo.outputPath('tests/test.spec.ts'), line: 10 });
 
-  expect(testRun.renderLog({ messages: true })).toBe(`
+  expect(testRun.renderLog({ messages: true }).replace(/\\/g, '/')).toBe(`
     tests > test.spec.ts > should fail [2:0]
       enqueued
       enqueued
       started
       failed
-        test.spec.ts:[9:-1 - 9:-1]
+        test.spec.ts:[9:0 - 9:0]
         Error on line 10
+        <br>
+         at tests/test.spec.ts:10:1 {matcherResult: ...}
   `);
 
   testRun.token.source.cancel();

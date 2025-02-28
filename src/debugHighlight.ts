@@ -21,6 +21,7 @@ import type { Location } from './upstream/reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import * as vscodeTypes from './vscodeTypes';
 import { normalizePath, uriToPath } from './utils';
+import StackUtils from 'stack-utils';
 
 export type DebuggerError = { error: string, location: Location };
 
@@ -75,7 +76,6 @@ export class DebugHighlight {
           if (!isPlaywrightSession(session))
             return {};
 
-          let lastCatchLocation: Location | undefined;
           return {
             onDidSendMessage: async message => {
               if (message.type === 'event' && message.event === 'output') {
@@ -86,26 +86,14 @@ export class DebugHighlight {
               }
               if (!message.success)
                 return;
-              if (message.command === 'scopes' && message.type === 'response') {
-                const catchBlock = message.body.scopes.find((scope: any) => scope.name === 'Catch Block');
-                if (catchBlock) {
-                  lastCatchLocation = {
-                    file: catchBlock.source.path,
-                    line: catchBlock.line,
-                    column: catchBlock.column
-                  };
-                }
-              }
 
               if (message.command === 'variables' && message.type === 'response') {
-                const errorVariable = message.body.variables.find((v: any) => v.name === 'playwrightError' && v.type && v.type.toLowerCase() === 'error');
-                if (errorVariable && lastCatchLocation) {
-                  const error = errorVariable.value as string;
-                  self._onErrorInDebuggerEmitter.fire({
-                    error: error.replace(/\\n/g, '\n'),
-                    location: lastCatchLocation!
-                  });
-                }
+                const errorVariable = message.body.variables.find((v: any) => v.name === '__playwright_error__');
+                if (!errorVariable || typeof errorVariable.value !== 'string')
+                  return;
+                const parsedError = parseDebugError(errorVariable.value);
+                if (parsedError)
+                  self._onErrorInDebuggerEmitter.fire(parsedError);
               }
             }
           };
@@ -282,4 +270,36 @@ function mapRemoteToLocalPath(maybeRemoteUri?: string): string | undefined {
     return decoded.slice(separator, decoded.length);
   }
   return maybeRemoteUri;
+}
+
+// Similar to StackUtils, but allows for trail text.
+const stackLineLax = new RegExp('^' +
+  '(?:\\s*at )?' +
+  '(?:(new) )?' +
+  '(?:(.*?) \\()?' +
+  '(?:eval at ([^ ]+) \\((.+?):(\\d+):(\\d+)\\), )?' +
+  '(?:(.+?):(\\d+):(\\d+)|(native))' +
+  '(\\)?)'
+);
+
+const stackUtils = new StackUtils({
+  cwd: '/ensure_absolute_paths'
+});
+
+function parseDebugError(error: string): DebuggerError | null{
+  // VSCode serializes error with escaped \n and
+  // JSON representation of params glued to the stack.
+
+  const unescaped = error.replace(/\\n/g, '\n');
+  for (const line of unescaped.split('\n')) {
+    const match = line.match(stackLineLax);
+    if (!match)
+      continue;
+    const frame = stackUtils.parseLine(match[0]);
+    if (!frame?.file)
+      continue;
+    const location = { file: frame.file, line: frame.line!, column: frame.column! };
+    return { error: unescaped, location };
+  }
+  return null;
 }
