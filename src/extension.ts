@@ -549,8 +549,7 @@ export class Extension implements RunHooks {
           return;
         }
         testFailures.add(testItem);
-
-        void this._markTestRunFailed(testRun, testItem, result);
+        testRun.failed(testItem, result.errors.map(error => this._testMessageForTestError(error)), result.duration);
       },
 
       onStepBegin: (test: reporterTypes.TestCase, result: reporterTypes.TestResult, testStep: reporterTypes.TestStep) => {
@@ -596,17 +595,6 @@ export class Extension implements RunHooks {
 
     if (browserDoesNotExist)
       await installBrowsers(this._vscode, model);
-  }
-
-  private async _markTestRunFailed(testRun: vscodeTypes.TestRun, testItem: vscodeTypes.TestItem, result: reporterTypes.TestResult) {
-    let aiContext: string | undefined;
-    const snapshot = result.attachments.find(a => a.name === 'pageSnapshot');
-    if (snapshot && snapshot.path) {
-      const contents = await this._vscode.workspace.fs.readFile(this._vscode.Uri.file(snapshot.path));
-      aiContext = `### Page Snapshot at Failure\n\n${contents.toString()}`; // cannot use ``` codeblocks, vscode markdown does not support it
-    }
-
-    testRun.failed(testItem, result.errors.map(error => this._testMessageForTestError(error, aiContext)), result.duration);
   }
 
   private _errorReportingListener(testRun: vscodeTypes.TestRun, testItemForGlobalErrors?: vscodeTypes.TestItem) {
@@ -752,15 +740,11 @@ export class Extension implements RunHooks {
     return result.join('\n');
   }
 
-  private _testMessageFromText(text: string, aiContext?: string): vscodeTypes.TestMessage {
+  private _testMessageFromText(text: string): vscodeTypes.TestMessage {
     const markdownString = new this._vscode.MarkdownString();
     markdownString.isTrusted = true;
     markdownString.supportHtml = true;
     markdownString.appendMarkdown(ansi2html(this._abbreviateStack(text)));
-
-    if (aiContext)
-      markdownString.appendMarkdown(`\n`.repeat(10) + `## Context for AI\n${aiContext}`);
-
     return new this._vscode.TestMessage(markdownString);
   }
 
@@ -773,7 +757,7 @@ export class Extension implements RunHooks {
     return new this._vscode.TestMessage(markdownString);
   }
 
-  private _testMessageForTestError(error: reporterTypes.TestError, aiContext?: string): vscodeTypes.TestMessage {
+  private _testMessageForTestError(error: reporterTypes.TestError): vscodeTypes.TestMessage {
     const text = this._formatError(error);
     let testMessage: vscodeTypes.TestMessage;
     if (text.includes('Looks like Playwright Test or Playwright')) {
@@ -787,7 +771,7 @@ export class Extension implements RunHooks {
         </p>
       `);
     } else {
-      testMessage = this._testMessageFromText(text, aiContext);
+      testMessage = this._testMessageFromText(text);
     }
     const stackTrace = error.stack ? parseStack(this._vscode, error.stack) : [];
     const location = error.location ? parseLocation(this._vscode, error.location) : topStackFrame(this._vscode, stackTrace);

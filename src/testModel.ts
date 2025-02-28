@@ -551,7 +551,6 @@ export class TestModel extends DisposableBase {
       connectWsEndpoint: showBrowser ? externalOptions.connectWsEndpoint : undefined,
       updateSnapshots: noOverrideToUndefined(this._embedder.settingsModel.updateSnapshots.get()),
       updateSourceMethod: noOverrideToUndefined(this._embedder.settingsModel.updateSourceMethod.get()),
-      pageSnapshot: 'only-on-failure',
     };
 
     try {
