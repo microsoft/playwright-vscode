@@ -924,13 +924,7 @@ export class VSCode {
   languages: any = {};
   tests: any = {};
   window: any = {};
-  workspace: any = {
-    fs: {
-      async readFile(path: Uri) {
-        return await fs.promises.readFile(path.fsPath);
-      }
-    }
-  };
+  workspace: any = {};
   env: any = {
     uiKind: UIKind.Desktop,
     remoteName: undefined,
