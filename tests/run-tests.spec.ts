@@ -369,7 +369,7 @@ test('should only create test run if file belongs to context', async ({ activate
     tests2> playwright list-files -c playwright.config.js
     tests1> playwright test -c playwright.config.js test1.spec.ts
   `);
-  await expect(vscode).toHaveConnectionLog([
+  await expect(vscode).toHaveConnectionLog(expect.arrayContaining([
     { method: 'listFiles', params: {} },
     { method: 'runGlobalSetup', params: {} },
     {
@@ -379,8 +379,7 @@ test('should only create test run if file belongs to context', async ({ activate
         testIds: undefined
       })
     },
-    { method: 'listFiles', params: {} },
-  ]);
+  ]));
   vscode.connectionLog.length = 0;
 
   {

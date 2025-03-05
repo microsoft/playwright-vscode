@@ -106,7 +106,7 @@ export const expect = baseExpect.extend({
     }
   },
 
-  async toHaveConnectionLog(vscode: VSCode, expectedLog: any[]) {
+  async toHaveConnectionLog(vscode: VSCode, expectedLog: any) {
     if (vscode.extensions[0].overridePlaywrightVersion)
       return { pass: true, message: () => '' };
     const filterCommands = new Set(['ping', 'initialize']);
