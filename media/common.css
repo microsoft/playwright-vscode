@@ -60,7 +60,7 @@ input {
   font-family: system-ui, Ubuntu, "Droid Sans", sans-serif, "Droid Sans Mono", "monospace", monospace;
   font-size: 13px;
   line-height: 20px;
-  letter-spacing: 0px;  
+  letter-spacing: 0px;
 }
 
 .combobox select {
@@ -85,7 +85,7 @@ textarea {
   margin: 10px 8px 3px 8px;
   font-weight: 700;
   color: var(--vscode-editor-inlineValuesForeground);
-  
+
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -168,11 +168,15 @@ body[data-vscode-theme-kind=vscode-dark] .combobox:hover {
 .locators-view .section {
   margin: 0 10px 10px;
   display: flex;
-  flex-direction: column;  
+  flex-direction: column;
 }
 
 .locators-view .section > label {
   margin-bottom: 5px;
+}
+
+.locators-view label {
+  flex: none;
 }
 
 .locators-view p.error {
