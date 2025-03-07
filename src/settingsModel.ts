@@ -46,6 +46,7 @@ export class SettingsModel extends DisposableBase {
   runGlobalSetupOnEachRun: Setting<boolean>;
   updateSnapshots: Setting<'all' | 'changed' | 'missing' | 'none' | 'no-override'>;
   updateSourceMethod: Setting<'overwrite' | 'patch' | '3way' | 'no-override'>;
+  pickLocatorCopyToClipboard: Setting<boolean>;
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     super();
@@ -59,6 +60,7 @@ export class SettingsModel extends DisposableBase {
     this.runGlobalSetupOnEachRun = this._createSetting('runGlobalSetupOnEachRun');
     this.updateSnapshots = this._createSetting('updateSnapshots');
     this.updateSourceMethod = this._createSetting('updateSourceMethod');
+    this.pickLocatorCopyToClipboard = this._createSetting('pickLocatorCopyToClipboard');
 
     this._disposables.push(
         this._onChange,

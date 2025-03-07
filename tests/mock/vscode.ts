@@ -971,6 +971,7 @@ export class VSCode {
   readonly connectionLog: any[] = [];
   readonly openExternalUrls: string[] = [];
   readonly diagnosticsCollections: DiagnosticsCollection[] = [];
+  private _clipboardText = '';
 
   constructor(readonly versionNumber: number, baseDir: string, browser: Browser) {
     this.version = String(versionNumber);
@@ -1185,6 +1186,11 @@ export class VSCode {
           return { defaultValue: false, globalValue: settings[scope + '.' + key] };
         },
       };
+    };
+
+    this.env.clipboard = {
+      writeText: async (text: string) => this._clipboardText = text,
+      readText: async () => this._clipboardText,
     };
   }
 

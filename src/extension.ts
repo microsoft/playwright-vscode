@@ -151,7 +151,7 @@ export class Extension implements RunHooks {
   async activate() {
     const vscode = this._vscode;
     this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, this._context.extensionUri);
-    this._locatorsView = new LocatorsView(vscode, this._reusedBrowser, this._context.extensionUri);
+    this._locatorsView = new LocatorsView(vscode, this._settingsModel, this._reusedBrowser, this._context.extensionUri);
     const messageNoPlaywrightTestsFound = this._vscode.l10n.t('No Playwright tests found.');
     this._disposables = [
       this._debugHighlight,

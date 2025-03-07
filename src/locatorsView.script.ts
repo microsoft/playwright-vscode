@@ -19,6 +19,7 @@ import { createAction, vscode } from './common';
 // @ts-check
 const locatorInput = document.getElementById('locator') as HTMLInputElement;
 const ariaTextArea = document.getElementById('ariaSnapshot') as HTMLTextAreaElement;
+const copyToClipboardCheckbox = document.getElementById('copyToClipboardCheckbox') as HTMLInputElement;
 
 locatorInput.addEventListener('input', () => {
   vscode.postMessage({ method: 'locatorChanged', params: { locator: locatorInput.value } });
@@ -26,6 +27,10 @@ locatorInput.addEventListener('input', () => {
 
 ariaTextArea.addEventListener('input', () => {
   vscode.postMessage({ method: 'ariaSnapshotChanged', params: { ariaSnapshot: ariaTextArea.value } });
+});
+
+copyToClipboardCheckbox.addEventListener('change', () => {
+  vscode.postMessage({ method: 'toggle', params: { setting: 'pickLocatorCopyToClipboard' } });
 });
 
 window.addEventListener('message', event => {
@@ -52,5 +57,8 @@ window.addEventListener('message', event => {
       if (actionElement)
         (action.location === 'actions-2' ? actions2Element : actionsElement).appendChild(actionElement);
     }
+  } else if (method === 'settings') {
+    if ('pickLocatorCopyToClipboard' in params.settings)
+      copyToClipboardCheckbox.checked = params.settings.pickLocatorCopyToClipboard;
   }
 });
