@@ -123,6 +123,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._backend = backend;
 
     this._backend.on('inspectRequested', params => {
+      if (this._settingsModel.pickLocatorCopyToClipboard.get() && params.locator)
+        this._vscode.env.clipboard.writeText(params.locator);
       this._onInspectRequestedEvent.fire({ backendVersion: config.version, ...params });
     });
 

@@ -70,3 +70,23 @@ test('should highlight locator on edit', async ({ activate }) => {
   await expect(page.locator('x-pw-highlight')).toBeVisible();
   expect(await page.locator('x-pw-highlight').boundingBox()).toEqual(box);
 });
+
+test('should copy locator to clipboard', async ({ activate }) => {
+  const { vscode } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+  });
+
+  const locatorsView = vscode.webViews.get('pw.extension.locatorsView')!;
+  await locatorsView.getByRole('checkbox', { name: 'Copy on pick' }).check();
+  await locatorsView.getByRole('button', { name: 'Pick locator' }).first().click();
+
+  const browser = await connectToSharedBrowser(vscode);
+  const page = await waitForPage(browser);
+  await page.setContent(`
+    <h1>Hello</h1>
+    <h1>World</h1>
+  `);
+  await page.locator('h1').first().click();
+
+  await expect.poll(() => vscode.env.clipboard.readText()).toBe(`getByRole('heading', { name: 'Hello' })`);
+});

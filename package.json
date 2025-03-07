@@ -77,6 +77,11 @@
       },
       {
         "category": "Test",
+        "command": "pw.extension.toggle.pickLocatorCopyToClipboard",
+        "title": "%contributes.command.pw.extension.toggle.pickLocatorCopyToClipboard%"
+      },
+      {
+        "category": "Test",
         "command": "pw.extension.command.runGlobalSetup",
         "title": "%contributes.command.pw.extension.command.runGlobalSetup%"
       },
@@ -123,6 +128,11 @@
           "type": "boolean",
           "default": false,
           "description": "%configuration.playwright.runGlobalSetupOnEachRun%"
+        },
+        "playwright.pickLocatorCopyToClipboard": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.playwright.pickLocatorCopyToClipboard%"
         },
         "playwright.updateSnapshots": {
           "type": "string",
