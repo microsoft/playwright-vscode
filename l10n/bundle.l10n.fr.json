@@ -1,9 +1,11 @@
 {
   "Accept to copy locator into clipboard": "Accepter pour copier le locator dans le presse-papiers",
+  "Automatically copy picked locator to clipboard": "Copier automatiquement le localisateur sélectionné dans le presse-papiers",
   "Can't close browsers while running tests": "Impossible de fermer les navigateurs pendant l'exécution des tests",
   "Can't record while running tests": "Impossible d'enregistrer pendant l'exécution des tests",
   "Clear cache": "Vider le cache",
   "Close all browsers": "Fermer tous les navigateurs",
+  "Copy on pick": "Copier lors de la sélection",
   "Locator": "Locator",
   "No Playwright tests found.": "Aucun test Playwright trouvé.",
   "Pick locator": "Trouver locator",

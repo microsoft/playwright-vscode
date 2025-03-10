@@ -1,9 +1,11 @@
 {
   "Accept to copy locator into clipboard": "确认保存到剪贴板",
+  "Automatically copy picked locator to clipboard": "自动将选中的定位器复制到剪贴板",
   "Can't close browsers while running tests": "运行测试时不能关闭浏览器",
   "Can't record while running tests": "运行测试时不能录制",
   "Clear cache": "清除缓存",
   "Close all browsers": "关闭全部 Playwright 浏览器",
+  "Copy on pick": "选择时复制",
   "Locator": "定位器",
   "No Playwright tests found.": "没有找到 Playwright Test",
   "Pick locator": "拾取选择器",

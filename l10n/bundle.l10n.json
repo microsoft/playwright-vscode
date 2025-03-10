@@ -1,9 +1,11 @@
 {
   "Accept to copy locator into clipboard": "Accept to copy locator into clipboard",
+  "Automatically copy picked locator to clipboard": "Automatically copy picked locator to clipboard",
   "Can't close browsers while running tests": "Can't close browsers while running tests",
   "Can't record while running tests": "Can't record while running tests",
   "Clear cache": "Clear cache",
   "Close all browsers": "Close all browsers",
+  "Copy on pick": "Copy on pick",
   "Locator": "Locator",
   "No Playwright tests found.": "No Playwright tests found.",
   "Pick locator": "Pick locator",

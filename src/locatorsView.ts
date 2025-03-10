@@ -18,6 +18,7 @@ import { DisposableBase } from './disposableBase';
 import { ReusedBrowser } from './reusedBrowser';
 import { pickElementAction } from './settingsView';
 import { getNonce, html } from './utils';
+import type { SettingsModel } from './settingsModel';
 import * as vscodeTypes from './vscodeTypes';
 
 export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewViewProvider {
@@ -26,13 +27,15 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
   private _extensionUri: vscodeTypes.Uri;
   private _locator: { locator: string, error?: string } = { locator: '' };
   private _ariaSnapshot: { yaml: string, error?: string } = { yaml: '' };
+  private _settingsModel: SettingsModel;
   private _reusedBrowser: ReusedBrowser;
   private _backendVersion = 0;
 
-  constructor(vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser, extensionUri: vscodeTypes.Uri) {
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, reusedBrowser: ReusedBrowser, extensionUri: vscodeTypes.Uri) {
     super();
     this._vscode = vscode;
     this._extensionUri = extensionUri;
+    this._settingsModel = settingsModel;
     this._reusedBrowser = reusedBrowser;
     this._disposables = [
       vscode.window.registerWebviewViewProvider('pw.extension.locatorsView', this),
@@ -45,6 +48,7 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
       }),
       reusedBrowser.onRunningTestsChanged(() => this._updateActions()),
       reusedBrowser.onPageCountChanged(() => this._updateActions()),
+      settingsModel.onChange(() => this._updateSettings()),
     ];
   }
 
@@ -78,6 +82,8 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
           this._ariaSnapshot.error = e.message;
           this._updateValues();
         });
+      } else if (data.method === 'toggle') {
+        this._vscode.commands.executeCommand(`pw.extension.toggle.${data.params.setting}`);
       }
     }));
 
@@ -86,9 +92,11 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
         return;
       this._updateActions();
       this._updateValues();
+      this._updateSettings();
     }));
     this._updateActions();
     this._updateValues();
+    this._updateSettings();
   }
 
   private _updateActions() {
@@ -113,6 +121,11 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
       }
     });
   }
+
+  private _updateSettings() {
+    if (this._view)
+      this._view.webview.postMessage({ method: 'settings', params: { settings: this._settingsModel.json() } });
+  }
 }
 
 function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri, webview: vscodeTypes.Webview) {
@@ -135,6 +148,11 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
         <div class="hbox">
           <div class="actions" id="actions"></div>
           <label id="locatorLabel">${vscode.l10n.t('Locator')}</label>
+          <div class="hbox" id="locatorSpacer"></div>
+          <label id="copyToClipboardLabel" title="${vscode.l10n.t('Automatically copy picked locator to clipboard')}">
+            <input id="copyToClipboardCheckbox" type="checkbox">
+            ${vscode.l10n.t('Copy on pick')}
+          </label>
         </div>
         <input id="locator" placeholder="${vscode.l10n.t('Locator')}" aria-labelledby="locatorLabel">
         <p id="locatorError" class="error"></p>
