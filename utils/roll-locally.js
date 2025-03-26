@@ -32,6 +32,7 @@ const upstreamFiles = new Map([
 
 (async () => {
   const playwrightWorkspace = path.resolve(__dirname, '../../playwright');
+  await fs.promises.rm(path.join(__dirname, '../test-results'), { recursive: true, force: true });
   for (const packageName of packageNames) {
     console.log('Packaging ' + packageName);
     console.log(execSync(`node ./utils/pack_package ${packageName} ` + path.join(__dirname, `../out/${packageName}.tgz`), { cwd: playwrightWorkspace }).toString());
