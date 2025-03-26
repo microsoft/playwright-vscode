@@ -17,7 +17,7 @@
 import { WorkspaceChange } from './workspaceObserver';
 import * as vscodeTypes from './vscodeTypes';
 import { resolveSourceMap, uriToPath } from './utils';
-import { ConfigListFilesReport, ProjectConfigWithFiles } from './listTests';
+import { ConfigListFilesReport, ProjectConfigWithFiles, ProjectUse } from './listTests';
 import * as reporterTypes from './upstream/reporter';
 import { TeleSuite } from './upstream/teleReceiver';
 import { workspaceStateKey } from './settingsModel';
@@ -41,6 +41,7 @@ export type TestProject = {
   suite: reporterTypes.Suite;
   project: reporterTypes.FullProject;
   isEnabled: boolean;
+  useOptions: ProjectUse;
 };
 
 export type TestModelEmbedder = {
@@ -208,7 +209,6 @@ export class TestModel extends DisposableBase {
       for (const file of project.files)
         files.push(...await resolveSourceMap(file, this._fileToSources, this._sourceToFile));
       project.files = files;
-      this.config.testIdAttributeName = project.use?.testIdAttribute;
     }
 
     const projectsToKeep = new Set<string>();
@@ -252,6 +252,7 @@ export class TestModel extends DisposableBase {
       suite: projectSuite,
       project: projectSuite._project,
       isEnabled: false,
+      useOptions: projectReport.use
     };
     this._projects.set(project.name, project);
     return project;

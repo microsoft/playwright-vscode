@@ -22,8 +22,8 @@ import * as reporterTypes from './upstream/reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
-import { TestModel, TestModelCollection } from './testModel';
-import { disabledProjectName as disabledProject, TestTree } from './testTree';
+import { TestModel, TestModelCollection, TestProject } from './testModel';
+import { disabledProjectName, TestTree } from './testTree';
 import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
@@ -184,19 +184,21 @@ export class Extension implements RunHooks {
       vscode.commands.registerCommand('pw.extension.command.closeBrowsers', () => {
         this._reusedBrowser.closeAllBrowsers();
       }),
-      vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
-        if (!this._models.hasEnabledModels()) {
+      vscode.commands.registerCommand('pw.extension.command.recordNew', async (projectName?: string) => {
+        const selectedProject = await this._getRecorderProject(projectName);
+        if (!selectedProject) {
           vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
-        await this._reusedBrowser.record(this._models, true);
+        await this._reusedBrowser.record(selectedProject, true);
       }),
       vscode.commands.registerCommand('pw.extension.command.recordAtCursor', async () => {
-        if (!this._models.hasEnabledModels()) {
+        const selectedProject = await this._getRecorderProject();
+        if (!selectedProject) {
           vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
-        await this._reusedBrowser.record(this._models, false);
+        await this._reusedBrowser.record(selectedProject, false);
       }),
       vscode.commands.registerCommand('pw.extension.command.toggleModels', async () => {
         this._settingsView.toggleModels();
@@ -266,6 +268,30 @@ export class Extension implements RunHooks {
     fileSystemWatchers.map(w => w.onDidCreate(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidDelete(rebuildModelForConfig));
     this._context.subscriptions.push(this);
+  }
+
+
+  private async _getRecorderProject(externalSelectedProjectName?: string): Promise<TestProject | undefined> {
+    const selectedModel = this._models.selectedModel();
+    if (!selectedModel) {
+      await this._vscode.window.showWarningMessage(this._vscode.l10n.t('No Playwright config selected.'));
+      return;
+    }
+    const enabledProjects = selectedModel.enabledProjects();
+    if (!enabledProjects.length)
+      return selectedModel.projects()[0];
+    if (externalSelectedProjectName) {
+      const selectedProject = selectedModel.projects().find(project => project.name === externalSelectedProjectName);
+      if (selectedProject)
+        return selectedProject;
+    }
+    if (enabledProjects.length === 1)
+      return enabledProjects[0];
+    const selectedProject = await this._vscode.window.showQuickPick(enabledProjects.map(project => project.name), {
+      placeHolder: this._vscode.l10n.t('Select a project to run'),
+      canPickMany: false,
+    });
+    return selectedProject ? enabledProjects.find(project => project.name === selectedProject) : undefined;
   }
 
   private async _rebuildModels(userGesture: boolean): Promise<vscodeTypes.Uri[]> {
@@ -340,7 +366,7 @@ export class Extension implements RunHooks {
       return;
 
     if (request.include?.[0]) {
-      const project = disabledProject(request.include[0]);
+      const project = disabledProjectName(request.include[0]);
       if (project) {
         const enableProjectTitle = this._vscode.l10n.t('Enable project');
         this._vscode.window.showInformationMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`), enableProjectTitle, this._vscode.l10n.t('Cancel')).then(result => {
