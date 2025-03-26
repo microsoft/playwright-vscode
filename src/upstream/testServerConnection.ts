@@ -16,42 +16,8 @@
 
 import type { TestServerInterface, TestServerInterfaceEvents } from './testServerInterface';
 import * as events from './events';
-import { WebSocket as ServerSideSideWebSocket } from 'ws';
 
-export class ServerSideWebSocketTestServerTransport implements TestServerTransport {
-  private _ws: ServerSideSideWebSocket;
-
-  constructor(url: string) {
-    this._ws = new ServerSideSideWebSocket(url);
-  }
-
-  onmessage(listener: (message: string) => void) {
-    this._ws.addEventListener('message', event => {
-      if (typeof event.data === 'string')
-        listener(event.data);
-    });
-  }
-
-  onopen(listener: () => void) {
-    this._ws.addEventListener('open', listener);
-  }
-
-  onerror(listener: () => void) {
-    this._ws.addEventListener('error', listener);
-  }
-
-  onclose(listener: () => void) {
-    this._ws.addEventListener('close', listener);
-  }
-
-  send(data: string) {
-    this._ws.send(data);
-  }
-
-  close() {
-    this._ws.close();
-  }
-}
+import WebSocket from 'ws';
 
 // -- Reuse boundary -- Everything below this line is taken from playwright core.
 
@@ -73,7 +39,7 @@ export class WebSocketTestServerTransport implements TestServerTransport {
   }
 
   onmessage(listener: (message: string) => void) {
-    this._ws.addEventListener('message', event => listener(event.data));
+    this._ws.addEventListener('message', event => listener(event.data.toString()));
   }
 
   onopen(listener: () => void) {

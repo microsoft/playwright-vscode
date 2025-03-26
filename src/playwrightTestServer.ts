@@ -19,7 +19,7 @@ import { ConfigFindRelatedTestFilesReport, ConfigListFilesReport } from './listT
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
 import { TeleReporterReceiver } from './upstream/teleReceiver';
-import { ServerSideWebSocketTestServerTransport, TestServerConnection } from './upstream/testServerConnection';
+import { WebSocketTestServerTransport, TestServerConnection } from './upstream/testServerConnection';
 import { startBackend } from './backend';
 import type { PlaywrightTestOptions, PlaywrightTestRunOptions } from './playwrightTestTypes';
 import { escapeRegex, pathSeparator } from './utils';
@@ -285,7 +285,7 @@ export class PlaywrightTestServer {
       if (token?.isCancellationRequested)
         return;
       const address = await addressPromise;
-      debugTestServer = new TestServerConnection(new ServerSideWebSocketTestServerTransport(address));
+      debugTestServer = new TestServerConnection(new WebSocketTestServerTransport(address));
       await debugTestServer.initialize({
         serializer: require.resolve('./oopReporter'),
         closeOnDisconnect: true,
@@ -379,7 +379,7 @@ export class PlaywrightTestServer {
     });
     if (!wsEndpoint)
       return { connection: null, errors };
-    const connection = new TestServerConnection(new ServerSideWebSocketTestServerTransport(wsEndpoint));
+    const connection = new TestServerConnection(new WebSocketTestServerTransport(wsEndpoint));
     connection.onTestFilesChanged(params => this._testFilesChanged(params.testFiles));
     await connection.initialize({
       serializer: require.resolve('./oopReporter'),
