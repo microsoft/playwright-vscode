@@ -201,7 +201,7 @@ export class PlaywrightTestServer {
   }
 
   private _normalizePaths() {
-    let cwd = this._model.config.workspaceFolder;
+    let cwd = path.dirname(this._model.config.configFile);
     if (process.platform === 'win32') {
       /**
        * The Windows Filesystem is case-insensitive, but Node.js module loading is case-sensitive.
