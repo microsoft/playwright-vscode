@@ -194,9 +194,7 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
 export async function connectToSharedBrowser(vscode: VSCode) {
   await expect.poll(() => vscode.extensions[0].browserServerWSForTest()).toBeTruthy();
   const wsEndpoint = vscode.extensions[0].browserServerWSForTest();
-  return await chromium.connect(wsEndpoint, {
-    headers: { 'x-playwright-reuse-context': '1' }
-  });
+  return await chromium.connect(wsEndpoint);
 }
 
 export async function waitForPage(browser: Browser) {
