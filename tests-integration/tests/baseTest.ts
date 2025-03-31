@@ -120,12 +120,12 @@ export const test = base.extend<TestFixtures>({
       const runCmd = (cmd: string, { subdir = '' }: {subdir?: string} = {}) => {
         const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: path.join(projectPath, subdir) });
         if (result.status !== 0)
-          console.error(`Command failed: ${cmd} with exit code ${result.status}`);
+          throw new Error(`Command failed: ${cmd} with exit code ${result.status}`);
 
       };
       await fs.promises.mkdir(projectPath);
       if (usePnp) {
-        runCmd('yarn init');
+        runCmd('yarn init -y');
         runCmd('yarn create playwright --pnp -- --quiet --browser=chromium --gha --install-deps');
         fs.mkdirSync(path.join(projectPath, '.vscode'));
         fs.writeFileSync(path.join(projectPath, '.vscode', 'settings.json'), JSON.stringify({
