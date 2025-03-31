@@ -41,6 +41,7 @@ class Testkit {
     // todo check parent dir for dublicates
     await workbox.keyboard.press('ControlOrMeta+P');
     await workbox.keyboard.type(fileName);
+    await new Promise(resolve => setTimeout(resolve, 2000));
     await workbox.keyboard.press('Enter');
     // let container = workbox
     // for (const part of fileName.split('/')) {
@@ -55,7 +56,7 @@ class Testkit {
     await workbox.keyboard.press('Enter');
     await workbox.locator('input.quick-input-check-all').check();
     await workbox.keyboard.press('Enter');
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
   async runTestInFile(fileName: string) {
@@ -97,7 +98,7 @@ export const test = base.extend<TestFixtures>({
     const workbox = await electronApp.firstWindow();
     await workbox.context().tracing.start({ screenshots: true, snapshots: true, title: test.info().title });
     // waiting for vscode to load
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 5000));
     const testkit = new Testkit(workbox);
     await use(testkit);
     const tracePath = test.info().outputPath('trace.zip');
@@ -118,7 +119,7 @@ export const test = base.extend<TestFixtures>({
         await fs.promises.rm(projectPath, { recursive: true });
       console.log(`Creating project in ${projectPath}`);
       const runCmd = (cmd: string, { subdir = '' }: {subdir?: string} = {}) => {
-        const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: path.join(projectPath, subdir) });
+        const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: path.join(projectPath, subdir), env: {...process.env, YARN_ENABLE_IMMUTABLE_INSTALLS: 'false'} });
         if (result.status !== 0)
           throw new Error(`Command failed: ${cmd} with exit code ${result.status}`);
 
