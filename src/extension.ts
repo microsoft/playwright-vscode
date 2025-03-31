@@ -328,7 +328,6 @@ export class Extension implements RunHooks {
   }
 
   private _envProvider: EnvProvider = ({ workspaceFolder }) => {
-    this._vscode.workspace.getWorkspaceFolder(this._context.extensionUri);
     const availableVariables = {
       'workspaceFolder': workspaceFolder
     };

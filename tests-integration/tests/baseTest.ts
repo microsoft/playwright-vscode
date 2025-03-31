@@ -34,29 +34,30 @@ type TestFixtures = TestOptions & {
 };
 
 class Testkit {
-  constructor(private workbox: Page) {}
+  constructor(private workbox: Page) { }
+
+  async openTestingTab() {
+    const { workbox } = this;
+    if (await workbox.getByRole('tab', { name: 'Testing' }).getAttribute('aria-selected') === 'true')
+      return;
+
+    await workbox.getByRole('tab', { name: 'Testing' }).locator('a').click();
+  }
 
   async openFile(fileName: string) {
     const { workbox } = this;
-    // todo check parent dir for dublicates
     await workbox.keyboard.press('ControlOrMeta+P');
     await workbox.keyboard.type(fileName);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    await workbox.keyboard.press('Enter');
-    // let container = workbox
-    // for (const part of fileName.split('/')) {
-    //   const locator = container.getByRole('treeitem', { name: part, exact: true }).locator('a')
-    //   await locator.click();
-    // }
+    // todo check parent dir for dublicates
+    await workbox.getByRole('listbox', { name: /^Search files/ }).getByRole('option').first().click();
+    // throw new Error('File not found');
   }
   async enableAllConfigs() {
     const { workbox } = this;
-    await workbox.keyboard.press('ControlOrMeta+Shift+P');
-    await workbox.keyboard.type('toggle playwright configs');
-    await workbox.keyboard.press('Enter');
+    await this.openTestingTab();
+    await workbox.frameLocator('iframe').frameLocator('iframe[title="Playwright"]').getByRole('button', { name: 'Toggle Playwright Configs' }).click();
     await workbox.locator('input.quick-input-check-all').check();
     await workbox.keyboard.press('Enter');
-    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
   async runTestInFile(fileName: string) {
@@ -97,9 +98,8 @@ export const test = base.extend<TestFixtures>({
     });
     const workbox = await electronApp.firstWindow();
     await workbox.context().tracing.start({ screenshots: true, snapshots: true, title: test.info().title });
-    // waiting for vscode to load
-    await new Promise(resolve => setTimeout(resolve, 5000));
     const testkit = new Testkit(workbox);
+    await testkit.enableAllConfigs();
     await use(testkit);
     const tracePath = test.info().outputPath('trace.zip');
     await workbox.context().tracing.stop({ path: tracePath });
@@ -117,40 +117,56 @@ export const test = base.extend<TestFixtures>({
       const projectPath = await createTempDir();
       if (fs.existsSync(projectPath))
         await fs.promises.rm(projectPath, { recursive: true });
+
+      let nextUniqueId = 1;
+      const createMonorepoPackage = (name: string) => {
+        // creating monorepo package
+        fs.mkdirSync(path.join(projectPath, name));
+        runCmd('yarn init', { subdir: name });
+        const packageJson = JSON.parse(fs.readFileSync(path.join(projectPath, 'package.json'), 'utf8'));
+        packageJson.workspaces ??= [];
+        packageJson.workspaces.push(name);
+        fs.writeFileSync(path.join(projectPath, 'package.json'), JSON.stringify(packageJson), 'utf8');
+        runCmd('yarn create playwright --pnp -- --quiet --browser=chromium --install-deps', { subdir: name });
+        // currently there is a bug in extension
+        // when there are two projects (both are enabled), with same test file name
+        // after test is run in one project and navigation to second project
+        // the second test will not have the run glyph. And it's not shown in model.
+        // Rename of file fixes this. Remove this code to check bug.
+        fs.renameSync(path.join(projectPath, name, 'tests/example.spec.ts'), path.join(projectPath, name, `tests/example${nextUniqueId++}.spec.ts`));
+        // /
+      };
       console.log(`Creating project in ${projectPath}`);
-      const runCmd = (cmd: string, { subdir = '' }: {subdir?: string} = {}) => {
+      const runCmd = (cmd: string, { subdir = '' }: { subdir?: string } = {}) => {
         const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: path.join(projectPath, subdir), env: { ...process.env, YARN_ENABLE_IMMUTABLE_INSTALLS: 'false' } });
         if (result.status !== 0)
           throw new Error(`Command failed: ${cmd} with exit code ${result.status}`);
 
       };
       await fs.promises.mkdir(projectPath);
+      runCmd('yarn init -2');
+      runCmd('yarn create playwright --pnp -- --quiet --browser=chromium --gha --install-deps');
+
+      createMonorepoPackage('other');
+
       if (usePnp) {
-        runCmd('yarn init -2');
-        runCmd('yarn create playwright --pnp -- --quiet --browser=chromium --gha --install-deps');
         fs.mkdirSync(path.join(projectPath, '.vscode'));
         fs.writeFileSync(path.join(projectPath, '.vscode', 'settings.json'), JSON.stringify({
           'playwright.env': {
             'NODE_OPTIONS': '--require=${workspaceFolder}/.pnp.cjs --loader=${workspaceFolder}/.pnp.loader.mjs'
           }
         }), 'utf8');
-        // creating monorepo package
-        fs.mkdirSync(path.join(projectPath, 'other'));
-        runCmd('yarn init', { subdir: 'other' });
-        const packageJson = JSON.parse(fs.readFileSync(path.join(projectPath, 'package.json'), 'utf8'));
-        packageJson.workspaces = ['other'];
-        fs.writeFileSync(path.join(projectPath, 'package.json'), JSON.stringify(packageJson), 'utf8');
-        runCmd('yarn create playwright --pnp -- --quiet --browser=chromium --install-deps other');
-        // currently there is a bug in extension
-        // when there are two projects (both are enabled), with same test file name
-        // after test is run in one project and navigation to second project
-        // the second test will not have the run glyph. And it's not shown in model.
-        // Rename of file fixes this. Remove this code to check bug.
-        fs.renameSync(path.join(projectPath, 'other/tests/example.spec.ts'), path.join(projectPath, 'other/tests/example2.spec.ts'));
-        // /
+        if (fs.existsSync(path.join(projectPath, 'node_modules')))
+          throw new Error('node_modules should not exist');
+
       } else {
-        runCmd(`npm init playwright@latest --yes -- --quiet --browser=chromium --gha --install-deps`);
+        runCmd('yarn config set nodeLinker node-modules');
+        runCmd('yarn install');
+        if (!fs.existsSync(path.join(projectPath, 'node_modules')))
+          throw new Error('node_modules should exist');
+
       }
+
       return projectPath;
     });
   },
