@@ -290,7 +290,7 @@ export class Extension implements RunHooks {
 
       let playwrightInfo = null;
       try {
-        playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider({workspaceFolder: workspaceFolderPath}));
+        playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider({ workspaceFolder: workspaceFolderPath }));
       } catch (error) {
         if (userGesture) {
           this._vscode.window.showWarningMessage(
@@ -327,22 +327,22 @@ export class Extension implements RunHooks {
     this._workspaceObserver.setWatchFolders(this._models.testDirs());
   }
 
-  private _envProvider: EnvProvider = ({workspaceFolder}) => {
+  private _envProvider: EnvProvider = ({ workspaceFolder }) => {
     this._vscode.workspace.getWorkspaceFolder(this._context.extensionUri);
     const availableVariables = {
       'workspaceFolder': workspaceFolder
-    }
+    };
     const replaceVariables = (value: string) => {
-      for (const [key, variable] of Object.entries(availableVariables)) {
+      for (const [key, variable] of Object.entries(availableVariables))
         value = value.replaceAll(`\${${key}}`, variable);
-      }
-      return value
-    }
+
+      return value;
+    };
     const env = this._vscode.workspace.getConfiguration('playwright').get('env', {});
     return Object.fromEntries(Object.entries(env).map(entry => {
-      return [entry[0], typeof entry[1] === 'string' ? replaceVariables(entry[1]): JSON.stringify(entry[1])];
+      return [entry[0], typeof entry[1] === 'string' ? replaceVariables(entry[1]) : JSON.stringify(entry[1])];
     })) as NodeJS.ProcessEnv;
-  }
+  };
 
   private async _handleTestRun(isDebug: boolean, request: vscodeTypes.TestRunRequest, cancellationToken?: vscodeTypes.CancellationToken) {
     // Never run tests concurrently.

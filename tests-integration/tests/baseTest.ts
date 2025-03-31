@@ -37,8 +37,8 @@ class Testkit {
   constructor(private workbox: Page) {}
 
   async openFile(fileName: string) {
-    const {workbox} = this;
-    //todo check parent dir for dublicates
+    const { workbox } = this;
+    // todo check parent dir for dublicates
     await workbox.keyboard.press('ControlOrMeta+P');
     await workbox.keyboard.type(fileName);
     await workbox.keyboard.press('Enter');
@@ -48,17 +48,18 @@ class Testkit {
     //   await locator.click();
     // }
   }
-  async enableAllConfigs () {
-    const {workbox} = this;
+  async enableAllConfigs() {
+    const { workbox } = this;
     await workbox.keyboard.press('ControlOrMeta+Shift+P');
-    await workbox.keyboard.type('toggle playwright configs')
+    await workbox.keyboard.type('toggle playwright configs');
     await workbox.keyboard.press('Enter');
     await workbox.locator('input.quick-input-check-all').check();
     await workbox.keyboard.press('Enter');
+    await new Promise(resolve => setTimeout(resolve, 3000));
   }
 
-  async runTestInFile (fileName: string) {
-    const {workbox} = this;
+  async runTestInFile(fileName: string) {
+    const { workbox } = this;
     await this.openFile(fileName);
     await expect(workbox.locator('.testing-run-glyph'), 'there are two tests in the file').toHaveCount(2);
     await workbox.locator('.testing-run-glyph').first().click();
@@ -95,9 +96,9 @@ export const test = base.extend<TestFixtures>({
     });
     const workbox = await electronApp.firstWindow();
     await workbox.context().tracing.start({ screenshots: true, snapshots: true, title: test.info().title });
-    //waiting for vscode to load
+    // waiting for vscode to load
     await new Promise(resolve => setTimeout(resolve, 2000));
-    const testkit = new Testkit(workbox)
+    const testkit = new Testkit(workbox);
     await use(testkit);
     const tracePath = test.info().outputPath('trace.zip');
     await workbox.context().tracing.stop({ path: tracePath });
@@ -116,29 +117,36 @@ export const test = base.extend<TestFixtures>({
       if (fs.existsSync(projectPath))
         await fs.promises.rm(projectPath, { recursive: true });
       console.log(`Creating project in ${projectPath}`);
-      const runCmd = (cmd: string, {subdir=''}: {subdir?: string}={}) => {
+      const runCmd = (cmd: string, { subdir = '' }: {subdir?: string} = {}) => {
         const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: path.join(projectPath, subdir) });
-        if (result.status !== 0) {
+        if (result.status !== 0)
           console.error(`Command failed: ${cmd} with exit code ${result.status}`);
-        }
-      }
+
+      };
       await fs.promises.mkdir(projectPath);
       if (usePnp) {
-        runCmd('yarn init')
-        runCmd('yarn create playwright --pnp -- --quiet --browser=chromium --gha --install-deps')
-        fs.mkdirSync(path.join(projectPath, '.vscode'))
+        runCmd('yarn init');
+        runCmd('yarn create playwright --pnp -- --quiet --browser=chromium --gha --install-deps');
+        fs.mkdirSync(path.join(projectPath, '.vscode'));
         fs.writeFileSync(path.join(projectPath, '.vscode', 'settings.json'), JSON.stringify({
-          "playwright.env": {
-            "NODE_OPTIONS": "--require=${workspaceFolder}/.pnp.cjs --loader=${workspaceFolder}/.pnp.loader.mjs"
+          'playwright.env': {
+            'NODE_OPTIONS': '--require=${workspaceFolder}/.pnp.cjs --loader=${workspaceFolder}/.pnp.loader.mjs'
           }
         }), 'utf8');
         // creating monorepo package
-        fs.mkdirSync(path.join(projectPath, 'other'))
-        runCmd('yarn init', {subdir: 'other'})
+        fs.mkdirSync(path.join(projectPath, 'other'));
+        runCmd('yarn init', { subdir: 'other' });
         const packageJson = JSON.parse(fs.readFileSync(path.join(projectPath, 'package.json'), 'utf8'));
-        packageJson.workspaces = ["other"]
+        packageJson.workspaces = ['other'];
         fs.writeFileSync(path.join(projectPath, 'package.json'), JSON.stringify(packageJson), 'utf8');
-        runCmd('yarn create playwright --pnp -- --quiet --browser=chromium --install-deps other')
+        runCmd('yarn create playwright --pnp -- --quiet --browser=chromium --install-deps other');
+        // currently there is a bug in extension
+        // when there are two projects (both are enabled), with same test file name
+        // after test is run in one project and navigation to second project
+        // the second test will not have the run glyph. And it's not shown in model.
+        // Rename of file fixes this. Remove this code to check bug.
+        fs.renameSync(path.join(projectPath, 'other/tests/example.spec.ts'), path.join(projectPath, 'other/tests/example2.spec.ts'));
+        // /
       } else {
         runCmd(`npm init playwright@latest --yes -- --quiet --browser=chromium --gha --install-deps`);
       }

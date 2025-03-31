@@ -66,7 +66,7 @@ export class SpawnTraceViewer implements TraceViewer {
       detached: true,
       env: {
         ...process.env,
-        ...this._envProvider({workspaceFolder: this._config.workspaceFolder}),
+        ...this._envProvider({ workspaceFolder: this._config.workspaceFolder }),
       },
     });
     this._traceViewerProcess = traceViewerProcess;
