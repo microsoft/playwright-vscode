@@ -19,7 +19,7 @@ import { test } from './baseTest';
 test.extend({ usePnp: true })(`should be able to execute the first test of the example project for pnp`, async ({ testkit }) => {
   await testkit.enableAllConfigs();
   await testkit.runTestInFile('tests/example.spec.ts');
-  await testkit.runTestInFile('other/tests/example.spec.ts');
+  await testkit.runTestInFile('other/tests/example2.spec.ts');
 });
 
 test(`should be able to execute the first test of the example project`, async ({ testkit }) => {

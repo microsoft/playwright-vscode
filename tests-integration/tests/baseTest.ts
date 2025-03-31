@@ -119,7 +119,7 @@ export const test = base.extend<TestFixtures>({
         await fs.promises.rm(projectPath, { recursive: true });
       console.log(`Creating project in ${projectPath}`);
       const runCmd = (cmd: string, { subdir = '' }: {subdir?: string} = {}) => {
-        const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: path.join(projectPath, subdir), env: {...process.env, YARN_ENABLE_IMMUTABLE_INSTALLS: 'false'} });
+        const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: path.join(projectPath, subdir), env: { ...process.env, YARN_ENABLE_IMMUTABLE_INSTALLS: 'false' } });
         if (result.status !== 0)
           throw new Error(`Command failed: ${cmd} with exit code ${result.status}`);
 
