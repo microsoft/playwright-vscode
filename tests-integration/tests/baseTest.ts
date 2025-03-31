@@ -48,9 +48,7 @@ class Testkit {
     const { workbox } = this;
     await workbox.keyboard.press('ControlOrMeta+P');
     await workbox.keyboard.type(fileName);
-    // todo check parent dir for dublicates
     await workbox.getByRole('listbox', { name: /^Search files/ }).getByRole('option').first().click();
-    // throw new Error('File not found');
   }
   async enableAllConfigs() {
     const { workbox } = this;
@@ -58,6 +56,22 @@ class Testkit {
     await workbox.frameLocator('iframe').frameLocator('iframe[title="Playwright"]').getByRole('button', { name: 'Toggle Playwright Configs' }).click();
     await workbox.locator('input.quick-input-check-all').check();
     await workbox.keyboard.press('Enter');
+  }
+
+  /** @deprecated todo rm when bug is fixed
+   *  currently there is a bug in extension
+   * when there are two projects (both are enabled), with same test file name
+   * after test is run in one project and navigation to second project
+   * the second test will not have the run glyph. And it's not shown in model.
+   * rename of file also works
+  */
+  async reloadTestModels() {
+    const { workbox } = this;
+    await this.openTestingTab();
+
+    await workbox.getByRole('button', { name: 'Test Explorer Section' }).hover();
+
+    await workbox.getByRole('button', { name: /^Refresh Tests/ }).click();
   }
 
   async runTestInFile(fileName: string) {
@@ -118,7 +132,6 @@ export const test = base.extend<TestFixtures>({
       if (fs.existsSync(projectPath))
         await fs.promises.rm(projectPath, { recursive: true });
 
-      let nextUniqueId = 1;
       const createMonorepoPackage = (name: string) => {
         // creating monorepo package
         fs.mkdirSync(path.join(projectPath, name));
@@ -128,20 +141,12 @@ export const test = base.extend<TestFixtures>({
         packageJson.workspaces.push(name);
         fs.writeFileSync(path.join(projectPath, 'package.json'), JSON.stringify(packageJson), 'utf8');
         runCmd('yarn create playwright --pnp -- --quiet --browser=chromium --install-deps', { subdir: name });
-        // currently there is a bug in extension
-        // when there are two projects (both are enabled), with same test file name
-        // after test is run in one project and navigation to second project
-        // the second test will not have the run glyph. And it's not shown in model.
-        // Rename of file fixes this. Remove this code to check bug.
-        fs.renameSync(path.join(projectPath, name, 'tests/example.spec.ts'), path.join(projectPath, name, `tests/example${nextUniqueId++}.spec.ts`));
-        // /
       };
       console.log(`Creating project in ${projectPath}`);
       const runCmd = (cmd: string, { subdir = '' }: { subdir?: string } = {}) => {
         const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: path.join(projectPath, subdir), env: { ...process.env, YARN_ENABLE_IMMUTABLE_INSTALLS: 'false' } });
         if (result.status !== 0)
           throw new Error(`Command failed: ${cmd} with exit code ${result.status}`);
-
       };
       await fs.promises.mkdir(projectPath);
       runCmd('yarn init -2');
