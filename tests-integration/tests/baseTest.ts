@@ -125,7 +125,7 @@ export const test = base.extend<TestFixtures>({
       };
       await fs.promises.mkdir(projectPath);
       if (usePnp) {
-        runCmd('yarn init -y');
+        runCmd('yarn init -2');
         runCmd('yarn create playwright --pnp -- --quiet --browser=chromium --gha --install-deps');
         fs.mkdirSync(path.join(projectPath, '.vscode'));
         fs.writeFileSync(path.join(projectPath, '.vscode', 'settings.json'), JSON.stringify({
