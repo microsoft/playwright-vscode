@@ -76,13 +76,9 @@ export class BackendClient extends EventEmitter {
     return wsEndpoint;
   }
 
-  rewriteWsHeaders(headers: Record<string, string>): Record<string, string> {
-    return headers;
-  }
-
   async _connect(wsEndpoint: string) {
     this.wsEndpoint = wsEndpoint;
-    this._transport = await WebSocketTransport.connect(this.rewriteWsEndpoint(wsEndpoint), this.rewriteWsHeaders({}));
+    this._transport = await WebSocketTransport.connect(this.rewriteWsEndpoint(wsEndpoint));
     this._transport.onmessage = (message: any) => {
       if (!message.id) {
         this.emit(message.method, message.params);

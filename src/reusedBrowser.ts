@@ -427,13 +427,6 @@ export class Backend extends BackendClient {
     return wsEndpoint + '?debug-controller';
   }
 
-  override rewriteWsHeaders(headers: Record<string, string>): Record<string, string> {
-    return {
-      ...headers,
-      'x-playwright-debug-controller': 'true' // Remove after v1.35
-    };
-  }
-
   override async initialize() {
     await this.send('initialize', { codegenId: 'playwright-test', sdkLanguage: 'javascript' });
     await this.send('setReportStateChanged', { enabled: true });
