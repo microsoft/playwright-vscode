@@ -22,7 +22,7 @@ import * as reporterTypes from './upstream/reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
-import { TestModel, TestModelCollection } from './testModel';
+import { EnvProvider, TestModel, TestModelCollection } from './testModel';
 import { disabledProjectName as disabledProject, TestTree } from './testTree';
 import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
@@ -103,7 +103,7 @@ export class Extension implements RunHooks {
     });
 
     this._settingsModel = new SettingsModel(vscode, context);
-    this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
+    this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider);
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._models = new TestModelCollection(vscode, {
       context,
@@ -111,7 +111,7 @@ export class Extension implements RunHooks {
       settingsModel: this._settingsModel,
       runHooks: this,
       isUnderTest: this._isUnderTest,
-      envProvider: this._envProvider.bind(this),
+      envProvider: this._envProvider,
       onStdOut: this._debugHighlight.onStdOut.bind(this._debugHighlight),
       requestWatchRun: this._runWatchedTests.bind(this),
     });
@@ -290,7 +290,7 @@ export class Extension implements RunHooks {
 
       let playwrightInfo = null;
       try {
-        playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider());
+        playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider({workspaceFolder: workspaceFolderPath}));
       } catch (error) {
         if (userGesture) {
           this._vscode.window.showWarningMessage(
@@ -327,10 +327,20 @@ export class Extension implements RunHooks {
     this._workspaceObserver.setWatchFolders(this._models.testDirs());
   }
 
-  private _envProvider(): NodeJS.ProcessEnv {
+  private _envProvider: EnvProvider = ({workspaceFolder}) => {
+    this._vscode.workspace.getWorkspaceFolder(this._context.extensionUri);
+    const availableVariables = {
+      'workspaceFolder': workspaceFolder
+    }
+    const replaceVariables = (value: string) => {
+      for (const [key, variable] of Object.entries(availableVariables)) {
+        value = value.replaceAll(`\${${key}}`, variable);
+      }
+      return value
+    }
     const env = this._vscode.workspace.getConfiguration('playwright').get('env', {});
     return Object.fromEntries(Object.entries(env).map(entry => {
-      return typeof entry[1] === 'string' ? entry : [entry[0], JSON.stringify(entry[1])];
+      return [entry[0], typeof entry[1] === 'string' ? replaceVariables(entry[1]): JSON.stringify(entry[1])];
     })) as NodeJS.ProcessEnv;
   }
 

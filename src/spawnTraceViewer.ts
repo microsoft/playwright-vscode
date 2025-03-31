@@ -19,16 +19,17 @@ import type { TestConfig } from './playwrightTestTypes';
 import { findNode } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { TraceViewer } from './traceViewer';
+import { EnvProvider } from './testModel';
 
 export class SpawnTraceViewer implements TraceViewer {
   private _vscode: vscodeTypes.VSCode;
-  private _envProvider: () => NodeJS.ProcessEnv;
+  private _envProvider: EnvProvider;
   private _traceViewerProcess: ChildProcess | undefined;
   private _currentFile?: string;
   private _config: TestConfig;
   private _serverUrlPrefixForTest?: string;
 
-  constructor(vscode: vscodeTypes.VSCode, envProvider: () => NodeJS.ProcessEnv, config: TestConfig) {
+  constructor(vscode: vscodeTypes.VSCode, envProvider: EnvProvider, config: TestConfig) {
     this._vscode = vscode;
     this._envProvider = envProvider;
     this._config = config;
@@ -65,7 +66,7 @@ export class SpawnTraceViewer implements TraceViewer {
       detached: true,
       env: {
         ...process.env,
-        ...this._envProvider(),
+        ...this._envProvider({workspaceFolder: this._config.workspaceFolder}),
       },
     });
     this._traceViewerProcess = traceViewerProcess;

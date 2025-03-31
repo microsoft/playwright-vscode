@@ -15,6 +15,7 @@
  */
 
 import { SettingsModel } from './settingsModel';
+import { EnvProvider } from './testModel';
 import type * as vscodeTypes from './vscodeTypes';
 
 export type TestConfig = {
@@ -46,6 +47,6 @@ export type PlaywrightTestOptions = {
   runHooks: RunHooks;
   isUnderTest: boolean;
   playwrightTestLog: string[];
-  envProvider: () => NodeJS.ProcessEnv;
+  envProvider: EnvProvider;
   onStdOut: vscodeTypes.Event<string>;
 };

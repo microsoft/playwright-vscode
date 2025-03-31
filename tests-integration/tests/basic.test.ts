@@ -15,11 +15,16 @@
  */
 import { test, expect } from './baseTest';
 
-test('should be able to execute the first test of the example project', async ({ workbox }) => {
-  await workbox.getByRole('treeitem', { name: 'tests', exact: true }).locator('a').click();
-  await workbox.getByRole('treeitem', { name: 'example.spec.ts' }).locator('a').click();
-  await expect(workbox.locator('.testing-run-glyph'), 'there are two tests in the file').toHaveCount(2);
-  await workbox.locator('.testing-run-glyph').first().click();
-  const passedLocator = workbox.locator('.monaco-editor').locator('.codicon-testing-passed-icon');
-  await expect(passedLocator).toHaveCount(1);
+
+
+test.extend({ usePnp: true })(`should be able to execute the first test of the example project for pnp`, async ({ testkit }) => {
+  await testkit.enableAllConfigs();
+  await testkit.runTestInFile('tests/example.spec.ts');
+  await testkit.runTestInFile('other/tests/example.spec.ts');
+})
+
+test(`should be able to execute the first test of the example project`, async ({ testkit }) => {
+  await testkit.runTestInFile('tests/example.spec.ts');
 });
+
+

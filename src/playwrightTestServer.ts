@@ -270,7 +270,9 @@ export class PlaywrightTestServer {
         env: {
           ...process.env,
           CI: this._options.isUnderTest ? undefined : process.env.CI,
-          ...this._options.envProvider(),
+          ...this._options.envProvider({
+            workspaceFolder: this._model.config.workspaceFolder,
+          }),
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,
           FORCE_COLOR: '1',
@@ -362,7 +364,9 @@ export class PlaywrightTestServer {
       cwd: paths.cwd,
       envProvider: () => {
         return {
-          ...this._options.envProvider(),
+          ...this._options.envProvider({
+            workspaceFolder: this._model.config.workspaceFolder,
+          }),
           FORCE_COLOR: '1',
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,

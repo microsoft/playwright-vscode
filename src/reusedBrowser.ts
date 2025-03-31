@@ -15,7 +15,7 @@
  */
 
 import type { TestConfig } from './playwrightTestTypes';
-import type { TestModel, TestModelCollection } from './testModel';
+import type { EnvProvider, TestModel, TestModelCollection } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
@@ -30,7 +30,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _cancelRecording: (() => void) | undefined;
   private _isRunningTests = false;
   private _insertedEditActionCount = 0;
-  private _envProvider: () => NodeJS.ProcessEnv;
+  private _envProvider: EnvProvider;
   private _disposables: vscodeTypes.Disposable[] = [];
   private _pageCount = 0;
   private _onPageCountChangedEvent: vscodeTypes.EventEmitter<number>;
@@ -45,7 +45,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _pausedOnPagePause = false;
   private _settingsModel: SettingsModel;
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: EnvProvider) {
     this._vscode = vscode;
     this._envProvider = envProvider;
     this._onPageCountChangedEvent = new vscode.EventEmitter();
@@ -91,7 +91,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     ];
     const cwd = config.workspaceFolder;
     const envProvider = () => ({
-      ...this._envProvider(),
+      ...this._envProvider({workspaceFolder: config.workspaceFolder}),
       PW_CODEGEN_NO_INSPECTOR: '1',
       PW_EXTENSION_MODE: '1',
     });

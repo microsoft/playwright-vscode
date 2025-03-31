@@ -42,6 +42,7 @@ export type TestProject = {
   project: reporterTypes.FullProject;
   isEnabled: boolean;
 };
+export type EnvProvider = (vars: {workspaceFolder: string}) => NodeJS.ProcessEnv;
 
 export type TestModelEmbedder = {
   context: vscodeTypes.ExtensionContext;
@@ -49,7 +50,7 @@ export type TestModelEmbedder = {
   runHooks: RunHooks;
   isUnderTest: boolean;
   playwrightTestLog: string[];
-  envProvider: () => NodeJS.ProcessEnv;
+  envProvider: EnvProvider;
   onStdOut: vscodeTypes.Event<string>;
   requestWatchRun: (files: string[], testItems: vscodeTypes.TestItem[]) => void;
 };
@@ -784,8 +785,12 @@ export class TestModelCollection extends DisposableBase {
   }
 
   async ensureHasEnabledModels() {
-    if (this._models.length && !this.hasEnabledModels())
-      this.setModelEnabled(this._models[0].config.configFile, false);
+    if (this._models.length && !this.hasEnabledModels()) {
+      for (const model of this._models) {
+        this.setModelEnabled(model.config.configFile, true);
+      }
+      // this.setModelEnabled(this._models[0].config.configFile, false);
+    }
   }
 
   hasEnabledModels() {

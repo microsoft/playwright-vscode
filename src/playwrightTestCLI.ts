@@ -128,7 +128,9 @@ export class PlaywrightTestCLI {
         CI: this._options.isUnderTest ? undefined : process.env.CI,
         // Don't debug tests when running them.
         NODE_OPTIONS: undefined,
-        ...this._options.envProvider(),
+        ...this._options.envProvider({
+          workspaceFolder: this._model.config.workspaceFolder,
+        }),
         PW_TEST_REUSE_CONTEXT: options.reuseContext ? '1' : undefined,
         PW_TEST_CONNECT_WS_ENDPOINT: options.connectWsEndpoint,
         ...(await reporterServer.env()),
@@ -202,7 +204,9 @@ export class PlaywrightTestCLI {
         env: {
           ...process.env,
           CI: this._options.isUnderTest ? undefined : process.env.CI,
-          ...this._options.envProvider(),
+          ...this._options.envProvider({
+            workspaceFolder: this._model.config.workspaceFolder,
+          }),
           PW_TEST_CONNECT_WS_ENDPOINT: testOptions.connectWsEndpoint,
           ...(await reporterServer.env()),
           // Reset VSCode's options that affect nested Electron.
@@ -249,7 +253,9 @@ export class PlaywrightTestCLI {
   }
 
   private async _runNode(args: string[], cwd: string) {
-    return await runNode(this._vscode, args, cwd, this._options.envProvider());
+    return await runNode(this._vscode, args, cwd, this._options.envProvider({
+      workspaceFolder: this._model.config.workspaceFolder,
+    }));
   }
 
   private _log(line: string) {

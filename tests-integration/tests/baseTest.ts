@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { test as base, type Page, _electron } from '@playwright/test';
+import { test as base, type Page, _electron, expect } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron/out/download';
 export { expect } from '@playwright/test';
 import path from 'path';
@@ -23,17 +23,55 @@ import { spawnSync } from 'child_process';
 
 export type TestOptions = {
   vscodeVersion: string;
+  usePnp: boolean
 };
 
+
 type TestFixtures = TestOptions & {
-  workbox: Page,
+  testkit: Testkit,
   createProject: () => Promise<string>,
   createTempDir: () => Promise<string>,
 };
 
+class Testkit {
+  constructor(private workbox: Page) {}
+
+  async openFile(fileName: string) {
+    const {workbox} = this;
+    //todo check parent dir for dublicates
+    await workbox.keyboard.press('ControlOrMeta+P');
+    await workbox.keyboard.type(fileName);
+    await workbox.keyboard.press('Enter');
+    // let container = workbox
+    // for (const part of fileName.split('/')) {
+    //   const locator = container.getByRole('treeitem', { name: part, exact: true }).locator('a')
+    //   await locator.click();
+    // }
+  }
+  async enableAllConfigs () {
+    const {workbox} = this;
+    await workbox.keyboard.press('ControlOrMeta+Shift+P');
+    await workbox.keyboard.type('toggle playwright configs')
+    await workbox.keyboard.press('Enter');
+    await workbox.locator('input.quick-input-check-all').check();
+    await workbox.keyboard.press('Enter');
+  }
+
+  async runTestInFile (fileName: string) {
+    const {workbox} = this;
+    await this.openFile(fileName);
+    await expect(workbox.locator('.testing-run-glyph'), 'there are two tests in the file').toHaveCount(2);
+    await workbox.locator('.testing-run-glyph').first().click();
+    const passedLocator = workbox.locator('.monaco-editor').locator('.codicon-testing-passed-icon');
+    await expect(passedLocator).toHaveCount(1);
+  }
+}
+
 export const test = base.extend<TestFixtures>({
   vscodeVersion: ['insiders', { option: true }],
-  workbox: async ({ vscodeVersion, createProject, createTempDir }, use) => {
+  usePnp: [false, { option: true }],
+
+  testkit: async ({ vscodeVersion, createProject, createTempDir }, use) => {
     const defaultCachePath = await createTempDir();
     const vscodePath = await downloadAndUnzipVSCode(vscodeVersion);
     const electronApp = await _electron.launch({
@@ -57,7 +95,10 @@ export const test = base.extend<TestFixtures>({
     });
     const workbox = await electronApp.firstWindow();
     await workbox.context().tracing.start({ screenshots: true, snapshots: true, title: test.info().title });
-    await use(workbox);
+    //waiting for vscode to load
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const testkit = new Testkit(workbox)
+    await use(testkit);
     const tracePath = test.info().outputPath('trace.zip');
     await workbox.context().tracing.stop({ path: tracePath });
     test.info().attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
@@ -68,19 +109,39 @@ export const test = base.extend<TestFixtures>({
       await fs.promises.cp(logPath, logOutputPath, { recursive: true });
     }
   },
-  createProject: async ({ createTempDir }, use) => {
+  createProject: async ({ createTempDir, usePnp }, use) => {
     await use(async () => {
       // We want to be outside of the project directory to avoid already installed dependencies.
       const projectPath = await createTempDir();
       if (fs.existsSync(projectPath))
         await fs.promises.rm(projectPath, { recursive: true });
       console.log(`Creating project in ${projectPath}`);
+      const runCmd = (cmd: string, {subdir=''}: {subdir?: string}={}) => {
+        const result = spawnSync(cmd, { shell: true, stdio: 'inherit', cwd: path.join(projectPath, subdir) });
+        if (result.status !== 0) {
+          console.error(`Command failed: ${cmd} with exit code ${result.status}`);
+        }
+      }
       await fs.promises.mkdir(projectPath);
-      spawnSync(`npm init playwright@latest --yes -- --quiet --browser=chromium --gha --install-deps`, {
-        cwd: projectPath,
-        stdio: 'inherit',
-        shell: true,
-      });
+      if (usePnp) {
+        runCmd('yarn init')
+        runCmd('yarn create playwright --pnp -- --quiet --browser=chromium --gha --install-deps')
+        fs.mkdirSync(path.join(projectPath, '.vscode'))
+        fs.writeFileSync(path.join(projectPath, '.vscode', 'settings.json'), JSON.stringify({
+          "playwright.env": {
+            "NODE_OPTIONS": "--require=${workspaceFolder}/.pnp.cjs --loader=${workspaceFolder}/.pnp.loader.mjs"
+          }
+        }), 'utf8');
+        // creating monorepo package
+        fs.mkdirSync(path.join(projectPath, 'other'))
+        runCmd('yarn init', {subdir: 'other'})
+        const packageJson = JSON.parse(fs.readFileSync(path.join(projectPath, 'package.json'), 'utf8'));
+        packageJson.workspaces = ["other"]
+        fs.writeFileSync(path.join(projectPath, 'package.json'), JSON.stringify(packageJson), 'utf8');
+        runCmd('yarn create playwright --pnp -- --quiet --browser=chromium --install-deps other')
+      } else {
+        runCmd(`npm init playwright@latest --yes -- --quiet --browser=chromium --gha --install-deps`);
+      }
       return projectPath;
     });
   },
