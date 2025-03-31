@@ -785,12 +785,9 @@ export class TestModelCollection extends DisposableBase {
   }
 
   async ensureHasEnabledModels() {
-    if (this._models.length && !this.hasEnabledModels()) {
-      for (const model of this._models)
-        this.setModelEnabled(model.config.configFile, true);
+    if (this._models.length && !this.hasEnabledModels())
+      this.setModelEnabled(this._models[0].config.configFile, false);
 
-      // this.setModelEnabled(this._models[0].config.configFile, false);
-    }
   }
 
   hasEnabledModels() {
