@@ -16,7 +16,7 @@
 
 import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 
-test('should pick locator', async ({ activate, overridePlaywrightVersion }) => {
+test('should pick locator and dismiss the toolbar', async ({ activate, overridePlaywrightVersion }) => {
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = {}`,
   });
@@ -46,6 +46,9 @@ test('should pick locator', async ({ activate, overridePlaywrightVersion }) => {
       - textbox "Aria": "- heading \\"Hello\\" [level=1]"
     `);
   }
+
+  await page.click('x-pw-tool-item.pick-locator');
+  await expect(page.locator('x-pw-tool-item.pick-locator')).toBeHidden();
 });
 
 test('should highlight locator on edit', async ({ activate }) => {

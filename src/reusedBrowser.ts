@@ -130,7 +130,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
     this._backend.on('setModeRequested', params => {
       if (params.mode === 'standby') {
-        this._resetNoWait('standby');
+        // When "pick locator" is cancelled from inside the browser UI,
+        // get rid of the recorder toolbar for better experience.
+        // Assume "pick locator" is active when we are not recording.
+        this._resetNoWait(this._cancelRecording ? 'standby' : 'none');
         return;
       }
       if (params.mode === 'recording' && !this._cancelRecording) {
