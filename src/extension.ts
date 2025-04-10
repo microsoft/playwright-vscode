@@ -22,13 +22,13 @@ import * as reporterTypes from './upstream/reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
-import { TestModel, TestModelCollection } from './testModel';
+import { kTestRunOptions, TestModel, TestModelCollection, TestProject } from './testModel';
 import { disabledProjectName as disabledProject, TestTree } from './testTree';
 import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
-import { RunHooks, TestConfig } from './playwrightTestTypes';
+import { PlaywrightTestRunOptions, RunHooks, TestConfig } from './playwrightTestTypes';
 import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
 
@@ -103,7 +103,7 @@ export class Extension implements RunHooks {
     });
 
     this._settingsModel = new SettingsModel(vscode, context);
-    this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
+    this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this), this._showBrowserForRecording.bind(this));
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._models = new TestModelCollection(vscode, {
       context,
@@ -632,6 +632,28 @@ export class Extension implements RunHooks {
     }
     if (testItems.length)
       await this._queueWatchRun(new this._vscode.TestRunRequest(testItems), 'items');
+  }
+
+  private async _showBrowserForRecording(file: string, project: TestProject, connectWsEndpoint: string) {
+    const fileItem = this._testTree.testItemForFile(file);
+    if (!fileItem)
+      throw new Error(`File item not found for ${file}`);
+    if (fileItem.children.size !== 1)
+      throw new Error('expected single test in file');
+
+    const testItems = this._testTree.collectTestsInside(fileItem);
+    const testForProject = testItems.length === 1 ? testItems[0] : testItems.find(t => t.label === project.name);
+    if (!testForProject)
+      throw new Error(`Test item not found for ${project.name}`);
+
+    const request = new this._vscode.TestRunRequest([testForProject], undefined, undefined, false, true);
+    (request as any)[kTestRunOptions] = {
+      connectWsEndpoint,
+      headed: true,
+      reuseContext: true,
+    } satisfies PlaywrightTestRunOptions;
+
+    await this._queueTestRun(request, 'run');
   }
 
   private async _updateVisibleEditorItems() {

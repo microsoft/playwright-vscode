@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { expect as baseExpect, test as baseTest, Browser, chromium, Page } from '@playwright/test';
+import { expect as baseExpect, test as baseTest, Browser, BrowserContextOptions, chromium, Page } from '@playwright/test';
 // @ts-ignore
 import { Extension } from '../out/extension';
 import { TestController, VSCode, WorkspaceFolder, TestRun, TestItem } from './mock/vscode';
@@ -197,10 +197,10 @@ export async function connectToSharedBrowser(vscode: VSCode) {
   return await chromium.connect(wsEndpoint);
 }
 
-export async function waitForPage(browser: Browser) {
+export async function waitForPage(browser: Browser, params?: BrowserContextOptions) {
   let pages: Page[] = [];
   await expect.poll(async () => {
-    const context = await (browser as any)._newContextForReuse();
+    const context = await (browser as any)._newContextForReuse(params);
     pages = context.pages();
     return pages.length;
   }).toBeTruthy();
