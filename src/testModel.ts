@@ -33,6 +33,8 @@ import { collectTestIds } from './upstream/testTree';
 import { TraceViewer } from './traceViewer';
 import { SpawnTraceViewer } from './spawnTraceViewer';
 
+export const kTestRunOptions = Symbol('kTestRunOptions');
+
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
 export type TestProject = {
@@ -344,7 +346,7 @@ export class TestModel extends DisposableBase {
     const enabledFiles = this.enabledFiles();
     const filesToListTests = inputFiles.filter(f => enabledFiles.has(f) && !this._filesWithListedTests.has(f));
     if (!filesToListTests.length)
-      return;
+      return this._filesPendingListTests?.promise;
 
     for (const file of filesToListTests)
       this._filesWithListedTests.add(file);
@@ -551,6 +553,7 @@ export class TestModel extends DisposableBase {
       connectWsEndpoint: showBrowser ? externalOptions.connectWsEndpoint : undefined,
       updateSnapshots: noOverrideToUndefined(this._embedder.settingsModel.updateSnapshots.get()),
       updateSourceMethod: noOverrideToUndefined(this._embedder.settingsModel.updateSourceMethod.get()),
+      ...(request as any)[kTestRunOptions],
     };
 
     try {
