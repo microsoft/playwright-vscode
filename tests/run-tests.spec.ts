@@ -1309,7 +1309,6 @@ test('should provide page snapshot to copilot', async ({ activate, overridePlayw
     'playwright.config.js': `module.exports = { testDir: 'tests', workers: 2 }`,
     'tests/test1.spec.ts': `
         import { test, expect } from '@playwright/test';
-        import * as fs from 'node:fs/promises';
   
         test('one', async ({ page }) => {
           await page.setContent('<button>click me</button>');
