@@ -183,6 +183,7 @@ export class PlaywrightTestServer {
       projects: this._model.enabledProjectsFilter(),
       locations: locationPatterns,
       testIds,
+      attachErrorContext: true,
       ...runOptions,
     };
     connection.runTests(options);
@@ -307,6 +308,7 @@ export class PlaywrightTestServer {
         projects: this._model.enabledProjectsFilter(),
         locations: locationPatterns,
         testIds,
+        attachErrorContext: true,
         ...runOptions,
       };
       debugTestServer.runTests(options);

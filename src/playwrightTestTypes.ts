@@ -49,3 +49,7 @@ export type PlaywrightTestOptions = {
   envProvider: () => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
 };
+
+export type ErrorContext = {
+  pageSnapshot?: string;
+};

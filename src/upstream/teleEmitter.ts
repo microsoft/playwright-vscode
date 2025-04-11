@@ -239,10 +239,11 @@ export class TeleReporterEmitter implements ReporterV2 {
 
   _serializeAttachments(attachments: reporterTypes.TestResult['attachments']): teleReceiver.JsonAttachment[] {
     return attachments.map(a => {
+      const omit = this._emitterOptions.omitBuffers && a.name !== '_error-context';
       return {
         ...a,
         // There is no Buffer in the browser, so there is no point in sending the data there.
-        base64: (a.body && !this._emitterOptions.omitBuffers) ? a.body.toString('base64') : undefined,
+        base64: (a.body && !omit) ? a.body.toString('base64') : undefined,
       };
     });
   }
