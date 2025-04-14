@@ -761,7 +761,7 @@ export class Extension implements RunHooks {
     markdownString.appendMarkdown(ansi2html(this._abbreviateStack(text)));
 
     if (aiContext)
-      markdownString.appendMarkdown(`\n`.repeat(10) + `## Context for AI\n${aiContext}`);
+      markdownString.appendMarkdown(`<br><br><details><summary>Context for AI</summary>\n${aiContext}\n</details>`);
 
     return new this._vscode.TestMessage(markdownString);
   }
