@@ -18,22 +18,29 @@ import { DisposableBase } from './disposableBase';
 import type { ReusedBrowser } from './reusedBrowser';
 import type { SettingsModel } from './settingsModel';
 import type { TestModelCollection } from './testModel';
+import { TestError } from './upstream/reporter';
 import { getNonce, html } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
 
-type ConfigEntry = {
+export type ConfigEntry = {
   label: string;
   configFile: string;
   selected: boolean;
   enabled: boolean;
   projects: ProjectEntry[];
+  errors: TestError[];
 };
 
 type ProjectEntry = {
   name: string;
   enabled: boolean;
 };
+
+export interface ModelsMessage {
+  configs: ConfigEntry[];
+  showModelSelector: boolean;
+}
 
 export class SettingsView extends DisposableBase implements vscodeTypes.WebviewViewProvider {
   private _view: vscodeTypes.WebviewView | undefined;
@@ -145,18 +152,23 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
     const workspaceFolders = new Set<string>();
     this._models.enabledModels().forEach(model => workspaceFolders.add(model.config.workspaceFolder));
 
+    let showModelSelector = this._models.models().length > 1;
     for (const model of this._models.enabledModels()) {
       const prefix = workspaceFolders.size > 1 ? path.basename(model.config.workspaceFolder) + path.sep : '';
+      const errors = model.errors().get(model.config.configFile);
+      if (errors.length > 0)
+        showModelSelector = true;
       configs.push({
         label: prefix + path.relative(model.config.workspaceFolder, model.config.configFile),
         configFile: model.config.configFile,
         selected: model === this._models.selectedModel(),
         enabled: model.isEnabled,
         projects: model.projects().map(p => ({ name: p.name, enabled: p.isEnabled })),
+        errors,
       });
     }
 
-    this._view.webview.postMessage({ method: 'models', params: { configs, showModelSelector: this._models.models().length > 1 } });
+    this._view.webview.postMessage({ method: 'models', params: { configs, showModelSelector } satisfies ModelsMessage });
   }
 
   toggleModels() {
@@ -222,6 +234,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
         <div class="combobox">
           <select data-testid="models" id="models" title="${vscode.l10n.t('Select Playwright Config')}" ></select>
         </div>
+        <div class="model-errors" id="model-errors"></div>
       </div>
       <div class="section-header">
         ${vscode.l10n.t('PROJECTS')}

@@ -196,3 +196,8 @@ body[data-vscode-theme-kind=vscode-dark] .combobox:hover {
 .locators-view #locator {
   flex: auto;
 }
+
+.model-errors {
+  padding-left: 16px;
+  color: var(--vscode-errorForeground);
+}
