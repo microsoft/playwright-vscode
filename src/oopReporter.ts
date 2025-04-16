@@ -42,7 +42,7 @@ class TeleReporter extends TeleReporterEmitter {
         console.log(message);
       };
     }
-    super(messageSink, { omitBuffers: true, omitOutput: true });
+    super(messageSink, { omitBuffers: false, omitOutput: true });
     this._hasSender = !!options?._send;
   }
 
