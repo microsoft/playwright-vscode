@@ -1302,4 +1302,24 @@ test.describe('runGlobalSetupOnEachRun', { annotation: { type: 'issue', descript
   });
 });
 
+test('should provide page snapshot to copilot', async ({ activate, overridePlaywrightVersion }) => {
+  test.skip(!!overridePlaywrightVersion, 'requires testserver');
 
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests', workers: 2 }`,
+    'tests/test1.spec.ts': `
+        import { test, expect } from '@playwright/test';
+  
+        test('one', async ({ page }) => {
+          await page.setContent('<button>click me</button>');
+          expect(1).toBe(2);
+        });
+      `,
+  });
+
+  const testRun = await testController.run();
+  const log = testRun.renderLog({ messages: true });
+  expect(log).toContain(`<details><summary>Context for AI</summary>`);
+  expect(log).toContain(`### Page Snapshot at Failure`);
+  expect(log).toContain(`- button "click me"`);
+});
