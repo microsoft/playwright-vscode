@@ -15,7 +15,7 @@
  */
 
 import type { TestConfig } from './playwrightTestTypes';
-import type { TestModel, TestModelCollection } from './testModel';
+import type { TestModel, TestModelCollection, TestProject } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
@@ -44,8 +44,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _editOperations = Promise.resolve();
   private _pausedOnPagePause = false;
   private _settingsModel: SettingsModel;
+  private _showBrowserForRecording: (file: string, project: TestProject, wsEndpoint: string) => Promise<void>;
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv, _showBrowserForRecording: (file: string, project: TestProject, wsEndpoint: string) => Promise<void>) {
     this._vscode = vscode;
     this._envProvider = envProvider;
     this._onPageCountChangedEvent = new vscode.EventEmitter();
@@ -56,6 +57,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this.onHighlightRequestedForTest = this._onHighlightRequestedForTestEvent.event;
     this._onInspectRequestedEvent = new vscode.EventEmitter();
     this.onInspectRequested = this._onInspectRequestedEvent.event;
+    this._showBrowserForRecording = _showBrowserForRecording;
 
     this._settingsModel = settingsModel;
 
@@ -298,17 +300,21 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, recordNew: boolean, token: vscodeTypes.CancellationToken) {
-    const startBackend = this._startBackendIfNeeded(model.config);
-    if (recordNew)
-      await this._createFileForNewTest(model);
-    await startBackend;
+    await this._startBackendIfNeeded(model.config);
     this._insertedEditActionCount = 0;
 
     progress.report({ message: 'starting\u2026' });
 
     if (recordNew) {
-      await this._backend?.resetForReuse();
-      await this._backend?.navigate({ url: 'about:blank' });
+      const file = await this._createFileForNewTest(model);
+      if (!file)
+        return;
+      await model.handleWorkspaceChange({ created: new Set([file]), changed: new Set(), deleted: new Set() });
+      await model.ensureTests([file]);
+      const project = model.enabledProjects()[0];
+      if (!project)
+        return;
+      await this._showBrowserForRecording(file, project, this._backend!.wsEndpoint);
     }
 
     // Register early to have this._cancelRecording assigned during re-entry.
@@ -368,6 +374,7 @@ test('test', async ({ page }) => {
     const document = await this._vscode.workspace.openTextDocument(file);
     const editor = await this._vscode.window.showTextDocument(document);
     editor.selection = new this._vscode.Selection(new this._vscode.Position(3, 2), new this._vscode.Position(3, 2 + '// Recording...'.length));
+    return file;
   }
 
   async onWillRunTests(config: TestConfig, debug: boolean) {
