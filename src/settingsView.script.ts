@@ -15,6 +15,7 @@
  */
 
 import { Config, createAction, ProjectEntry, vscode } from './common';
+import type { ConfigEntry, ModelsMessage } from './settingsView';
 
 let selectConfig: Config;
 
@@ -97,10 +98,31 @@ window.addEventListener('message', event => {
         actionsElement.appendChild(actionElement);
     }
   } else if (method === 'models') {
-    const { configs, showModelSelector } = params;
+    const { configs, showModelSelector } = params as ModelsMessage;
     const select = document.getElementById('models') as HTMLSelectElement;
+
+    function updateConfigErrors(config: ConfigEntry) {
+      const configErrors = document.getElementById('model-errors') as HTMLParagraphElement;
+      configErrors.textContent = '';
+      for (const error of config.errors) {
+        if (!error.message)
+          continue;
+
+        const errorParagraph = document.createElement('p');
+        errorParagraph.textContent = error.message + ' ';
+        if (error.location) {
+          const errorLink = document.createElement('a');
+          errorLink.textContent = `at ${error.location.file.split('/').pop()}:${error.location.line}`;
+          errorLink.role = 'link';
+          errorLink.onclick = () => vscode.postMessage({ method: 'openFile', params: { location: error.location! } });
+          errorParagraph.appendChild(errorLink);
+        }
+        configErrors.appendChild(errorParagraph);
+      }
+    }
+
     select.textContent = '';
-    const configsMap = new Map();
+    const configsMap = new Map<string, ConfigEntry>();
     for (const config of configs) {
       configsMap.set(config.configFile, config);
       const option = document.createElement('option');
@@ -111,11 +133,14 @@ window.addEventListener('message', event => {
         selectConfig = config;
         select.value = config.configFile;
         updateProjects(config.projects);
+        updateConfigErrors(config);
       }
     }
     select.addEventListener('change', event => {
       vscode.postMessage({ method: 'selectModel', params: { configFile: select.value } });
-      updateProjects(configsMap.get(select.value).projects);
+      const config = configsMap.get(select.value)!;
+      updateProjects(config.projects);
+      updateConfigErrors(config);
     });
     modelSelector.style.display = showModelSelector ? 'flex' : 'none';
   }

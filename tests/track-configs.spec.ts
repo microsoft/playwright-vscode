@@ -120,3 +120,32 @@ test('should remove model for config', async ({ activate }) => {
     { method: 'listFiles', params: {} },
   ]);
 });
+
+
+test('should show config loading errors', async ({ vscode, activate }) => {
+  await activate({
+    'playwright1.config.js': `
+      throw new Error('kaboom');
+    `,
+    'playwright2.config.js': `
+      module.exports = { testDir: 'tests' }
+    `,
+  });
+  await enableConfigs(vscode, ['playwright1.config.js', 'playwright2.config.js']);
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await expect(webView.locator('body')).toMatchAriaSnapshot(`
+    - text: CONFIGS
+    - combobox "Select Playwright Config":
+      - option "playwright1.config.js" [selected]
+      - option "playwright2.config.js"
+    - paragraph:
+      - text: "Error: kaboom"
+      - link "at playwright1.config.js:2"
+  `);
+  await webView.getByRole('link', { name: 'at playwright1.config.js:2' }).click();
+  await expect.poll(() => vscode.window.activeTextEditor?.document.uri.toString()).toContain('playwright1.config.js');
+
+  await webView.getByRole('combobox', { name: 'Select Playwright Config' }).selectOption('playwright2.config.js');
+  await expect(webView.getByText('Error: kaboom')).not.toBeVisible();
+});
