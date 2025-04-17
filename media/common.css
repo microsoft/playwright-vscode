@@ -201,3 +201,11 @@ body[data-vscode-theme-kind=vscode-dark] .combobox:hover {
   padding-left: 16px;
   color: var(--vscode-errorForeground);
 }
+
+.model-errors a {
+  cursor: pointer;
+}
+
+.model-errors a:hover {
+  text-decoration: underline;
+}

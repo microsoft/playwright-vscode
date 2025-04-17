@@ -18,7 +18,7 @@ import { DisposableBase } from './disposableBase';
 import type { ReusedBrowser } from './reusedBrowser';
 import type { SettingsModel } from './settingsModel';
 import type { TestModelCollection } from './testModel';
-import { TestError } from './upstream/reporter';
+import { Location, TestError } from './upstream/reporter';
 import { getNonce, html } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
@@ -77,7 +77,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
     };
 
     webviewView.webview.html = htmlForWebview(this._vscode, this._extensionUri, webviewView.webview);
-    this._disposables.push(webviewView.webview.onDidReceiveMessage(data => {
+    this._disposables.push(webviewView.webview.onDidReceiveMessage(async data => {
       if (data.method === 'execute') {
         this._vscode.commands.executeCommand(data.params.command);
       } else if (data.method === 'toggle') {
@@ -92,6 +92,10 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         this._models.setAllProjectsEnabled(configFile, enabled);
       } else if (data.method === 'selectModel') {
         this._models.selectModel(data.params.configFile);
+      } else if (data.method === 'openFile') {
+        const location = data.params.location as Location;
+        const document = await this._vscode.workspace.openTextDocument(location.file);
+        await this._vscode.window.showTextDocument(document);
       }
     }));
 

@@ -108,16 +108,16 @@ window.addEventListener('message', event => {
         if (!error.message)
           continue;
 
-        const errorElement = document.createElement('div');
-        errorElement.textContent = error.message;
-        configErrors.appendChild(errorElement);
+        const errorParagraph = document.createElement('p');
+        errorParagraph.textContent = error.message + ' ';
         if (error.location) {
           const errorLink = document.createElement('a');
-          const filename = error.location.file.split('/').pop();
-          errorLink.textContent = 'at ' + filename + ':' + error.location.line;
-          vscode.postMessage({ method: 'openFile', params: location });
-          errorElement.appendChild(errorLink);
+          errorLink.textContent = `at ${error.location.file.split('/').pop()}:${error.location.line}`;
+          errorLink.role = 'link';
+          errorLink.onclick = () => vscode.postMessage({ method: 'openFile', params: { location: error.location! } });
+          errorParagraph.appendChild(errorLink);
         }
+        configErrors.appendChild(errorParagraph);
       }
     }
 
