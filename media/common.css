@@ -209,3 +209,8 @@ body[data-vscode-theme-kind=vscode-dark] .combobox:hover {
 .model-errors a:hover {
   text-decoration: underline;
 }
+
+.model-errors ul {
+  margin: 0;
+  padding-left: 16px;
+}

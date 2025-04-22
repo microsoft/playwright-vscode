@@ -139,11 +139,12 @@ test('should show config loading errors', async ({ vscode, activate }) => {
     - combobox "Select Playwright Config":
       - option "playwright1.config.js" [selected]
       - option "playwright2.config.js"
-    - paragraph:
-      - text: "Unable to load"
-      - link "playwright1.config.js"
+    - text: "Config loading errors:"
+    - list:
+      - listitem:
+        - link "Open playwright1.config.js:2"
   `);
-  await webView.getByRole('link', { name: 'playwright1.config.js' }).click();
+  await webView.getByRole('link', { name: 'Open playwright1.config.js:2' }).click();
   await expect.poll(() => vscode.window.activeTextEditor?.document.uri.toString()).toContain('playwright1.config.js');
 
   await webView.getByRole('combobox', { name: 'Select Playwright Config' }).selectOption('playwright2.config.js');

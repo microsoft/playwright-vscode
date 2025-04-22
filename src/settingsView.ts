@@ -95,7 +95,10 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
       } else if (data.method === 'openFile') {
         const location = data.params.location as Location;
         const document = await this._vscode.workspace.openTextDocument(location.file);
-        await this._vscode.window.showTextDocument(document);
+        const position = new this._vscode.Position(location.line - 1, location.column - 1);
+        await this._vscode.window.showTextDocument(document, {
+          selection: new this._vscode.Range(position, position)
+        });
       }
     }));
 
@@ -238,7 +241,10 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
         <div class="combobox">
           <select data-testid="models" id="models" title="${vscode.l10n.t('Select Playwright Config')}" ></select>
         </div>
-        <div class="model-errors" id="model-errors"></div>
+        <div class="model-errors" id="model-errors" style="display: none">
+          Config loading errors:
+          <ul id="model-errors-list"></ul>
+        </div>
       </div>
       <div class="section-header">
         ${vscode.l10n.t('PROJECTS')}

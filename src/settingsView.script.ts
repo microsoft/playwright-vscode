@@ -23,6 +23,8 @@ const selectAllButton = document.getElementById('selectAll') as HTMLAnchorElemen
 const unselectAllButton = document.getElementById('unselectAll') as HTMLAnchorElement;
 const toggleModels = document.getElementById('toggleModels') as HTMLAnchorElement;
 
+const basename = (path: string) => path.split('/').pop()!;
+
 function updateProjects(projects: ProjectEntry[]) {
   const projectsElement = document.getElementById('projects') as HTMLElement;
   projectsElement.textContent = '';
@@ -102,25 +104,22 @@ window.addEventListener('message', event => {
     const select = document.getElementById('models') as HTMLSelectElement;
 
     function updateConfigErrors(config: ConfigEntry) {
-      const configErrors = document.getElementById('model-errors') as HTMLParagraphElement;
-      configErrors.textContent = '';
+      const configErrors = document.getElementById('model-errors') as HTMLDivElement;
+      if (config.errors.length === 0)
+        return configErrors.style.display = 'none';
+
+      configErrors.style.display = 'block';
+      const configErrorsList = document.getElementById('model-errors-list') as HTMLUListElement;
+      configErrorsList.textContent = '';
       for (const error of config.errors) {
-        if (!error.message)
-          continue;
-
-        const errorParagraph = document.createElement('p');
-        errorParagraph.textContent = 'Unable to load ';
-        if (error.location) {
-          const errorLink = document.createElement('a');
-          errorLink.textContent = `${error.location.file.split('/').pop()}`;
-          errorLink.role = 'link';
-          errorLink.onclick = () => vscode.postMessage({ method: 'openFile', params: { location: error.location! } });
-          errorParagraph.appendChild(errorLink);
-        } else {
-          errorParagraph.textContent += ' config file';
-        }
-
-        configErrors.appendChild(errorParagraph);
+        const errorListItem = document.createElement('li');
+        const errorLink = document.createElement('a');
+        errorLink.textContent = error.location ? `${basename(error.location.file)}:${error.location.line}` : basename(config.configFile);
+        errorLink.onclick = () => vscode.postMessage({ method: 'openFile', params: { location: error.location ?? { file: config.configFile, column: 0, line: 0 } } });
+        errorLink.role = 'link';
+        errorLink.ariaLabel = `Open ${errorLink.textContent}`;
+        errorListItem.appendChild(errorLink);
+        configErrorsList.appendChild(errorListItem);
       }
     }
 
