@@ -109,14 +109,17 @@ window.addEventListener('message', event => {
           continue;
 
         const errorParagraph = document.createElement('p');
-        errorParagraph.textContent = error.message + ' ';
+        errorParagraph.textContent = 'Unable to load ';
         if (error.location) {
           const errorLink = document.createElement('a');
-          errorLink.textContent = `at ${error.location.file.split('/').pop()}:${error.location.line}`;
+          errorLink.textContent = `${error.location.file.split('/').pop()}`;
           errorLink.role = 'link';
           errorLink.onclick = () => vscode.postMessage({ method: 'openFile', params: { location: error.location! } });
           errorParagraph.appendChild(errorLink);
+        } else {
+          errorParagraph.textContent += ' config file';
         }
+
         configErrors.appendChild(errorParagraph);
       }
     }
