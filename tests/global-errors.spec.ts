@@ -51,7 +51,7 @@ test('should report error in global setup (implicit)', async ({ activate, overri
     }`,
     'globalSetup.ts': `
       import { expect } from '@playwright/test';
-      async function globalSetup(config: FullConfig) {
+      async function globalSetup(config) {
         expect(true).toBe(false);
       }
       export default globalSetup;`,
@@ -95,7 +95,7 @@ test('should report error in global setup (explicit)', async ({ activate, overri
     }`,
     'globalSetup.ts': `
       import { expect } from '@playwright/test';
-      async function globalSetup(config: FullConfig) {
+      async function globalSetup(config) {
         expect(true).toBe(false);
       }
       export default globalSetup;`,
