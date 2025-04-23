@@ -23,7 +23,7 @@ const selectAllButton = document.getElementById('selectAll') as HTMLAnchorElemen
 const unselectAllButton = document.getElementById('unselectAll') as HTMLAnchorElement;
 const toggleModels = document.getElementById('toggleModels') as HTMLAnchorElement;
 
-const basename = (path: string) => path.split(/\\\//).pop()!;
+const basename = (path: string) => path.split(/[\\\/]/).pop()!;
 
 function updateProjects(projects: ProjectEntry[]) {
   const projectsElement = document.getElementById('projects') as HTMLElement;
