@@ -953,7 +953,7 @@ test('should filter selected project', async ({ activate }) => {
     `,
     'tests2/test.spec.ts': `
       import { test } from '@playwright/test';
-      test(two', async () => {});
+      test('two', async () => {});
     `,
   });
 

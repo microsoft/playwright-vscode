@@ -249,7 +249,7 @@ function escapeRegex(text: string) {
 
 export const escapedPathSep = escapeRegex(path.sep);
 
-export async function selectTestItem(testItem: TestItem) {
+export function selectTestItem(testItem: TestItem) {
   testItem.testController.vscode.extensions[0].fireTreeItemSelectedForTest(testItem);
 }
 

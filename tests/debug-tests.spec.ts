@@ -124,7 +124,7 @@ test('should debug error', async ({ activate }, testInfo) => {
 
   const profile = testController.debugProfile();
   const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
-  profile.run(testItems);
+  void profile.run(testItems);
   const testRun = await testRunPromise;
 
   await expect.poll(() => vscode.debug.output, { timeout: 10000 }).toContain('READY TO BREAK');
@@ -164,7 +164,7 @@ test('should end test run when stopping the debugging', async ({ activate }, tes
 
   const profile = testController.debugProfile();
   const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
-  profile.run(testItems);
+  void profile.run(testItems);
   const testRun = await testRunPromise;
   await expect.poll(() => vscode.debug.output, { timeout: 10000 }).toContain('READY TO BREAK');
 
@@ -209,7 +209,7 @@ test('should end test run when stopping the debugging during config parsing', as
 
   const profile = testController.debugProfile();
   const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
-  profile.run(testItems);
+  void profile.run(testItems);
   const testRun = await testRunPromise;
   const endPromise = new Promise(f => testRun.onDidEnd(f));
   await expect.poll(() => vscode.debug.output).toContain('READY TO BREAK');
@@ -240,7 +240,7 @@ test('should pass all args as string[] when debugging', async ({ activate }) => 
   const profile = testController.debugProfile();
   const onDidStartDebugSession = new Promise<DebugSession>(resolve => vscode.debug.onDidStartDebugSession(resolve));
   const onDidTerminateDebugSession = new Promise(resolve => vscode.debug.onDidTerminateDebugSession(resolve));
-  profile.run(testItems);
+  void profile.run(testItems);
   const session = await onDidStartDebugSession;
   expect(session.configuration.args.filter((arg: any) => typeof arg !== 'string')).toEqual([]);
   await onDidTerminateDebugSession;
@@ -254,14 +254,14 @@ test('should run global setup before debugging', async ({ activate }, testInfo) 
       globalTeardown: 'globalTeardown.ts',
     }`,
     'globalSetup.ts': `
-      async function globalSetup(config: FullConfig) {
+      async function globalSetup(config) {
         console.log('RUN GLOBAL SETUP');
         process.env.MAGIC_NUMBER = '42';
       }
       export default globalSetup;
     `,
     'globalTeardown.ts': `
-      async function globalTeardown(config: FullConfig) {
+      async function globalTeardown(config) {
         console.log('RUN GLOBAL TEARDOWN');
         delete process.env.MAGIC_NUMBER;
       }

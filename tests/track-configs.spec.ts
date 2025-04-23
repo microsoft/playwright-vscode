@@ -21,8 +21,8 @@ test('should load first config', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
   `);
 
-  workspaceFolder.addFile('playwright.config.js', `module.exports = { testDir: 'tests' }`);
-  workspaceFolder.addFile('tests/test.spec.ts', `
+  await workspaceFolder.addFile('playwright.config.js', `module.exports = { testDir: 'tests' }`);
+  await workspaceFolder.addFile('tests/test.spec.ts', `
     import { test } from '@playwright/test';
     test('one', async () => {});
   `);
@@ -53,8 +53,8 @@ test('should load second config', async ({ activate }) => {
       -   test.spec.ts
   `);
 
-  workspaceFolder.addFile('playwright2.config.js', `module.exports = { testDir: 'tests2' }`);
-  workspaceFolder.addFile('tests2/test.spec.ts', `
+  await workspaceFolder.addFile('playwright2.config.js', `module.exports = { testDir: 'tests2' }`);
+  await workspaceFolder.addFile('tests2/test.spec.ts', `
     import { test } from '@playwright/test';
     test('one', async () => {});
   `);
@@ -102,7 +102,7 @@ test('should remove model for config', async ({ activate }) => {
       -   test.spec.ts
   `);
 
-  workspaceFolder.removeFile('playwright1.config.js');
+  await workspaceFolder.removeFile('playwright1.config.js');
 
   await expect(testController).toHaveTestTree(`
     -   tests2

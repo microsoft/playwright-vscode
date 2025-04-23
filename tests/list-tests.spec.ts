@@ -617,7 +617,7 @@ test('should support multiple projects', async ({ activate }) => {
     `,
     'tests/test2.spec.ts': `
       import { test } from '@playwright/test';
-      test(two', async () => {});
+      test('two', async () => {});
     `,
   });
 

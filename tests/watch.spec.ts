@@ -441,7 +441,7 @@ test('should batch watched tests, not queue', async ({ activate }, testInfo) => 
   // start blocking run
   const longTestRun = await new Promise<TestRun>(f => {
     testController.onDidCreateTestRun(f);
-    testController.run(testController.findTestItems(/long-test/));
+    void testController.run(testController.findTestItems(/long-test/));
   });
   await expect.poll(() => longTestRun.renderOutput()).toContain('long test started');
 
