@@ -145,7 +145,7 @@ class PersistentSetting<T> extends SettingBase<T> {
           this._onChange.fire(this.get()!);
       }),
       vscode.commands.registerCommand(`pw.extension.toggle.${settingName}`, async () => {
-        void this.set(!this.get() as T);
+        await this.set(!this.get() as T);
       }),
     ];
   }

@@ -167,7 +167,7 @@ export class Extension implements RunHooks {
       }),
       vscode.commands.registerCommand('pw.extension.installBrowsers', async () => {
         if (!this._models.hasEnabledModels()) {
-          void vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
+          await vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
         const versions = this._models.versions();
@@ -176,7 +176,7 @@ export class Extension implements RunHooks {
       }),
       vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
         if (!this._models.hasEnabledModels()) {
-          void vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
+          await vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
         await this._reusedBrowser.inspect(this._models);
@@ -186,14 +186,14 @@ export class Extension implements RunHooks {
       }),
       vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
         if (!this._models.hasEnabledModels()) {
-          void vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
+          await vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
         await this._reusedBrowser.record(this._models, true);
       }),
       vscode.commands.registerCommand('pw.extension.command.recordAtCursor', async () => {
         if (!this._models.hasEnabledModels()) {
-          void vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
+          await vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
         await this._reusedBrowser.record(this._models, false);
@@ -232,7 +232,9 @@ export class Extension implements RunHooks {
       }),
       this._testTree,
       this._models,
-      this._models.onUpdated(() => this._modelsUpdated()),
+      this._models.onUpdated(() => {
+        void this._modelsUpdated();
+      }),
       this._treeItemObserver.onTreeItemSelected(item => this._treeItemSelected(item)),
       this._settingsView,
       this._locatorsView,
@@ -321,8 +323,8 @@ export class Extension implements RunHooks {
     return configFiles;
   }
 
-  private _modelsUpdated() {
-    void this._updateVisibleEditorItems();
+  private async _modelsUpdated() {
+    await this._updateVisibleEditorItems();
     this._updateDiagnostics();
     this._workspaceObserver.setWatchFolders(this._models.testDirs());
   }

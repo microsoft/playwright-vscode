@@ -80,7 +80,7 @@ export class PlaywrightTestServer {
       resolvePath,
     });
     for (const message of report)
-      await teleReceiver.dispatch(message);
+      void teleReceiver.dispatch(message);
     return result;
   }
 
@@ -99,7 +99,7 @@ export class PlaywrightTestServer {
       resolvePath,
     });
     for (const message of report)
-      await teleReceiver.dispatch(message);
+      void teleReceiver.dispatch(message);
   }
 
   async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
@@ -399,10 +399,10 @@ export class PlaywrightTestServer {
     });
     return new Promise<void>(resolve => {
       const disposables = [
-        testServer.onReport(message => {
+        testServer.onReport(async message => {
           if (token.isCancellationRequested && message.method !== 'onEnd')
             return;
-          void teleReceiver.dispatch(message);
+          await teleReceiver.dispatch(message);
           if (message.method === 'onEnd') {
             disposables.forEach(d => d.dispose());
             resolve();
