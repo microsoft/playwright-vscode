@@ -79,11 +79,11 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
     webviewView.webview.html = htmlForWebview(this._vscode, this._extensionUri, webviewView.webview);
     this._disposables.push(webviewView.webview.onDidReceiveMessage(async data => {
       if (data.method === 'execute') {
-        this._vscode.commands.executeCommand(data.params.command);
+        void this._vscode.commands.executeCommand(data.params.command);
       } else if (data.method === 'toggle') {
-        this._vscode.commands.executeCommand(`pw.extension.toggle.${data.params.setting}`);
+        void this._vscode.commands.executeCommand(`pw.extension.toggle.${data.params.setting}`);
       } else if (data.method === 'set') {
-        this._settingsModel.setting(data.params.setting)!.set(data.params.value);
+        void this._settingsModel.setting(data.params.setting)!.set(data.params.value);
       } else if (data.method === 'setProjectEnabled') {
         const { configFile, projectName, enabled } = data.params;
         this._models.setProjectEnabled(configFile, projectName, enabled);
@@ -125,7 +125,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
   }
 
   private _updateSettings() {
-    this._view!.webview.postMessage({ method: 'settings', params: { settings: this._settingsModel.json() } });
+    void this._view!.webview.postMessage({ method: 'settings', params: { settings: this._settingsModel.json() } });
   }
 
   private _updateActions() {
@@ -149,7 +149,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
       },
     ];
     if (this._view)
-      this._view.webview.postMessage({ method: 'actions', params: { actions } });
+      void this._view.webview.postMessage({ method: 'actions', params: { actions } });
   }
 
   private _updateModels() {
@@ -175,7 +175,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
       });
     }
 
-    this._view.webview.postMessage({ method: 'models', params: { configs, showModelSelector } satisfies ModelsMessage });
+    void this._view.webview.postMessage({ method: 'models', params: { configs, showModelSelector } satisfies ModelsMessage });
   }
 
   toggleModels() {
@@ -194,7 +194,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
       options.push(modelItem);
     }
     options.sort((a, b) => a.label.localeCompare(b.label));
-    this._vscode.window.showQuickPick(options, {
+    void this._vscode.window.showQuickPick(options, {
       title: this._vscode.l10n.t('Toggle Playwright Configs'),
       canPickMany: true,
     }).then(result => {

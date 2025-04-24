@@ -80,7 +80,7 @@ export class PlaywrightTestServer {
       resolvePath,
     });
     for (const message of report)
-      teleReceiver.dispatch(message);
+      await teleReceiver.dispatch(message);
     return result;
   }
 
@@ -99,7 +99,7 @@ export class PlaywrightTestServer {
       resolvePath,
     });
     for (const message of report)
-      teleReceiver.dispatch(message);
+      await teleReceiver.dispatch(message);
   }
 
   async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
@@ -130,7 +130,7 @@ export class PlaywrightTestServer {
           new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
         ]);
         for (const message of report)
-          teleReceiver.dispatch(message);
+          await teleReceiver.dispatch(message);
         return status;
       }
       const { report, status } = await Promise.race([
@@ -138,7 +138,7 @@ export class PlaywrightTestServer {
         new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
       ]);
       for (const message of report)
-        teleReceiver.dispatch(message);
+        await teleReceiver.dispatch(message);
       return status;
     } finally {
       disposable.dispose();
@@ -186,7 +186,7 @@ export class PlaywrightTestServer {
       errorContext: { format: 'json' },
       ...runOptions,
     };
-    connection.runTests(options);
+    void connection.runTests(options);
 
     token.onCancellationRequested(() => {
       connection.stopTestsNoReply({});
@@ -311,7 +311,7 @@ export class PlaywrightTestServer {
         errorContext: { format: 'json' },
         ...runOptions,
       };
-      debugTestServer.runTests(options);
+      void debugTestServer.runTests(options);
 
       disposables.push(token.onCancellationRequested(() => {
         debugTestServer!.stopTestsNoReply({});
@@ -402,7 +402,7 @@ export class PlaywrightTestServer {
         testServer.onReport(message => {
           if (token.isCancellationRequested && message.method !== 'onEnd')
             return;
-          teleReceiver.dispatch(message);
+          void teleReceiver.dispatch(message);
           if (message.method === 'onEnd') {
             disposables.forEach(d => d.dispose());
             resolve();
@@ -424,7 +424,7 @@ export class PlaywrightTestServer {
     const testServer = this._testServerPromise;
     this._testServerPromise = undefined;
     if (testServer)
-      testServer.then(server => server.connection?.close());
+      void testServer.then(server => server.connection?.close());
   }
 }
 

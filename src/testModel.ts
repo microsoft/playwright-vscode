@@ -62,7 +62,7 @@ export class TestModel extends DisposableBase {
   private _vscode: vscodeTypes.VSCode;
   readonly config: TestConfig;
   private _projects = new Map<string, TestProject>();
-  private _playwrightTest: PlaywrightTestCLI | PlaywrightTestServer;
+  private _playwrightTest: PlaywrightTestServer | PlaywrightTestCLI;
   private _watches = new Set<Watch>();
   private _fileToSources: Map<string, string[]> = new Map();
   private _sourceToFile: Map<string, string> = new Map();
@@ -688,7 +688,7 @@ export class TestModel extends DisposableBase {
     if (this.config.version >= version)
       return true;
     if (userGesture) {
-      this._vscode.window.showWarningMessage(
+      void this._vscode.window.showWarningMessage(
           this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, this.config.version)
       );
     }
@@ -726,7 +726,7 @@ export class TestModelCollection extends DisposableBase {
       this._saveSettings();
     model.reset();
     const configSettings = this._configSettings(model.config);
-    model._loadModelIfNeeded(configSettings).then(() => this._didUpdate.fire());
+    void model._loadModelIfNeeded(configSettings).then(() => this._didUpdate.fire());
   }
 
   setProjectEnabled(configFile: string, name: string, enabled: boolean) {
@@ -783,7 +783,7 @@ export class TestModelCollection extends DisposableBase {
     return (workspaceSettings.configs || []).find(c => c.relativeConfigFile === path.relative(config.workspaceFolder, config.configFile));
   }
 
-  async ensureHasEnabledModels() {
+  ensureHasEnabledModels() {
     if (this._models.length && !this.hasEnabledModels())
       this.setModelEnabled(this._models[0].config.configFile, false);
   }
@@ -850,7 +850,7 @@ export class TestModelCollection extends DisposableBase {
         projects: model.projects().map(p => ({ name: p.name, enabled: p.isEnabled })),
       });
     }
-    this.embedder.context.workspaceState.update(workspaceStateKey, workspaceSettings);
+    void this.embedder.context.workspaceState.update(workspaceStateKey, workspaceSettings);
   }
 }
 

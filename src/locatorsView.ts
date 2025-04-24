@@ -63,7 +63,7 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
     webviewView.webview.html = htmlForWebview(this._vscode, this._extensionUri, webviewView.webview);
     this._disposables.push(webviewView.webview.onDidReceiveMessage(data => {
       if (data.method === 'execute') {
-        this._vscode.commands.executeCommand(data.params.command);
+        void this._vscode.commands.executeCommand(data.params.command);
       } else if (data.method === 'locatorChanged') {
         this._locator.locator = data.params.locator;
         this._reusedBrowser.highlight(this._locator.locator).then(() => {
@@ -83,7 +83,7 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
           this._updateValues();
         });
       } else if (data.method === 'toggle') {
-        this._vscode.commands.executeCommand(`pw.extension.toggle.${data.params.setting}`);
+        void this._vscode.commands.executeCommand(`pw.extension.toggle.${data.params.setting}`);
       }
     }));
 
@@ -108,11 +108,11 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
       }
     ];
     if (this._view)
-      this._view.webview.postMessage({ method: 'actions', params: { actions } });
+      void this._view.webview.postMessage({ method: 'actions', params: { actions } });
   }
 
   private _updateValues() {
-    this._view?.webview.postMessage({
+    void this._view?.webview.postMessage({
       method: 'update',
       params: {
         locator: this._locator,
@@ -124,7 +124,7 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
 
   private _updateSettings() {
     if (this._view)
-      this._view.webview.postMessage({ method: 'settings', params: { settings: this._settingsModel.json() } });
+      void this._view.webview.postMessage({ method: 'settings', params: { settings: this._settingsModel.json() } });
   }
 }
 
