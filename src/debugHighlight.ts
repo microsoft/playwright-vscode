@@ -55,18 +55,18 @@ export class DebugHighlight {
       }),
       vscode.languages.registerHoverProvider('typescript', {
         provideHover(document, position, token) {
-          self._highlightLocator(document, position, token).catch();
+          void self._highlightLocator(document, position, token).catch();
           return null;
         }
       }),
       vscode.languages.registerHoverProvider('javascript', {
         provideHover(document, position, token) {
-          self._highlightLocator(document, position, token).catch();
+          void self._highlightLocator(document, position, token).catch();
           return null;
         }
       }),
       vscode.window.onDidChangeTextEditorSelection(event => {
-        self._highlightLocator(event.textEditor.document, event.selections[0].start).catch();
+        void self._highlightLocator(event.textEditor.document, event.selections[0].start).catch();
       }),
       vscode.window.onDidChangeVisibleTextEditors(event => {
         pruneHighlightCaches(vscode.window.visibleTextEditors.map(e => e.document.fileName));

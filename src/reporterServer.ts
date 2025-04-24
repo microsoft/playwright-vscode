@@ -103,7 +103,7 @@ export class ReporterServer {
         return;
       if (message.method === 'onEnd')
         transport.close();
-      teleReceiver.dispatch(message as any);
+      void teleReceiver.dispatch(message as any);
     };
 
     await new Promise<void>(f => transport.onclose = f);

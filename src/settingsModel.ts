@@ -66,11 +66,11 @@ export class SettingsModel extends DisposableBase {
         this._onChange,
         this.showBrowser.onChange(enabled => {
           if (enabled && this.showTrace.get())
-            this.showTrace.set(false);
+            void this.showTrace.set(false);
         }),
         this.showTrace.onChange(enabled => {
           if (enabled && this.showBrowser.get())
-            this.showBrowser.set(false);
+            void this.showBrowser.set(false);
         }),
     );
 
@@ -80,8 +80,8 @@ export class SettingsModel extends DisposableBase {
   private _modernize() {
     const workspaceSettings = this._vscode.workspace.getConfiguration('playwright').get('workspaceSettings') as any;
     if (workspaceSettings?.configs && !this._context.workspaceState.get(workspaceStateKey)) {
-      this._context.workspaceState.update(workspaceStateKey, { configs: workspaceSettings.configs });
-      this._vscode.workspace.getConfiguration('playwright').update('workspaceSettings', undefined);
+      void this._context.workspaceState.update(workspaceStateKey, { configs: workspaceSettings.configs });
+      void this._vscode.workspace.getConfiguration('playwright').update('workspaceSettings', undefined);
     }
   }
 
@@ -145,7 +145,7 @@ class PersistentSetting<T> extends SettingBase<T> {
           this._onChange.fire(this.get()!);
       }),
       vscode.commands.registerCommand(`pw.extension.toggle.${settingName}`, async () => {
-        this.set(!this.get() as T);
+        await this.set(!this.get() as T);
       }),
     ];
   }
@@ -159,8 +159,8 @@ class PersistentSetting<T> extends SettingBase<T> {
     const configuration = this._vscode.workspace.getConfiguration('playwright');
     const existsInWorkspace = configuration.inspect(this.settingName)?.workspaceValue !== undefined;
     if (existsInWorkspace)
-      configuration.update(this.settingName, value, false);
+      await configuration.update(this.settingName, value, false);
     // Intentionally fall through.
-    configuration.update(this.settingName, value, true);
+    await configuration.update(this.settingName, value, true);
   }
 }
