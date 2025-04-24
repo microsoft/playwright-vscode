@@ -130,7 +130,7 @@ export class PlaywrightTestServer {
           new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
         ]);
         for (const message of report)
-          await teleReceiver.dispatch(message);
+          void teleReceiver.dispatch(message);
         return status;
       }
       const { report, status } = await Promise.race([
@@ -138,7 +138,7 @@ export class PlaywrightTestServer {
         new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
       ]);
       for (const message of report)
-        await teleReceiver.dispatch(message);
+        void teleReceiver.dispatch(message);
       return status;
     } finally {
       disposable.dispose();
