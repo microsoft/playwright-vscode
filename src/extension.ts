@@ -103,7 +103,7 @@ export class Extension implements RunHooks {
     });
 
     this._settingsModel = new SettingsModel(vscode, context);
-    this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this), this._showBrowserForRecording.bind(this));
+    this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._models = new TestModelCollection(vscode, {
       context,
@@ -185,18 +185,27 @@ export class Extension implements RunHooks {
         this._reusedBrowser.closeAllBrowsers();
       }),
       vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
-        if (!this._models.hasEnabledModels()) {
-          vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
+        const model = this._models.selectedModel();
+        if (!model)
+          return vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
+
+        const project = model.enabledProjects()[0];
+        if (!project)
+          return vscode.window.showWarningMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`));
+
+        const file = await this._reusedBrowser.createFileForNewTest(model, project);
+        if (!file)
           return;
-        }
-        await this._reusedBrowser.record(this._models, true);
+
+        await this._showBrowserForRecording(file, project);
+        await this._reusedBrowser.record(model);
       }),
       vscode.commands.registerCommand('pw.extension.command.recordAtCursor', async () => {
-        if (!this._models.hasEnabledModels()) {
-          vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
-          return;
-        }
-        await this._reusedBrowser.record(this._models, false);
+        const model = this._models.selectedModel();
+        if (!model)
+          return vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
+
+        await this._reusedBrowser.record(model);
       }),
       vscode.commands.registerCommand('pw.extension.command.toggleModels', async () => {
         this._settingsView.toggleModels();
@@ -648,7 +657,7 @@ export class Extension implements RunHooks {
       await this._queueWatchRun(new this._vscode.TestRunRequest(testItems), 'items');
   }
 
-  private async _showBrowserForRecording(file: string, project: TestProject, connectWsEndpoint: string) {
+  private async _showBrowserForRecording(file: string, project: TestProject) {
     const fileItem = this._testTree.testItemForFile(file);
     if (!fileItem)
       throw new Error(`File item not found for ${file}`);
@@ -661,13 +670,8 @@ export class Extension implements RunHooks {
       throw new Error(`Test item not found for ${project.name}`);
 
     const request = new this._vscode.TestRunRequest([testForProject], undefined, undefined, false, true);
-
-    try {
-      await this._settingsModel.showBrowser.set(true);
-      await this._queueTestRun(request, 'run');
-    } finally {
-      await this._settingsModel.showBrowser.set(false);
-    }
+    await this._settingsModel.showBrowser.set(true);
+    await this._queueTestRun(request, 'run');
   }
 
   private async _updateVisibleEditorItems() {

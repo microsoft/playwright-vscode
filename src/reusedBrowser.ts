@@ -44,9 +44,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _editOperations = Promise.resolve();
   private _pausedOnPagePause = false;
   private _settingsModel: SettingsModel;
-  private _showBrowserForRecording: (file: string, project: TestProject, wsEndpoint: string) => Promise<void>;
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv, _showBrowserForRecording: (file: string, project: TestProject, wsEndpoint: string) => Promise<void>) {
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
     this._envProvider = envProvider;
     this._onPageCountChangedEvent = new vscode.EventEmitter();
@@ -57,7 +56,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this.onHighlightRequestedForTest = this._onHighlightRequestedForTestEvent.event;
     this._onInspectRequestedEvent = new vscode.EventEmitter();
     this.onInspectRequested = this._onInspectRequestedEvent.event;
-    this._showBrowserForRecording = _showBrowserForRecording;
 
     this._settingsModel = settingsModel;
 
@@ -246,9 +244,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return !this._isRunningTests && !!this._pageCount;
   }
 
-  async record(models: TestModelCollection, recordNew: boolean) {
-    const selectedModel = models.selectedModel();
-    if (!selectedModel || !this._checkVersion(selectedModel.config))
+  async record(model: TestModel) {
+    if (!model || !this._checkVersion(model.config))
       return;
     if (!this.canRecord()) {
       this._vscode.window.showWarningMessage(
@@ -260,7 +257,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       location: this._vscode.ProgressLocation.Notification,
       title: 'Playwright codegen',
       cancellable: true
-    }, async (progress, token) => this._doRecord(progress, selectedModel, recordNew, token));
+    }, async (progress, token) => this._doRecord(progress, model, token));
   }
 
   async highlight(selector: string) {
@@ -299,26 +296,11 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return true;
   }
 
-  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, recordNew: boolean, token: vscodeTypes.CancellationToken) {
+  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, token: vscodeTypes.CancellationToken) {
     await this._startBackendIfNeeded(model.config);
     this._insertedEditActionCount = 0;
 
     progress.report({ message: 'starting\u2026' });
-
-    if (recordNew) {
-      const file = await this._createFileForNewTest(model);
-      if (!file)
-        return;
-      await model.handleWorkspaceChange({ created: new Set([file]), changed: new Set(), deleted: new Set() });
-      await model.ensureTests([file]);
-      const project = model.enabledProjects()[0];
-      if (project) {
-        await this._showBrowserForRecording(file, project, this._backend!.wsEndpoint);
-      } else {
-        await this._backend?.resetForReuse();
-        await this._backend?.navigate({ url: 'about:blank' });
-      }
-    }
 
     // Register early to have this._cancelRecording assigned during re-entry.
     const canceledPromise = Promise.race([
@@ -354,10 +336,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     });
   }
 
-  private async _createFileForNewTest(model: TestModel) {
-    const project = model.enabledProjects()[0];
-    if (!project)
-      return;
+  async createFileForNewTest(model: TestModel, project: TestProject) {
     let file;
     for (let i = 1; i < 100; ++i) {
       file = path.join(project.project.testDir, `test-${i}.spec.ts`);
@@ -374,9 +353,13 @@ test('test', async ({ page }) => {
   // Recording...
 });`);
 
+    await model.handleWorkspaceChange({ created: new Set([file]), changed: new Set(), deleted: new Set() });
+    await model.ensureTests([file]);
+
     const document = await this._vscode.workspace.openTextDocument(file);
     const editor = await this._vscode.window.showTextDocument(document);
     editor.selection = new this._vscode.Selection(new this._vscode.Position(3, 2), new this._vscode.Position(3, 2 + '// Recording...'.length));
+
     return file;
   }
 
