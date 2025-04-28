@@ -22,13 +22,13 @@ import * as reporterTypes from './upstream/reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
-import { kTestRunOptions, TestModel, TestModelCollection, TestProject } from './testModel';
+import { TestModel, TestModelCollection, TestProject } from './testModel';
 import { disabledProjectName as disabledProject, TestTree } from './testTree';
 import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
-import { PlaywrightTestRunOptions, RunHooks, TestConfig, ErrorContext } from './playwrightTestTypes';
+import { RunHooks, TestConfig, ErrorContext } from './playwrightTestTypes';
 import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
 
@@ -661,13 +661,13 @@ export class Extension implements RunHooks {
       throw new Error(`Test item not found for ${project.name}`);
 
     const request = new this._vscode.TestRunRequest([testForProject], undefined, undefined, false, true);
-    (request as any)[kTestRunOptions] = {
-      connectWsEndpoint,
-      headed: true,
-      reuseContext: true,
-    } satisfies PlaywrightTestRunOptions;
 
-    await this._queueTestRun(request, 'run');
+    try {
+      await this._settingsModel.showBrowser.set(true);
+      await this._queueTestRun(request, 'run');
+    } finally {
+      await this._settingsModel.showBrowser.set(false);
+    }
   }
 
   private async _updateVisibleEditorItems() {

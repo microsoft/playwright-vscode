@@ -312,9 +312,12 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       await model.handleWorkspaceChange({ created: new Set([file]), changed: new Set(), deleted: new Set() });
       await model.ensureTests([file]);
       const project = model.enabledProjects()[0];
-      if (!project)
-        return;
-      await this._showBrowserForRecording(file, project, this._backend!.wsEndpoint);
+      if (project) {
+        await this._showBrowserForRecording(file, project, this._backend!.wsEndpoint);
+      } else {
+        await this._backend?.resetForReuse();
+        await this._backend?.navigate({ url: 'about:blank' });
+      }
     }
 
     // Register early to have this._cancelRecording assigned during re-entry.
