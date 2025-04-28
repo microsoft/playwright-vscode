@@ -660,14 +660,14 @@ export class Extension implements RunHooks {
   private async _showBrowserForRecording(file: string, project: TestProject) {
     const fileItem = this._testTree.testItemForFile(file);
     if (!fileItem)
-      throw new Error(`File item not found for ${file}`);
+      return;
     if (fileItem.children.size !== 1)
-      throw new Error('expected single test in file');
+      return;
 
     const testItems = this._testTree.collectTestsInside(fileItem);
     const testForProject = testItems.length === 1 ? testItems[0] : testItems.find(t => t.label === project.name);
     if (!testForProject)
-      throw new Error(`Test item not found for ${project.name}`);
+      return;
 
     const request = new this._vscode.TestRunRequest([testForProject], undefined, undefined, false, true);
     await this._settingsModel.showBrowser.set(true);
