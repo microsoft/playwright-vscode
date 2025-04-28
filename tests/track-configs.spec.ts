@@ -121,7 +121,6 @@ test('should remove model for config', async ({ activate }) => {
   ]);
 });
 
-
 test('should show config loading errors', async ({ vscode, activate }) => {
   const { testController } = await activate({
     'playwright1.config.js': `
