@@ -197,8 +197,15 @@ export class Extension implements RunHooks {
         if (!file)
           return;
 
-        await this._showBrowserForRecording(file, project);
-        await this._reusedBrowser.record(model);
+
+        const showBrowser = this._settingsModel.showBrowser.get() ?? false;
+        try {
+          await this._settingsModel.showBrowser.set(true);
+          await this._showBrowserForRecording(file, project);
+          await this._reusedBrowser.record(model);
+        } finally {
+          await this._settingsModel.showBrowser.set(showBrowser);
+        }
       }),
       vscode.commands.registerCommand('pw.extension.command.recordAtCursor', async () => {
         const model = this._models.selectedModel();
@@ -670,7 +677,6 @@ export class Extension implements RunHooks {
       return;
 
     const request = new this._vscode.TestRunRequest([testForProject], undefined, undefined, false, true);
-    await this._settingsModel.showBrowser.set(true);
     await this._queueTestRun(request, 'run');
   }
 
