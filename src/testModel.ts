@@ -152,6 +152,10 @@ export class TestModel extends DisposableBase {
     return this._errorByFile;
   }
 
+  configErrors(): reporterTypes.TestError[] {
+    return this._errorByFile.get(this.config.configFile);
+  }
+
   projectMap(): Map<string, TestProject> {
     return this._projects;
   }
@@ -818,6 +822,10 @@ export class TestModelCollection extends DisposableBase {
 
   models(): TestModel[] {
     return this._models;
+  }
+
+  loadErrors(): reporterTypes.TestError[] {
+    return this.models().flatMap(m => m.configErrors());
   }
 
   selectedModel(): TestModel | undefined {

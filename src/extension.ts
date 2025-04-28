@@ -23,7 +23,7 @@ import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
 import { TestModel, TestModelCollection } from './testModel';
-import { disabledProjectName as disabledProject, TestTree } from './testTree';
+import { configError, disabledProjectName as disabledProject, TestTree } from './testTree';
 import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
@@ -351,6 +351,18 @@ export class Extension implements RunHooks {
             this._models.setProjectEnabled(project.model.config.configFile, project.name, true);
           }
         });
+        return;
+      }
+
+      const error = configError(request.include[0]);
+      if (error) {
+        if (error.location) {
+          const document = await this._vscode.workspace.openTextDocument(error.location.file);
+          const position = new this._vscode.Position(error.location.line - 1, error.location.column - 1);
+          await this._vscode.window.showTextDocument(document, {
+            selection: new this._vscode.Range(position, position)
+          });
+        }
         return;
       }
     }

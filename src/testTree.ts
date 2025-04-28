@@ -16,7 +16,7 @@
 
 import path from 'path';
 import { TestModelCollection } from './testModel';
-import type { TestProject } from './testModel';
+import type { TestModel, TestProject } from './testModel';
 import { createGuid, normalizePath, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
@@ -93,9 +93,14 @@ export class TestTree extends DisposableBase {
   private _update() {
     for (const workspaceFolder of this._vscode.workspace.workspaceFolders ?? []) {
       const disabledProjects: TestProject[] = [];
+      const configErrorsByModel = new Map<TestModel, reporterTypes.TestError[]>();
       const workspaceFSPath = uriToPath(workspaceFolder.uri);
       const rootSuite = new TeleSuite('', 'root');
       for (const model of this._models.enabledModels().filter(m => m.config.workspaceFolder === workspaceFSPath)) {
+        const configErrors = model.configErrors();
+        if (configErrors.length)
+          configErrorsByModel.set(model, configErrors);
+
         for (const project of model.projects()) {
           if (project.isEnabled)
             rootSuite.suites.push(project.suite as TeleSuite);
@@ -108,7 +113,7 @@ export class TestTree extends DisposableBase {
       upstreamTree.sortAndPropagateStatus();
       upstreamTree.flattenForSingleProject();
 
-      if (upstreamTree.rootItem.children.length === 0 && !disabledProjects.length) {
+      if (upstreamTree.rootItem.children.length === 0 && !disabledProjects.length && configErrorsByModel.size === 0) {
         this._deleteRootItem(workspaceFSPath);
         continue;
       }
@@ -116,6 +121,7 @@ export class TestTree extends DisposableBase {
       const workspaceRootItem = this._createRootItemIfNeeded(workspaceFolder.uri);
       this._syncSuite(upstreamTree.rootItem, workspaceRootItem);
       this._syncDisabledProjects(workspaceRootItem, disabledProjects);
+      this._syncConfigErrors(workspaceRootItem, configErrorsByModel);
     }
 
     // Remove stale root items.
@@ -199,6 +205,36 @@ export class TestTree extends DisposableBase {
     }
     for (const projectId of oldDisabledProjectIds)
       workspaceRootItem.children.delete(projectId);
+  }
+
+  private _syncConfigErrors(workspaceRootItem: vscodeTypes.TestItem, errorsByModel: Map<TestModel, reporterTypes.TestError[]>) {
+    const topLevelItems: string[] = [];
+    workspaceRootItem.children.forEach(item => topLevelItems.push(item.id));
+    const oldErrorIds = new Set(topLevelItems.filter(item => item.startsWith('[error] ')));
+    for (const [model, errors] of errorsByModel) {
+      for (const error of errors) {
+        const message = error.message ?? error.value ?? 'Unknown error';
+        const location = error.location ? `${error.location.file}:${error.location.line}` : model.config.configFile;
+        const errorId = `[error] ${location} - ${message}`;
+        if (oldErrorIds.has(errorId)) {
+          oldErrorIds.delete(errorId);
+          continue;
+        }
+
+        const item = this._testController.createTestItem(errorId, '', this._vscode.Uri.file(error.location?.file ?? model.config.configFile));
+        item.error = message;
+        item.description = `${path.relative(model.config.workspaceFolder, normalizePath(model.config.configFile))} — error loading config`;
+        item.sortText = 'z' + errorId;
+        if (error.location) {
+          const position = new this._vscode.Position(error.location.line - 1, error.location.column - 1);
+          item.range = new this._vscode.Range(position, position);
+        }
+        (item as any)[configErrorSymbol] = error;
+        workspaceRootItem.children.add(item);
+      }
+    }
+    for (const itemId of oldErrorIds)
+      workspaceRootItem.children.delete(itemId);
   }
 
   private _indexTree() {
@@ -286,5 +322,10 @@ export function disabledProjectName(item: vscodeTypes.TestItem): TestProject | u
   return (item as any)[disabledProjectSymbol];
 }
 
+export function configError(item: vscodeTypes.TestItem): reporterTypes.TestError | undefined {
+  return (item as any)[configErrorSymbol];
+}
+
 const testTreeItemSymbol = Symbol('testTreeItemSymbol');
 const disabledProjectSymbol = Symbol('disabledProjectSymbol');
+const configErrorSymbol = Symbol('configErrorSymbol');
