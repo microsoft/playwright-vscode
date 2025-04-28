@@ -30,7 +30,7 @@ const upstreamFiles = new Map([
   // ['src/upstream/teleReceiver.ts', 'packages/playwright/src/isomorphic/teleReceiver.ts'],
 ]);
 
-(async () => {
+void (async () => {
   const playwrightWorkspace = path.resolve(__dirname, '../../playwright');
   await fs.promises.rm(path.join(__dirname, '../test-results'), { recursive: true, force: true });
   for (const packageName of packageNames) {

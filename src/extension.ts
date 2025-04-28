@@ -44,7 +44,7 @@ type StepInfo = {
 
 export async function activate(context: vscodeTypes.ExtensionContext) {
   // Do not await, quickly run the extension, schedule work.
-  new Extension(require('vscode'), context).activate();
+  void new Extension(require('vscode'), context).activate();
 }
 
 export class Extension implements RunHooks {
@@ -157,17 +157,17 @@ export class Extension implements RunHooks {
       this._debugHighlight,
       this._settingsModel,
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
-        this._rebuildModels(false);
+        void this._rebuildModels(false);
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
-        this._updateVisibleEditorItems();
+        void this._updateVisibleEditorItems();
       }),
       vscode.commands.registerCommand('pw.extension.install', async () => {
         await installPlaywright(this._vscode);
       }),
       vscode.commands.registerCommand('pw.extension.installBrowsers', async () => {
         if (!this._models.hasEnabledModels()) {
-          vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
+          await vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
         const versions = this._models.versions();
@@ -176,7 +176,7 @@ export class Extension implements RunHooks {
       }),
       vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
         if (!this._models.hasEnabledModels()) {
-          vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
+          await vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
         await this._reusedBrowser.inspect(this._models);
@@ -244,11 +244,13 @@ export class Extension implements RunHooks {
       }),
       vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('playwright.env'))
-          this._rebuildModels(false);
+          void this._rebuildModels(false);
       }),
       this._testTree,
       this._models,
-      this._models.onUpdated(() => this._modelsUpdated()),
+      this._models.onUpdated(() => {
+        void this._modelsUpdated();
+      }),
       this._treeItemObserver.onTreeItemSelected(item => this._treeItemSelected(item)),
       this._settingsView,
       this._locatorsView,
@@ -274,7 +276,7 @@ export class Extension implements RunHooks {
         return;
       if (!this._isUnderTest && uriToPath(uri).includes('test-results'))
         return;
-      this._rebuildModels(false);
+      void this._rebuildModels(false);
     };
 
     await this._rebuildModels(false);
@@ -309,7 +311,7 @@ export class Extension implements RunHooks {
         playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider());
       } catch (error) {
         if (userGesture) {
-          this._vscode.window.showWarningMessage(
+          void this._vscode.window.showWarningMessage(
               error instanceof NodeJSNotFoundError ? error.message : this._vscode.l10n.t('Please install Playwright Test via running `npm i --save-dev @playwright/test`')
           );
         }
@@ -320,7 +322,7 @@ export class Extension implements RunHooks {
       const minimumPlaywrightVersion = 1.38;
       if (playwrightInfo.version < minimumPlaywrightVersion) {
         if (userGesture) {
-          this._vscode.window.showWarningMessage(
+          void this._vscode.window.showWarningMessage(
               this._vscode.l10n.t('Playwright Test v{0} or newer is required', minimumPlaywrightVersion)
           );
         }
@@ -332,13 +334,13 @@ export class Extension implements RunHooks {
       await this._models.createModel(workspaceFolderPath, uriToPath(configFileUri), playwrightInfo);
     }
 
-    await this._models.ensureHasEnabledModels();
+    this._models.ensureHasEnabledModels();
     this._testTree.finishedLoading();
     return configFiles;
   }
 
-  private _modelsUpdated() {
-    this._updateVisibleEditorItems();
+  private async _modelsUpdated() {
+    await this._updateVisibleEditorItems();
     this._updateDiagnostics();
     this._workspaceObserver.setWatchFolders(this._models.testDirs());
   }
@@ -359,7 +361,7 @@ export class Extension implements RunHooks {
       const project = disabledProject(request.include[0]);
       if (project) {
         const enableProjectTitle = this._vscode.l10n.t('Enable project');
-        this._vscode.window.showInformationMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`), enableProjectTitle, this._vscode.l10n.t('Cancel')).then(result => {
+        void this._vscode.window.showInformationMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`), enableProjectTitle, this._vscode.l10n.t('Cancel')).then(result => {
           if (result === enableProjectTitle) {
             this._models.setModelEnabled(project.model.config.configFile, true, true);
             this._models.setProjectEnabled(project.model.config.configFile, project.name, true);
@@ -373,7 +375,7 @@ export class Extension implements RunHooks {
 
     if (request.continuous) {
       for (const model of this._models.enabledModels())
-        model.addToWatch(request.include, cancellationToken!);
+        await model.addToWatch(request.include, cancellationToken!);
     }
   }
 
@@ -855,14 +857,14 @@ export class Extension implements RunHooks {
 
   private _showTraceOnTestProgress(testItem: vscodeTypes.TestItem) {
     const traceUrl = (testItem as any)[traceUrlSymbol];
-    this._models.selectedModel()?.traceViewer()?.open(traceUrl);
+    void this._models.selectedModel()?.traceViewer()?.open(traceUrl);
   }
 
   private _treeItemSelected(treeItem: vscodeTypes.TreeItem | null) {
     if (!treeItem)
       return;
     const traceUrl = (treeItem as any)[traceUrlSymbol];
-    this._models.selectedModel()?.traceViewer()?.open(traceUrl);
+    void this._models.selectedModel()?.traceViewer()?.open(traceUrl);
   }
 
   private _queueCommand<T>(callback: () => Promise<T>, defaultValue: T): Promise<T> {

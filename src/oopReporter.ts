@@ -27,7 +27,7 @@ class TeleReporter extends TeleReporterEmitter {
       messageSink = options._send;
     } else if (process.env.PW_TEST_REPORTER_WS_ENDPOINT) {
       const transport = WebSocketTransport.connect(process.env.PW_TEST_REPORTER_WS_ENDPOINT!);
-      transport.then(t => {
+      void transport.then(t => {
         t.onmessage = message => {
           if (message.method === 'stop')
             process.emit('SIGINT' as any);
@@ -35,7 +35,7 @@ class TeleReporter extends TeleReporterEmitter {
         t.onclose = () => process.exit(0);
       });
       messageSink = (message => {
-        transport.then(t => t.send(message));
+        void transport.then(t => t.send(message));
       });
     } else {
       messageSink = message => {
@@ -47,7 +47,7 @@ class TeleReporter extends TeleReporterEmitter {
   }
 
   async onEnd(result: FullResult) {
-    super.onEnd(result);
+    await super.onEnd(result);
     // Embedder is responsible for terminating the connection.
     if (!this._hasSender)
       await new Promise(() => {});

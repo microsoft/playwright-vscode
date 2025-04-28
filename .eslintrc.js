@@ -19,6 +19,7 @@ module.exports = {
   'parserOptions': {
     ecmaVersion: 9,
     sourceType: 'module',
+    project: './tsconfig.json',
   },
   'extends': [
     'plugin:react-hooks/recommended'
@@ -34,6 +35,7 @@ module.exports = {
    * Severity: 2 == error, 1 == warning, 0 == off.
    */
   'rules': {
+    '@typescript-eslint/no-floating-promises': 2,
     '@typescript-eslint/no-unused-vars': [2, { args: 'none' }],
 
     'no-restricted-properties': [2, {

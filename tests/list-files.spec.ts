@@ -268,7 +268,7 @@ test('should support multiple projects', async ({ activate }) => {
     `,
     'tests/test2.spec.ts': `
       import { test } from '@playwright/test';
-      test(two', async () => {});
+      test('two', async () => {});
     `,
   });
   await expect(testController).toHaveTestTree(`
@@ -301,11 +301,11 @@ test('should switch between multiple projects with filter', async ({ activate })
     `,
     'tests/test2.spec.ts': `
       import { test } from '@playwright/test';
-      test(two', async () => {});
+      test('two', async () => {});
     `,
     'tests/test3.spec.ts': `
       import { test } from '@playwright/test';
-      test(three', async () => {});
+      test('three', async () => {});
     `,
   });
   await expect(testController).toHaveTestTree(`

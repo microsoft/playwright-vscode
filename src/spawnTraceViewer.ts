@@ -81,7 +81,7 @@ export class SpawnTraceViewer implements TraceViewer {
       this._currentFile = undefined;
     });
     traceViewerProcess.on('error', error => {
-      this._vscode.window.showErrorMessage(error.message);
+      void this._vscode.window.showErrorMessage(error.message);
       this.close();
     });
     if (this._vscode.isUnderTest) {

@@ -1059,7 +1059,7 @@ export class VSCode {
         panel.visible = visibilityState === 'visible';
         didChangeViewState.fire({ webviewPanel: panel });
       });
-      pagePromise.then(webview => {
+      void pagePromise.then(webview => {
         if (!webview) {
           // test ended.
           return;
@@ -1073,7 +1073,7 @@ export class VSCode {
         this._webViewsByPanelType.set(viewType, webviews);
       });
       panel.dispose = () => {
-        pagePromise.then(page => page?.close());
+        void pagePromise.then(page => page?.close());
         didDispose.fire();
       };
       return panel;
@@ -1248,18 +1248,18 @@ export class VSCode {
     const createPage = async () => {
       const context = await this._browser.newContext();
       const page = await context.newPage();
-      await page.route('**/*', route => {
+      await page.route('**/*', async route => {
         const url = route.request().url();
         if (!url.startsWith('http://localhost/')) {
-          route.continue();
+          await route.continue();
         } else if (url === 'http://localhost/') {
-          route.fulfill({ body: webview.html });
+          await route.fulfill({ body: webview.html });
         } else if (url === 'http://localhost/hidden') {
-          route.fulfill({ body: 'hidden webview' });
+          await route.fulfill({ body: 'hidden webview' });
         } else {
           const suffix = url.substring('http://localhost/'.length);
           const buffer = fs.readFileSync(path.join(this.context.extensionUri.fsPath, suffix));
-          route.fulfill({ body: buffer });
+          await route.fulfill({ body: buffer });
         }
       });
       page.on('load', () => {

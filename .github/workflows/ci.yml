@@ -58,8 +58,6 @@ jobs:
     - run: npm ci
     - run: npx playwright install --with-deps chromium
     - run: npm run build
-    - run: npm ci
-      working-directory: ./tests-integration
     - run: xvfb-run npx playwright test
       working-directory: ./tests-integration
       if: matrix.os == 'ubuntu-latest'

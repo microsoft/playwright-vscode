@@ -114,7 +114,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     });
     backend.onError(e => {
       if (backend === this._backend) {
-        this._vscode.window.showErrorMessage(e.message);
+        void this._vscode.window.showErrorMessage(e.message);
         this._backend = undefined;
         this._resetNoWait('none');
       }
@@ -124,7 +124,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
     this._backend.on('inspectRequested', params => {
       if (this._settingsModel.pickLocatorCopyToClipboard.get() && params.locator)
-        this._vscode.env.clipboard.writeText(params.locator);
+        void this._vscode.env.clipboard.writeText(params.locator);
       this._onInspectRequestedEvent.fire({ backendVersion: config.version, ...params });
     });
 
@@ -226,7 +226,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
     const { errors } = await this._startBackendIfNeeded(selectedModel.config);
     if (errors)
-      this._vscode.window.showErrorMessage('Error starting the backend: ' + errors.join('\n'));
+      void this._vscode.window.showErrorMessage('Error starting the backend: ' + errors.join('\n'));
     // Keep running, errors could be non-fatal.
     try {
       await this._backend?.setMode({ mode: 'inspecting' });
@@ -248,7 +248,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     if (!model || !this._checkVersion(model.config))
       return;
     if (!this.canRecord()) {
-      this._vscode.window.showWarningMessage(
+      void this._vscode.window.showWarningMessage(
           this._vscode.l10n.t('Can\'t record while running tests')
       );
       return;
@@ -280,14 +280,14 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   ): boolean {
     const version = 1.25;
     if (config.version < version) {
-      this._vscode.window.showWarningMessage(
+      void this._vscode.window.showWarningMessage(
           this._vscode.l10n.t('Playwright v{0}+ is required for {1} to work, v{2} found', version, message, config.version)
       );
       return false;
     }
 
     if (this._vscode.env.uiKind === this._vscode.UIKind.Web && !process.env.DISPLAY) {
-      this._vscode.window.showWarningMessage(
+      void this._vscode.window.showWarningMessage(
           this._vscode.l10n.t('Show browser mode does not work in remote vscode')
       );
       return false;
@@ -323,7 +323,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   private _onRecord() {
     this._resetExtensionState();
-    this._vscode.window.withProgress({
+    void this._vscode.window.withProgress({
       location: this._vscode.ProgressLocation.Notification,
       title: 'Playwright codegen',
       cancellable: true
@@ -387,7 +387,7 @@ test('test', async ({ page }) => {
 
   closeAllBrowsers() {
     if (this._isRunningTests) {
-      this._vscode.window.showWarningMessage(
+      void this._vscode.window.showWarningMessage(
           this._vscode.l10n.t('Can\'t close browsers while running tests')
       );
       return;
@@ -463,9 +463,9 @@ export class Backend extends BackendClient {
 
 function showExceptionAsUserError(vscode: vscodeTypes.VSCode, model: TestModel, error: Error) {
   if (error.message.includes('Looks like Playwright Test or Playwright'))
-    installBrowsers(vscode, model);
+    void installBrowsers(vscode, model);
   else
-    vscode.window.showErrorMessage(error.message);
+    void vscode.window.showErrorMessage(error.message);
 }
 
 function guessIndentation(editor: vscodeTypes.TextEditor): number {
