@@ -824,10 +824,6 @@ export class TestModelCollection extends DisposableBase {
     return this._models;
   }
 
-  loadErrors(): reporterTypes.TestError[] {
-    return this.models().flatMap(m => m.configErrors());
-  }
-
   selectedModel(): TestModel | undefined {
     const enabledModels = this.enabledModels();
     if (!enabledModels.length) {
