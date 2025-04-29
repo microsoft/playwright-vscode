@@ -18,8 +18,6 @@ import type { TestConfig } from './playwrightTestTypes';
 import type { TestModel, TestModelCollection } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
-import path from 'path';
-import fs from 'fs';
 import { installBrowsers } from './installer';
 import { SettingsModel } from './settingsModel';
 import { BackendServer, BackendClient } from './backend';
@@ -244,9 +242,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return !this._isRunningTests && !!this._pageCount;
   }
 
-  async record(models: TestModelCollection, recordNew: boolean) {
-    const selectedModel = models.selectedModel();
-    if (!selectedModel || !this._checkVersion(selectedModel.config))
+  async record(model: TestModel) {
+    if (!model || !this._checkVersion(model.config))
       return;
     if (!this.canRecord()) {
       void this._vscode.window.showWarningMessage(
@@ -258,7 +255,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       location: this._vscode.ProgressLocation.Notification,
       title: 'Playwright codegen',
       cancellable: true
-    }, async (progress, token) => this._doRecord(progress, selectedModel, recordNew, token));
+    }, async (progress, token) => this._doRecord(progress, model, token));
   }
 
   async highlight(selector: string) {
@@ -297,19 +294,11 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return true;
   }
 
-  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, recordNew: boolean, token: vscodeTypes.CancellationToken) {
-    const startBackend = this._startBackendIfNeeded(model.config);
-    if (recordNew)
-      await this._createFileForNewTest(model);
-    await startBackend;
+  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, token: vscodeTypes.CancellationToken) {
+    await this._startBackendIfNeeded(model.config);
     this._insertedEditActionCount = 0;
 
     progress.report({ message: 'starting\u2026' });
-
-    if (recordNew) {
-      await this._backend?.resetForReuse();
-      await this._backend?.navigate({ url: 'about:blank' });
-    }
 
     // Register early to have this._cancelRecording assigned during re-entry.
     const canceledPromise = Promise.race([
@@ -343,31 +332,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         new Promise<void>(f => this._cancelRecording = f),
       ]);
     });
-  }
-
-  private async _createFileForNewTest(model: TestModel) {
-    const project = model.enabledProjects()[0];
-    if (!project)
-      return;
-    let file;
-    for (let i = 1; i < 100; ++i) {
-      file = path.join(project.project.testDir, `test-${i}.spec.ts`);
-      if (fs.existsSync(file))
-        continue;
-      break;
-    }
-    if (!file)
-      return;
-
-    await fs.promises.writeFile(file, `import { test, expect } from '@playwright/test';
-
-test('test', async ({ page }) => {
-  // Recording...
-});`);
-
-    const document = await this._vscode.workspace.openTextDocument(file);
-    const editor = await this._vscode.window.showTextDocument(document);
-    editor.selection = new this._vscode.Selection(new this._vscode.Position(3, 2), new this._vscode.Position(3, 2 + '// Recording...'.length));
   }
 
   async onWillRunTests(config: TestConfig, debug: boolean) {

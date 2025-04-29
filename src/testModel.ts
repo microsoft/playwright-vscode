@@ -348,7 +348,7 @@ export class TestModel extends DisposableBase {
     const enabledFiles = this.enabledFiles();
     const filesToListTests = inputFiles.filter(f => enabledFiles.has(f) && !this._filesWithListedTests.has(f));
     if (!filesToListTests.length)
-      return;
+      return this._filesPendingListTests?.promise;
 
     for (const file of filesToListTests)
       this._filesWithListedTests.add(file);
