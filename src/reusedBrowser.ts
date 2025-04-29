@@ -15,11 +15,9 @@
  */
 
 import type { TestConfig } from './playwrightTestTypes';
-import type { TestModel, TestModelCollection, TestProject } from './testModel';
+import type { TestModel, TestModelCollection } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
-import path from 'path';
-import fs from 'fs';
 import { installBrowsers } from './installer';
 import { SettingsModel } from './settingsModel';
 import { BackendServer, BackendClient } from './backend';
@@ -334,33 +332,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         new Promise<void>(f => this._cancelRecording = f),
       ]);
     });
-  }
-
-  async createFileForNewTest(model: TestModel, project: TestProject) {
-    let file;
-    for (let i = 1; i < 100; ++i) {
-      file = path.join(project.project.testDir, `test-${i}.spec.ts`);
-      if (fs.existsSync(file))
-        continue;
-      break;
-    }
-    if (!file)
-      return;
-
-    await fs.promises.writeFile(file, `import { test, expect } from '@playwright/test';
-
-test('test', async ({ page }) => {
-  // Recording...
-});`);
-
-    await model.handleWorkspaceChange({ created: new Set([file]), changed: new Set(), deleted: new Set() });
-    await model.ensureTests([file]);
-
-    const document = await this._vscode.workspace.openTextDocument(file);
-    const editor = await this._vscode.window.showTextDocument(document);
-    editor.selection = new this._vscode.Selection(new this._vscode.Position(3, 2), new this._vscode.Position(3, 2 + '// Recording...'.length));
-
-    return file;
   }
 
   async onWillRunTests(config: TestConfig, debug: boolean) {

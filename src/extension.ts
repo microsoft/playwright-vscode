@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import fs from 'fs';
 import path from 'path';
 import StackUtils from 'stack-utils';
 import { DebugHighlight } from './debugHighlight';
@@ -193,7 +194,7 @@ export class Extension implements RunHooks {
         if (!project)
           return vscode.window.showWarningMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`));
 
-        const file = await this._reusedBrowser.createFileForNewTest(model, project);
+        const file = await this._createFileForNewTest(model, project);
         if (!file)
           return;
 
@@ -676,6 +677,33 @@ export class Extension implements RunHooks {
     }
     if (testItems.length)
       await this._queueWatchRun(new this._vscode.TestRunRequest(testItems), 'items');
+  }
+
+  private async _createFileForNewTest(model: TestModel, project: TestProject) {
+    let file;
+    for (let i = 1; i < 100; ++i) {
+      file = path.join(project.project.testDir, `test-${i}.spec.ts`);
+      if (fs.existsSync(file))
+        continue;
+      break;
+    }
+    if (!file)
+      return;
+
+    await fs.promises.writeFile(file, `import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  // Recording...
+});`);
+
+    await model.handleWorkspaceChange({ created: new Set([file]), changed: new Set(), deleted: new Set() });
+    await model.ensureTests([file]);
+
+    const document = await this._vscode.workspace.openTextDocument(file);
+    const editor = await this._vscode.window.showTextDocument(document);
+    editor.selection = new this._vscode.Selection(new this._vscode.Position(3, 2), new this._vscode.Position(3, 2 + '// Recording...'.length));
+
+    return file;
   }
 
   private async _showBrowserForRecording(file: string, project: TestProject) {
