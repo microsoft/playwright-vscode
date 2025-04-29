@@ -15,15 +15,12 @@
  */
 
 import { Config, createAction, ProjectEntry, vscode } from './common';
-import type { ConfigEntry, ModelsMessage } from './settingsView';
 
 let selectConfig: Config;
 
 const selectAllButton = document.getElementById('selectAll') as HTMLAnchorElement;
 const unselectAllButton = document.getElementById('unselectAll') as HTMLAnchorElement;
 const toggleModels = document.getElementById('toggleModels') as HTMLAnchorElement;
-
-const basename = (path: string) => path.split(/[\\\/]/).pop()!;
 
 function updateProjects(projects: ProjectEntry[]) {
   const projectsElement = document.getElementById('projects') as HTMLElement;
@@ -100,31 +97,10 @@ window.addEventListener('message', event => {
         actionsElement.appendChild(actionElement);
     }
   } else if (method === 'models') {
-    const { configs, showModelSelector } = params as ModelsMessage;
+    const { configs, showModelSelector } = params;
     const select = document.getElementById('models') as HTMLSelectElement;
-
-    function updateConfigErrors(config: ConfigEntry) {
-      const configErrors = document.getElementById('model-errors') as HTMLDivElement;
-      if (config.errors.length === 0)
-        return configErrors.style.display = 'none';
-
-      configErrors.style.display = 'block';
-      const configErrorsList = document.getElementById('model-errors-list') as HTMLUListElement;
-      configErrorsList.textContent = '';
-      for (const error of config.errors) {
-        const errorListItem = document.createElement('li');
-        const errorLink = document.createElement('a');
-        errorLink.textContent = error.location ? `${basename(error.location.file)}:${error.location.line}` : basename(config.configFile);
-        errorLink.onclick = () => vscode.postMessage({ method: 'openFile', params: { location: error.location ?? { file: config.configFile, column: 0, line: 0 } } });
-        errorLink.role = 'link';
-        errorLink.ariaLabel = `Open ${errorLink.textContent}`;
-        errorListItem.appendChild(errorLink);
-        configErrorsList.appendChild(errorListItem);
-      }
-    }
-
     select.textContent = '';
-    const configsMap = new Map<string, ConfigEntry>();
+    const configsMap = new Map();
     for (const config of configs) {
       configsMap.set(config.configFile, config);
       const option = document.createElement('option');
@@ -135,14 +111,11 @@ window.addEventListener('message', event => {
         selectConfig = config;
         select.value = config.configFile;
         updateProjects(config.projects);
-        updateConfigErrors(config);
       }
     }
     select.addEventListener('change', event => {
       vscode.postMessage({ method: 'selectModel', params: { configFile: select.value } });
-      const config = configsMap.get(select.value)!;
-      updateProjects(config.projects);
-      updateConfigErrors(config);
+      updateProjects(configsMap.get(select.value).projects);
     });
     modelSelector.style.display = showModelSelector ? 'flex' : 'none';
   }

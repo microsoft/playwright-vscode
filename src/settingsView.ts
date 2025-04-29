@@ -18,29 +18,22 @@ import { DisposableBase } from './disposableBase';
 import type { ReusedBrowser } from './reusedBrowser';
 import type { SettingsModel } from './settingsModel';
 import type { TestModelCollection } from './testModel';
-import { Location, TestError } from './upstream/reporter';
 import { getNonce, html } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import path from 'path';
 
-export type ConfigEntry = {
+type ConfigEntry = {
   label: string;
   configFile: string;
   selected: boolean;
   enabled: boolean;
   projects: ProjectEntry[];
-  errors: TestError[];
 };
 
 type ProjectEntry = {
   name: string;
   enabled: boolean;
 };
-
-export interface ModelsMessage {
-  configs: ConfigEntry[];
-  showModelSelector: boolean;
-}
 
 export class SettingsView extends DisposableBase implements vscodeTypes.WebviewViewProvider {
   private _view: vscodeTypes.WebviewView | undefined;
@@ -77,7 +70,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
     };
 
     webviewView.webview.html = htmlForWebview(this._vscode, this._extensionUri, webviewView.webview);
-    this._disposables.push(webviewView.webview.onDidReceiveMessage(async data => {
+    this._disposables.push(webviewView.webview.onDidReceiveMessage(data => {
       if (data.method === 'execute') {
         void this._vscode.commands.executeCommand(data.params.command);
       } else if (data.method === 'toggle') {
@@ -92,13 +85,6 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         this._models.setAllProjectsEnabled(configFile, enabled);
       } else if (data.method === 'selectModel') {
         this._models.selectModel(data.params.configFile);
-      } else if (data.method === 'openFile') {
-        const location = data.params.location as Location;
-        const document = await this._vscode.workspace.openTextDocument(location.file);
-        const position = new this._vscode.Position(location.line - 1, location.column - 1);
-        await this._vscode.window.showTextDocument(document, {
-          selection: new this._vscode.Range(position, position)
-        });
       }
     }));
 
@@ -159,23 +145,18 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
     const workspaceFolders = new Set<string>();
     this._models.enabledModels().forEach(model => workspaceFolders.add(model.config.workspaceFolder));
 
-    let showModelSelector = this._models.models().length > 1;
     for (const model of this._models.enabledModels()) {
       const prefix = workspaceFolders.size > 1 ? path.basename(model.config.workspaceFolder) + path.sep : '';
-      const errors = model.errors().get(model.config.configFile);
-      if (errors.length > 0)
-        showModelSelector = true;
       configs.push({
         label: prefix + path.relative(model.config.workspaceFolder, model.config.configFile),
         configFile: model.config.configFile,
         selected: model === this._models.selectedModel(),
         enabled: model.isEnabled,
         projects: model.projects().map(p => ({ name: p.name, enabled: p.isEnabled })),
-        errors,
       });
     }
 
-    void this._view.webview.postMessage({ method: 'models', params: { configs, showModelSelector } satisfies ModelsMessage });
+    void this._view.webview.postMessage({ method: 'models', params: { configs, showModelSelector: this._models.models().length > 1 } });
   }
 
   toggleModels() {
@@ -240,10 +221,6 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
         </div>
         <div class="combobox">
           <select data-testid="models" id="models" title="${vscode.l10n.t('Select Playwright Config')}" ></select>
-        </div>
-        <div class="model-errors" id="model-errors" style="display: none">
-          Config loading errors:
-          <ul id="model-errors-list"></ul>
         </div>
       </div>
       <div class="section-header">
