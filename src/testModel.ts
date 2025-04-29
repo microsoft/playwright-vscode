@@ -152,6 +152,10 @@ export class TestModel extends DisposableBase {
     return this._errorByFile;
   }
 
+  configErrors(): reporterTypes.TestError[] {
+    return this._errorByFile.get(this.config.configFile);
+  }
+
   projectMap(): Map<string, TestProject> {
     return this._projects;
   }

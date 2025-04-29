@@ -204,6 +204,7 @@ export class TestItem {
   status: 'none' | 'enqueued' | 'started' | 'skipped' | 'failed' | 'passed' = 'none';
   description: string | undefined;
   sortText: string | undefined;
+  error: string | undefined;
 
   constructor(
       readonly testController: TestController,
@@ -266,6 +267,8 @@ export class TestItem {
 
   innerToString(indent: string, result: string[]) {
     result.push(`${indent}- ${this.statusIcon()} ${this.treeTitle()}`);
+    if (this.error)
+      result.push(`${indent}  ${this.error}`);
     const items = [...this.children.map.values()];
     items.sort((i1, i2) => itemOrder(i1).localeCompare(itemOrder(i2)));
     for (const item of items)
