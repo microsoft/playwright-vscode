@@ -17,7 +17,7 @@
 import path from 'path';
 import { TestModelCollection } from './testModel';
 import type { TestModel, TestProject } from './testModel';
-import { createGuid, ellipsize, normalizePath, uriToPath } from './utils';
+import { createGuid, normalizePath, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
 import * as upstream from './upstream/testTree';
