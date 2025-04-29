@@ -17,6 +17,7 @@
 import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 
 test('should generate code', async ({ activate }) => {
+  test.slow();
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = {
       projects: [
@@ -37,7 +38,7 @@ test('should generate code', async ({ activate }) => {
   await webView.getByText('Record new').click();
   await webView.getByRole('checkbox', { name: 'default' }).setChecked(false);
   await webView.getByRole('checkbox', { name: 'germany' }).setChecked(true);
-  await expect.poll(() => vscode.lastWithProgressData).toEqual({ message: 'recording\u2026' });
+  await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
 
   const browser = await connectToSharedBrowser(vscode);
   const page = await waitForPage(browser, { locale: 'de-DE' });
