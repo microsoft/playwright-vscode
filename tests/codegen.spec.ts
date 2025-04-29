@@ -35,9 +35,9 @@ test('should generate code', async ({ activate }) => {
   });
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  await webView.getByText('Record new').click();
   await webView.getByRole('checkbox', { name: 'default' }).setChecked(false);
   await webView.getByRole('checkbox', { name: 'germany' }).setChecked(true);
+  await webView.getByText('Record new').click();
   await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
 
   const browser = await connectToSharedBrowser(vscode);
