@@ -133,7 +133,7 @@ test('should show config loading errors', async ({ vscode, activate }) => {
   await enableConfigs(vscode, ['playwright1.config.js', 'playwright2.config.js']);
 
   await expect(testController).toHaveTestTree(`
-    -    [playwright1.config.js — error loading config] [1:12]
+    -    [playwright1.config.js — Error: kaboom] [1:12]
       Error: kaboom
   `);
 

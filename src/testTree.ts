@@ -17,7 +17,7 @@
 import path from 'path';
 import { TestModelCollection } from './testModel';
 import type { TestModel, TestProject } from './testModel';
-import { createGuid, normalizePath, uriToPath } from './utils';
+import { createGuid, ellipsize, normalizePath, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
 import * as upstream from './upstream/testTree';
@@ -223,7 +223,7 @@ export class TestTree extends DisposableBase {
 
         const item = this._testController.createTestItem(errorId, '', this._vscode.Uri.file(error.location?.file ?? model.config.configFile));
         item.error = message;
-        item.description = `${path.relative(model.config.workspaceFolder, normalizePath(model.config.configFile))} — error loading config`;
+        item.description = `${path.relative(model.config.workspaceFolder, normalizePath(model.config.configFile))} — ${message}`;
         item.sortText = 'z' + errorId;
         if (error.location) {
           const position = new this._vscode.Position(error.location.line - 1, error.location.column - 1);
