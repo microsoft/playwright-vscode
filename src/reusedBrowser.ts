@@ -24,7 +24,7 @@ import { BackendServer, BackendClient } from './backend';
 
 export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
-  private _backend: Backend | undefined;
+  private _backend: DebugController | undefined;
   private _cancelRecording: (() => void) | undefined;
   private _isRunningTests = false;
   private _insertedEditActionCount = 0;
@@ -95,7 +95,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     });
 
     const errors: string[] = [];
-    const backendServer = new BackendServer(this._vscode, () => new Backend(this._vscode), {
+    const backendServer = new BackendServer(this._vscode, () => new DebugController(this._vscode), {
       args,
       cwd,
       envProvider,
@@ -385,7 +385,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 }
 
-export class Backend extends BackendClient {
+export class DebugController extends BackendClient {
   constructor(vscode: vscodeTypes.VSCode) {
     super(vscode);
   }
