@@ -385,7 +385,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 }
 
-export class DebugController extends BackendClient {
+class DebugController extends BackendClient {
   constructor(vscode: vscodeTypes.VSCode) {
     super(vscode);
   }
