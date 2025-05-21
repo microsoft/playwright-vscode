@@ -102,6 +102,15 @@ export class PlaywrightTestServer {
       void teleReceiver.dispatch(message);
   }
 
+  private _pipeStdio(testServer: TestServerConnection, reporter: reporterTypes.ReporterV2) {
+    return testServer.onStdio(params => {
+      if (params.type === 'stdout')
+        reporter.onStdOut?.(unwrapString(params));
+      if (params.type === 'stderr')
+        reporter.onStdErr?.(unwrapString(params));
+    });
+  }
+
   async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
     const { connection } = await this._testServer();
     if (!connection)
@@ -115,12 +124,7 @@ export class PlaywrightTestServer {
       mergeTestCases: true,
       resolvePath,
     });
-    const disposable = testServer.onStdio(params => {
-      if (params.type === 'stdout')
-        testListener.onStdOut?.(unwrapString(params));
-      if (params.type === 'stderr')
-        testListener.onStdErr?.(unwrapString(params));
-    });
+    const disposable = this._pipeStdio(testServer, testListener);
 
     try {
       if (type === 'setup') {
@@ -191,14 +195,7 @@ export class PlaywrightTestServer {
     token.onCancellationRequested(() => {
       connection.stopTestsNoReply({});
     });
-    const disposable = connection.onStdio(params => {
-      if (params.type === 'stdout')
-        reporter.onStdOut?.(unwrapString(params));
-      if (params.type === 'stderr')
-        reporter.onStdErr?.(unwrapString(params));
-    });
     await this._wireTestServer(connection, reporter, token);
-    disposable.dispose();
   }
 
   private _normalizePaths() {
@@ -316,12 +313,6 @@ export class PlaywrightTestServer {
       disposables.push(token.onCancellationRequested(() => {
         debugTestServer!.stopTestsNoReply({});
       }));
-      disposables.push(debugTestServer.onStdio(params => {
-        if (params.type === 'stdout')
-          reporter.onStdOut?.(unwrapString(params));
-        if (params.type === 'stderr')
-          reporter.onStdErr?.(unwrapString(params));
-      }));
       const testEndPromise = this._wireTestServer(debugTestServer, reporter, token);
       await testEndPromise;
     } finally {
@@ -408,6 +399,7 @@ export class PlaywrightTestServer {
             resolve();
           }
         }),
+        this._pipeStdio(testServer, reporter),
         testServer.onClose(() => {
           disposables.forEach(d => d.dispose());
           resolve();
