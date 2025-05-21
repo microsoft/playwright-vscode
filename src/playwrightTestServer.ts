@@ -191,14 +191,7 @@ export class PlaywrightTestServer {
     token.onCancellationRequested(() => {
       connection.stopTestsNoReply({});
     });
-    const disposable = connection.onStdio(params => {
-      if (params.type === 'stdout')
-        reporter.onStdOut?.(unwrapString(params));
-      if (params.type === 'stderr')
-        reporter.onStdErr?.(unwrapString(params));
-    });
     await this._wireTestServer(connection, reporter, token);
-    disposable.dispose();
   }
 
   private _normalizePaths() {
@@ -316,12 +309,6 @@ export class PlaywrightTestServer {
       disposables.push(token.onCancellationRequested(() => {
         debugTestServer!.stopTestsNoReply({});
       }));
-      disposables.push(debugTestServer.onStdio(params => {
-        if (params.type === 'stdout')
-          reporter.onStdOut?.(unwrapString(params));
-        if (params.type === 'stderr')
-          reporter.onStdErr?.(unwrapString(params));
-      }));
       const testEndPromise = this._wireTestServer(debugTestServer, reporter, token);
       await testEndPromise;
     } finally {
@@ -407,6 +394,12 @@ export class PlaywrightTestServer {
             disposables.forEach(d => d.dispose());
             resolve();
           }
+        }),
+        testServer.onStdio(params => {
+          if (params.type === 'stdout')
+            reporter.onStdOut?.(unwrapString(params));
+          if (params.type === 'stderr')
+            reporter.onStdErr?.(unwrapString(params));
         }),
         testServer.onClose(() => {
           disposables.forEach(d => d.dispose());
