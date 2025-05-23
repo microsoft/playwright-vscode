@@ -382,6 +382,9 @@ export class TestModel extends DisposableBase {
     const errors: reporterTypes.TestError[] = [];
     let rootSuite: reporterTypes.Suite | undefined;
     await this._playwrightTest.listTests(files, {
+      version() {
+        return 'v2';
+      },
       onBegin: (suite: reporterTypes.Suite) => {
         rootSuite = suite;
       },

@@ -632,6 +632,10 @@ export class Extension implements RunHooks {
 
   private _errorReportingListener(testRun: vscodeTypes.TestRun, testItemForGlobalErrors?: vscodeTypes.TestItem) {
     const testListener: reporterTypes.ReporterV2 = {
+      version() {
+        return 'v2';
+      },
+
       onStdOut: data => {
         testRun.appendOutput(data.toString().replace(/\n/g, '\r\n'));
       },

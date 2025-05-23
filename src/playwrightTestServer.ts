@@ -57,6 +57,9 @@ export class PlaywrightTestServer {
     // TODO: remove ConfigListFilesReport and report suite directly once CLI is deprecated.
     const { report } = await testServer.connection.listFiles({});
     const teleReceiver = new TeleReporterReceiver({
+      version() {
+        return 'v2';
+      },
       onBegin(rootSuite) {
         for (const projectSuite of rootSuite.suites) {
           const project = projectSuite.project()!;
