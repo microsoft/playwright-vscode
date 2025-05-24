@@ -658,7 +658,7 @@ export class Extension implements RunHooks {
   }
 
   private _extractAIContext(result: reporterTypes.TestResult): string | undefined {
-    const attachment = result.attachments.find(a => a.name === '_error-context' && a.contentType === 'application/json');
+    const attachment = result.attachments.find(a => ['_error-context', 'error-context'].includes(a.name) && a.contentType === 'application/json');
     if (!attachment?.body)
       return;
 
