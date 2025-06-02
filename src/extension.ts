@@ -658,15 +658,28 @@ export class Extension implements RunHooks {
   }
 
   private _extractAIContext(result: reporterTypes.TestResult): string | undefined {
-    const attachment = result.attachments.find(a => ['_error-context', 'error-context'].includes(a.name) && a.contentType === 'application/json');
-    if (!attachment?.body)
+    const attachment = result.attachments.find(a => ['_error-context', 'error-context'].includes(a.name));
+    if (!attachment)
       return;
 
-    try {
-      const errorContext = JSON.parse(attachment.body.toString()) as ErrorContext;
-      if (errorContext.pageSnapshot)
-        return `### Page Snapshot at Failure\n\n${errorContext.pageSnapshot}`; // cannot use ``` codeblocks, vscode markdown does not support it
-    } catch {}
+    // 1.52
+    if (attachment.contentType === 'application/json' && attachment.body) {
+      try {
+        const errorContext = JSON.parse(attachment.body.toString()) as ErrorContext;
+        if (errorContext.pageSnapshot)
+          return `### Page Snapshot at Failure\n\n${errorContext.pageSnapshot}`; // cannot use ``` codeblocks, vscode markdown does not support it
+      } catch {}
+    }
+
+    // 1.53+
+    if (attachment.contentType === 'text/markdown') {
+      try {
+        if (attachment.path)
+          return fs.readFileSync(attachment.path, 'utf-8');
+
+        return attachment.body?.toString();
+      } catch {}
+    }
   }
 
   private async _runWatchedTests(files: string[], testItems: vscodeTypes.TestItem[]) {
