@@ -1320,6 +1320,6 @@ test('should provide page snapshot to copilot', async ({ activate, overridePlayw
   const testRun = await testController.run();
   const log = testRun.renderLog({ messages: true });
   expect(log).toContain(`<details><summary>Context for AI</summary>`);
-  expect(log).toContain(`### Page Snapshot at Failure`);
+  expect(log).toContain(`# Page snapshot`);
   expect(log).toContain(`- button "click me"`);
 });
