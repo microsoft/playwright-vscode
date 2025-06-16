@@ -203,7 +203,7 @@ export class Extension implements RunHooks {
         try {
           await this._settingsModel.showBrowser.set(true);
           await this._showBrowserForRecording(file, project);
-          await this._reusedBrowser.record(model);
+          await this._reusedBrowser.record(project);
         } finally {
           await this._settingsModel.showBrowser.set(showBrowser);
         }
@@ -213,7 +213,11 @@ export class Extension implements RunHooks {
         if (!model)
           return vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
 
-        await this._reusedBrowser.record(model);
+        const project = model.enabledProjects()[0];
+        if (!project)
+          return vscode.window.showWarningMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`));
+
+        await this._reusedBrowser.record(project);
       }),
       vscode.commands.registerCommand('pw.extension.command.toggleModels', async () => {
         this._settingsView.toggleModels();
