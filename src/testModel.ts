@@ -212,7 +212,6 @@ export class TestModel extends DisposableBase {
       for (const file of project.files)
         files.push(...await resolveSourceMap(file, this._fileToSources, this._sourceToFile));
       project.files = files;
-      this.config.testIdAttributeName = project.use?.testIdAttribute;
     }
 
     const projectsToKeep = new Set<string>();
