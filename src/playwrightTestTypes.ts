@@ -22,6 +22,9 @@ export type TestConfig = {
   configFile: string;
   cli: string;
   version: number;
+  // Legacy attribute, this is now part of FullProject['use'].
+  // Remove once https://github.com/microsoft/playwright/commit/1af4e367f4a46323f3b5a013527b944fe3176203 is common.
+  testIdAttributeName?: string;
 };
 
 export type PlaywrightTestRunOptions = {

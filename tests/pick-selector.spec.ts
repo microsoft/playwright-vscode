@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { selectors } from '@playwright/test';
 import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 
 test('should pick locator and dismiss the toolbar', async ({ activate, overridePlaywrightVersion }) => {
@@ -92,4 +93,28 @@ test('should copy locator to clipboard', async ({ activate }) => {
   await page.locator('h1').first().click();
 
   await expect.poll(() => vscode.env.clipboard.readText()).toBe(`getByRole('heading', { name: 'Hello' })`);
+});
+
+test('should pick locator and use the testIdAttribute from the config', async ({ activate }) => {
+  const { vscode } = await activate({
+    'playwright.config.js': `module.exports = { use: { testIdAttribute: 'data-testerid' } }`,
+  });
+
+  const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
+  await settingsView.getByText('Pick locator').click();
+
+  const browser = await connectToSharedBrowser(vscode);
+  selectors.setTestIdAttribute('data-testerid');
+  const page = await waitForPage(browser);
+  await page.setContent(`
+    <div data-testerid="hello">Hello</div>
+  `);
+  await page.locator('div').click();
+
+  const locatorsView = vscode.webViews.get('pw.extension.locatorsView')!;
+  await expect(locatorsView.locator('body')).toMatchAriaSnapshot(`
+    - text: Locator
+    - textbox "Locator": "getByTestId('hello')"
+  `);
+  selectors.setTestIdAttribute('data-testid');
 });
