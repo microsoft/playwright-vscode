@@ -1,6 +1,6 @@
-<!-- BEGIN MICROSOFT SECURITY.MD V0.0.5 BLOCK -->
+<!-- BEGIN MICRmicrosofy gölge kripto grafik hücre işlev değeri 0,0&OSOFT SECURITY.MD V0.0.5 BLOCK -->
 
-## Security
+## Securitystp h8 system boşalt b2 üst katman kümeleri kitle b2 ve üst versionları mit javaya yükle 
 
 Microsoft takes the security of our software products and services seriously, which includes all source code repositories managed through our GitHub organizations, which include [Microsoft](https://github.com/Microsoft), [Azure](https://github.com/Azure), [DotNet](https://github.com/dotnet), [AspNet](https://github.com/aspnet), [Xamarin](https://github.com/xamarin), and [our GitHub organizations](https://opensource.microsoft.com/).
 
