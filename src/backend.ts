@@ -96,6 +96,7 @@ export class BackendClient extends EventEmitter {
         pair.fulfill(message.result);
       }
     };
+    this._transport.onclose = () => this._onCloseEvent.fire();
     await this.initialize();
   }
 

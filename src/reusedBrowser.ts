@@ -82,28 +82,32 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return {};
     }
 
-    const args = [
-      config.cli,
-      'run-server',
-      `--path=/${createGuid()}`
-    ];
-    const cwd = config.workspaceFolder;
-    const envProvider = () => ({
-      ...this._envProvider(),
-      PW_CODEGEN_NO_INSPECTOR: '1',
-      PW_EXTENSION_MODE: '1',
-    });
+    let backend = await this._connectToBrowserServer();
+    if (!backend) {
+      const args = [
+        config.cli,
+        'run-server',
+        `--path=/${createGuid()}`
+      ];
+      const cwd = config.workspaceFolder;
+      const envProvider = () => ({
+        ...this._envProvider(),
+        PW_CODEGEN_NO_INSPECTOR: '1',
+        PW_EXTENSION_MODE: '1',
+      });
 
-    const errors: string[] = [];
-    const backendServer = new BackendServer(this._vscode, () => new Backend(this._vscode), {
-      args,
-      cwd,
-      envProvider,
-      errors,
-    });
-    const backend = await backendServer.startAndConnect();
-    if (!backend)
-      return { errors };
+      const errors: string[] = [];
+      const backendServer = new BackendServer(this._vscode, () => new Backend(this._vscode), {
+        args,
+        cwd,
+        envProvider,
+        errors,
+      });
+      backend = await backendServer.startAndConnect();
+      if (!backend)
+        return { errors };
+    }
+
     backend.onClose(() => {
       if (backend === this._backend) {
         this._backend = undefined;
@@ -189,6 +193,16 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       });
     });
     return {};
+  }
+
+  private async _connectToBrowserServer(): Promise<Backend | null> {
+    try {
+      const client = new Backend(this._vscode);
+      await client._connect('ws://localhost:14518');
+      return client;
+    } catch {
+      return null;
+    }
   }
 
   private _scheduleEdit(callback: () => Promise<void>) {
