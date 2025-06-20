@@ -197,18 +197,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   private async _connectToBrowserServer(): Promise<Backend | null> {
     try {
-      const baseURL = new URL('http://localhost:14518');
-      const response = await fetch(new URL('/json', baseURL));
-      if (!response.ok)
-        return null;
-      const json = await response.json();
-      if (typeof json.wsEndpointPath !== 'string')
-        return null;
       const client = new Backend(this._vscode);
-      await client._connect(baseURL.toString());
+      await client._connect('ws://localhost:14518');
       return client;
-    } catch (e) {
-      console.error('Failed to connect to browser server:', e);
+    } catch {
       return null;
     }
   }
