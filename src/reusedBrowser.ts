@@ -15,7 +15,7 @@
  */
 
 import type { TestConfig } from './playwrightTestTypes';
-import type { TestModel, TestModelCollection, TestProject } from './testModel';
+import type { TestModel, TestModelCollection } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { installBrowsers } from './installer';
@@ -254,8 +254,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return !this._isRunningTests && !!this._pageCount;
   }
 
-  async record(project: TestProject) {
-    if (!project.model || !this._checkVersion(project.model.config))
+  async record(model: TestModel, testIdAttributeName: string | undefined) {
+    if (!this._checkVersion(model.config))
       return;
     if (!this.canRecord()) {
       void this._vscode.window.showWarningMessage(
@@ -267,7 +267,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       location: this._vscode.ProgressLocation.Notification,
       title: 'Playwright codegen',
       cancellable: true
-    }, async (progress, token) => this._doRecord(progress, project, token));
+    }, async (progress, token) => this._doRecord(progress, model, testIdAttributeName, token));
   }
 
   async highlight(selector: string) {
@@ -306,8 +306,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return true;
   }
 
-  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, project: TestProject, token: vscodeTypes.CancellationToken) {
-    await this._startBackendIfNeeded(project.model.config);
+  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, testIdAttributeName: string | undefined, token: vscodeTypes.CancellationToken) {
+    await this._startBackendIfNeeded(model.config);
     this._insertedEditActionCount = 0;
 
     progress.report({ message: 'starting\u2026' });
@@ -321,11 +321,11 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     try {
       await this._backend?.setMode({
         mode: 'recording',
-        testIdAttributeName: project.project.use.testIdAttribute ?? project.model.config.testIdAttributeName,
+        testIdAttributeName,
       });
       this._recorderModeForTest = 'recording';
     } catch (e) {
-      showExceptionAsUserError(this._vscode, project.model, e as Error);
+      showExceptionAsUserError(this._vscode, model, e as Error);
       this._stop();
       return;
     }
