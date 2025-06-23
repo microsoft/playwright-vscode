@@ -103,6 +103,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       cwd,
       envProvider,
       errors,
+      dumpIO: false,
     });
     const backend = await backendServer.startAndConnect();
     if (!backend)
@@ -236,7 +237,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     try {
       await this._backend?.setMode({
         mode: 'inspecting',
-        testIdAttributeName: selectedModel.enabledProjects()[0]?.project?.use?.testIdAttribute,
+        testIdAttributeName: selectedModel.enabledProjects()[0]?.project?.use?.testIdAttribute ?? selectedModel.config.testIdAttributeName,
       });
       this._recorderModeForTest = 'inspecting';
     } catch (e) {
@@ -318,7 +319,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     ]);
 
     try {
-      await this._backend?.setMode({ mode: 'recording', testIdAttributeName: project.project.use.testIdAttribute });
+      await this._backend?.setMode({
+        mode: 'recording',
+        testIdAttributeName: project.project.use.testIdAttribute ?? project.model.config.testIdAttributeName,
+      });
       this._recorderModeForTest = 'recording';
     } catch (e) {
       showExceptionAsUserError(this._vscode, project.model, e as Error);

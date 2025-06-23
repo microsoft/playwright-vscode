@@ -21,7 +21,11 @@ import type { TestError } from './upstream/reporter';
 export type ProjectConfigWithFiles = {
   name: string;
   testDir: string;
-  use: { testIdAttribute?: string };
+  use: {
+    // Legacy attribute, this is now part of FullProject['use'].
+    // Remove once https://github.com/microsoft/playwright/commit/1af4e367f4a46323f3b5a013527b944fe3176203 is common.
+    testIdAttribute?: string;
+  };
   files: string[];
 };
 
