@@ -129,7 +129,7 @@ export async function startBackend(vscode: vscodeTypes.VSCode, options: BackendS
   });
   serverProcess.stderr?.on('data', data => {
     if (options.dumpIO)
-      console.log('[server err]', data.toString());
+      process.stderr.write('[server err] ' + data.toString());
     options.errors.push(data.toString());
   });
   serverProcess.on('error', options.onError);

@@ -100,6 +100,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       cwd,
       envProvider,
       errors,
+      dumpIO: false,
     });
     const backend = await backendServer.startAndConnect();
     if (!backend)
@@ -227,7 +228,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       void this._vscode.window.showErrorMessage('Error starting the backend: ' + errors.join('\n'));
     // Keep running, errors could be non-fatal.
     try {
-      await this._backend?.setMode({ mode: 'inspecting' });
+      await this._backend?.setMode({
+        mode: 'inspecting',
+        testIdAttributeName: selectedModel.enabledProjects()[0]?.project?.use?.testIdAttribute ?? selectedModel.config.testIdAttributeName,
+      });
     } catch (e) {
       showExceptionAsUserError(this._vscode, selectedModel, e as Error);
       return;
@@ -242,8 +246,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return !this._isRunningTests && !!this._pageCount;
   }
 
-  async record(model: TestModel) {
-    if (!model || !this._checkVersion(model.config))
+  async record(model: TestModel, testIdAttributeName: string | undefined) {
+    if (!this._checkVersion(model.config))
       return;
     if (!this.canRecord()) {
       void this._vscode.window.showWarningMessage(
@@ -255,7 +259,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       location: this._vscode.ProgressLocation.Notification,
       title: 'Playwright codegen',
       cancellable: true
-    }, async (progress, token) => this._doRecord(progress, model, token));
+    }, async (progress, token) => this._doRecord(progress, model, testIdAttributeName, token));
   }
 
   async highlight(selector: string) {
@@ -294,7 +298,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return true;
   }
 
-  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, token: vscodeTypes.CancellationToken) {
+  private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, testIdAttributeName: string | undefined, token: vscodeTypes.CancellationToken) {
     await this._startBackendIfNeeded(model.config);
     this._insertedEditActionCount = 0;
 
@@ -307,7 +311,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     ]);
 
     try {
-      await this._backend?.setMode({ mode: 'recording', testIdAttributeName: model.config.testIdAttributeName });
+      await this._backend?.setMode({
+        mode: 'recording',
+        testIdAttributeName,
+      });
     } catch (e) {
       showExceptionAsUserError(this._vscode, model, e as Error);
       this._stop();
