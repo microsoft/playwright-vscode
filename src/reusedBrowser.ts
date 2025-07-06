@@ -22,6 +22,8 @@ import { installBrowsers } from './installer';
 import { SettingsModel } from './settingsModel';
 import { BackendServer, BackendClient } from './backend';
 
+type RecorderMode = 'none' | 'standby' | 'inspecting' | 'recording';
+
 export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
   private _backend: Backend | undefined;
@@ -42,6 +44,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _editOperations = Promise.resolve();
   private _pausedOnPagePause = false;
   private _settingsModel: SettingsModel;
+  private _recorderModeForTest: RecorderMode = 'none';
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
@@ -217,6 +220,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return this._backend?.wsEndpoint;
   }
 
+  recorderModeForTest() {
+    return this._recorderModeForTest;
+  }
+
   async inspect(models: TestModelCollection) {
     const selectedModel = models.selectedModel();
     if (!selectedModel || !this._checkVersion(selectedModel.config, 'selector picker'))
@@ -228,6 +235,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     // Keep running, errors could be non-fatal.
     try {
       await this._backend?.setMode({ mode: 'inspecting' });
+      this._recorderModeForTest = 'inspecting';
     } catch (e) {
       showExceptionAsUserError(this._vscode, selectedModel, e as Error);
       return;
@@ -308,6 +316,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
     try {
       await this._backend?.setMode({ mode: 'recording', testIdAttributeName: model.config.testIdAttributeName });
+      this._recorderModeForTest = 'recording';
     } catch (e) {
       showExceptionAsUserError(this._vscode, model, e as Error);
       this._stop();
@@ -374,6 +383,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   private _resetNoWait(mode: 'none' | 'standby') {
     this._resetExtensionState();
+    this._recorderModeForTest = mode;
     this._backend?.resetRecorderModeNoWait(mode);
   }
 
@@ -415,7 +425,7 @@ export class Backend extends BackendClient {
     await this.send('navigate', params);
   }
 
-  async setMode(params: { mode: 'none' | 'standby' | 'inspecting' | 'recording', testIdAttributeName?: string }) {
+  async setMode(params: { mode: RecorderMode, testIdAttributeName?: string }) {
     await this.send('setRecorderMode', params);
   }
 
