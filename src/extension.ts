@@ -900,6 +900,10 @@ test('test', async ({ page }) => {
     return this._reusedBrowser.browserServerWSEndpoint();
   }
 
+  recorderModeForTest() {
+    return this._reusedBrowser.recorderModeForTest();
+  }
+
   fireTreeItemSelectedForTest(testItem: vscodeTypes.TestItem | null) {
     this._treeItemSelected(testItem);
   }

@@ -197,6 +197,10 @@ export async function connectToSharedBrowser(vscode: VSCode) {
   return await chromium.connect(wsEndpoint);
 }
 
+export async function waitForRecorderMode(vscode: VSCode, mode: string) {
+  await expect.poll(() => vscode.extensions[0].recorderModeForTest()).toBe(mode);
+}
+
 export async function waitForPage(browser: Browser, params?: BrowserContextOptions) {
   let pages: Page[] = [];
   await expect.poll(async () => {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
+import { connectToSharedBrowser, expect, test, waitForPage, waitForRecorderMode } from './utils';
 
 test('should pick locator and dismiss the toolbar', async ({ activate, overridePlaywrightVersion }) => {
   const { vscode } = await activate({
@@ -23,6 +23,7 @@ test('should pick locator and dismiss the toolbar', async ({ activate, overrideP
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
   await settingsView.getByText('Pick locator').click();
+  await waitForRecorderMode(vscode, 'inspecting');
 
   const browser = await connectToSharedBrowser(vscode);
   const page = await waitForPage(browser);
@@ -49,6 +50,7 @@ test('should pick locator and dismiss the toolbar', async ({ activate, overrideP
 
   await page.click('x-pw-tool-item.pick-locator');
   await expect(page.locator('x-pw-tool-item.pick-locator')).toBeHidden();
+  await waitForRecorderMode(vscode, 'none');
 });
 
 test('should highlight locator on edit', async ({ activate }) => {
@@ -58,6 +60,7 @@ test('should highlight locator on edit', async ({ activate }) => {
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
   await settingsView.getByText('Pick locator').click();
+  await waitForRecorderMode(vscode, 'inspecting');
 
   const browser = await connectToSharedBrowser(vscode);
   const page = await waitForPage(browser);
@@ -82,6 +85,7 @@ test('should copy locator to clipboard', async ({ activate }) => {
   const locatorsView = vscode.webViews.get('pw.extension.locatorsView')!;
   await locatorsView.getByRole('checkbox', { name: 'Copy on pick' }).check();
   await locatorsView.getByRole('button', { name: 'Pick locator' }).first().click();
+  await waitForRecorderMode(vscode, 'inspecting');
 
   const browser = await connectToSharedBrowser(vscode);
   const page = await waitForPage(browser);
