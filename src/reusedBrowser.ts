@@ -15,7 +15,7 @@
  */
 
 import type { TestConfig } from './playwrightTestTypes';
-import type { TestModel, TestModelCollection } from './testModel';
+import type { TestModel, TestModelCollection, TestProject } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { installBrowsers } from './installer';
@@ -225,6 +225,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return this._recorderModeForTest;
   }
 
+  private _getTestIdAttribute(model: TestModel, project?: TestProject): string | undefined {
+    return project?.project?.use?.testIdAttribute ?? model.config.testIdAttributeName;
+  }
+
   async inspect(models: TestModelCollection) {
     const selectedModel = models.selectedModel();
     if (!selectedModel || !this._checkVersion(selectedModel.config, 'selector picker'))
@@ -233,11 +237,12 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     const { errors } = await this._startBackendIfNeeded(selectedModel.config);
     if (errors)
       void this._vscode.window.showErrorMessage('Error starting the backend: ' + errors.join('\n'));
+    const testIdAttributeName = this._getTestIdAttribute(selectedModel, selectedModel.enabledProjects()[0]);
     // Keep running, errors could be non-fatal.
     try {
       await this._backend?.setMode({
         mode: 'inspecting',
-        testIdAttributeName: selectedModel.enabledProjects()[0]?.project?.use?.testIdAttribute ?? selectedModel.config.testIdAttributeName,
+        testIdAttributeName,
       });
       this._recorderModeForTest = 'inspecting';
     } catch (e) {
@@ -254,7 +259,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return !this._isRunningTests && !!this._pageCount;
   }
 
-  async record(model: TestModel, testIdAttributeName: string | undefined) {
+  async record(model: TestModel, project?: TestProject) {
     if (!this._checkVersion(model.config))
       return;
     if (!this.canRecord()) {
@@ -263,6 +268,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       );
       return;
     }
+    const testIdAttributeName = this._getTestIdAttribute(model, project);
     await this._vscode.window.withProgress({
       location: this._vscode.ProgressLocation.Notification,
       title: 'Playwright codegen',

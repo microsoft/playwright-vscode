@@ -23,7 +23,7 @@ export type ProjectConfigWithFiles = {
   testDir: string;
   use: {
     // Legacy attribute, this is now part of FullProject['use'].
-    // Remove once https://github.com/microsoft/playwright/commit/1af4e367f4a46323f3b5a013527b944fe3176203 is common.
+    // Remove once https://github.com/microsoft/playwright/commit/1af4e367f4a46323f3b5a013527b944fe3176203 is widely available.
     testIdAttribute?: string;
   };
   files: string[];

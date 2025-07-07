@@ -198,26 +198,20 @@ export class Extension implements RunHooks {
         if (!file)
           return;
 
-        const testIdAttributeName = project.project.use.testIdAttribute ?? project.model.config.testIdAttributeName;
         const showBrowser = this._settingsModel.showBrowser.get() ?? false;
         try {
           await this._settingsModel.showBrowser.set(true);
           await this._showBrowserForRecording(file, project);
-          await this._reusedBrowser.record(model, testIdAttributeName);
+          await this._reusedBrowser.record(model, project);
         } finally {
           await this._settingsModel.showBrowser.set(showBrowser);
         }
       }),
       vscode.commands.registerCommand('pw.extension.command.recordAtCursor', async () => {
-        let testIdAttributeName: string | undefined = undefined;
         const model = this._models.selectedModel();
         if (!model)
           return vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
-        const project = model.enabledProjects()[0];
-        if (project)
-          testIdAttributeName = project.project.use.testIdAttribute ?? project.model.config.testIdAttributeName;
-
-        await this._reusedBrowser.record(model, testIdAttributeName);
+        await this._reusedBrowser.record(model);
       }),
       vscode.commands.registerCommand('pw.extension.command.toggleModels', async () => {
         this._settingsView.toggleModels();
