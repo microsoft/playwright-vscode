@@ -198,12 +198,11 @@ export class Extension implements RunHooks {
         if (!file)
           return;
 
-
         const showBrowser = this._settingsModel.showBrowser.get() ?? false;
         try {
           await this._settingsModel.showBrowser.set(true);
           await this._showBrowserForRecording(file, project);
-          await this._reusedBrowser.record(model);
+          await this._reusedBrowser.record(model, project);
         } finally {
           await this._settingsModel.showBrowser.set(showBrowser);
         }
@@ -212,7 +211,6 @@ export class Extension implements RunHooks {
         const model = this._models.selectedModel();
         if (!model)
           return vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
-
         await this._reusedBrowser.record(model);
       }),
       vscode.commands.registerCommand('pw.extension.command.toggleModels', async () => {
