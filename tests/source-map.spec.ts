@@ -27,9 +27,6 @@ test('should list files', async ({ activate }) => {
     -   tests
       -   test.spec.ts
   `);
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
   ]);
@@ -51,10 +48,6 @@ test('should list tests on expand', async ({ activate }) => {
         -   two [3:0]
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     {
@@ -84,10 +77,6 @@ test('should list tests for visible editors', async ({ activate }) => {
         -   two [3:0]
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     {
@@ -112,9 +101,6 @@ test('should pick new files', async ({ activate }) => {
       -   test-1.spec.ts
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-  `);
 
   await Promise.all([
     new Promise(f => testController.onDidChangeTestItem(f)),
@@ -129,10 +115,6 @@ test('should pick new files', async ({ activate }) => {
       -   test-2.spec.ts
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'listFiles', params: {} },
@@ -160,9 +142,6 @@ test('should remove deleted files', async ({ activate }) => {
       -   test-3.spec.ts
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
   ]);
@@ -180,10 +159,6 @@ test('should remove deleted files', async ({ activate }) => {
       -   test-3.spec.ts
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'listFiles', params: {} },
@@ -200,10 +175,6 @@ test('should discover new tests', async ({ activate }) => {
 
   await testController.expandTestItems(/test.spec.ts/);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     {
@@ -230,11 +201,6 @@ test('should discover new tests', async ({ activate }) => {
         -   two [4:0]
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     {
@@ -273,10 +239,6 @@ test('should run all tests', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'runGlobalSetup', params: {} },
@@ -310,11 +272,6 @@ test('should run one test', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > playwright test -c playwright.config.js tests/test.spec.ts:3
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     {

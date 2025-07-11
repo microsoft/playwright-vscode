@@ -80,7 +80,6 @@ export class Extension implements RunHooks {
   private _commandQueue = Promise.resolve();
   private _watchFilesBatch?: vscodeTypes.TestItem[];
   private _watchItemsBatch?: vscodeTypes.TestItem[];
-  overridePlaywrightVersion: number | null = null;
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     this._vscode = vscode;
@@ -328,8 +327,6 @@ export class Extension implements RunHooks {
         continue;
       }
 
-      if (this.overridePlaywrightVersion)
-        playwrightInfo.version = this.overridePlaywrightVersion;
       await this._models.createModel(workspaceFolderPath, uriToPath(configFileUri), playwrightInfo);
     }
 

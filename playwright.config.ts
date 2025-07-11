@@ -44,25 +44,5 @@ export default defineConfig<WorkerOptions>({
         showTrace: true,
       }
     },
-    {
-      name: 'legacy',
-      use: {
-        overridePlaywrightVersion: 1.43,
-      }
-    },
-    {
-      name: 'legacy-reuse',
-      use: {
-        overridePlaywrightVersion: 1.43,
-        showBrowser: true,
-      }
-    },
-    {
-      name: 'legacy-trace',
-      use: {
-        overridePlaywrightVersion: 1.43,
-        showTrace: true,
-      }
-    },
   ]
 });

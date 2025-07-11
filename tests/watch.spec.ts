@@ -19,8 +19,6 @@ import { enableConfigs, enableProjects, escapedPathSep, expect, selectConfig, te
 import path from 'path';
 import { writeFile } from 'node:fs/promises';
 
-test.skip(({ overridePlaywrightVersion }) => !!overridePlaywrightVersion);
-
 test('should watch all tests', async ({ activate }) => {
   const { vscode, testController, workspaceFolder } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,

@@ -42,10 +42,6 @@ test('should debug all tests', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > debug -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'runGlobalSetup', params: {} },
@@ -81,11 +77,6 @@ test('should debug one test', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > debug -c playwright.config.js tests/test.spec.ts:3
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     {

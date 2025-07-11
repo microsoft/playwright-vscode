@@ -53,10 +53,6 @@ test('should run all tests', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'runGlobalSetup', params: {} },
@@ -94,11 +90,6 @@ test('should run one test', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > playwright test -c playwright.config.js tests/test.spec.ts:3
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     {
@@ -174,10 +165,6 @@ test('should run file', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js tests/test.spec.ts
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'runGlobalSetup', params: {} },
@@ -223,10 +210,6 @@ test('should run folder', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js tests/folder/
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'runGlobalSetup', params: {} },
@@ -364,11 +347,6 @@ test('should only create test run if file belongs to context', async ({ activate
     expect(testRuns).toHaveLength(1);
   }
 
-  await expect(vscode).toHaveExecLog(`
-    tests1> playwright list-files -c playwright.config.js
-    tests2> playwright list-files -c playwright.config.js
-    tests1> playwright test -c playwright.config.js test1.spec.ts
-  `);
   await expect(vscode).toHaveConnectionLog(expect.arrayContaining([
     { method: 'listFiles', params: {} },
     { method: 'runGlobalSetup', params: {} },
@@ -389,12 +367,6 @@ test('should only create test run if file belongs to context', async ({ activate
     expect(testRuns).toHaveLength(1);
   }
 
-  await expect(vscode).toHaveExecLog(`
-    tests1> playwright list-files -c playwright.config.js
-    tests2> playwright list-files -c playwright.config.js
-    tests1> playwright test -c playwright.config.js test1.spec.ts
-    tests2> playwright test -c playwright.config.js test2.spec.ts
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'runGlobalSetup', params: {} },
     {
@@ -439,11 +411,6 @@ test('should only create test run if folder belongs to context', async ({ activa
   const items = testController.findTestItems(/foo1/);
   await profile.run(items);
 
-  await expect(vscode).toHaveExecLog(`
-    tests1> playwright list-files -c playwright.config.js
-    tests2> playwright list-files -c playwright.config.js
-    tests1> playwright test -c playwright.config.js foo1/
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'listFiles', params: {} },
@@ -477,10 +444,6 @@ test('should run all projects at once', async ({ activate }) => {
   const profile = testController.runProfile();
   await profile.run();
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'runGlobalSetup', params: {} },
@@ -543,12 +506,6 @@ test('should group projects by config', async ({ activate }) => {
 
   await testController.runProfile().run();
 
-  await expect(vscode).toHaveExecLog(`
-    tests1> playwright list-files -c playwright.config.js
-    tests2> playwright list-files -c playwright.config.js
-    tests1> playwright test -c playwright.config.js
-    tests2> playwright test -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'listFiles', params: {} },
@@ -595,46 +552,6 @@ test('should stop', async ({ activate, showBrowser }) => {
   }
   testRun.token.source.cancel();
   await runPromise;
-});
-
-test('should tear down on stop', async ({ activate, overridePlaywrightVersion }) => {
-  test.skip(!overridePlaywrightVersion, 'New world will not teardown on stop');
-  const { testController } = await activate({
-    'playwright.config.js': `module.exports = {
-      testDir: 'tests',
-      globalSetup: './globalSetup.js',
-    }`,
-    'globalSetup.js': `
-      process.stdout.write('RUNNING SETUP');
-      module.exports = async () => {
-        return async () => {
-          await new Promise(f => process.stdout.write('RUNNING TEARDOWN', f));
-        }
-      };
-    `,
-    'tests/test.spec.ts': `
-      import { test } from '@playwright/test';
-      test('one', async () => {
-        await new Promise(f => process.stdout.write('RUNNING TEST', f));
-        await new Promise(() => {});
-      });
-    `,
-  });
-
-  const profile = testController.runProfile();
-  const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
-  const runPromise = profile.run();
-  const testRun = await testRunPromise;
-
-  let output = testRun.renderLog({ output: true });
-  while (!output.includes('RUNNING TEST')) {
-    output = testRun.renderLog({ output: true });
-    await new Promise(f => setTimeout(f, 100));
-  }
-
-  testRun.token.source.cancel();
-  await runPromise;
-  expect(testRun.renderLog({ output: true })).toContain('RUNNING TEARDOWN');
 });
 
 test('should not remove other tests when running focused test', async ({ activate }) => {
@@ -694,11 +611,6 @@ test('should run all parametrized tests', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > playwright test -c playwright.config.js tests/test.spec.ts:4
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     {
@@ -745,11 +657,6 @@ test('should run one parametrized test', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > playwright test -c playwright.config.js --grep=test two tests/test.spec.ts:4
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'listTests', params: {
@@ -797,11 +704,6 @@ test('should run one parametrized groups', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > playwright test -c playwright.config.js --grep=group three tests/test.spec.ts:4
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     {
@@ -851,11 +753,6 @@ test('should run tests in parametrized groups', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > playwright test -c playwright.config.js --grep=level 1 tests/test.spec.ts:4
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     {
@@ -888,12 +785,6 @@ test('should run tests in parametrized groups', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --list --reporter=null tests/test.spec.ts
-    > playwright test -c playwright.config.js --grep=level 1 tests/test.spec.ts:4
-    > playwright test -c playwright.config.js --grep=level 2 tests/test.spec.ts:4
-  `);
   await expect(vscode).toHaveConnectionLog([
     {
       method: 'runTests',
@@ -918,10 +809,6 @@ test('should list tests in relative folder', async ({ activate }) => {
 
   await testController.expandTestItems(/test.spec/);
 
-  await expect(vscode).toHaveExecLog(`
-    foo/bar> playwright list-files -c playwright.config.js
-    foo/bar> playwright test -c playwright.config.js --list --reporter=null ../../tests/test.spec.ts
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     {
@@ -967,10 +854,6 @@ test('should filter selected project', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js --project=project 1 tests1/test.spec.ts
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'runGlobalSetup', params: {} },
@@ -1008,11 +891,6 @@ test('should report project-specific failures', async ({ activate }) => {
   const testRuns: TestRun[] = [];
   testController.onDidCreateTestRun(run => testRuns.push(run));
   await profile.run();
-
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js
-  `);
 
   expect(testRuns[0].renderLog({ messages: true })).toBe(`
     tests > test.spec.ts > should pass > projectA [2:0]
@@ -1150,7 +1028,7 @@ test('should run tests for folders above root', async ({ activate }) => {
   `);
 });
 
-test('should produce output twice', async ({ activate, overridePlaywrightVersion }) => {
+test('should produce output twice', async ({ activate }) => {
   const { testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: 'tests',
@@ -1168,13 +1046,14 @@ test('should produce output twice', async ({ activate, overridePlaywrightVersion
   expect(testItems.length).toBe(1);
 
   const testRun1 = await testController.run(testItems);
-  const runningGlobalSetup = overridePlaywrightVersion ? '' : '\n    Running global setup if any…\n';
   expect(testRun1.renderLog({ output: true })).toBe(`
     tests > test.spec.ts > one [2:0]
       enqueued
       started
       passed
-    Output:${runningGlobalSetup}
+    Output:
+    Running global setup if any…
+
 
     Running 1 test using 1 worker
 
@@ -1248,8 +1127,6 @@ test('should force workers=1 when reusing the browser', async ({ activate, showB
 });
 
 test.describe('runGlobalSetupOnEachRun', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/32121' } }, () => {
-  test.skip(({ overridePlaywrightVersion }) => !!overridePlaywrightVersion, 'old world doesnt have globalSetup');
-
   function expectOrdering(log: string, items: string[]) {
     items.forEach(item => expect(log).toContain(item));
 
@@ -1302,9 +1179,7 @@ test.describe('runGlobalSetupOnEachRun', { annotation: { type: 'issue', descript
   });
 });
 
-test('should provide page snapshot to copilot', async ({ activate, overridePlaywrightVersion }) => {
-  test.skip(!!overridePlaywrightVersion, 'requires testserver');
-
+test('should provide page snapshot to copilot', async ({ activate }) => {
   const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests', workers: 2 }`,
     'tests/test1.spec.ts': `

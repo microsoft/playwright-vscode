@@ -30,9 +30,6 @@ test('should list files', async ({ activate }) => {
     -   tests
       -   test.spec.ts
   `);
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} }
   ]);
@@ -49,9 +46,6 @@ test('should list files top level if no testDir', async ({ activate }, testInfo)
 
   await expect(testController).toHaveTestTree(`
     -   test.spec.ts
-  `);
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
   `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} }
@@ -98,9 +92,6 @@ test('should list folders', async ({ activate }) => {
         -   test-a.spec.ts
         -   test-b.spec.ts
   `);
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} }
   ]);
@@ -117,9 +108,6 @@ test('should pick new files', async ({ activate }) => {
       -   test-1.spec.ts
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} }
   ]);
@@ -135,10 +123,6 @@ test('should pick new files', async ({ activate }) => {
       -   test-2.spec.ts
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'listFiles', params: {} }
@@ -203,9 +187,6 @@ test('should remove deleted files', async ({ activate }) => {
       -   test-3.spec.ts
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} }
   ]);
@@ -221,10 +202,6 @@ test('should remove deleted files', async ({ activate }) => {
       -   test-3.spec.ts
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'listFiles', params: {} }
@@ -278,9 +255,6 @@ test('should support multiple projects', async ({ activate }) => {
     -    [playwright.config.js [project 2] — disabled]
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} }
   ]);
@@ -314,9 +288,6 @@ test('should switch between multiple projects with filter', async ({ activate })
     -    [playwright.config.js [project 2] — disabled]
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} }
   ]);
@@ -341,9 +312,6 @@ test('should switch between multiple projects with filter', async ({ activate })
     [x] project 2
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} }
   ]);
@@ -360,9 +328,6 @@ test('should list files in relative folder', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-  `);
-  await expect(vscode).toHaveExecLog(`
-    foo/bar> playwright list-files -c playwright.config.js
   `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} }
@@ -419,10 +384,6 @@ test('should ignore errors when listing files', async ({ activate }) => {
       -   test.spec.ts
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright list-files -c playwright.config.ts
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'listFiles', params: {} }
