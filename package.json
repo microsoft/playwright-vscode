@@ -184,7 +184,7 @@
     }
   },
   "scripts": {
-    "esbuild": "esbuild ./src/babelBundle.ts ./src/extension.ts ./src/debugTransform.ts ./src/playwrightFinder.ts ./src/*.script.ts --bundle --outdir=out --external:vscode --external:./babelBundle --external:./debugTransform --external:./oopReporter --external:./playwrightFinder --external:./*.script.ts --format=cjs --platform=node --target=ES2019",
+    "esbuild": "esbuild ./src/babelBundle.ts ./src/extension.ts ./src/oopReporter.ts ./src/debugTransform.ts ./src/playwrightFinder.ts ./src/*.script.ts --bundle --outdir=out --external:vscode --external:./babelBundle --external:./debugTransform --external:./oopReporter --external:./playwrightFinder --external:./*.script.ts --format=cjs --platform=node --target=ES2019",
     "build": "npm run esbuild -- --minify",
     "watch": "npm run esbuild -- --sourcemap --watch",
     "l10n": "npx @vscode/l10n-dev export -o ./l10n ./src",
