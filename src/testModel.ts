@@ -27,7 +27,6 @@ import { DisposableBase } from './disposableBase';
 import { MultiMap } from './multimap';
 import { PlaywrightTestServer } from './playwrightTestServer';
 import type { PlaywrightTestRunOptions, RunHooks, TestConfig } from './playwrightTestTypes';
-import { PlaywrightTestCLI } from './playwrightTestCLI';
 import { upstreamTreeItem } from './testTree';
 import { collectTestIds } from './upstream/testTree';
 import { TraceViewer } from './traceViewer';
@@ -62,7 +61,7 @@ export class TestModel extends DisposableBase {
   private _vscode: vscodeTypes.VSCode;
   readonly config: TestConfig;
   private _projects = new Map<string, TestProject>();
-  private _playwrightTest: PlaywrightTestServer | PlaywrightTestCLI;
+  private _playwrightTest: PlaywrightTestServer;
   private _watches = new Set<Watch>();
   private _fileToSources: Map<string, string[]> = new Map();
   private _sourceToFile: Map<string, string> = new Map();
@@ -79,7 +78,6 @@ export class TestModel extends DisposableBase {
   } | undefined;
   private _ranGlobalSetup = false;
   private _startedDevServer = false;
-  private _useLegacyCLIDriver: boolean;
   private _collection: TestModelCollection;
   private _traceViewer: TraceViewer | null = null;
 
@@ -89,11 +87,7 @@ export class TestModel extends DisposableBase {
     this._embedder = collection.embedder;
     this._collection = collection;
     this.config = { ...playwrightInfo, workspaceFolder, configFile };
-    this._useLegacyCLIDriver = playwrightInfo.version < 1.44;
-    if (this._useLegacyCLIDriver)
-      this._playwrightTest = new PlaywrightTestCLI(this._vscode, this, collection.embedder);
-    else
-      this._playwrightTest = new PlaywrightTestServer(this._vscode, this, collection.embedder);
+    this._playwrightTest = new PlaywrightTestServer(this._vscode, this, collection.embedder);
     this.tag = new this._vscode.TestTag(this.config.configFile);
 
     this.updateTraceViewer(false);
@@ -448,9 +442,6 @@ export class TestModel extends DisposableBase {
   }
 
   canRunGlobalHooks(type: 'setup' | 'teardown') {
-    if (this._useLegacyCLIDriver)
-      return false;
-
     if (type === 'setup') {
       if (this._embedder.settingsModel.runGlobalSetupOnEachRun.get())
         return true;
@@ -489,7 +480,7 @@ export class TestModel extends DisposableBase {
   }
 
   canStartDevServer(): boolean {
-    return !this._useLegacyCLIDriver && !this._startedDevServer;
+    return !this._startedDevServer;
   }
 
   canStopDevServer(): boolean {

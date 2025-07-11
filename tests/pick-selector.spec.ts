@@ -17,7 +17,7 @@
 import { selectors } from '@playwright/test';
 import { connectToSharedBrowser, expect, test, waitForPage, waitForRecorderMode } from './utils';
 
-test('should pick locator and dismiss the toolbar', async ({ activate, overridePlaywrightVersion }) => {
+test('should pick locator and dismiss the toolbar', async ({ activate }) => {
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = {}`,
   });
@@ -40,14 +40,12 @@ test('should pick locator and dismiss the toolbar', async ({ activate, overrideP
     - textbox "Locator": "getByRole('heading', { name: 'Hello' })"
   `);
 
-  if (!overridePlaywrightVersion) {
-    await expect(locatorsView.locator('body')).toMatchAriaSnapshot(`
-      - text: Locator
-      - textbox "Locator": "getByRole('heading', { name: 'Hello' })"
-      - text: Aria
-      - textbox "Aria": "- heading \\"Hello\\" [level=1]"
-    `);
-  }
+  await expect(locatorsView.locator('body')).toMatchAriaSnapshot(`
+    - text: Locator
+    - textbox "Locator": "getByRole('heading', { name: 'Hello' })"
+    - text: Aria
+    - textbox "Aria": "- heading \\"Hello\\" [level=1]"
+  `);
 
   await page.click('x-pw-tool-item.pick-locator');
   await expect(page.locator('x-pw-tool-item.pick-locator')).toBeHidden();

@@ -41,9 +41,6 @@ test('should switch between configs', async ({ activate }) => {
     [ ] projectTwo
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    tests1> playwright list-files -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
   ]);
@@ -60,10 +57,6 @@ test('should switch between configs', async ({ activate }) => {
     -   tests2
       -   test.spec.ts
     -    [tests2${path.sep}playwright.config.js [projectFour] — disabled]
-  `);
-  await expect(vscode).toHaveExecLog(`
-    tests1> playwright list-files -c playwright.config.js
-    tests2> playwright list-files -c playwright.config.js
   `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },

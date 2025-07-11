@@ -42,52 +42,7 @@ test('should report duplicate test title', async ({ activate }) => {
   ]);
 });
 
-test('should report error in global setup (implicit)', async ({ activate, overridePlaywrightVersion }) => {
-  test.skip(!overridePlaywrightVersion);
-  const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = {
-      testDir: 'tests',
-      globalSetup: 'globalSetup.ts',
-    }`,
-    'globalSetup.ts': `
-      import { expect } from '@playwright/test';
-      async function globalSetup(config) {
-        expect(true).toBe(false);
-      }
-      export default globalSetup;`,
-    'tests/test.spec.ts': `
-      import { test } from '@playwright/test';
-      test('should pass', async () => {});
-    `,
-  });
-
-  const testRun = await testController.run();
-  expect(testRun.renderLog({ messages: true })).toContain(`
-    tests > test.spec.ts
-      started
-      failed
-        globalSetup.ts:[3:21 - 3:21]
-        Error: <span style='color:#888;'>expect(</span>`);
-
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js
-  `);
-  await expect(vscode).toHaveConnectionLog([
-    { method: 'listFiles', params: {} },
-    { method: 'runGlobalSetup', params: {} },
-    {
-      method: 'runTests',
-      params: expect.objectContaining({
-        locations: [],
-        testIds: undefined
-      })
-    },
-  ]);
-});
-
-test('should report error in global setup (explicit)', async ({ activate, overridePlaywrightVersion }) => {
-  test.skip(!!overridePlaywrightVersion);
+test('should report error in global setup (explicit)', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {
       testDir: 'tests',
@@ -108,10 +63,6 @@ test('should report error in global setup (explicit)', async ({ activate, overri
   const testRun = await testController.run();
   await expect(testRun).toHaveOutput(/Error: expect\(received\)\.toBe\(expected\)/);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'runGlobalSetup', params: {} },
