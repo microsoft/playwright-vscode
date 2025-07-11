@@ -24,7 +24,7 @@ import { BackendServer, BackendClient } from './backend';
 
 type RecorderMode = 'none' | 'standby' | 'inspecting' | 'recording';
 
-export class ReusedBrowser implements vscodeTypes.Disposable {
+export class BrowserServer implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
   private _backend: Backend | undefined;
   private _cancelRecording: (() => void) | undefined;
