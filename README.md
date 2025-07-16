@@ -15,6 +15,7 @@ This extension integrates Playwright into your VS Code workflow. Here is what it
   - [Tune locators](#tune-locators)
   - [Record new tests](#record-new-tests)
   - [Record at cursor](#record-at-cursor)
+  - [AI Integration with MCP](#ai-integration-with-mcp)
 
 
 ![Playwright VS Code Extension](https://github.com/microsoft/playwright-vscode/assets/13063165/400a3f11-a1e8-4fe7-8ae6-b0460142de35)
@@ -95,5 +96,9 @@ Record new tests by clicking on the "record tests" button in the testing sidebar
 ## Record at cursor
 
 This generates actions into the existing test at the current cursor position. You can run the test, position the cursor at the end of the test and continue generating the test.
+
+## AI Integration with MCP
+
+This extension includes built-in integration with the [Playwright MCP (Model Context Protocol) server](https://github.com/microsoft/playwright-mcp), enabling AI language models in VS Code to perform browser automation tasks. 
 
 [Playwright]: https://playwright.dev "Playwright"

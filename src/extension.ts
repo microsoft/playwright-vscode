@@ -80,6 +80,7 @@ export class Extension implements RunHooks {
   private _commandQueue = Promise.resolve();
   private _watchFilesBatch?: vscodeTypes.TestItem[];
   private _watchItemsBatch?: vscodeTypes.TestItem[];
+  private _mcpServerProvider: PlaywrightMcpServerProvider;
   overridePlaywrightVersion: number | null = null;
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
@@ -127,6 +128,7 @@ export class Extension implements RunHooks {
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
     this._diagnostics = this._vscode.languages.createDiagnosticCollection('pw.testErrors.diagnostic');
     this._treeItemObserver = new TreeItemObserver(this._vscode);
+    this._mcpServerProvider = new PlaywrightMcpServerProvider(this._vscode);
   }
 
   async onWillRunTests(config: TestConfig, debug: boolean) {
@@ -261,6 +263,7 @@ export class Extension implements RunHooks {
       this._diagnostics,
       this._treeItemObserver,
       registerTerminalLinkProvider(this._vscode),
+      this._vscode.lm.registerMcpServerDefinitionProvider('playwrightMcp', this._mcpServerProvider),
     ];
     const fileSystemWatchers = [
       // Glob parser does not supported nested group, hence multiple watchers.
@@ -988,6 +991,24 @@ class TreeItemObserver implements vscodeTypes.Disposable{
     this._timeout = setTimeout(() => this._poll().catch(() => {}), 250);
   }
 }
+
+class PlaywrightMcpServerProvider implements vscodeTypes.McpServerDefinitionProvider {
+
+  constructor(private readonly _vscode: vscodeTypes.VSCode) {}
+
+  async provideMcpServerDefinitions(): Promise<vscodeTypes.McpServerDefinition[]> {
+    return [
+      new this._vscode.McpStdioServerDefinition(
+          this._vscode.l10n.t('Playwright MCP Server'),
+          'node',
+          [
+            path.join(__dirname, '..', 'node_modules', '@playwright', 'mcp', 'cli.js'),
+          ]
+      )
+    ];
+  }
+}
+
 
 function ancestorProject(test: reporterTypes.TestCase): reporterTypes.FullProject {
   let suite: reporterTypes.Suite = test.parent;
