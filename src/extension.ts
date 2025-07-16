@@ -263,7 +263,7 @@ export class Extension implements RunHooks {
       this._diagnostics,
       this._treeItemObserver,
       registerTerminalLinkProvider(this._vscode),
-      this._vscode.lm.registerMcpServerDefinitionProvider('playwrightMcp', this._mcpServerProvider),
+      this._vscode.lm.registerMcpServerDefinitionProvider('pw.extension.playwrightMcp', this._mcpServerProvider),
     ];
     const fileSystemWatchers = [
       // Glob parser does not supported nested group, hence multiple watchers.
