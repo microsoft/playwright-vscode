@@ -21,6 +21,12 @@
   "main": "./out/extension.js",
   "l10n": "./l10n",
   "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "pw.extension.playwrightMcp",
+        "label": "%contributes.mcpServerDefinitionProviders.pw.extension.playwrightMcp%"
+      }
+    ],
     "commands": [
       {
         "category": "Test",
@@ -205,7 +211,7 @@
     "@types/glob": "^8.0.0",
     "@types/node": "^18.11.9",
     "@types/stack-utils": "^2.0.1",
-    "@types/vscode": "1.93.0",
+    "@types/vscode": "1.102.0",
     "@types/which": "^3.0.3",
     "@types/ws": "^8.5.3",
     "@typescript-eslint/eslint-plugin": "^7.3.1",
@@ -222,6 +228,7 @@
     "typescript": "^5.4.3"
   },
   "dependencies": {
+    "@playwright/mcp": "0.0.30",
     "@babel/core": "^7.23.2",
     "@babel/helper-plugin-utils": "^7.22.5",
     "@babel/plugin-proposal-decorators": "^7.24.7",

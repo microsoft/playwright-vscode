@@ -1,5 +1,6 @@
 {
   "description": "在 Visual Studio Code 中运行 Playwright Test 测试用例.",
+  "contributes.mcpServerDefinitionProviders.pw.extension.playwrightMcp": "Playwright MCP Server" ,
   "contributes.command.pw.extension.install": "安装 Playwright",
   "contributes.command.pw.extension.installBrowsers": "安装 Playwright 浏览器",
   "contributes.command.pw.extension.command.inspect": "拾取选择器",

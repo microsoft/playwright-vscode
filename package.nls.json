@@ -1,5 +1,6 @@
 {
   "description": "Run Playwright Test tests in Visual Studio Code.",
+  "contributes.mcpServerDefinitionProviders.pw.extension.playwrightMcp": "Playwright MCP Server",
   "contributes.command.pw.extension.install": "Install Playwright",
   "contributes.command.pw.extension.installBrowsers": "Install Playwright Browsers",
   "contributes.command.pw.extension.command.inspect": "Pick locator",
