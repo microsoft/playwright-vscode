@@ -651,15 +651,18 @@ export class TestModel extends DisposableBase {
       return { locations: [] };
     const locations = new Set<string>();
     const testIds: string[] = [];
+    const enabledFiles = this.enabledFiles();
     for (const item of request.include) {
       const treeItem = upstreamTreeItem(item);
       if (treeItem.kind === 'group' && (treeItem.subKind === 'folder' || treeItem.subKind === 'file')) {
         const treeItemPath = treeItem.location.file + (treeItem.subKind === 'folder' ? path.sep : '');
-        for (const file of this.enabledFiles()) {
+        for (const file of enabledFiles) {
           if (file === treeItemPath || file.startsWith(treeItemPath))
             locations.add(treeItemPath);
         }
       } else {
+        if (!enabledFiles.has(treeItem.location.file))
+          continue;
         testIds.push(...collectTestIds(treeItem));
       }
     }
