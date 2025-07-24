@@ -25,8 +25,7 @@ import type { ConfigSettings, SettingsModel, WorkspaceSettings } from './setting
 import path from 'path';
 import { DisposableBase } from './disposableBase';
 import { MultiMap } from './multimap';
-import { PlaywrightTestServer } from './playwrightTestServer';
-import type { PlaywrightTestRunOptions, RunHooks, TestConfig } from './playwrightTestTypes';
+import { PlaywrightTestRunOptions, PlaywrightTestServer, RunHooks, TestConfig } from './playwrightTestServer';
 import { upstreamTreeItem } from './testTree';
 import { collectTestIds } from './upstream/testTree';
 import { TraceViewer } from './traceViewer';
