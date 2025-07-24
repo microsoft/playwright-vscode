@@ -21,8 +21,8 @@
   "configuration.playwright.showTrace": "Afficher les traces avec Trace Viewer.",
   "configuration.playwright.runGlobalSetupOnEachRun": "Ne pas réutiliser la setup globale.",
   "configuration.playwright.pickLocatorCopyToClipboard": "Copier automatiquement le locator sélectionné dans le presse-papiers.",
-  "configuration.playwright.updateSnapshots": "Mettre à jour les captures d'écran",
-  "configuration.playwright.updateSourceMethod": "Mettre à jour la méthode source",
+  "configuration.playwright.updateSnapshots": "Mettre à jour les captures d'écran:",
+  "configuration.playwright.updateSourceMethod": "Mettre à jour la méthode source:",
   "views.test.pw.extension.locatorsView": "Localisateurs",
   "views.test.pw.extension.settingsView": "Playwright"
 }

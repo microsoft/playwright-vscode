@@ -102,7 +102,7 @@ textarea {
 }
 
 .action, .combobox {
-  padding: 0 4px;
+  padding: 0 4px 0 8px;
   cursor: pointer;
   display: flex;
 }
@@ -135,6 +135,11 @@ label {
   align-items: center;
   cursor: inherit;
   flex: auto;
+}
+
+label.dropdown {
+  padding: 0 8px;
+  justify-content: space-between;
 }
 
 .action:hover, .combobox:hover {

@@ -258,37 +258,25 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             <div>${vscode.l10n.t('Run global setup on each run')}</div>
           </label>
         </div class="action">
-        <div class="hbox">
-          <div class="action-indent"></div>
-          <div class="action-indent"></div>
-          <label id="updateSnapshotLabel">${vscode.l10n.t('Update snapshots')}</label>
-        </div>
-        <div class="combobox">
-          <div class="action-big-indent"></div>
-          <select setting="updateSnapshots" aria-labelledby="updateSnapshotLabel">
+        <label class="dropdown">
+          ${vscode.l10n.t('Update snapshots:')}
+          <select setting="updateSnapshots" class="combobox">
             <option value="no-override">no override</option>
             <option value="all">all</option>
             <option value="changed">changed</option>
             <option value="missing">missing</option>
             <option value="none">none</option>
           </select>
-          <div class="action-indent"></div>
-        </div>
-        <div class="hbox">
-          <div class="action-indent"></div>
-          <div class="action-indent"></div>
-          <label id="updateSourceMethod">${vscode.l10n.t('Update method')}</label>
-        </div>
-        <div class="combobox">
-          <div class="action-big-indent"></div>
-          <select setting="updateSourceMethod" aria-labelledby="updateSourceMethod">
+        </label>
+        <label class="dropdown">
+          ${vscode.l10n.t('Update method:')}
+          <select setting="updateSourceMethod" class="combobox">
             <option value="no-override">no override</option>
             <option value="overwrite">overwrite</option>
             <option value="patch">patch</option>
             <option value="3way">3-way</option>
           </select>
-          <div class="action-indent"></div>
-        </div>
+        </label>
       </div>
     </body>
     <script src="${script}" nonce="${nonce}"></script>
