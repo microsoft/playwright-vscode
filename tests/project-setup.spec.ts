@@ -53,13 +53,13 @@ test('should run setup and teardown projects (1)', async ({ activate }) => {
   const testRun = await testController.run();
 
   await expect(testController).toHaveTestTree(`
-  -   setup.ts
-    - ✅ setup [2:0]
-  -   teardown.ts
-    - ✅ teardown [2:0]
-  -   test.ts
-    - ✅ test [2:0]
-`);
+    -   setup.ts
+      - ✅ setup [2:0]
+    -   teardown.ts
+      - ✅ teardown [2:0]
+    -   test.ts
+      - ✅ test [2:0]
+  `);
 
   const output = testRun.renderLog({ output: true });
   expect(output).toContain('from-setup');
@@ -81,12 +81,12 @@ test('should run setup and teardown projects (2)', async ({ activate }) => {
   const testRun = await testController.run();
 
   await expect(testController).toHaveTestTree(`
-  -   teardown.ts
-    - ✅ teardown [2:0]
-  -   test.ts
-    - ✅ test [2:0]
-  -    [playwright.config.ts [setup] — disabled]
-`);
+    -   teardown.ts
+      - ✅ teardown [2:0]
+    -   test.ts
+      - ✅ test [2:0]
+    -    [playwright.config.ts [setup] — disabled]
+  `);
 
   const output = testRun.renderLog({ output: true });
   expect(output).not.toContain('from-setup');
@@ -100,11 +100,11 @@ test('should run setup and teardown projects (3)', async ({ activate }) => {
   const testRun = await testController.run();
 
   await expect(testController).toHaveTestTree(`
-  -   test.ts
-    - ✅ test [2:0]
-  -    [playwright.config.ts [setup] — disabled]
-  -    [playwright.config.ts [teardown] — disabled]
-`);
+    -   test.ts
+      - ✅ test [2:0]
+    -    [playwright.config.ts [setup] — disabled]
+    -    [playwright.config.ts [teardown] — disabled]
+  `);
 
   const output = testRun.renderLog({ output: true });
   expect(output).not.toContain('from-setup');
@@ -121,12 +121,12 @@ test('should run part of the setup only', async ({ activate }) => {
   await testController.run(testItems);
 
   await expect(testController).toHaveTestTree(`
-  -   setup.ts
-    - ✅ setup [2:0]
-  -   teardown.ts
-    - ✅ teardown [2:0]
-  -   test.ts
-`);
+    -   setup.ts
+      - ✅ setup [2:0]
+    -   teardown.ts
+      - ✅ teardown [2:0]
+    -   test.ts
+  `);
 });
 
 test('should run setup and teardown for test', async ({ activate }) => {
