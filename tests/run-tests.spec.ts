@@ -1323,3 +1323,31 @@ test('should provide page snapshot to copilot', async ({ activate, overridePlayw
   expect(log).toContain(`# Page snapshot`);
   expect(log).toContain(`- button "click me"`);
 });
+
+test('should not run global setup for other project', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'tests1/playwright.config.js': `module.exports = { testDir: '.', globalSetup: './globalSetup.js' }`,
+    'tests1/globalSetup.js': `
+      export default () => { throw new Error('RUNNING GLOBAL SETUP'); }
+    `,
+    'tests2/playwright.config.js': `module.exports = { testDir: '.' }`,
+    'tests2/example.spec.ts': `
+      import { test } from '@playwright/test';
+      test('two', async () => {});
+    `,
+  });
+  await enableConfigs(vscode, [`tests1${path.sep}playwright.config.js`, `tests2${path.sep}playwright.config.js`]);
+  await expect(testController).toHaveTestTree(`
+    -   tests2
+      -   example.spec.ts
+  `);
+  await testController.expandTestItems(/.*/);
+  await expect(testController).toHaveTestTree(`
+    -   tests2
+      -   example.spec.ts
+        -   two [2:0]
+  `);
+  const items = testController.findTestItems(/two/);
+  const testRun = await testController.run(items);
+  expect(testRun.renderOutput()).not.toContain('RUNNING GLOBAL SETUP');
+});
