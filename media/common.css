@@ -39,10 +39,9 @@ body[data-vscode-theme-kind=vscode-dark] div.separator {
 }
 
 svg {
-  transform: scale(0.3);
+  width: 16px;
+  height: 16px;
   fill: var(--vscode-editor-foreground);
-  margin: -18px;
-  width: 56px;
   pointer-events: none;
 }
 
@@ -138,7 +137,6 @@ label {
 }
 
 label.dropdown {
-  padding: 0 12px;
   justify-content: space-between;
 }
 
@@ -153,9 +151,13 @@ body[data-vscode-theme-kind=vscode-dark] .combobox:hover {
 
 /* Settings view */
 
+.settings-view .action > label {
+  gap: 4px;
+}
+
 .settings-view .action-indent {
   flex: none;
-  width: 4px;
+  width: 20px;
 }
 
 .settings-view.action-big-indent {
