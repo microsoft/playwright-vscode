@@ -21,11 +21,48 @@ import * as reporterTypes from './upstream/reporter';
 import { TeleReporterReceiver } from './upstream/teleReceiver';
 import { WebSocketTestServerTransport, TestServerConnection } from './upstream/testServerConnection';
 import { startBackend } from './backend';
-import type { PlaywrightTestOptions, PlaywrightTestRunOptions } from './playwrightTestTypes';
 import { escapeRegex, pathSeparator } from './utils';
 import { debugSessionName } from './debugSessionName';
 import type { TestModel } from './testModel';
 import { TestServerInterface } from './upstream/testServerInterface';
+
+export type TestConfig = {
+  workspaceFolder: string;
+  configFile: string;
+  cli: string;
+  version: number;
+  // Legacy attribute, this is now part of FullProject['use'].
+  // Remove once https://github.com/microsoft/playwright/commit/1af4e367f4a46323f3b5a013527b944fe3176203 is widely available.
+  testIdAttributeName?: string;
+};
+
+export type PlaywrightTestRunOptions = {
+  headed?: boolean;
+  workers?: string | number;
+  trace?: 'on' | 'off';
+  video?: 'on' | 'off';
+  reuseContext?: boolean;
+  connectWsEndpoint?: string;
+  updateSnapshots?: 'all' | 'changed' | 'missing' | 'none' | undefined;
+  updateSourceMethod?: 'overwrite' | 'patch' | '3way' | undefined;
+};
+
+export interface RunHooks {
+  onWillRunTests(config: TestConfig, debug: boolean): Promise<{ connectWsEndpoint?: string }>;
+  onDidRunTests(debug: boolean): Promise<void>;
+}
+
+export type PlaywrightTestOptions = {
+  runHooks: RunHooks;
+  isUnderTest: boolean;
+  envProvider: () => NodeJS.ProcessEnv;
+  onStdOut: vscodeTypes.Event<string>;
+};
+
+export type ErrorContext = {
+  pageSnapshot?: string;
+};
+
 
 export class PlaywrightTestServer {
   private _vscode: vscodeTypes.VSCode;

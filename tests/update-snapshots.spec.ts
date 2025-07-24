@@ -17,8 +17,6 @@
 import fs from 'fs';
 import { expect, test } from './utils';
 
-test.skip(({ overridePlaywrightVersion }) => !!overridePlaywrightVersion, 'old world doesnt have updateSnapshot');
-
 for (const mode of ['3-way', 'overwrite', 'patch'] as const) {
   test('should update missing snapshots ' + mode, async ({ activate }, testInfo) => {
     const { vscode, testController } = await activate({

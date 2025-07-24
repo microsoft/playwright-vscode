@@ -47,14 +47,12 @@ const testsWithSetup = {
   `,
 };
 
-test.describe(() => {
-  test.skip(({ overridePlaywrightVersion }) => !!overridePlaywrightVersion);
-  test('should run setup and teardown projects (1)', async ({ activate }) => {
-    const { vscode, testController } = await activate(testsWithSetup);
-    await enableProjects(vscode, ['setup', 'teardown', 'test']);
-    const testRun = await testController.run();
+test('should run setup and teardown projects (1)', async ({ activate }) => {
+  const { vscode, testController } = await activate(testsWithSetup);
+  await enableProjects(vscode, ['setup', 'teardown', 'test']);
+  const testRun = await testController.run();
 
-    await expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     -   setup.ts
       - ✅ setup [2:0]
     -   teardown.ts
@@ -63,26 +61,26 @@ test.describe(() => {
       - ✅ test [2:0]
   `);
 
-    const output = testRun.renderLog({ output: true });
-    expect(output).toContain('from-setup');
-    expect(output).toContain('from-test');
-    expect(output).toContain('from-teardown');
+  const output = testRun.renderLog({ output: true });
+  expect(output).toContain('from-setup');
+  expect(output).toContain('from-test');
+  expect(output).toContain('from-teardown');
 
-    // Ensure the rendered order of the projects is correct.
-    const webView = vscode.webViews.get('pw.extension.settingsView')!;
-    await expect(webView.getByTestId('projects').locator('div').locator('label')).toHaveText([
-      'setup',
-      'test',
-      'teardown',
-    ]);
-  });
+  // Ensure the rendered order of the projects is correct.
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await expect(webView.getByTestId('projects').locator('div').locator('label')).toHaveText([
+    'setup',
+    'test',
+    'teardown',
+  ]);
+});
 
-  test('should run setup and teardown projects (2)', async ({ activate }) => {
-    const { vscode, testController } = await activate(testsWithSetup);
-    await enableProjects(vscode, ['teardown', 'test']);
-    const testRun = await testController.run();
+test('should run setup and teardown projects (2)', async ({ activate }) => {
+  const { vscode, testController } = await activate(testsWithSetup);
+  await enableProjects(vscode, ['teardown', 'test']);
+  const testRun = await testController.run();
 
-    await expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     -   teardown.ts
       - ✅ teardown [2:0]
     -   test.ts
@@ -90,46 +88,45 @@ test.describe(() => {
     -    [playwright.config.ts [setup] — disabled]
   `);
 
-    const output = testRun.renderLog({ output: true });
-    expect(output).not.toContain('from-setup');
-    expect(output).toContain('from-test');
-    expect(output).toContain('from-teardown');
-  });
+  const output = testRun.renderLog({ output: true });
+  expect(output).not.toContain('from-setup');
+  expect(output).toContain('from-test');
+  expect(output).toContain('from-teardown');
+});
 
-  test('should run setup and teardown projects (3)', async ({ activate }) => {
-    const { vscode, testController } = await activate(testsWithSetup);
-    await enableProjects(vscode, ['test']);
-    const testRun = await testController.run();
+test('should run setup and teardown projects (3)', async ({ activate }) => {
+  const { vscode, testController } = await activate(testsWithSetup);
+  await enableProjects(vscode, ['test']);
+  const testRun = await testController.run();
 
-    await expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     -   test.ts
       - ✅ test [2:0]
     -    [playwright.config.ts [setup] — disabled]
     -    [playwright.config.ts [teardown] — disabled]
   `);
 
-    const output = testRun.renderLog({ output: true });
-    expect(output).not.toContain('from-setup');
-    expect(output).toContain('from-test');
-    expect(output).not.toContain('from-teardown');
-  });
+  const output = testRun.renderLog({ output: true });
+  expect(output).not.toContain('from-setup');
+  expect(output).toContain('from-test');
+  expect(output).not.toContain('from-teardown');
+});
 
-  test('should run part of the setup only', async ({ activate }) => {
-    const { vscode, testController } = await activate(testsWithSetup);
-    await enableProjects(vscode, ['setup', 'teardown', 'test']);
+test('should run part of the setup only', async ({ activate }) => {
+  const { vscode, testController } = await activate(testsWithSetup);
+  await enableProjects(vscode, ['setup', 'teardown', 'test']);
 
-    await testController.expandTestItems(/setup.ts/);
-    const testItems = testController.findTestItems(/setup/);
-    await testController.run(testItems);
+  await testController.expandTestItems(/setup.ts/);
+  const testItems = testController.findTestItems(/setup/);
+  await testController.run(testItems);
 
-    await expect(testController).toHaveTestTree(`
+  await expect(testController).toHaveTestTree(`
     -   setup.ts
       - ✅ setup [2:0]
     -   teardown.ts
       - ✅ teardown [2:0]
     -   test.ts
   `);
-  });
 });
 
 test('should run setup and teardown for test', async ({ activate }) => {

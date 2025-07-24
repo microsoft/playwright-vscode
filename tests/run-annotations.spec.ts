@@ -55,10 +55,6 @@ test('should mark test as skipped', async ({ activate }) => {
       passed
   `);
 
-  await expect(vscode).toHaveExecLog(`
-    > playwright list-files -c playwright.config.js
-    > playwright test -c playwright.config.js
-  `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
     { method: 'runGlobalSetup', params: {} },

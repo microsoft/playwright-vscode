@@ -46,7 +46,6 @@ type TestFixtures = {
 };
 
 export type WorkerOptions = {
-  overridePlaywrightVersion?: number;
   showBrowser: boolean;
   showTrace?: boolean;
   vsCodeVersion: number;
@@ -59,20 +58,6 @@ export const expect = baseExpect.extend({
   async toHaveTestTree(testController: TestController, expectedTree: string) {
     try {
       await expect.poll(() => testController.renderTestTree()).toBe(expectedTree);
-      return { pass: true, message: () => '' };
-    } catch (e) {
-      return {
-        pass: false,
-        message: () => String(e)
-      };
-    }
-  },
-
-  async toHaveExecLog(vscode: VSCode, expectedLog: string) {
-    if (!vscode.extensions[0].overridePlaywrightVersion)
-      return { pass: true, message: () => '' };
-    try {
-      await expect.poll(() => vscode.renderExecLog('  ')).toBe(expectedLog);
       return { pass: true, message: () => '' };
     } catch (e) {
       return {
@@ -107,8 +92,6 @@ export const expect = baseExpect.extend({
   },
 
   async toHaveConnectionLog(vscode: VSCode, expectedLog: any) {
-    if (vscode.extensions[0].overridePlaywrightVersion)
-      return { pass: true, message: () => '' };
     const filterCommands = new Set(['ping', 'initialize']);
     const filteredLog = () => {
       return vscode.connectionLog.filter(e => !filterCommands.has(e.method));
@@ -126,7 +109,6 @@ export const expect = baseExpect.extend({
 });
 
 export const test = baseTest.extend<TestFixtures, WorkerOptions>({
-  overridePlaywrightVersion: [undefined, { option: true, scope: 'worker' }],
   showBrowser: [false, { option: true, scope: 'worker' }],
   showTrace: [undefined, { option: true, scope: 'worker' }],
   vsCodeVersion: [1.86, { option: true, scope: 'worker' }],
@@ -135,7 +117,7 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
     await use(new VSCode(vsCodeVersion, path.resolve(__dirname, '..'), browser));
   },
 
-  activate: async ({ vscode, showBrowser, overridePlaywrightVersion, showTrace }, use, testInfo) => {
+  activate: async ({ vscode, showBrowser, showTrace }, use, testInfo) => {
     const instances: VSCode[] = [];
     await use(async (files: { [key: string]: string }, options?: { rootDir?: string, workspaceFolders?: [string, any][], env?: Record<string, any>, runGlobalSetupOnEachRun?: boolean }) => {
       if (options?.workspaceFolders) {
@@ -161,9 +143,6 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
       }
 
       const extension = new Extension(vscode, vscode.context);
-      if (overridePlaywrightVersion)
-        extension.overridePlaywrightVersion = overridePlaywrightVersion;
-
       vscode.extensions.push(extension);
       await vscode.activate();
 

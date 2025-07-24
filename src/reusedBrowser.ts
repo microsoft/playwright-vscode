@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { TestConfig } from './playwrightTestTypes';
+import type { TestConfig } from './playwrightTestServer';
 import type { TestModel, TestModelCollection, TestProject } from './testModel';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';

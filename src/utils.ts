@@ -140,11 +140,6 @@ async function findNodeViaShell(vscode: vscodeTypes.VSCode, cwd: string): Promis
   });
 }
 
-export function relativePreserveDirectory(from: string, to: string) {
-  const relative = path.relative(from, to);
-  return to.endsWith(path.sep) ? relative + path.sep : relative;
-}
-
 export function escapeRegex(text: string) {
   // playwright interprets absolute paths as regex,
   // removing the leading slash prevents that.
