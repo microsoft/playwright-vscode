@@ -104,6 +104,7 @@ test('should pick locator and use the testIdAttribute from the config', async ({
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
   await settingsView.getByText('Pick locator').click();
+  await waitForRecorderMode(vscode, 'inspecting');
 
   const browser = await connectToSharedBrowser(vscode);
   // TODO: Get rid of 'selectors.setTestIdAttribute' once launchServer multiclient is stable and migrate to it.
