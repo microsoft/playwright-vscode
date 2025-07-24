@@ -1326,13 +1326,6 @@ export class VSCode {
     return this.window.visibleTextEditors;
   }
 
-  renderExecLog(indent: string) {
-    const log: string[] = [''];
-    for (const extension of this.extensions)
-      log.push(...extension.playwrightTestLog());
-    return trimLog(unescapeRegex(log.join(`\n  ${indent}`)).replace(/\\/g, '/')) + `\n${indent}`;
-  }
-
   async renderProjectTree(): Promise<string> {
     const result: string[] = [''];
     const webView = this.webViews.get('pw.extension.settingsView')!;
@@ -1346,15 +1339,6 @@ export class VSCode {
     }
     return result.join('\n');
   }
-}
-
-const asciiRegex = new RegExp('[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))', 'g');
-export function stripAscii(str: string): string {
-  return str.replace(asciiRegex, '');
-}
-
-function unescapeRegex(regex: string) {
-  return regex.replace(/\\(.)/g, '$1');
 }
 
 function trimLog(log: string) {

@@ -55,7 +55,6 @@ export interface RunHooks {
 export type PlaywrightTestOptions = {
   runHooks: RunHooks;
   isUnderTest: boolean;
-  playwrightTestLog: string[];
   envProvider: () => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
 };

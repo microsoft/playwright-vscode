@@ -29,7 +29,7 @@ import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame, uri
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
-import { RunHooks, TestConfig, ErrorContext } from './playwrightTestTypes';
+import { RunHooks, TestConfig, ErrorContext } from './playwrightTestServer';
 import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
 
@@ -76,7 +76,6 @@ export class Extension implements RunHooks {
   private _treeItemObserver: TreeItemObserver;
   private _runProfile: vscodeTypes.TestRunProfile;
   private _debugProfile: vscodeTypes.TestRunProfile;
-  private _playwrightTestLog: string[] = [];
   private _commandQueue = Promise.resolve();
   private _watchFilesBatch?: vscodeTypes.TestItem[];
   private _watchItemsBatch?: vscodeTypes.TestItem[];
@@ -107,7 +106,6 @@ export class Extension implements RunHooks {
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._models = new TestModelCollection(vscode, {
       context,
-      playwrightTestLog: this._playwrightTestLog,
       settingsModel: this._settingsModel,
       runHooks: this,
       isUnderTest: this._isUnderTest,
@@ -885,10 +883,6 @@ test('test', async ({ page }) => {
     if (error.cause)
       tokens.push('[cause]: ' + this._formatError(error.cause));
     return tokens.join('\n');
-  }
-
-  playwrightTestLog(): string[] {
-    return this._playwrightTestLog;
   }
 
   browserServerWSForTest() {

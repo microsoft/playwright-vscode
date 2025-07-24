@@ -46,7 +46,6 @@ export type TestModelEmbedder = {
   settingsModel: SettingsModel;
   runHooks: RunHooks;
   isUnderTest: boolean;
-  playwrightTestLog: string[];
   envProvider: () => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
   requestWatchRun: (files: string[], testItems: vscodeTypes.TestItem[]) => void;
@@ -848,7 +847,7 @@ export class TestModelCollection extends DisposableBase {
   }
 }
 
-export function projectFiles(project: TestProject): Map<string, reporterTypes.Suite> {
+function projectFiles(project: TestProject): Map<string, reporterTypes.Suite> {
   const files = new Map<string, reporterTypes.Suite>();
   for (const fileSuite of project.suite.suites)
     files.set(fileSuite.location!.file, fileSuite);
