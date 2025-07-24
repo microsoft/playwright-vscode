@@ -15,7 +15,7 @@
  */
 
 import { ChildProcess, spawn } from 'child_process';
-import type { TestConfig } from './playwrightTestTypes';
+import type { TestConfig } from './playwrightTestServer';
 import { findNode } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { TraceViewer } from './traceViewer';
