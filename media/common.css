@@ -82,7 +82,7 @@ textarea {
 
 .section-header {
   font-size: 11px;
-  margin: 10px 8px 3px 8px;
+  margin: 8px 8px 0px 12px;
   font-weight: 700;
   color: var(--vscode-editor-inlineValuesForeground);
 
@@ -102,7 +102,7 @@ textarea {
 }
 
 .action, .combobox {
-  padding: 0 4px 0 8px;
+  padding: 0 4px 0 12px;
   cursor: pointer;
   display: flex;
 }
@@ -138,7 +138,7 @@ label {
 }
 
 label.dropdown {
-  padding: 0 8px;
+  padding: 0 12px;
   justify-content: space-between;
 }
 
