@@ -119,7 +119,6 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
       pickElementAction(this._vscode),
       recordNewAction(this._vscode, this._reusedBrowser),
       recordAtCursorAction(this._vscode, this._reusedBrowser),
-      revealTestOutputAction(this._vscode),
       closeBrowsersAction(this._vscode, this._reusedBrowser),
       {
         ...runGlobalSetupAction(this._vscode, this._settingsModel, this._models),
@@ -127,10 +126,6 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
       },
       {
         ...runGlobalTeardownAction(this._vscode, this._settingsModel, this._models),
-        location: 'rareActions',
-      },
-      {
-        ...clearCacheAction(this._vscode, this._models),
         location: 'rareActions',
       },
     ];
@@ -321,14 +316,6 @@ export const recordAtCursorAction = (vscode: vscodeTypes.VSCode, reusedBrowser: 
   };
 };
 
-export const revealTestOutputAction = (vscode: vscodeTypes.VSCode) => {
-  return {
-    command: 'testing.showMostRecentOutput',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48"><path d="M11.85 25.3H29.9v-3H11.85Zm0-6.45H29.9v-3H11.85ZM7 40q-1.2 0-2.1-.9Q4 38.2 4 37V11q0-1.2.9-2.1Q5.8 8 7 8h34q1.2 0 2.1.9.9.9.9 2.1v26q0 1.2-.9 2.1-.9.9-2.1.9Zm0-3h34V11H7v26Zm0 0V11v26Z"/></svg>`,
-    text: vscode.l10n.t('Reveal test output'),
-  };
-};
-
 export const closeBrowsersAction = (vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser) => {
   return {
     command: 'pw.extension.command.closeBrowsers',
@@ -353,14 +340,5 @@ export const runGlobalTeardownAction = (vscode: vscodeTypes.VSCode, settingsMode
     svg: `<div class="action-indent"></div>`,
     text: vscode.l10n.t('Run global teardown'),
     disabled: settingsModel.runGlobalSetupOnEachRun.get() || !models.selectedModel() || !models.selectedModel()!.canRunGlobalHooks('teardown'),
-  };
-};
-
-export const clearCacheAction = (vscode: vscodeTypes.VSCode, models: TestModelCollection) => {
-  return {
-    command: 'pw.extension.command.clearCache',
-    svg: `<div class="action-indent"></div>`,
-    text: vscode.l10n.t('Clear cache'),
-    disabled: !models.selectedModel(),
   };
 };
