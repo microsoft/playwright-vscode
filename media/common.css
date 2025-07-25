@@ -152,7 +152,7 @@ body[data-vscode-theme-kind=vscode-dark] .combobox:hover {
 /* Settings view */
 
 .settings-view {
-  padding: 0 12px 0 20px; /* align with pane header title */
+  padding: 0 12px 0 12px; /* align with test result icon */
 }
 
 .settings-view .action > label {
