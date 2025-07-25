@@ -81,7 +81,7 @@ textarea {
 
 .section-header {
   font-size: 11px;
-  margin: 8px 8px 0px 12px;
+  margin: 8px 0 0 0;
   font-weight: 700;
   color: var(--vscode-editor-inlineValuesForeground);
 
@@ -101,7 +101,6 @@ textarea {
 }
 
 .action, .combobox {
-  padding: 0 4px 0 12px;
   cursor: pointer;
   display: flex;
 }
@@ -150,6 +149,10 @@ body[data-vscode-theme-kind=vscode-dark] .combobox:hover {
 }
 
 /* Settings view */
+
+.settings-view {
+  padding: 0 12px 0 20px; /* align with pane header title */
+}
 
 .settings-view .action > label {
   gap: 4px;
