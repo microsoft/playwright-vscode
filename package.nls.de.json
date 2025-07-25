@@ -21,8 +21,8 @@
   "configuration.playwright.showTrace": "Trace Viewer anzeigen.",
   "configuration.playwright.runGlobalSetupOnEachRun": "Globales Setup nicht wiederverwenden.",
   "configuration.playwright.pickLocatorCopyToClipboard": "Markierten Locator automatisch in die Zwischenablage kopieren.",
-  "configuration.playwright.updateSnapshots": "Snapshots aktualisieren:",
-  "configuration.playwright.updateSourceMethod": "Quellmethode aktualisieren:",
+  "configuration.playwright.updateSnapshots": "Snapshots aktualisieren",
+  "configuration.playwright.updateSourceMethod": "Quellmethode aktualisieren",
   "views.test.pw.extension.locatorsView": "Locator",
   "views.test.pw.extension.settingsView": "Playwright"
 }
