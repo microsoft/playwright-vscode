@@ -112,7 +112,8 @@ textarea {
 }
 
 input[type=checkbox] {
-  padding: 0 4px;
+  margin: 0;
+  width: 16px;
   cursor: pointer;
 }
 
