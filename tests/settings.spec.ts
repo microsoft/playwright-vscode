@@ -62,8 +62,8 @@ test('should select-all/unselect-all', async ({ activate }) => {
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
 
   await expect(webView.locator('body')).toMatchAriaSnapshot(`
-    - text: PROJECTS
-    - button "Select All"
+    - heading "PROJECTS":
+      - button "Select All"
     - checkbox "foo" [checked]
     - checkbox "bar" [checked=false]
   `);
@@ -71,7 +71,8 @@ test('should select-all/unselect-all', async ({ activate }) => {
   await webView.getByRole('checkbox', { name: 'bar' }).check();
 
   await expect(webView.locator('body')).toMatchAriaSnapshot(`
-    - button "Unselect All"
+    - heading "PROJECTS":
+      - button "Unselect All"
     - checkbox "foo" [checked]
     - checkbox "bar" [checked]
   `);
@@ -79,14 +80,16 @@ test('should select-all/unselect-all', async ({ activate }) => {
   await webView.getByRole('button', { name: 'Unselect All' }).click();
 
   await expect(webView.locator('body')).toMatchAriaSnapshot(`
-    - button "Select All"
+    - heading "PROJECTS":
+      - button "Select All"
     - checkbox "foo" [checked=false]
     - checkbox "bar" [checked=false]
   `);
 
   await webView.getByRole('button', { name: 'Select All' }).click();
   await expect(webView.locator('body')).toMatchAriaSnapshot(`
-    - button "Unselect All"
+    - heading "PROJECTS":
+      - button "Unselect All"
     - checkbox "foo" [checked]
     - checkbox "bar" [checked]
   `);
@@ -194,7 +197,7 @@ test('should sync project enabled state to workspace settings', async ({ activat
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
 
   await expect(webView.locator('body')).toMatchAriaSnapshot(`
-    - text: PROJECTS
+    - heading "PROJECTS"
     - checkbox "foo" [checked]
     - checkbox "bar" [checked=false]
   `);
@@ -267,7 +270,7 @@ test('should read project enabled state from workspace settings', async ({ vscod
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
   await expect(webView.locator('body')).toMatchAriaSnapshot(`
-    - text: PROJECTS
+    - heading "PROJECTS"
     - checkbox "foo" [checked]
     - checkbox "bar" [checked=false]
     - checkbox "baz" [checked=false]
