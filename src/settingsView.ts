@@ -262,7 +262,6 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           <label id="updateSnapshotLabel">${vscode.l10n.t('Update snapshots')}</label>
         </div>
         <div class="combobox">
-          <div class="action-big-indent"></div>
           <select setting="updateSnapshots" aria-labelledby="updateSnapshotLabel">
             <option value="no-override">no override</option>
             <option value="all">all</option>
@@ -270,20 +269,17 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             <option value="missing">missing</option>
             <option value="none">none</option>
           </select>
-          <div class="action-indent"></div>
         </div>
         <div class="hbox">
           <label id="updateSourceMethod">${vscode.l10n.t('Update method')}</label>
         </div>
         <div class="combobox">
-          <div class="action-big-indent"></div>
           <select setting="updateSourceMethod" aria-labelledby="updateSourceMethod">
             <option value="no-override">no override</option>
             <option value="overwrite">overwrite</option>
             <option value="patch">patch</option>
             <option value="3way">3-way</option>
           </select>
-          <div class="action-indent"></div>
         </div>
       </div>
     </body>

@@ -63,7 +63,7 @@ input {
 }
 
 .combobox select {
-  margin: 0 6px;
+  margin-left: 6px;
   flex: auto;
 }
 
@@ -81,7 +81,7 @@ textarea {
 
 .section-header {
   font-size: 11px;
-  margin: 8px 0 0 0;
+  margin: 8px 12px 0 12px;
   font-weight: 700;
   color: var(--vscode-editor-inlineValuesForeground);
 
@@ -101,6 +101,7 @@ textarea {
 }
 
 .action, .combobox {
+  padding: 0 12px;
   cursor: pointer;
   display: flex;
 }
@@ -136,10 +137,6 @@ label {
   flex: auto;
 }
 
-label.dropdown {
-  justify-content: space-between;
-}
-
 .action:hover, .combobox:hover {
   background-color: #e8e8e8;
 }
@@ -151,22 +148,17 @@ body[data-vscode-theme-kind=vscode-dark] .combobox:hover {
 
 /* Settings view */
 
-.settings-view {
-  padding: 0 12px 0 12px; /* align with test result icon */
-}
-
 .settings-view .action > label {
   gap: 4px;
 }
 
-.settings-view .action-indent {
-  flex: none;
-  width: 20px;
+.settings-view .hbox > label {
+  padding-left: 12px;
 }
 
-.settings-view.action-big-indent {
+.settings-view .action-indent {
   flex: none;
-  width: 20px;
+  width: 6px;
 }
 
 .settings-view select.models {
