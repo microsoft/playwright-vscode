@@ -39,10 +39,9 @@ body[data-vscode-theme-kind=vscode-dark] div.separator {
 }
 
 svg {
-  transform: scale(0.3);
+  width: 16px;
+  height: 16px;
   fill: var(--vscode-editor-foreground);
-  margin: -18px;
-  width: 56px;
   pointer-events: none;
 }
 
@@ -64,7 +63,7 @@ input {
 }
 
 .combobox select {
-  margin: 0 6px;
+  margin-left: 6px;
   flex: auto;
 }
 
@@ -82,7 +81,7 @@ textarea {
 
 .section-header {
   font-size: 11px;
-  margin: 10px 8px 3px 8px;
+  margin: 8px 12px 0 12px;
   font-weight: 700;
   color: var(--vscode-editor-inlineValuesForeground);
 
@@ -102,7 +101,7 @@ textarea {
 }
 
 .action, .combobox {
-  padding: 0 4px;
+  padding: 0 12px;
   cursor: pointer;
   display: flex;
 }
@@ -114,7 +113,8 @@ textarea {
 }
 
 input[type=checkbox] {
-  padding: 0 4px;
+  margin: 0;
+  width: 16px;
   cursor: pointer;
 }
 
@@ -148,14 +148,12 @@ body[data-vscode-theme-kind=vscode-dark] .combobox:hover {
 
 /* Settings view */
 
-.settings-view .action-indent {
-  flex: none;
-  width: 4px;
+.settings-view .action > label {
+  gap: 4px;
 }
 
-.settings-view.action-big-indent {
-  flex: none;
-  width: 20px;
+.settings-view .hbox > label {
+  padding-left: 12px;
 }
 
 .settings-view select.models {
