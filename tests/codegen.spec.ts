@@ -15,9 +15,12 @@
  */
 
 import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
+import fs from 'node:fs';
 
 test('should generate code', async ({ activate }) => {
   test.slow();
+
+  const globalSetupFile = test.info().outputPath('globalSetup.txt');
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = {
       projects: [
@@ -30,8 +33,15 @@ test('should generate code', async ({ activate }) => {
             locale: 'de-DE',
           },
         },
-      ]
+      ],
+      globalSetup: './globalSetup.js',
     }`,
+    'globalSetup.js': `
+      import fs from 'fs';
+      module.exports = async () => {
+        fs.writeFileSync(${JSON.stringify(globalSetupFile)}, 'global setup was called');
+      }
+    `,
   });
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
@@ -39,6 +49,8 @@ test('should generate code', async ({ activate }) => {
   await webView.getByRole('checkbox', { name: 'germany' }).setChecked(true);
   await webView.getByText('Record new').click();
   await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+
+  expect(fs.readFileSync(globalSetupFile, 'utf-8')).toBe('global setup was called');
 
   const browser = await connectToSharedBrowser(vscode);
   const page = await waitForPage(browser, { locale: 'de-DE' });
