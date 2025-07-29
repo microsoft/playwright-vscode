@@ -240,7 +240,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     const testIdAttributeName = this._getTestIdAttribute(selectedModel, selectedModel.enabledProjects()[0]);
     // Keep running, errors could be non-fatal.
     try {
-      await this._backend?.setMode({
+      await this._backend?.setRecorderMode({
         mode: 'inspecting',
         testIdAttributeName,
       });
@@ -325,7 +325,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     ]);
 
     try {
-      await this._backend?.setMode({
+      await this._backend?.setRecorderMode({
         mode: 'recording',
         testIdAttributeName,
       });
@@ -426,19 +426,11 @@ export class Backend extends BackendClient {
     this.send('kill').catch(() => {});
   }
 
-  async resetForReuse() {
-    await this.send('resetForReuse');
-  }
-
   resetRecorderModeNoWait(mode: 'none' | 'standby') {
     this.send('setRecorderMode', { mode }).catch(() => {});
   }
 
-  async navigate(params: { url: string }) {
-    await this.send('navigate', params);
-  }
-
-  async setMode(params: { mode: RecorderMode, testIdAttributeName?: string }) {
+  async setRecorderMode(params: { mode: RecorderMode, testIdAttributeName?: string }) {
     await this.send('setRecorderMode', params);
   }
 
