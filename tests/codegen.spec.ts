@@ -39,7 +39,7 @@ test('should generate code', async ({ activate }) => {
     'globalSetup.js': `
       import fs from 'fs';
       module.exports = async () => {
-        fs.writeFileSync('${globalSetupFile}', 'global setup was called');
+        fs.writeFileSync(${JSON.stringify(globalSetupFile)}, 'global setup was called');
       }
     `,
   });
