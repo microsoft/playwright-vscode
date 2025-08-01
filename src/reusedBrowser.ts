@@ -238,7 +238,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   async connectMCP(mcp: McpConnection, model: TestModel) {
     await this._startBackendIfNeeded(model.config);
     const connectionString = new URL(this.browserServerWSEndpoint()!);
-    connectionString.searchParams.set('connect', 'first'); // exact connection TBD
+    connectionString.searchParams.set('connect', 'first'); // exact connection TBD. we need to make sure that it uses the same browser as the test runner.
     connectionString.searchParams.set('lib', model.config.lib);
     await mcp.browser_connect({ connectionString: connectionString.toString() });
     this._isConnectedToMCP = true;
