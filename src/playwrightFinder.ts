@@ -39,7 +39,8 @@ for (const packageName of packages) {
     const { version } = packageJSON;
     const v = parseFloat(version.replace(/-(next|beta)$/, ''));
     const cli = path.join(packageJSONPath, '../cli.js');
-    console.log(JSON.stringify({ version: v, cli }, null, 2));
+    const lib = path.resolve(packageJSONPath, '..');
+    console.log(JSON.stringify({ version: v, cli, lib }, null, 2));
     process.exit(0);
   } catch (e) {
     console.log(JSON.stringify({ error: String(e) }, null, 2));

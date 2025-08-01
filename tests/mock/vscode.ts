@@ -924,7 +924,8 @@ class LM {
     if (!tool)
       throw new Error(`Tool ${name} not found`);
 
-    // TODO: handle tool.prepareInvocation
+    if (tool.prepareInvocation)
+      throw new Error(`Not yet implemented in mock`);
 
     return await tool.invoke({ input, toolInvocationToken }, new CancellationTokenSource().token);
   }

@@ -238,13 +238,14 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   async connectMCP(mcp: McpConnection, model: TestModel) {
     await this._startBackendIfNeeded(model.config);
     const connectionString = new URL(this.browserServerWSEndpoint()!);
-    connectionString.searchParams.set('connect', 'first');
-    await mcp.connect({ connectionString: connectionString.toString() });
+    connectionString.searchParams.set('connect', 'first'); // exact connection TBD
+    connectionString.searchParams.set('lib', model.config.lib);
+    await mcp.browser_connect({ connectionString: connectionString.toString() });
     this._isConnectedToMCP = true;
   }
 
   async disconnectMCP(mcp: McpConnection) {
-    await mcp.connect({ connectionString: undefined });
+    await mcp.browser_connect({ connectionString: undefined });
     this._isConnectedToMCP = false;
   }
 

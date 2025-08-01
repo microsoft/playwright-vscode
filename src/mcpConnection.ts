@@ -73,7 +73,7 @@ export class McpConnection extends DisposableBase {
     return this.isAvailable() && this._models.selectedModel() !== undefined && this._settingsModel.showBrowser.get();
   }
 
-  async connect(input: { connectionString?: string }) {
+  async browser_connect(input: { connectionString?: string }) {
     if (!this._tool)
       throw new Error('Not available');
     await this._vscode.lm.invokeTool(this._tool.name, {

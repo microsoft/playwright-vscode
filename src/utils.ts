@@ -154,17 +154,17 @@ export async function runNode(vscode: vscodeTypes.VSCode, args: string[], cwd: s
   return await spawnAsync(await findNode(vscode, cwd), args, cwd, env);
 }
 
-export async function getPlaywrightInfo(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFilePath: string, env: NodeJS.ProcessEnv): Promise<{ version: number, cli: string }> {
+export async function getPlaywrightInfo(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFilePath: string, env: NodeJS.ProcessEnv): Promise<{ version: number, cli: string, lib: string }> {
   const pwtInfo = await runNode(vscode, [
     require.resolve('./playwrightFinder'),
   ], path.dirname(configFilePath), env);
-  const { version, cli, error } = JSON.parse(pwtInfo) as { version: number, cli: string, error?: string };
+  const { version, cli, lib, error } = JSON.parse(pwtInfo) as { version: number, cli: string, lib: string, error?: string };
   if (error)
     throw new Error(error);
   let cliOverride = cli;
   if (cli.includes('/playwright/packages/playwright-test/') && configFilePath.includes('playwright-test'))
     cliOverride = path.join(workspaceFolder, 'tests/playwright-test/stable-test-runner/node_modules/@playwright/test/cli.js');
-  return { cli: cliOverride, version };
+  return { cli: cliOverride, lib, version };
 }
 
 export function getNonce() {

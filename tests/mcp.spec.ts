@@ -47,7 +47,6 @@ test('setting is disabled when Show Browser is disabled', async ({ activate }) =
   await expect(webView.getByLabel('Connect Copilot')).toBeEnabled();
 });
 
-
 test('should eagerly connect', async ({ activate }) => {
   const { vscode } = await activate({ 'playwright.config.js': `module.exports = {}` });
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
@@ -66,6 +65,10 @@ test('should eagerly connect', async ({ activate }) => {
 
   await webView.getByLabel('Connect Copilot').check();
   await expect.poll(() => invocations).toEqual([connect]);
+
+  const connectionString = new URL(invocations[0].connectionString);
+  const playwright = require(connectionString.searchParams.get('lib')!);
+  expect(playwright.chromium).toBeDefined();
 
   await vscode.commands.executeCommand('pw.extension.command.inspect');
   await webView.getByRole('button', { name: 'Close all browsers' }).click();

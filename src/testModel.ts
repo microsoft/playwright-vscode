@@ -79,7 +79,7 @@ export class TestModel extends DisposableBase {
   private _collection: TestModelCollection;
   private _traceViewer: TraceViewer | null = null;
 
-  constructor(collection: TestModelCollection, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }) {
+  constructor(collection: TestModelCollection, workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, lib: string, version: number }) {
     super();
     this._vscode = collection.vscode;
     this._embedder = collection.embedder;
@@ -761,7 +761,7 @@ export class TestModelCollection extends DisposableBase {
     return result;
   }
 
-  async createModel(workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, version: number }) {
+  async createModel(workspaceFolder: string, configFile: string, playwrightInfo: { cli: string, lib: string, version: number }) {
     const model = new TestModel(this, workspaceFolder, configFile, playwrightInfo);
     this._models.push(model);
     const configSettings = this._configSettings(model.config);
