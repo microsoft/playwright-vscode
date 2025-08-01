@@ -53,6 +53,8 @@ export function createAction(action: ActionDescriptor, options?: { omitText?: bo
     });
   }
   label.setAttribute('role', 'button');
+  if (action.disabled)
+    label.setAttribute('aria-disabled', 'true');
   label.setAttribute('command', action.command);
   const svg = /** @type {HTMLElement} */(document.createElement('svg'));
   label.appendChild(svg);
