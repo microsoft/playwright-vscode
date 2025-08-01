@@ -112,6 +112,10 @@ textarea {
   background: none !important;
 }
 
+.action:has(input[hidden]) {
+  display: none;
+}
+
 input[type=checkbox] {
   margin: 0;
   width: 16px;
