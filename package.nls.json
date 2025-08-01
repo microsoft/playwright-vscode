@@ -18,6 +18,7 @@
   "contributes.command.pw.extension.toggle.pickLocatorCopyToClipboard": "Toggle Playwright locator picker automatically copying to clipboard",
   "configuration.playwright.env": "Environment variables to pass to Playwright Test.",
   "configuration.playwright.reuseBrowser": "Show & reuse browser between tests.",
+  "configuration.playwright.connectCopilot": "Connect Copilot to Playwright browser.",
   "configuration.playwright.showTrace": "Show Trace Viewer.",
   "configuration.playwright.runGlobalSetupOnEachRun": "Run global setup on each run.",
   "configuration.playwright.pickLocatorCopyToClipboard": "Automatically copy picked locator to clipboard.",

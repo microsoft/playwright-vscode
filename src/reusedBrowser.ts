@@ -21,6 +21,7 @@ import * as vscodeTypes from './vscodeTypes';
 import { installBrowsers } from './installer';
 import { SettingsModel } from './settingsModel';
 import { BackendServer, BackendClient } from './backend';
+import { McpConnection } from './mcpConnection';
 
 type RecorderMode = 'none' | 'standby' | 'inspecting' | 'recording';
 
@@ -29,6 +30,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _backend: Backend | undefined;
   private _cancelRecording: (() => void) | undefined;
   private _isRunningTests = false;
+  private _isConnectedToMCP = false;
   private _insertedEditActionCount = 0;
   private _envProvider: () => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
@@ -41,6 +43,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   readonly onRunningTestsChanged: vscodeTypes.Event<boolean>;
   private _onInspectRequestedEvent: vscodeTypes.EventEmitter<{ locator: string, ariaSnapshot: string, backendVersion: number }>;
   readonly onInspectRequested: vscodeTypes.Event<{ locator: string, ariaSnapshot: string, backendVersion: number }>;
+  private _onBackendChangeEvent: vscodeTypes.EventEmitter<void>;
+  readonly onBackendChange: vscodeTypes.Event<void>;
   private _editOperations = Promise.resolve();
   private _pausedOnPagePause = false;
   private _settingsModel: SettingsModel;
@@ -57,6 +61,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this.onHighlightRequestedForTest = this._onHighlightRequestedForTestEvent.event;
     this._onInspectRequestedEvent = new vscode.EventEmitter();
     this.onInspectRequested = this._onInspectRequestedEvent.event;
+    this._onBackendChangeEvent = new vscode.EventEmitter();
+    this.onBackendChange = this._onBackendChangeEvent.event;
 
     this._settingsModel = settingsModel;
 
@@ -95,6 +101,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       ...this._envProvider(),
       PW_CODEGEN_NO_INSPECTOR: '1',
       PW_EXTENSION_MODE: '1',
+      PW_BROWSER_SERVER: '1', // TODO: fold this into PW_EXTENSION_MODE
     });
 
     const errors: string[] = [];
@@ -112,6 +119,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       if (backend === this._backend) {
         this._backend = undefined;
         this._resetNoWait('none');
+        this._onBackendChangeEvent.fire();
       }
     });
     backend.onError(e => {
@@ -119,10 +127,12 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         void this._vscode.window.showErrorMessage(e.message);
         this._backend = undefined;
         this._resetNoWait('none');
+        this._onBackendChangeEvent.fire();
       }
     });
 
     this._backend = backend;
+    this._onBackendChangeEvent.fire();
 
     this._backend.on('inspectRequested', params => {
       if (this._settingsModel.pickLocatorCopyToClipboard.get() && params.locator)
@@ -223,6 +233,23 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   recorderModeForTest() {
     return this._recorderModeForTest;
+  }
+
+  async connectMCP(mcp: McpConnection, model: TestModel) {
+    await this._startBackendIfNeeded(model.config);
+    const connectionString = new URL(this.browserServerWSEndpoint()!);
+    connectionString.searchParams.set('connect', 'first');
+    await mcp.connect({ connectionString: connectionString.toString() });
+    this._isConnectedToMCP = true;
+  }
+
+  async disconnectMCP(mcp: McpConnection) {
+    await mcp.connect({ connectionString: undefined });
+    this._isConnectedToMCP = false;
+  }
+
+  isConnectedToMCP() {
+    return this._backend !== undefined && this._isConnectedToMCP;
   }
 
   private _getTestIdAttribute(model: TestModel, project?: TestProject): string | undefined {
@@ -371,7 +398,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     if (debug && !this._settingsModel.showBrowser.get()) {
       this._stop();
     } else {
-      if (!this._pageCount)
+      if (!this._pageCount && !this.isConnectedToMCP())
         this._stop();
     }
     this._isRunningTests = false;
@@ -404,6 +431,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._resetExtensionState();
     this._backend?.requestGracefulTermination();
     this._backend = undefined;
+    this._onBackendChangeEvent.fire();
     this._pageCount = 0;
   }
 }

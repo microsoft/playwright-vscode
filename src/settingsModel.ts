@@ -42,6 +42,7 @@ export class SettingsModel extends DisposableBase {
   readonly onChange: vscodeTypes.Event<void>;
   private _onChange: vscodeTypes.EventEmitter<void>;
   showBrowser: Setting<boolean>;
+  connectCopilot: Setting<boolean>;
   showTrace: Setting<boolean>;
   runGlobalSetupOnEachRun: Setting<boolean>;
   updateSnapshots: Setting<'all' | 'changed' | 'missing' | 'none' | 'no-override'>;
@@ -56,6 +57,7 @@ export class SettingsModel extends DisposableBase {
     this.onChange = this._onChange.event;
 
     this.showBrowser = this._createSetting('reuseBrowser');
+    this.connectCopilot = this._createSetting('connectCopilot');
     this.showTrace = this._createSetting('showTrace');
     this.runGlobalSetupOnEachRun = this._createSetting('runGlobalSetupOnEachRun');
     this.updateSnapshots = this._createSetting('updateSnapshots');

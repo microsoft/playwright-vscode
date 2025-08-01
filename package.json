@@ -119,6 +119,11 @@
           "default": false,
           "description": "%configuration.playwright.reuseBrowser%"
         },
+        "playwright.connectCopilot": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.playwright.connectCopilot%"
+        },
         "playwright.showTrace": {
           "type": "boolean",
           "default": false,

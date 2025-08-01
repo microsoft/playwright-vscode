@@ -32,6 +32,7 @@ import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { RunHooks, TestConfig, ErrorContext } from './playwrightTestServer';
 import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
+import { McpConnection } from './mcpConnection';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -59,6 +60,7 @@ export class Extension implements RunHooks {
   private _testController: vscodeTypes.TestController;
   private _workspaceObserver: WorkspaceObserver;
   private _testItemUnderDebug: vscodeTypes.TestItem | undefined;
+  private _mcpConnection: McpConnection;
 
   private _activeSteps = new Map<reporterTypes.TestStep, StepInfo>();
   private _completedSteps = new Map<reporterTypes.TestStep, StepInfo>();
@@ -113,6 +115,7 @@ export class Extension implements RunHooks {
       onStdOut: this._debugHighlight.onStdOut.bind(this._debugHighlight),
       requestWatchRun: this._runWatchedTests.bind(this),
     });
+    this._mcpConnection = new McpConnection(this._vscode, this._reusedBrowser, this._settingsModel, this._models);
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModels(true).then(() => {});
@@ -148,7 +151,7 @@ export class Extension implements RunHooks {
 
   async activate() {
     const vscode = this._vscode;
-    this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, this._context.extensionUri);
+    this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, this._context.extensionUri, this._mcpConnection);
     this._locatorsView = new LocatorsView(vscode, this._settingsModel, this._reusedBrowser, this._context.extensionUri);
     const messageNoPlaywrightTestsFound = this._vscode.l10n.t('No Playwright tests found.');
     this._disposables = [
@@ -257,6 +260,7 @@ export class Extension implements RunHooks {
       this._reusedBrowser,
       this._diagnostics,
       this._treeItemObserver,
+      this._mcpConnection,
       registerTerminalLinkProvider(this._vscode),
     ];
     const fileSystemWatchers = [

@@ -69,6 +69,35 @@ test('should auto-close after test', async ({ activate }) => {
   await expect.poll(() => !!reusedBrowser._backend).toBeFalsy();
 });
 
+test('should not auto-close after test if mcp is connected', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+    'test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('pass', async ({ page }) => { await page.close(); });
+    `
+  });
+
+  const invocations: any[] = [];
+  vscode.lm.registerTool('playwright_browser_connect', {
+    invoke: ({ input }) => {
+      invocations.push(input);
+      return { content: [] };
+    }
+  });
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await webView.getByLabel('Connect Copilot').setChecked(true);
+
+  const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
+  const events: number[] = [];
+  reusedBrowser.onPageCountChanged((count: number) => events.push(count));
+  await testController.run();
+
+  await expect.poll(() => events).toEqual([1, 0]);
+  await expect.poll(() => !!reusedBrowser._backend).toBeTruthy();
+  expect(invocations).toHaveLength(1);
+});
+
 test('should auto-close after pick', async ({ activate }) => {
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = {}`,

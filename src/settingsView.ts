@@ -15,6 +15,7 @@
  */
 
 import { DisposableBase } from './disposableBase';
+import { McpConnection } from './mcpConnection';
 import type { ReusedBrowser } from './reusedBrowser';
 import type { SettingsModel } from './settingsModel';
 import type { TestModelCollection } from './testModel';
@@ -41,16 +42,19 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
   private _extensionUri: vscodeTypes.Uri;
   private _settingsModel: SettingsModel;
   private _reusedBrowser: ReusedBrowser;
+  private _mcpConnection: McpConnection;
   private _models: TestModelCollection;
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, models: TestModelCollection, reusedBrowser: ReusedBrowser, extensionUri: vscodeTypes.Uri) {
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, models: TestModelCollection, reusedBrowser: ReusedBrowser, extensionUri: vscodeTypes.Uri, mcpConnection: McpConnection) {
     super();
     this._vscode = vscode;
     this._settingsModel = settingsModel;
     this._models = models;
     this._reusedBrowser = reusedBrowser;
+    this._mcpConnection = mcpConnection;
     this._extensionUri = extensionUri;
     this._disposables = [
+      mcpConnection.onUpdate(() => this._updateSettings()),
       reusedBrowser.onRunningTestsChanged(() => this._updateActions()),
       reusedBrowser.onPageCountChanged(() => this._updateActions()),
       vscode.window.registerWebviewViewProvider('pw.extension.settingsView', this),
@@ -111,7 +115,15 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
   }
 
   private _updateSettings() {
-    void this._view!.webview.postMessage({ method: 'settings', params: { settings: this._settingsModel.json() } });
+    const settings = this._settingsModel.json();
+    const disabled = {
+      connectCopilot: !this._mcpConnection.isEnabled(),
+    };
+    const hidden = {
+      connectCopilot: !this._mcpConnection.isAvailable()
+    };
+
+    void this._view?.webview.postMessage({ method: 'settings', params: { settings, disabled, hidden } });
   }
 
   private _updateActions() {
@@ -244,6 +256,12 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
             <input type="checkbox" setting="reuseBrowser"></input>
             <div>${vscode.l10n.t('Show browser')}</div>
             <div class="inactive" style="padding-left: 5px;">— ${vscode.l10n.t('one worker')}</div>
+          </label>
+        </div>
+        <div class="action">
+          <label title="${vscode.l10n.t(`When enabled, the browser tools in Copilot will be connected to your testing browser.`)}">
+            <input type="checkbox" setting="connectCopilot"></input>
+            <div>${vscode.l10n.t('Connect Copilot')}</div>
           </label>
         </div>
         <div class="action">
