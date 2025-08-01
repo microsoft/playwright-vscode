@@ -35,7 +35,7 @@ test('should work', async ({ activate }) => {
     'test.spec.ts': `
       import { test } from '@playwright/test';
       test('one', async ({ page }) => {
-        await page.goto('https://example.com');
+        await page.goto('about:blank');
         await page.setContent(\`
           <button>one</button>
           <button>two</button>
@@ -92,8 +92,8 @@ test('should work', async ({ activate }) => {
       await test.step(`should highlight ${language} ${line}:${column}`, async () => {
         // Clear highlight.
         vscode.languages.emitHoverEvent(language, vscode.window.activeTextEditor.document, new vscode.Position(0, 0));
-        // Let highlight poll update its state.
-        await new Promise(f => setTimeout(f, 500));
+        await expect(page.locator('x-pw-highlight')).toBeHidden();
+
         vscode.languages.emitHoverEvent(language, vscode.window.activeTextEditor.document, new vscode.Position(line, column));
         if (!expectedBox) {
           await expect(page.locator('x-pw-highlight')).toBeHidden();
