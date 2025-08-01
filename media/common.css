@@ -106,10 +106,14 @@ textarea {
   display: flex;
 }
 
-.action[disabled], .inactive {
+.action[disabled], .inactive, .action:has(input[disabled]) {
   opacity: 0.5;
   cursor: default;
   background: none !important;
+}
+
+.action:has(input[hidden]) {
+  display: none;
 }
 
 input[type=checkbox] {
