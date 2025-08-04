@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { CommandQueue } from './commandQueue';
 import { DisposableBase } from './disposableBase';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
@@ -25,8 +24,8 @@ export class McpConnection extends DisposableBase {
   private _tool: vscodeTypes.LanguageModelToolInformation | undefined;
   private _onUpdate = new EventEmitter<void>();
   onUpdate = this._onUpdate.event;
-  private _commandQueue = new CommandQueue();
   private _isConnected = false;
+  private _isStartingBackend = false;
 
   constructor(private readonly _vscode: vscodeTypes.VSCode, private readonly _reusedBrowser: ReusedBrowser, private readonly _settingsModel: SettingsModel, private readonly _models: TestModelCollection) {
     super();
@@ -52,32 +51,21 @@ export class McpConnection extends DisposableBase {
     );
   }
 
-  private _reconcile() {
-    void this._commandQueue.run(async () => {
-      if (!this._tool)
-        return;
+  private async _reconcile() {
+    if (!this._tool)
+      return;
 
-      if (!this._reusedBrowser.hasBackend())
-        this._isConnected = false;
+    if (!this._reusedBrowser.hasBackend() && !this._isStartingBackend)
+      this._isConnected = false;
 
-      const shouldBeConnected = !this.disabledReason() && this._settingsModel.connectCopilot.get();
-      if (this._isConnected === shouldBeConnected)
-        return;
+    const shouldBeConnected = !this.disabledReason() && !!this._settingsModel.connectCopilot.get();
+    if (this._isConnected === shouldBeConnected)
+      return;
+    this._isConnected = shouldBeConnected;
+    this._reusedBrowser.setKeepAlive(this._isConnected);
 
-      if (shouldBeConnected) {
-        this._reusedBrowser.setKeepAlive(true);
-        const model = this._models.selectedModel()!;
-        const connectionString = await this._reusedBrowser.getMCPConnectionString(model);
-        await this._vscode.lm.invokeTool(this._tool.name, {
-          input: { method: 'vscode', params: { connectionString, lib: model.config.lib } },
-          toolInvocationToken: undefined,
-        });
-        this._isConnected = true;
-        return;
-      }
-
-      this._reusedBrowser.setKeepAlive(false);
-      // TODO: solve this without regex matching
+    if (!shouldBeConnected) {
+      // TODO: update MCP to support going to default without parsing
       const method = this._tool.description.match(/"(.*)"/)?.[1];
       if (!method)
         throw new Error('Default method not found in tool description');
@@ -85,9 +73,19 @@ export class McpConnection extends DisposableBase {
         input: { method: method },
         toolInvocationToken: undefined,
       });
-      this._isConnected = false;
+      return;
+    }
 
-    }).catch(console.error);
+    const model = this._models.selectedModel()!;
+    this._isStartingBackend = true;
+    const connectionString = await this._reusedBrowser.getMCPConnectionString(model).finally(() => {
+      this._isStartingBackend = false;
+    });
+
+    await this._vscode.lm.invokeTool(this._tool.name, {
+      input: { method: 'vscode', params: { connectionString, lib: model.config.lib } },
+      toolInvocationToken: undefined,
+    });
   }
 
   disabledReason(): string | undefined {
