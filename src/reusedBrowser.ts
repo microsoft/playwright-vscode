@@ -21,7 +21,6 @@ import * as vscodeTypes from './vscodeTypes';
 import { installBrowsers } from './installer';
 import { SettingsModel } from './settingsModel';
 import { BackendServer, BackendClient } from './backend';
-import { McpConnection } from './mcpConnection';
 
 type RecorderMode = 'none' | 'standby' | 'inspecting' | 'recording';
 
@@ -30,10 +29,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _backend: Backend | undefined;
   private _cancelRecording: (() => void) | undefined;
   private _isRunningTests = false;
-  private _isConnectedToMCP = false;
   private _insertedEditActionCount = 0;
   private _envProvider: () => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
+  private _keepAlive = false;
   private _pageCount = 0;
   private _onPageCountChangedEvent: vscodeTypes.EventEmitter<number>;
   readonly onPageCountChanged: vscodeTypes.Event<number>;
@@ -216,6 +215,14 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return this._pageCount;
   }
 
+  setKeepAlive(keepAlive: boolean) {
+    this._keepAlive = keepAlive;
+  }
+
+  hasBackend() {
+    return !!this._backend;
+  }
+
   private _pageCountChanged(pageCount: number) {
     this._pageCount = pageCount;
     this._onPageCountChangedEvent.fire(pageCount);
@@ -234,7 +241,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return this._recorderModeForTest;
   }
 
-  async connectMCP(mcp: McpConnection, model: TestModel) {
+  async getMCPConnectionString(model: TestModel) {
     await this._startBackendIfNeeded(model.config);
     const connectionString = new URL(this.browserServerWSEndpoint()!);
 
@@ -247,17 +254,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     connectionString.searchParams.set('launch-options', JSON.stringify({
       headless: false
     }));
-    await mcp.browser_connect({ method: 'vscode', params: { connectionString: connectionString.toString(), lib: model.config.lib } });
-    this._isConnectedToMCP = true;
-  }
-
-  async disconnectMCP(mcp: McpConnection) {
-    await mcp.disconnect();
-    this._isConnectedToMCP = false;
-  }
-
-  isConnectedToMCP() {
-    return this._backend !== undefined && this._isConnectedToMCP;
+    return connectionString.toString();
   }
 
   private _getTestIdAttribute(model: TestModel, project?: TestProject): string | undefined {
@@ -406,7 +403,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     if (debug && !this._settingsModel.showBrowser.get()) {
       this._stop();
     } else {
-      if (!this._pageCount && !this.isConnectedToMCP())
+      if (!this._pageCount && !this._keepAlive)
         this._stop();
     }
     this._isRunningTests = false;

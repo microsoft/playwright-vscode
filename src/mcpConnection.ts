@@ -26,6 +26,7 @@ export class McpConnection extends DisposableBase {
   private _onUpdate = new EventEmitter<void>();
   onUpdate = this._onUpdate.event;
   private _commandQueue = new CommandQueue();
+  private _isConnected = false;
 
   constructor(private readonly _vscode: vscodeTypes.VSCode, private readonly _reusedBrowser: ReusedBrowser, private readonly _settingsModel: SettingsModel, private readonly _models: TestModelCollection) {
     super();
@@ -56,13 +57,36 @@ export class McpConnection extends DisposableBase {
       if (!this._tool)
         return;
 
+      if (!this._reusedBrowser.hasBackend())
+        this._isConnected = false;
+
       const shouldBeConnected = !this.disabledReason() && this._settingsModel.connectCopilot.get();
-      if (this._reusedBrowser.isConnectedToMCP() !== shouldBeConnected) {
-        if (shouldBeConnected)
-          await this._reusedBrowser.connectMCP(this, this._models.selectedModel()!);
-        else
-          await this._reusedBrowser.disconnectMCP(this);
+      if (this._isConnected === shouldBeConnected)
+        return;
+
+      if (shouldBeConnected) {
+        this._reusedBrowser.setKeepAlive(true);
+        const model = this._models.selectedModel()!;
+        const connectionString = await this._reusedBrowser.getMCPConnectionString(model);
+        await this._vscode.lm.invokeTool(this._tool.name, {
+          input: { method: 'vscode', params: { connectionString, lib: model.config.lib } },
+          toolInvocationToken: undefined,
+        });
+        this._isConnected = true;
+        return;
       }
+
+      this._reusedBrowser.setKeepAlive(false);
+      // TODO: solve this without regex matching
+      const method = this._tool.description.match(/"(.*)"/)?.[1];
+      if (!method)
+        throw new Error('Default method not found in tool description');
+      await this._vscode.lm.invokeTool(this._tool.name, {
+        input: { method: method },
+        toolInvocationToken: undefined,
+      });
+      this._isConnected = false;
+
     }).catch(console.error);
   }
 
@@ -73,29 +97,5 @@ export class McpConnection extends DisposableBase {
       return this._vscode.l10n.t('No Playwright tests found.');
     if (!this._settingsModel.showBrowser.get())
       return this._vscode.l10n.t(`Disabled because "Show Browser" setting is off.`);
-  }
-
-  async browser_connect(input: { method: string, params?: any }) {
-    if (!this._tool)
-      throw new Error('Not available');
-    await this._vscode.lm.invokeTool(this._tool.name, {
-      input,
-      toolInvocationToken: undefined,
-    });
-  }
-
-  async disconnect() {
-    if (!this._tool)
-      throw new Error('Not available');
-
-    // TODO: solve this without regex matching
-    const defaultMethod = this._tool.description.match(/"(.*)"/)?.[1];
-    if (!defaultMethod)
-      throw new Error('Default method not found in tool description');
-
-    await this._vscode.lm.invokeTool(this._tool.name, {
-      input: { method: defaultMethod },
-      toolInvocationToken: undefined,
-    });
   }
 }
