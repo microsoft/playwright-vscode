@@ -108,7 +108,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       cwd,
       envProvider,
       errors,
-      dumpIO: false,
+      dumpIO: true,
     });
     const backend = await backendServer.startAndConnect();
     if (!backend)
@@ -244,16 +244,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   async getMCPConnectionString(model: TestModel) {
     await this._startBackendIfNeeded(model.config);
     const connectionString = new URL(this.browserServerWSEndpoint()!);
-
-    // if there's already a browser running from a test run, we'll connect to it.
     connectionString.searchParams.set('connect', 'first');
-
-    // otherwise, we'll start a blank headful browser.
-    // the next test run will close it and replace it.
-    // MCP automatically reconnects if the browser is closed, so MCP and the test runner are always in sync.
-    connectionString.searchParams.set('launch-options', JSON.stringify({
-      headless: false
-    }));
     return connectionString.toString();
   }
 

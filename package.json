@@ -203,7 +203,7 @@
   },
   "devDependencies": {
     "@babel/preset-typescript": "^7.23.2",
-    "@playwright/test": "1.54.1-beta-1753993012000",
+    "@playwright/test": "file:../playwright/packages/playwright-test",
     "@types/babel__core": "^7.20.3",
     "@types/babel__helper-plugin-utils": "^7.10.2",
     "@types/babel__traverse": "^7.20.3",
@@ -231,6 +231,8 @@
     "@babel/helper-plugin-utils": "^7.22.5",
     "@babel/plugin-proposal-decorators": "^7.24.7",
     "@babel/traverse": "^7.23.2",
+    "playwright": "file:../playwright/packages/playwright",
+    "playwright-core": "file:../playwright/packages/playwright-core",
     "stack-utils": "^2.0.6",
     "which": "^4.0.0",
     "ws": "^8.17.1"
