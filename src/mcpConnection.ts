@@ -53,10 +53,10 @@ export class McpConnection extends DisposableBase {
 
   private _reconcile() {
     void this._commandQueue.run(async () => {
-      if (!this.isAvailable())
+      if (!this._tool)
         return;
 
-      const shouldBeConnected = this.isEnabled() && this._settingsModel.connectCopilot.get();
+      const shouldBeConnected = !this.disabledReason() && this._settingsModel.connectCopilot.get();
       if (this._reusedBrowser.isConnectedToMCP() !== shouldBeConnected) {
         if (shouldBeConnected)
           await this._reusedBrowser.connectMCP(this, this._models.selectedModel()!);
@@ -66,12 +66,13 @@ export class McpConnection extends DisposableBase {
     }).catch(console.error);
   }
 
-  isAvailable() {
-    return this._tool !== undefined;
-  }
-
-  isEnabled() {
-    return this.isAvailable() && this._models.selectedModel() !== undefined && this._settingsModel.showBrowser.get();
+  disabledReason(): string | undefined {
+    if (!this._tool)
+      return this._vscode.l10n.t(`Couldn't find Playwright MCP server.`);
+    if (!this._models.selectedModel())
+      return this._vscode.l10n.t('No Playwright tests found.');
+    if (!this._settingsModel.showBrowser.get())
+      return this._vscode.l10n.t(`Disabled because "Show Browser" setting is off.`);
   }
 
   async browser_connect(input: { method: string, params?: any }) {

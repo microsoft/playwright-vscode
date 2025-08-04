@@ -908,10 +908,9 @@ type HoverProvider = {
 
 class LM {
   tools: (LanguageModelToolInformation & LanguageModelTool<any>)[] = [];
-  registerTool(name: string, tool: LanguageModelTool<any>): Disposable {
+  registerTool(name: string, tool: LanguageModelTool<any> & { description: string }): Disposable {
     const info: (LanguageModelTool<any> & LanguageModelToolInformation) = {
       name,
-      description: 'mocked',
       inputSchema: undefined,
       tags: [],
       ...tool,

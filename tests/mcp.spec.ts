@@ -16,21 +16,22 @@
 
 import { expect, test } from './utils';
 
-test('setting visibility depends on browser_connect tool being available', async ({ activate }) => {
+test('setting is disabled when no browser_connect tool is available', async ({ activate }) => {
   const { vscode } = await activate({ 'playwright.config.js': `module.exports = {}` });
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  await expect(webView.getByLabel('Connect Copilot')).not.toBeVisible();
-  const tool = vscode.lm.registerTool('playwright_browser_connect', { invoke: () => ({ content: [] }) });
-  await expect(webView.getByLabel('Connect Copilot')).toBeVisible();
+  await webView.getByLabel('Show Browser').setChecked(true);
+  await expect(webView.getByLabel('Connect Copilot')).toBeDisabled();
+  const tool = vscode.lm.registerTool('playwright_browser_connect', { description: '', invoke: () => ({ content: [] }) });
+  await expect(webView.getByLabel('Connect Copilot')).toBeEnabled();
   tool.dispose();
-  await expect(webView.getByLabel('Connect Copilot')).not.toBeVisible();
+  await expect(webView.getByLabel('Connect Copilot')).toBeDisabled();
 });
 
 test('setting is disabled when no playwright was found', async ({ activate }) => {
   const { vscode, workspaceFolder } = await activate({});
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
   await webView.getByLabel('Show Browser').setChecked(true);
-  vscode.lm.registerTool('playwright_browser_connect', { invoke: () => ({ content: [] }) });
+  vscode.lm.registerTool('playwright_browser_connect', { description: '', invoke: () => ({ content: [] }) });
   await expect(webView.getByLabel('Connect Copilot')).toBeDisabled();
   await workspaceFolder.addFile('playwright.config.js', `module.exports = {}`);
   await expect(webView.getByLabel('Connect Copilot')).toBeEnabled();
@@ -40,7 +41,7 @@ test('setting is disabled when Show Browser is disabled', async ({ activate }) =
   const { vscode } = await activate({ 'playwright.config.js': `module.exports = {}` });
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  vscode.lm.registerTool('playwright_browser_connect', { invoke: () => ({ content: [] }) });
+  vscode.lm.registerTool('playwright_browser_connect', { description: '', invoke: () => ({ content: [] }) });
   await webView.getByLabel('Show Browser').setChecked(false);
   await expect(webView.getByLabel('Connect Copilot')).toBeDisabled();
   await webView.getByLabel('Show Browser').setChecked(true);
@@ -51,10 +52,15 @@ test('should eagerly connect', async ({ activate }) => {
   const { vscode } = await activate({ 'playwright.config.js': `module.exports = {}` });
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
 
-  const connect = expect.objectContaining({ connectionString: expect.any(String) });
-  const disconnect = { connectionString: undefined };
+  const connect = expect.objectContaining({ method: 'vscode', params: { connectionString: expect.any(String), lib: expect.any(String) } });
+  const disconnect = { method: 'isolated' };
   const invocations: any[] = [];
   vscode.lm.registerTool('playwright_browser_connect', {
+    description: `
+    Connect to a browser using one of the available methods:
+    - "isolated" - connect to a browser in an isolated environment.
+    - "vscode" - connect to vscode.
+    `,
     invoke: ({ input }) => {
       invocations.push(input);
       return { content: [] };
@@ -66,8 +72,7 @@ test('should eagerly connect', async ({ activate }) => {
   await webView.getByLabel('Connect Copilot').check();
   await expect.poll(() => invocations).toEqual([connect]);
 
-  const connectionString = new URL(invocations[0].connectionString);
-  const playwright = require(connectionString.searchParams.get('lib')!);
+  const playwright = require(invocations[0].params.lib);
   expect(playwright.chromium).toBeDefined();
 
   await vscode.commands.executeCommand('pw.extension.command.inspect');
