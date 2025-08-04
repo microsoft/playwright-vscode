@@ -45,6 +45,7 @@ export class McpConnection extends DisposableBase {
     this._disposables.push(
         new _vscode.Disposable(() => clearInterval(scanInterval)),
         this._models.onUpdated(() => this._onUpdate.fire()),
+        this.onUpdate(() => this._reconcile()),
         this._reusedBrowser.onBackendChange(() => this._reconcile()),
         this._settingsModel.connectCopilot.onChange(() => this._reconcile()),
     );
@@ -73,11 +74,26 @@ export class McpConnection extends DisposableBase {
     return this.isAvailable() && this._models.selectedModel() !== undefined && this._settingsModel.showBrowser.get();
   }
 
-  async browser_connect(input: { connectionString?: string }) {
+  async browser_connect(input: { method: string, params?: any }) {
     if (!this._tool)
       throw new Error('Not available');
     await this._vscode.lm.invokeTool(this._tool.name, {
       input,
+      toolInvocationToken: undefined,
+    });
+  }
+
+  async disconnect() {
+    if (!this._tool)
+      throw new Error('Not available');
+
+    // TODO: solve this without regex matching
+    const defaultMethod = this._tool.description.match(/"(.*)"/)?.[1];
+    if (!defaultMethod)
+      throw new Error('Default method not found in tool description');
+
+    await this._vscode.lm.invokeTool(this._tool.name, {
+      input: { method: defaultMethod },
       toolInvocationToken: undefined,
     });
   }

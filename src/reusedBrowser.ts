@@ -101,7 +101,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       ...this._envProvider(),
       PW_CODEGEN_NO_INSPECTOR: '1',
       PW_EXTENSION_MODE: '1',
-      PW_BROWSER_SERVER: '1', // TODO: fold this into PW_EXTENSION_MODE
     });
 
     const errors: string[] = [];
@@ -238,14 +237,22 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   async connectMCP(mcp: McpConnection, model: TestModel) {
     await this._startBackendIfNeeded(model.config);
     const connectionString = new URL(this.browserServerWSEndpoint()!);
-    connectionString.searchParams.set('connect', 'first'); // exact connection TBD. we need to make sure that it uses the same browser as the test runner.
-    connectionString.searchParams.set('lib', model.config.lib);
-    await mcp.browser_connect({ connectionString: connectionString.toString() });
+
+    // if there's already a browser running from a test run, we'll connect to it.
+    connectionString.searchParams.set('connect', 'first');
+
+    // otherwise, we'll start a blank headful browser.
+    // the next test run will close it and replace it.
+    // MCP automatically reconnects if the browser is closed, so MCP and the test runner are always in sync.
+    connectionString.searchParams.set('launch-options', JSON.stringify({
+      headless: false
+    }));
+    await mcp.browser_connect({ method: 'vscode', params: { connectionString: connectionString.toString(), lib: model.config.lib } });
     this._isConnectedToMCP = true;
   }
 
   async disconnectMCP(mcp: McpConnection) {
-    await mcp.browser_connect({ connectionString: undefined });
+    await mcp.disconnect();
     this._isConnectedToMCP = false;
   }
 
