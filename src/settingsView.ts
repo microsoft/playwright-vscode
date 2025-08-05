@@ -247,7 +247,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           </label>
         </div>
         <div class="action">
-          <label title="${vscode.l10n.t(`When enabled, the browser tools in Copilot will be connected to your testing browser.`),}">
+          <label title="${vscode.l10n.t(`When enabled, the browser tools in Copilot will be connected to your testing browser.`)}">
             <input type="checkbox" setting="connectCopilot"></input>
             <div>${vscode.l10n.t('Connect Copilot')}</div>
           </label>
