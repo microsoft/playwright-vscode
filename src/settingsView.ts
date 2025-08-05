@@ -118,11 +118,9 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
     const settings = this._settingsModel.json();
     const title = {
       reuseBrowser: this._vscode.l10n.t('When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.'),
-      connectCopilot: this._mcpConnection.disabledReason() ?? this._vscode.l10n.t(`When enabled, the browser tools in Copilot will be connected to your testing browser.`),
+      connectCopilot: this._vscode.l10n.t(`When enabled, the browser tools in Copilot will be connected to your testing browser.`),
     };
-    const disabled = {
-      connectCopilot: !!this._mcpConnection.disabledReason(),
-    };
+    const disabled = {};
     void this._view?.webview.postMessage({ method: 'settings', params: { settings, disabled, title } });
   }
 

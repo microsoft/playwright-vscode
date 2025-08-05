@@ -64,7 +64,7 @@ export class McpConnection extends DisposableBase {
     if (!this._reusedBrowser.hasBackend() && !this._isStartingBackend)
       this._isConnected = false;
 
-    const shouldBeConnected = !this.disabledReason() && !!this._settingsModel.connectCopilot.get();
+    const shouldBeConnected = !!this._settingsModel.connectCopilot.get();
     if (this._isConnected === shouldBeConnected)
       return;
     this._isConnected = shouldBeConnected;
@@ -92,14 +92,5 @@ export class McpConnection extends DisposableBase {
       input: { method: 'vscode', params: { connectionString, lib: model.config.lib } },
       toolInvocationToken: undefined,
     });
-  }
-
-  disabledReason(): string | undefined {
-    if (!this._tool)
-      return this._vscode.l10n.t(`Couldn't find Playwright MCP server.`);
-    if (!this._models.selectedModel())
-      return this._vscode.l10n.t('No Playwright tests found.');
-    if (!this._settingsModel.showBrowser.get())
-      return this._vscode.l10n.t(`Disabled because "Show Browser" setting is off.`);
   }
 }
