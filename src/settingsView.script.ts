@@ -73,23 +73,16 @@ window.addEventListener('message', event => {
   const { method, params } = event.data;
   if (method === 'settings') {
     for (const [key, value] of Object.entries(params.settings as Record<string, string | boolean>)) {
-      const disabled = params.disabled[key] ?? false;
-      const title = params.title[key];
       const input = document.querySelector('input[setting=' + key + ']') as HTMLInputElement;
       if (input) {
         if (typeof value === 'boolean')
           input.checked = value;
         else
           input.value = value;
-        input.disabled = disabled;
-        input.title = title;
       }
       const select = document.querySelector('select[setting=' + key + ']') as HTMLSelectElement;
-      if (select) {
+      if (select)
         select.value = value as string;
-        select.disabled = disabled;
-        select.title = title;
-      }
     }
   } else if (method === 'actions') {
     actionsElement.textContent = '';

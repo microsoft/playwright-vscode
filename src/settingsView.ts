@@ -111,13 +111,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
   }
 
   private _updateSettings() {
-    const settings = this._settingsModel.json();
-    const title = {
-      reuseBrowser: this._vscode.l10n.t('When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.'),
-      connectCopilot: this._vscode.l10n.t(`When enabled, the browser tools in Copilot will be connected to your testing browser.`),
-    };
-    const disabled = {};
-    void this._view?.webview.postMessage({ method: 'settings', params: { settings, disabled, title } });
+    void this._view!.webview.postMessage({ method: 'settings', params: { settings: this._settingsModel.json() } });
   }
 
   private _updateActions() {
@@ -246,14 +240,14 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <h2 class="section-header">${vscode.l10n.t('SETTINGS')}</h2>
       <div class="vbox">
         <div class="action">
-          <label>
+          <label title="${vscode.l10n.t('When enabled, Playwright will reuse the browser instance between tests. This will disable parallel execution.')}">
             <input type="checkbox" setting="reuseBrowser"></input>
             <div>${vscode.l10n.t('Show browser')}</div>
             <div class="inactive" style="padding-left: 5px;">— ${vscode.l10n.t('one worker')}</div>
           </label>
         </div>
         <div class="action">
-          <label>
+          <label title="${vscode.l10n.t(`When enabled, the browser tools in Copilot will be connected to your testing browser.`),}">
             <input type="checkbox" setting="connectCopilot"></input>
             <div>${vscode.l10n.t('Connect Copilot')}</div>
           </label>
