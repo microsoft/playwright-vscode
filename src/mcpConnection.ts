@@ -20,25 +20,13 @@ import { TestModelCollection } from './testModel';
 import * as vscodeTypes from './vscodeTypes';
 
 export class McpConnection extends DisposableBase {
-  private _tool: vscodeTypes.LanguageModelToolInformation | undefined;
   private _isConnected = false;
   private _isStartingBackend = false;
 
   constructor(private readonly _vscode: vscodeTypes.VSCode, private readonly _reusedBrowser: ReusedBrowser, private readonly _settingsModel: SettingsModel, private readonly _models: TestModelCollection) {
     super();
 
-    const scanInterval = setInterval(() => {
-      const tool = _vscode.lm.tools.find(t => t.name.endsWith('browser_connect'));
-      if (tool && !this._tool) {
-        this._tool = tool;
-        void this._reconcile();
-      }
-      if (!tool && this._tool) {
-        this._tool = undefined;
-        void this._reconcile();
-      }
-    }, 500);
-
+    const scanInterval = setInterval(() => this._reconcile(), 500);
     this._disposables.push(
         new _vscode.Disposable(() => clearInterval(scanInterval)),
         this._models.onUpdated(() => this._reconcile()),
@@ -54,9 +42,6 @@ export class McpConnection extends DisposableBase {
   }
 
   private async _reconcile() {
-    if (!this._tool)
-      return;
-
     if (!this._reusedBrowser.hasBackend() && !this._isStartingBackend)
       this._isConnected = false;
 
@@ -66,15 +51,18 @@ export class McpConnection extends DisposableBase {
     this._isConnected = shouldBeConnected;
     this._reusedBrowser.setKeepAlive(this._isConnected);
 
+    const tools = this._vscode.lm.tools.filter(t => t.name.endsWith('browser_connect'));
     if (!shouldBeConnected) {
-      // TODO: update MCP to support going to default without parsing
-      const method = this._tool.description.match(/"(.*)"/)?.[1];
-      if (!method)
-        throw new Error('Default method not found in tool description');
-      await this._vscode.lm.invokeTool(this._tool.name, {
-        input: { method: method },
-        toolInvocationToken: undefined,
-      });
+      for (const tool of tools) {
+        // TODO: update MCP to support going to default without parsing
+        const method = tool.description.match(/"(.*)"/)?.[1];
+        if (!method)
+          throw new Error('Default method not found in tool description');
+        await this._vscode.lm.invokeTool(tool.name, {
+          input: { method: method },
+          toolInvocationToken: undefined,
+        });
+      }
       return;
     }
 
@@ -84,9 +72,11 @@ export class McpConnection extends DisposableBase {
       this._isStartingBackend = false;
     });
 
-    await this._vscode.lm.invokeTool(this._tool.name, {
-      input: { method: 'vscode', params: { connectionString, lib: model.config.lib } },
-      toolInvocationToken: undefined,
-    });
+    for (const tool of tools) {
+      await this._vscode.lm.invokeTool(tool.name, {
+        input: { method: 'vscode', params: { connectionString, lib: model.config.lib } },
+        toolInvocationToken: undefined,
+      });
+    }
   }
 }
