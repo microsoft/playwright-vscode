@@ -15,7 +15,6 @@
  */
 
 import { DisposableBase } from './disposableBase';
-import { McpConnection } from './mcpConnection';
 import type { ReusedBrowser } from './reusedBrowser';
 import type { SettingsModel } from './settingsModel';
 import type { TestModelCollection } from './testModel';
@@ -42,19 +41,16 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
   private _extensionUri: vscodeTypes.Uri;
   private _settingsModel: SettingsModel;
   private _reusedBrowser: ReusedBrowser;
-  private _mcpConnection: McpConnection;
   private _models: TestModelCollection;
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, models: TestModelCollection, reusedBrowser: ReusedBrowser, extensionUri: vscodeTypes.Uri, mcpConnection: McpConnection) {
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, models: TestModelCollection, reusedBrowser: ReusedBrowser, extensionUri: vscodeTypes.Uri) {
     super();
     this._vscode = vscode;
     this._settingsModel = settingsModel;
     this._models = models;
     this._reusedBrowser = reusedBrowser;
-    this._mcpConnection = mcpConnection;
     this._extensionUri = extensionUri;
     this._disposables = [
-      mcpConnection.onUpdate(() => this._updateSettings()),
       reusedBrowser.onRunningTestsChanged(() => this._updateActions()),
       reusedBrowser.onPageCountChanged(() => this._updateActions()),
       vscode.window.registerWebviewViewProvider('pw.extension.settingsView', this),

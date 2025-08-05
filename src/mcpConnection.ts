@@ -17,13 +17,10 @@ import { DisposableBase } from './disposableBase';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { TestModelCollection } from './testModel';
-import { EventEmitter } from './upstream/events';
 import * as vscodeTypes from './vscodeTypes';
 
 export class McpConnection extends DisposableBase {
   private _tool: vscodeTypes.LanguageModelToolInformation | undefined;
-  private _onUpdate = new EventEmitter<void>();
-  onUpdate = this._onUpdate.event;
   private _isConnected = false;
   private _isStartingBackend = false;
 
@@ -34,18 +31,17 @@ export class McpConnection extends DisposableBase {
       const tool = _vscode.lm.tools.find(t => t.name.endsWith('browser_connect'));
       if (tool && !this._tool) {
         this._tool = tool;
-        this._onUpdate.fire();
+        void this._reconcile();
       }
       if (!tool && this._tool) {
         this._tool = undefined;
-        this._onUpdate.fire();
+        void this._reconcile();
       }
     }, 500);
 
     this._disposables.push(
         new _vscode.Disposable(() => clearInterval(scanInterval)),
-        this._models.onUpdated(() => this._onUpdate.fire()),
-        this.onUpdate(() => this._reconcile()),
+        this._models.onUpdated(() => this._reconcile()),
         this._reusedBrowser.onBackendChange(() => this._reconcile()),
         this._settingsModel.connectCopilot.onChange(() => this._reconcile()),
         this._reusedBrowser.onRunningTestsChanged(runStarted => {
