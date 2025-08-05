@@ -33,8 +33,8 @@ export class McpConnection extends DisposableBase {
         this._reusedBrowser.onBackendChange(() => this._reconcile()),
         this._settingsModel.connectCopilot.onChange(() => this._reconcile()),
         this._reusedBrowser.onRunningTestsChanged(runStarted => {
-          if (runStarted) {
-            this._isConnected = false; // force reconnecting
+          if (runStarted && this._settingsModel.showBrowser.get()) {
+            this._isConnected = false; // force reconnecting to switch MCP to the test browser.
             void this._reconcile();
           }
         }),

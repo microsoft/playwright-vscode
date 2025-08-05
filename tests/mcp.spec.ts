@@ -34,8 +34,6 @@ test('should eagerly connect', async ({ activate }) => {
       return { content: [] };
     }
   });
-  await webView.getByLabel('Show Browser').check();
-  await expect.poll(() => invocations).toEqual([]);
 
   await webView.getByLabel('Connect Copilot').check();
   await expect.poll(() => invocations).toEqual([connect]);
