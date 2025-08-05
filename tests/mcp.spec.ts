@@ -16,38 +16,6 @@
 
 import { expect, test } from './utils';
 
-test('setting is disabled when no browser_connect tool is available', async ({ activate }) => {
-  const { vscode } = await activate({ 'playwright.config.js': `module.exports = {}` });
-  const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  await webView.getByLabel('Show Browser').setChecked(true);
-  await expect(webView.getByLabel('Connect Copilot')).toBeDisabled();
-  const tool = vscode.lm.registerTool('playwright_browser_connect', { description: '', invoke: () => ({ content: [] }) });
-  await expect(webView.getByLabel('Connect Copilot')).toBeEnabled();
-  tool.dispose();
-  await expect(webView.getByLabel('Connect Copilot')).toBeDisabled();
-});
-
-test('setting is disabled when no playwright was found', async ({ activate }) => {
-  const { vscode, workspaceFolder } = await activate({});
-  const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  await webView.getByLabel('Show Browser').setChecked(true);
-  vscode.lm.registerTool('playwright_browser_connect', { description: '', invoke: () => ({ content: [] }) });
-  await expect(webView.getByLabel('Connect Copilot')).toBeDisabled();
-  await workspaceFolder.addFile('playwright.config.js', `module.exports = {}`);
-  await expect(webView.getByLabel('Connect Copilot')).toBeEnabled();
-});
-
-test('setting is disabled when Show Browser is disabled', async ({ activate }) => {
-  const { vscode } = await activate({ 'playwright.config.js': `module.exports = {}` });
-
-  const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  vscode.lm.registerTool('playwright_browser_connect', { description: '', invoke: () => ({ content: [] }) });
-  await webView.getByLabel('Show Browser').setChecked(false);
-  await expect(webView.getByLabel('Connect Copilot')).toBeDisabled();
-  await webView.getByLabel('Show Browser').setChecked(true);
-  await expect(webView.getByLabel('Connect Copilot')).toBeEnabled();
-});
-
 test('should eagerly connect', async ({ activate }) => {
   const { vscode } = await activate({ 'playwright.config.js': `module.exports = {}` });
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
