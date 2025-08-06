@@ -56,11 +56,9 @@ export class McpConnection extends DisposableBase {
     if (!shouldBeConnected) {
       for (const tool of tools) {
         await this._vscode.lm.invokeTool(tool.name, {
-          input: {},
+          input: { connectionString: '', lib: '' },
           toolInvocationToken: undefined,
         });
-
-        await this._vscode.window.showInformationMessage('Disconnected from Playwright MCP');
       }
       return;
     }
@@ -75,8 +73,6 @@ export class McpConnection extends DisposableBase {
         input: { connectionString, lib: model.config.lib },
         toolInvocationToken: undefined,
       });
-
-      await this._vscode.window.showInformationMessage(`Connected to Playwright MCP at ${connectionString}`);
     }
   }
 }
