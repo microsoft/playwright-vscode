@@ -45,28 +45,26 @@ export class McpConnection extends DisposableBase {
     if (!this._reusedBrowser.hasBackend() && !this._isStartingBackend)
       this._isConnected = false;
 
-    const shouldBeConnected = !!this._settingsModel.connectCopilot.get();
+    const model = this._models.selectedModel()!;
+    const shouldBeConnected = model && !!this._settingsModel.connectCopilot.get();
     if (this._isConnected === shouldBeConnected)
       return;
     this._isConnected = shouldBeConnected;
     this._reusedBrowser.setKeepAlive(this._isConnected);
 
-    const tools = this._vscode.lm.tools.filter(t => t.name.endsWith('browser_connect'));
+    const tools = this._vscode.lm.tools.filter(t => t.name.endsWith('browser_connect_vscode'));
     if (!shouldBeConnected) {
       for (const tool of tools) {
-        // TODO: update MCP to support going to default without parsing
-        const method = tool.description.match(/"(.*)"/)?.[1];
-        if (!method)
-          throw new Error('Default method not found in tool description');
         await this._vscode.lm.invokeTool(tool.name, {
-          input: { method: method },
+          input: {},
           toolInvocationToken: undefined,
         });
+
+        await this._vscode.window.showInformationMessage('Disconnected from Playwright MCP');
       }
       return;
     }
 
-    const model = this._models.selectedModel()!;
     this._isStartingBackend = true;
     const connectionString = await this._reusedBrowser.getMCPConnectionString(model).finally(() => {
       this._isStartingBackend = false;
@@ -74,9 +72,11 @@ export class McpConnection extends DisposableBase {
 
     for (const tool of tools) {
       await this._vscode.lm.invokeTool(tool.name, {
-        input: { method: 'vscode', params: { connectionString, lib: model.config.lib } },
+        input: { connectionString, lib: model.config.lib },
         toolInvocationToken: undefined,
       });
+
+      await this._vscode.window.showInformationMessage(`Connected to Playwright MCP at ${connectionString}`);
     }
   }
 }
