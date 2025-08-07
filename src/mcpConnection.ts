@@ -52,11 +52,11 @@ export class McpConnection extends DisposableBase {
     this._isConnected = shouldBeConnected;
     this._reusedBrowser.setKeepAlive(this._isConnected);
 
-    const tools = this._vscode.lm.tools.filter(t => t.name.endsWith('browser_connect_vscode'));
+    const tools = this._vscode.lm.tools.filter(t => t.name.endsWith('browser_connect'));
     if (!shouldBeConnected) {
       for (const tool of tools) {
         await this._vscode.lm.invokeTool(tool.name, {
-          input: { connectionString: '', lib: '' },
+          input: { method: 'vscode', options: {} },
           toolInvocationToken: undefined,
         });
       }
@@ -70,7 +70,7 @@ export class McpConnection extends DisposableBase {
 
     for (const tool of tools) {
       await this._vscode.lm.invokeTool(tool.name, {
-        input: { connectionString, lib: model.config.lib },
+        input: { method: 'vscode', options: { connectionString, lib: model.config.lib } },
         toolInvocationToken: undefined,
       });
     }
