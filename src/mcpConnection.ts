@@ -1,0 +1,78 @@
+/**
+ * Copyright (c) Microsoft Corporation.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+import { DisposableBase } from './disposableBase';
+import { ReusedBrowser } from './reusedBrowser';
+import { SettingsModel } from './settingsModel';
+import { TestModelCollection } from './testModel';
+import * as vscodeTypes from './vscodeTypes';
+
+export class McpConnection extends DisposableBase {
+  private _isConnected = false;
+  private _isStartingBackend = false;
+
+  constructor(private readonly _vscode: vscodeTypes.VSCode, private readonly _reusedBrowser: ReusedBrowser, private readonly _settingsModel: SettingsModel, private readonly _models: TestModelCollection) {
+    super();
+
+    const scanInterval = setInterval(() => this._reconcile(), 500);
+    this._disposables.push(
+        new _vscode.Disposable(() => clearInterval(scanInterval)),
+        this._models.onUpdated(() => this._reconcile()),
+        this._reusedBrowser.onBackendChange(() => this._reconcile()),
+        this._settingsModel.connectCopilot.onChange(() => this._reconcile()),
+        this._reusedBrowser.onRunningTestsChanged(runStarted => {
+          if (runStarted && this._settingsModel.showBrowser.get()) {
+            this._isConnected = false; // force reconnecting to switch MCP to the test browser.
+            void this._reconcile();
+          }
+        }),
+    );
+  }
+
+  private async _reconcile() {
+    if (!this._reusedBrowser.hasBackend() && !this._isStartingBackend)
+      this._isConnected = false;
+
+    const model = this._models.selectedModel()!;
+    const shouldBeConnected = model && !!this._settingsModel.connectCopilot.get();
+    if (this._isConnected === shouldBeConnected)
+      return;
+    this._isConnected = shouldBeConnected;
+    this._reusedBrowser.setKeepAlive(this._isConnected);
+
+    const tools = this._vscode.lm.tools.filter(t => t.name.endsWith('browser_connect'));
+    if (!shouldBeConnected) {
+      for (const tool of tools) {
+        await this._vscode.lm.invokeTool(tool.name, {
+          input: { method: 'vscode', options: {} },
+          toolInvocationToken: undefined,
+        });
+      }
+      return;
+    }
+
+    this._isStartingBackend = true;
+    const connectionString = await this._reusedBrowser.getMCPConnectionString(model).finally(() => {
+      this._isStartingBackend = false;
+    });
+
+    for (const tool of tools) {
+      await this._vscode.lm.invokeTool(tool.name, {
+        input: { method: 'vscode', options: { connectionString, lib: model.config.lib } },
+        toolInvocationToken: undefined,
+      });
+    }
+  }
+}

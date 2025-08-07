@@ -119,6 +119,11 @@
           "default": false,
           "description": "%configuration.playwright.reuseBrowser%"
         },
+        "playwright.connectCopilot": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.playwright.connectCopilot%"
+        },
         "playwright.showTrace": {
           "type": "boolean",
           "default": false,
@@ -205,7 +210,7 @@
     "@types/glob": "^8.0.0",
     "@types/node": "^18.11.9",
     "@types/stack-utils": "^2.0.1",
-    "@types/vscode": "1.93.0",
+    "@types/vscode": "1.102.0",
     "@types/which": "^3.0.3",
     "@types/ws": "^8.5.3",
     "@typescript-eslint/eslint-plugin": "^7.3.1",
