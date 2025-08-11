@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Config, createAction, ProjectEntry, vscode } from './common';
+import { BrowserEntry, Config, createAction, ProjectEntry, vscode } from './common';
 
 let selectConfig: Config;
 
@@ -47,16 +47,51 @@ function updateProjects(projects: ProjectEntry[]) {
   unselectAllButton.hidden = !allEnabled;
 }
 
+function updateBrowsers(browsers: BrowserEntry[]) {
+  const browsersElement = document.getElementById('browsers') as HTMLElement;
+  browsersElement.textContent = '';
+
+  for (const browser of browsers) {
+    const div = document.createElement('div');
+
+    if (browser.title)
+      div.title = browser.title;
+
+    const svg = document.createElement('svg');
+    div.appendChild(svg);
+    svg.outerHTML = browser.svg;
+
+    div.appendChild(document.createTextNode(browser.text));
+
+    for (const action of browser.actions) {
+      const button = document.createElement('button');
+      button.title = action.title;
+      button.onclick = () => executeCommand(action.command, ...action.args);
+      const svg = document.createElement('svg');
+      button.appendChild(svg);
+      svg.outerHTML = action.svg;
+
+      div.appendChild(button);
+    }
+
+    browsersElement.appendChild(div);
+  }
+}
+
 function setAllProjectsEnabled(enabled: boolean) {
   vscode.postMessage({ method: 'setAllProjectsEnabled', params: { configFile: selectConfig.configFile, enabled } });
 }
 selectAllButton.addEventListener('click', () => setAllProjectsEnabled(true));
 unselectAllButton.addEventListener('click', () => setAllProjectsEnabled(false));
-toggleModels.addEventListener('click', () => (vscode.postMessage({ method: 'execute', params: { command: 'pw.extension.command.toggleModels' } })));
+
+function executeCommand(command: string, ...args: any[]) {
+  vscode.postMessage({ method: 'execute', params: { command, args } });
+}
+toggleModels.addEventListener('click', () => executeCommand('pw.extension.command.toggleModels'));
 
 for (const input of Array.from(document.querySelectorAll('input[type=checkbox]'))) {
   input.addEventListener('change', event => {
-    vscode.postMessage({ method: 'toggle', params: { setting: input.getAttribute('setting') } });
+    executeCommand(`pw.extension.toggle.${input.getAttribute('setting')}`);
   });
 }
 for (const select of Array.from(document.querySelectorAll<HTMLSelectElement>('select[setting]'))) {
@@ -118,5 +153,7 @@ window.addEventListener('message', event => {
       updateProjects(configsMap.get(select.value).projects);
     });
     modelSelector.style.display = showModelSelector ? 'flex' : 'none';
+  } else if (method === 'browsers') {
+    updateBrowsers(params.browsers);
   }
 });

@@ -39,6 +39,18 @@ export interface ActionDescriptor {
   disabled?: boolean;
 }
 
+export interface BrowserEntry {
+  text: string;
+  title?: string;
+  svg: string;
+  actions: {
+    svg: string;
+    command: string;
+    args: any[];
+    title: string;
+  }[];
+}
+
 export function createAction(action: ActionDescriptor, options?: { omitText?: boolean }): HTMLElement | null {
   const actionElement = document.createElement('div');
   actionElement.classList.add('action');
@@ -56,7 +68,7 @@ export function createAction(action: ActionDescriptor, options?: { omitText?: bo
   if (action.disabled)
     label.setAttribute('aria-disabled', 'true');
   label.setAttribute('command', action.command);
-  const svg = /** @type {HTMLElement} */(document.createElement('svg'));
+  const svg = document.createElement('svg');
   label.appendChild(svg);
   svg.outerHTML = action.svg;
   if (!options?.omitText && action.text)
