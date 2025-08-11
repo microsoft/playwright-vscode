@@ -14,65 +14,80 @@
  * limitations under the License.
  */
 import { DisposableBase } from './disposableBase';
-import { ReusedBrowser } from './reusedBrowser';
-import { SettingsModel } from './settingsModel';
+import { Backend, DebugControllerState, ReusedBrowser } from './reusedBrowser';
 import { TestModelCollection } from './testModel';
 import * as vscodeTypes from './vscodeTypes';
 
-export class McpConnection extends DisposableBase {
-  private _isConnected = false;
-  private _isStartingBackend = false;
+const kFallbackBrowserName = 'vscode';
 
-  constructor(private readonly _vscode: vscodeTypes.VSCode, private readonly _reusedBrowser: ReusedBrowser, private readonly _settingsModel: SettingsModel, private readonly _models: TestModelCollection) {
+export class McpConnection extends DisposableBase {
+
+  shouldBeConnectedTo?: string;
+  isConnectedTo?: string;
+
+  constructor(private readonly _vscode: vscodeTypes.VSCode, private _reusedBrowser: ReusedBrowser, models: TestModelCollection) {
     super();
 
-    const scanInterval = setInterval(() => this._reconcile(), 500);
+    const detection = setInterval(async () => {
+      const model = models.selectedModel();
+      if (model && this._tools().length) {
+        clearInterval(detection);
+        try {
+          if (!_reusedBrowser.backend())
+            await _reusedBrowser._startBackendIfNeeded(model.config);
+          await this.connectToBrowser(_reusedBrowser.backend()!, this.shouldBeConnectedTo);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }, 500);
+
     this._disposables.push(
-        new _vscode.Disposable(() => clearInterval(scanInterval)),
-        this._models.onUpdated(() => this._reconcile()),
-        this._reusedBrowser.onBackendChange(() => this._reconcile()),
-        this._settingsModel.connectCopilot.onChange(() => this._reconcile()),
-        this._reusedBrowser.onRunningTestsChanged(runStarted => {
-          if (runStarted && this._settingsModel.showBrowser.get()) {
-            this._isConnected = false; // force reconnecting to switch MCP to the test browser.
-            void this._reconcile();
-          }
-        }),
+        new this._vscode.Disposable(() => clearInterval(detection)),
+        _reusedBrowser.onPageCountChanged(() => this.onDebugControllerState(_reusedBrowser.state()))
     );
   }
 
-  private async _reconcile() {
-    if (!this._reusedBrowser.hasBackend() && !this._isStartingBackend)
-      this._isConnected = false;
+  onDebugControllerState(state: DebugControllerState) {
+    if (state.browsers.some(b => b.guid === this.shouldBeConnectedTo))
+      this.isConnectedTo = this.shouldBeConnectedTo;
+    else if (state.browsers.some(b => b.assistantMode))
+      this.isConnectedTo = kFallbackBrowserName;
+    else
+      this.isConnectedTo = undefined;
 
-    const model = this._models.selectedModel()!;
-    const shouldBeConnected = model && !!this._settingsModel.connectCopilot.get();
-    if (this._isConnected === shouldBeConnected)
-      return;
-    this._isConnected = shouldBeConnected;
-    this._reusedBrowser.setKeepAlive(this._isConnected);
+    if (this.shouldBeConnectedTo === this.isConnectedTo)
+      void this._vscode.window.showInformationMessage('Connection match');
+    else
+      void this._vscode.window.showWarningMessage(`Connection mismatch: ${this.shouldBeConnectedTo} !== ${this.isConnectedTo}`);
+  }
 
-    const tools = this._vscode.lm.tools.filter(t => t.name.endsWith('browser_connect'));
-    if (!shouldBeConnected) {
-      for (const tool of tools) {
-        await this._vscode.lm.invokeTool(tool.name, {
-          input: { method: 'vscode', options: {} },
-          toolInvocationToken: undefined,
-        });
-      }
-      return;
-    }
+  async connectToBrowser(browserServer: Backend, guid?: string) {
+    this._reusedBrowser.setKeepAlive(true);
+    guid = kFallbackBrowserName;
+    const connectionString = new URL(browserServer.wsEndpoint);
+    connectionString.searchParams.set('connect', guid);
+    this.shouldBeConnectedTo = guid;
+    await this._browser_connect({ connectionString, lib: browserServer.config.lib });
+  }
 
-    this._isStartingBackend = true;
-    const connectionString = await this._reusedBrowser.getMCPConnectionString(model).finally(() => {
-      this._isStartingBackend = false;
-    });
+  async disconnect() {
+    this._reusedBrowser.setKeepAlive(false);
+    this.shouldBeConnectedTo = undefined;
+    await this._browser_connect({});
+  }
 
-    for (const tool of tools) {
+  private _tools() {
+    return this._vscode.lm.tools.filter(t => t.name.endsWith('browser_connect'));
+  }
+
+  private async _browser_connect(options: any) {
+    for (const tool of this._tools()) {
       await this._vscode.lm.invokeTool(tool.name, {
-        input: { method: 'vscode', options: { connectionString, lib: model.config.lib } },
+        input: { method: 'vscode', options },
         toolInvocationToken: undefined,
       });
+      await this._vscode.window.showInformationMessage(`Connected ${JSON.stringify(options)}`);
     }
   }
 }

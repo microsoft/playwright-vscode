@@ -24,6 +24,21 @@ import { BackendServer, BackendClient } from './backend';
 
 type RecorderMode = 'none' | 'standby' | 'inspecting' | 'recording';
 
+export interface DebugControllerState {
+  pageCount: number;
+  browsers: {
+    guid: string;
+    name: string;
+    channel?: string;
+    assistantMode: boolean;
+    contexts: {
+      pages: {
+        url: string;
+      }[];
+    }[];
+  }[];
+}
+
 export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
   private _backend: Backend | undefined;
@@ -33,7 +48,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _envProvider: () => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
   private _keepAlive = false;
-  private _pageCount = 0;
+  private _state: DebugControllerState = { pageCount: 0, browsers: [] };
   private _onPageCountChangedEvent: vscodeTypes.EventEmitter<number>;
   readonly onPageCountChanged: vscodeTypes.Event<number>;
   readonly _onHighlightRequestedForTestEvent: vscodeTypes.EventEmitter<string>;
@@ -83,7 +98,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._disposables = [];
   }
 
-  private async _startBackendIfNeeded(config: TestConfig): Promise<{ errors?: string[] }> {
+  async _startBackendIfNeeded(config: TestConfig): Promise<{ errors?: string[] }> {
     // Unconditionally close selector dialog, it might send inspect(enabled: false).
     if (this._backend) {
       this._resetNoWait('none');
@@ -100,10 +115,11 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       ...this._envProvider(),
       PW_CODEGEN_NO_INSPECTOR: '1',
       PW_EXTENSION_MODE: '1',
+      DEBUG: 'pw:*'
     });
 
     const errors: string[] = [];
-    const backendServer = new BackendServer(this._vscode, () => new Backend(this._vscode), {
+    const backendServer = new BackendServer(this._vscode, () => new Backend(this._vscode, config), {
       args,
       cwd,
       envProvider,
@@ -161,7 +177,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       }
     });
     this._backend.on('stateChanged', params => {
-      this._pageCountChanged(params.pageCount);
+      this._stateChanged(params);
     });
     this._backend.on('sourceChanged', async params => {
       if (!this._cancelRecording)
@@ -212,7 +228,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   pageCount() {
-    return this._pageCount;
+    return this._state.pageCount;
   }
 
   setKeepAlive(keepAlive: boolean) {
@@ -223,29 +239,37 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return !!this._backend;
   }
 
-  private _pageCountChanged(pageCount: number) {
-    this._pageCount = pageCount;
-    this._onPageCountChangedEvent.fire(pageCount);
+  private _stateChanged(state: DebugControllerState) {
+    this._state = state;
+    this._onPageCountChangedEvent.fire(this.pageCount());
     if (this._isRunningTests)
       return;
-    if (pageCount)
+    if (!this.pageCount() || this._keepAlive)
       return;
     this._stop();
   }
 
-  browserServerWSEndpoint() {
-    return this._backend?.wsEndpoint;
+  state() {
+    return this._state;
+  }
+
+  browsers() {
+    const result: string[] = [];
+    for (const browser of this._state.browsers) {
+      for (const context of browser.contexts) {
+        for (const page of context.pages)
+          result.push(page.url);
+      }
+    }
+    return result;
+  }
+
+  backend() {
+    return this._backend;
   }
 
   recorderModeForTest() {
     return this._recorderModeForTest;
-  }
-
-  async getMCPConnectionString(model: TestModel) {
-    await this._startBackendIfNeeded(model.config);
-    const connectionString = new URL(this.browserServerWSEndpoint()!);
-    connectionString.searchParams.set('connect', 'first');
-    return connectionString.toString();
   }
 
   private _getTestIdAttribute(model: TestModel, project?: TestProject): string | undefined {
@@ -279,7 +303,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   canClose() {
-    return !this._isRunningTests && !!this._pageCount;
+    return !this._isRunningTests && !!this.pageCount();
   }
 
   async record(model: TestModel, project?: TestProject) {
@@ -394,7 +418,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     if (debug && !this._settingsModel.showBrowser.get()) {
       this._stop();
     } else {
-      if (!this._pageCount && !this._keepAlive)
+      if (!this.pageCount() && !this._keepAlive)
         this._stop();
     }
     this._isRunningTests = false;
@@ -428,12 +452,12 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._backend?.requestGracefulTermination();
     this._backend = undefined;
     this._onBackendChangeEvent.fire();
-    this._pageCount = 0;
+    this._state = { pageCount: 0, browsers: [] };
   }
 }
 
 export class Backend extends BackendClient {
-  constructor(vscode: vscodeTypes.VSCode) {
+  constructor(vscode: vscodeTypes.VSCode, readonly config: TestConfig) {
     super(vscode);
   }
 

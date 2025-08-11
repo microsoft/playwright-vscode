@@ -115,7 +115,7 @@ export class Extension implements RunHooks {
       onStdOut: this._debugHighlight.onStdOut.bind(this._debugHighlight),
       requestWatchRun: this._runWatchedTests.bind(this),
     });
-    this._mcpConnection = new McpConnection(this._vscode, this._reusedBrowser, this._settingsModel, this._models);
+    this._mcpConnection = new McpConnection(this._vscode, this._reusedBrowser, this._models);
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModels(true).then(() => {});
@@ -132,7 +132,7 @@ export class Extension implements RunHooks {
   async onWillRunTests(config: TestConfig, debug: boolean) {
     await this._reusedBrowser.onWillRunTests(config, debug);
     return {
-      connectWsEndpoint: this._reusedBrowser.browserServerWSEndpoint(),
+      connectWsEndpoint: this._reusedBrowser.backend()?.wsEndpoint,
     };
   }
 
@@ -890,7 +890,7 @@ test('test', async ({ page }) => {
   }
 
   browserServerWSForTest() {
-    return this._reusedBrowser.browserServerWSEndpoint();
+    return this._reusedBrowser.backend()?.wsEndpoint;
   }
 
   recorderModeForTest() {

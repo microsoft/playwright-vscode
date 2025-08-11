@@ -134,6 +134,14 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         location: 'rareActions',
       },
     ];
+    for (const browser of this._reusedBrowser.browsers()) {
+      actions.push({
+        command: 'pw.extension.command.closeBrowsers',
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path xmlns="http://www.w3.org/2000/svg" d="m12.45 37.65-2.1-2.1L21.9 24 10.35 12.45l2.1-2.1L24 21.9l11.55-11.55 2.1 2.1L26.1 24l11.55 11.55-2.1 2.1L24 26.1Z"/></svg>`,
+        text: `Connect to ${browser}`,
+        disabled: false,
+      });
+    }
     if (this._view)
       void this._view.webview.postMessage({ method: 'actions', params: { actions } });
   }
