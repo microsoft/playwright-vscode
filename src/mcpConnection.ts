@@ -14,28 +14,24 @@
  * limitations under the License.
  */
 import { DisposableBase } from './disposableBase';
-import { Backend, DebugControllerState, ReusedBrowser } from './reusedBrowser';
+import { DebugControllerState, ReusedBrowser } from './reusedBrowser';
 import { TestModelCollection } from './testModel';
 import * as vscodeTypes from './vscodeTypes';
 
 const kFallbackBrowserName = 'vscode';
 
 export class McpConnection extends DisposableBase {
+  private _shouldBeConnectedTo?: string;
+  private _isConnectedTo?: string;
 
-  shouldBeConnectedTo?: string;
-  isConnectedTo?: string;
-
-  constructor(private readonly _vscode: vscodeTypes.VSCode, private _reusedBrowser: ReusedBrowser, models: TestModelCollection) {
+  constructor(private readonly _vscode: vscodeTypes.VSCode, private _reusedBrowser: ReusedBrowser, private readonly _models: TestModelCollection) {
     super();
 
     const detection = setInterval(async () => {
-      const model = models.selectedModel();
-      if (model && this._tools().length) {
+      if (this._models.selectedModel() && this._tools().length) {
         clearInterval(detection);
         try {
-          if (!_reusedBrowser.backend())
-            await _reusedBrowser._startBackendIfNeeded(model.config);
-          await this.connectToBrowser(_reusedBrowser.backend()!, this.shouldBeConnectedTo);
+          await this.connectToBrowser(this._shouldBeConnectedTo ?? kFallbackBrowserName);
         } catch (error) {
           console.error(error);
         }
@@ -44,36 +40,45 @@ export class McpConnection extends DisposableBase {
 
     this._disposables.push(
         new this._vscode.Disposable(() => clearInterval(detection)),
-        _reusedBrowser.onPageCountChanged(() => this.onDebugControllerState(_reusedBrowser.state()))
+        _reusedBrowser.onPageCountChanged(() => this.onDebugControllerState(_reusedBrowser.state()).catch(e => console.error(e)))
     );
   }
 
-  onDebugControllerState(state: DebugControllerState) {
-    if (state.browsers.some(b => b.guid === this.shouldBeConnectedTo))
-      this.isConnectedTo = this.shouldBeConnectedTo;
-    else if (state.browsers.some(b => b.assistantMode))
-      this.isConnectedTo = kFallbackBrowserName;
-    else
-      this.isConnectedTo = undefined;
+  async onDebugControllerState(state: DebugControllerState) {
+    if (state.browsers.some(b => b.guid === this._shouldBeConnectedTo)) {
+      this._isConnectedTo = this._shouldBeConnectedTo;
+    } else if (state.browsers.some(b => b.assistantMode)) {
+      this._shouldBeConnectedTo = kFallbackBrowserName;
+      this._isConnectedTo = kFallbackBrowserName;
+    } else {
+      this._isConnectedTo = undefined;
+    }
 
-    if (this.shouldBeConnectedTo === this.isConnectedTo)
-      void this._vscode.window.showInformationMessage('Connection match');
-    else
-      void this._vscode.window.showWarningMessage(`Connection mismatch: ${this.shouldBeConnectedTo} !== ${this.isConnectedTo}`);
+    if (!this._shouldBeConnectedTo && !this._isConnectedTo) {
+      const testingBrowser = state.browsers.find(b => !b.assistantMode);
+      await this.connectToBrowser(testingBrowser?.guid ?? kFallbackBrowserName);
+    }
   }
 
-  async connectToBrowser(browserServer: Backend, guid?: string) {
+  async connectToBrowser(nameOrGuid: string) {
+    const model = this._models.selectedModel();
+    if (!this._reusedBrowser.backend() && model)
+      await this._reusedBrowser._startBackendIfNeeded(model.config);
+
+    const backend = this._reusedBrowser.backend();
+    if (!backend)
+      return;
+
     this._reusedBrowser.setKeepAlive(true);
-    guid = kFallbackBrowserName;
-    const connectionString = new URL(browserServer.wsEndpoint);
-    connectionString.searchParams.set('connect', guid);
-    this.shouldBeConnectedTo = guid;
-    await this._browser_connect({ connectionString, lib: browserServer.config.lib });
+    const connectionString = new URL(backend.wsEndpoint);
+    connectionString.searchParams.set('connect', nameOrGuid);
+    this._shouldBeConnectedTo = nameOrGuid;
+    await this._browser_connect({ connectionString, lib: backend.config.lib });
   }
 
   async disconnect() {
     this._reusedBrowser.setKeepAlive(false);
-    this.shouldBeConnectedTo = undefined;
+    this._shouldBeConnectedTo = undefined;
     await this._browser_connect({});
   }
 
