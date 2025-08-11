@@ -53,20 +53,27 @@ function updateBrowsers(browsers: BrowserEntry[]) {
 
   for (const browser of browsers) {
     const div = document.createElement('div');
+    div.classList.add('browser');
 
     if (browser.title)
       div.title = browser.title;
 
+    const span = document.createElement('span');
+
     const svg = document.createElement('svg');
-    div.appendChild(svg);
+    span.appendChild(svg);
     svg.outerHTML = browser.svg;
 
-    div.appendChild(document.createTextNode(browser.text));
+    span.appendChild(document.createTextNode(browser.text));
+
+    div.appendChild(span);
 
     for (const action of browser.actions) {
       const button = document.createElement('button');
       button.title = action.title;
       button.onclick = () => executeCommand(action.command, ...action.args);
+      button.disabled = action.disabled;
+
       const svg = document.createElement('svg');
       button.appendChild(svg);
       svg.outerHTML = action.svg;

@@ -48,6 +48,7 @@ export interface BrowserEntry {
     command: string;
     args: any[];
     title: string;
+    disabled: boolean;
   }[];
 }
 

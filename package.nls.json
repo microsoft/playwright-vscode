@@ -16,6 +16,7 @@
   "contributes.command.pw.extension.toggle.showTrace": "Toggle Playwright Trace Viewer",
   "contributes.command.pw.extension.toggle.runGlobalSetupOnEachRun": "Toggle Playwright global setup reuse",
   "contributes.command.pw.extension.toggle.pickLocatorCopyToClipboard": "Toggle Playwright locator picker automatically copying to clipboard",
+  "contributes.command.pw.extension.command.connectMCP": "Disconnect Playwright MCP from testing browser",
   "configuration.playwright.env": "Environment variables to pass to Playwright Test.",
   "configuration.playwright.reuseBrowser": "Show & reuse browser between tests.",
   "configuration.playwright.connectCopilot": "Connect Copilot to Playwright browser.",

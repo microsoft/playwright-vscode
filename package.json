@@ -104,6 +104,11 @@
         "category": "Test",
         "command": "pw.extension.command.clearCache",
         "title": "%contributes.command.pw.extension.command.clearCache%"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.command.connectMCP",
+        "title": "%contributes.command.pw.extension.command.connectMCP%"
       }
     ],
     "configuration": {

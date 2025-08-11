@@ -151,7 +151,7 @@ export class Extension implements RunHooks {
 
   async activate() {
     const vscode = this._vscode;
-    this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, this._context.extensionUri);
+    this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, this._mcpConnection, this._context.extensionUri);
     this._locatorsView = new LocatorsView(vscode, this._settingsModel, this._reusedBrowser, this._context.extensionUri);
     const messageNoPlaywrightTestsFound = this._vscode.l10n.t('No Playwright tests found.');
     this._disposables = [
@@ -234,6 +234,9 @@ export class Extension implements RunHooks {
       }),
       vscode.commands.registerCommand('pw.extension.command.clearCache', async () => {
         await this._models.selectedModel()?.clearCache();
+      }),
+      vscode.commands.registerCommand('pw.extension.command.connectMCP', async (nameOrGuid?: string) => {
+        await this._mcpConnection.connectToBrowser(nameOrGuid);
       }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {

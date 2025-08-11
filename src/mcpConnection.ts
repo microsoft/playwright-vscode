@@ -44,6 +44,10 @@ export class McpConnection extends DisposableBase {
     );
   }
 
+  isConnectedTo(nameOrGuid?: string) {
+    return this._isConnectedTo === nameOrGuid;
+  }
+
   async onDebugControllerState(state: DebugControllerState) {
     if (state.browsers.some(b => b.guid === this._shouldBeConnectedTo)) {
       this._isConnectedTo = this._shouldBeConnectedTo;
@@ -54,13 +58,20 @@ export class McpConnection extends DisposableBase {
       this._isConnectedTo = undefined;
     }
 
-    if (!this._shouldBeConnectedTo && !this._isConnectedTo) {
+    // if MCP hasn't yet connected anywhere, we can safely retarget it to a testing browser.
+    if (this._shouldBeConnectedTo === kFallbackBrowserName && !this._isConnectedTo) {
       const testingBrowser = state.browsers.find(b => !b.assistantMode);
-      await this.connectToBrowser(testingBrowser?.guid ?? kFallbackBrowserName);
+      if (testingBrowser)
+        await this.connectToBrowser(testingBrowser.guid);
     }
   }
 
-  async connectToBrowser(nameOrGuid: string) {
+  async connectToBrowser(nameOrGuid?: string) {
+    nameOrGuid ??= kFallbackBrowserName;
+
+    if (this._isConnectedTo === nameOrGuid)
+      return;
+
     const model = this._models.selectedModel();
     if (!this._reusedBrowser.backend() && model)
       await this._reusedBrowser._startBackendIfNeeded(model.config);
