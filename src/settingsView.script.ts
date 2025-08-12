@@ -60,9 +60,7 @@ function updateBrowsers(browsers: BrowserEntry[]) {
 
     const span = document.createElement('span');
 
-    const svg = document.createElement('svg');
-    span.appendChild(svg);
-    svg.outerHTML = browser.svg;
+    span.innerHTML = browser.svg;
 
     span.appendChild(document.createTextNode(browser.text));
 

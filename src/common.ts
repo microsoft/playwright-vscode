@@ -62,7 +62,7 @@ export function createAction(action: ActionDescriptor, options?: { omitText?: bo
   const label = document.createElement('label');
   if (!action.disabled) {
     label.addEventListener('click', () => {
-      vscode.postMessage({ method: 'execute', params: { command: label.getAttribute('command') } });
+      vscode.postMessage({ method: 'execute', params: { command: label.getAttribute('command'), args: [] } });
     });
   }
   label.setAttribute('role', 'button');

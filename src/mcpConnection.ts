@@ -99,11 +99,11 @@ export class McpConnection extends DisposableBase {
 
   private async _browser_connect(options: any) {
     for (const tool of this._tools()) {
-      await this._vscode.lm.invokeTool(tool.name, {
-        input: { method: 'vscode', options },
+      const result = await this._vscode.lm.invokeTool(tool.name, {
+        input: { name: 'vscode', options },
         toolInvocationToken: undefined,
       });
-      await this._vscode.window.showInformationMessage(`Connected ${JSON.stringify(options)}`);
+      await this._vscode.window.showInformationMessage(`Connected ${JSON.stringify(options)}: ${JSON.stringify(result.content)}`);
     }
   }
 }
