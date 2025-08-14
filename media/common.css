@@ -186,7 +186,6 @@ body[data-vscode-theme-kind=vscode-dark] .combobox:hover {
 .browser button:disabled {
   opacity: 0.5;
   cursor: default;
-  background: none !important;
 }
 
 /* Settings view */
