@@ -270,9 +270,9 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <title>Playwright</title>
     </head>
     <body class="settings-view">
-      <section>
+      <section role="region" aria-label="Browsers">
         <h2 class="section-header">${vscode.l10n.t('BROWSERS')}</h2>
-        <div id="browsers" class="vbox"></div>
+        <ul id="browsers" class="vbox" aria-label="Browsers"></ul>
       </section>
 
       <h2 class="section-header">${vscode.l10n.t('TOOLS')}</h2>

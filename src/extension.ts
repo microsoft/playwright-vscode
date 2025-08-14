@@ -70,7 +70,7 @@ export class Extension implements RunHooks {
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
   private _reusedBrowser: ReusedBrowser;
-  private _browserList: BrowserList;
+  _browserList: BrowserList;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
   private _locatorsView!: LocatorsView;

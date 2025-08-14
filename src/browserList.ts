@@ -20,6 +20,7 @@ import * as vscodeTypes from './vscodeTypes';
 
 export class BrowserList {
   private _state = new Map<DebugController, DebugControllerState>();
+  _moderniseForTest = false;
 
   private _onChanged;
   readonly onChanged;
@@ -42,8 +43,8 @@ export class BrowserList {
     });
     backend.on('stateChanged', (params: DebugControllerState) => {
       // compat for <1.56
-      if (!params.browsers) {
-        let name = this._models.selectedModel()?.projects()[0]?.name;
+      if (!params.browsers || this._moderniseForTest) {
+        let name = this._models.selectedModel()?.projects()[0]?.name ?? 'chromium';
         if (!name || !['chromium', 'firefox', 'webkit'].includes(name))
           name = 'Browser';
         params.browsers = [{ id: 'unknown', name, contexts: [] }];

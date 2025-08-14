@@ -48,15 +48,15 @@ function updateProjects(projects: ProjectEntry[]) {
 }
 
 function updateBrowsers(browsers: BrowserEntry[]) {
-  const browsersElement = document.getElementById('browsers') as HTMLElement;
+  const browsersElement = document.getElementById('browsers') as HTMLUListElement;
   browsersElement.innerHTML = '';
 
   for (const browser of browsers) {
-    const div = document.createElement('div');
-    div.classList.add('browser');
+    const li = document.createElement('li');
+    li.classList.add('browser');
 
     if (browser.title)
-      div.title = browser.title;
+      li.title = browser.title;
 
     const span = document.createElement('span');
 
@@ -67,7 +67,7 @@ function updateBrowsers(browsers: BrowserEntry[]) {
 
     span.appendChild(document.createTextNode(browser.text));
 
-    div.appendChild(span);
+    li.appendChild(span);
 
     const actionSpan = document.createElement('span');
     for (const action of browser.actions) {
@@ -84,9 +84,9 @@ function updateBrowsers(browsers: BrowserEntry[]) {
 
       actionSpan.appendChild(button);
     }
-    div.appendChild(actionSpan);
+    li.appendChild(actionSpan);
 
-    browsersElement.appendChild(div);
+    browsersElement.appendChild(li);
   }
 }
 
