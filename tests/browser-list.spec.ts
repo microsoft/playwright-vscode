@@ -30,8 +30,29 @@ test('should have good fallback for browser list', async ({ activate }) => {
   await expect(settingsView.getByRole('list', { name: 'Browsers' })).toMatchAriaSnapshot(`
     - list:
       - listitem:
-        - text: No browsers open.
+        - img
+        - text: chromium
         - button "Pick locator"
-        - button "Close Browser" [disabled]
+        - button "Close Browser"
+  `);
+});
+
+test('should have good fallback for browser list with non-default project name', async ({ activate }) => {
+  const { vscode } = await activate({
+    'playwright.config.js': `module.exports = { projects: [{ name: 'projectOne' }] }`,
+  });
+
+  const extension = vscode.extensions[0] as Extension;
+  extension._browserList._moderniseForTest = true;
+
+  const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
+  await settingsView.getByRole('button', { name: 'Pick locator' }).click();
+  await expect(settingsView.getByRole('list', { name: 'Browsers' })).toMatchAriaSnapshot(`
+    - list:
+      - listitem:
+        - img
+        - text: Browser
+        - button "Pick locator"
+        - button "Close Browser"
   `);
 });

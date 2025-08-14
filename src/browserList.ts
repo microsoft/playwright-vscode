@@ -44,8 +44,8 @@ export class BrowserList {
     backend.on('stateChanged', (params: DebugControllerState) => {
       // compat for <1.56
       if (!params.browsers || this._moderniseForTest) {
-        let name = this._models.selectedModel()?.projects()[0]?.name ?? 'chromium';
-        if (!name || !['chromium', 'firefox', 'webkit'].includes(name))
+        let name = this._models.selectedModel()?.projects()[0]?.name || 'chromium';
+        if (!['chromium', 'firefox', 'webkit'].includes(name))
           name = 'Browser';
         params.browsers = [{ id: 'unknown', name, contexts: [] }];
       }
@@ -63,7 +63,7 @@ export class BrowserList {
 export function getBrowserTitle(browser: DebugControllerState['browsers'][0]): string {
   const name = browser.channel ?? browser.name;
   const pages = browser.contexts.flatMap(c => c.pages);
-  const url = pages[0].url;
+  const url = pages[0]?.url;
   if (!url)
     return name;
   return `${name} - ${new URL(url).hostname || url}`;
