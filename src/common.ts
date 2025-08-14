@@ -35,21 +35,32 @@ export interface ActionDescriptor {
   svg: string;
   title?: string;
   location?: string;
-  hidden?: boolean;
   disabled?: boolean;
 }
 
-export function createAction(action: ActionDescriptor, options?: { omitText?: boolean }): HTMLElement | null {
+export interface BrowserEntry {
+  text: string;
+  title?: string;
+  svg: string;
+  actions: {
+    svg: string;
+    title: string;
+    state?: 'disabled' | 'active';
+
+    command: string;
+    args: any[];
+  }[];
+}
+
+export function createAction(action: ActionDescriptor, options?: { omitText?: boolean }): HTMLElement {
   const actionElement = document.createElement('div');
   actionElement.classList.add('action');
-  if (action.hidden)
-    return null;
   if (action.disabled)
     actionElement.setAttribute('disabled', 'true');
   const label = document.createElement('label');
   if (!action.disabled) {
     label.addEventListener('click', () => {
-      vscode.postMessage({ method: 'execute', params: { command: label.getAttribute('command') } });
+      vscode.postMessage({ method: 'execute', params: { command: label.getAttribute('command'), args: [] } });
     });
   }
   label.setAttribute('role', 'button');

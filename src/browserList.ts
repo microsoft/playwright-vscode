@@ -1,0 +1,69 @@
+/**
+ * Copyright (c) Microsoft Corporation.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { DebugController, DebugControllerState, ReusedBrowser } from './reusedBrowser';
+import * as vscodeTypes from './vscodeTypes';
+
+export class BrowserList {
+  private _state = new Map<DebugController, DebugControllerState>();
+
+  private _onChanged;
+  readonly onChanged;
+
+  constructor(private readonly _vscode: vscodeTypes.VSCode, private readonly _reusedBrowser: ReusedBrowser) {
+    this._onChanged = new this._vscode.EventEmitter<void>();
+    this.onChanged = this._onChanged.event;
+
+    this._reusedBrowser.onBackend(b => this._add(b));
+  }
+
+  private _add(backend: DebugController) {
+    backend.onClose(() => {
+      this._state.delete(backend);
+      this._onChanged.fire();
+    });
+    backend.onError(() => {
+      this._state.delete(backend);
+      this._onChanged.fire();
+    });
+    backend.on('stateChanged', params => {
+      this._state.set(backend, {
+        ...params,
+        browsers: params.browsers ?? [
+          {
+            id: 'unknown',
+            name: '',
+            contexts: [],
+          }
+        ]
+      });
+      this._onChanged.fire();
+    });
+  }
+
+  get() {
+    return [...this._state.entries()].flatMap(([, state]) => state.browsers);
+  }
+}
+
+export function getBrowserTitle(browser: DebugControllerState['browsers'][0]): string {
+  const name = browser.channel ?? browser.name;
+  const pages = browser.contexts.flatMap(c => c.pages);
+  const url = pages[0].url;
+  if (!url)
+    return name;
+  return `${name} - ${new URL(url).hostname || url}`;
+}

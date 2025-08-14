@@ -146,6 +146,49 @@ body[data-vscode-theme-kind=vscode-dark] .combobox:hover {
   background-color: #2a2d2e;
 }
 
+.browser {
+  padding: 0 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.browser:hover {
+  padding: 0 12px;
+  background-color: #e8e8e8;
+}
+
+.browser span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.browser-icon > svg {
+  width: 14px;
+  height: 14px;
+  padding: 1px;
+  filter: saturate(70%);
+}
+
+.browser button {
+  padding: 0;
+  background-color: unset;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.browser button:hover {
+  background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.browser button:disabled {
+  opacity: 0.5;
+  cursor: default;
+  background: none !important;
+}
+
 /* Settings view */
 
 .settings-view .action > label {

@@ -32,6 +32,7 @@ import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { RunHooks, TestConfig, ErrorContext } from './playwrightTestServer';
 import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
+import { BrowserList, getBrowserTitle } from './browserList';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -69,6 +70,7 @@ export class Extension implements RunHooks {
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
   private _reusedBrowser: ReusedBrowser;
+  private _browserList: BrowserList;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
   private _locatorsView!: LocatorsView;
@@ -103,6 +105,7 @@ export class Extension implements RunHooks {
 
     this._settingsModel = new SettingsModel(vscode, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
+    this._browserList = new BrowserList(this._vscode, this._reusedBrowser);
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._models = new TestModelCollection(vscode, {
       context,
@@ -148,7 +151,7 @@ export class Extension implements RunHooks {
 
   async activate() {
     const vscode = this._vscode;
-    this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, this._context.extensionUri);
+    this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, this._context.extensionUri, this._browserList);
     this._locatorsView = new LocatorsView(vscode, this._settingsModel, this._reusedBrowser, this._context.extensionUri);
     const messageNoPlaywrightTestsFound = this._vscode.l10n.t('No Playwright tests found.');
     this._disposables = [
@@ -172,11 +175,14 @@ export class Extension implements RunHooks {
         for (const model of versions.values())
           await installBrowsers(this._vscode, model);
       }),
-      vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
+      vscode.commands.registerCommand('pw.extension.command.inspect', async (browserId?: string) => {
         if (!this._models.hasEnabledModels()) {
           await vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
+
+        // TODO: only show locator on browserId
+
         await this._reusedBrowser.inspect(this._models);
       }),
       vscode.commands.registerCommand('pw.extension.command.closeBrowsers', () => {
@@ -231,6 +237,26 @@ export class Extension implements RunHooks {
       }),
       vscode.commands.registerCommand('pw.extension.command.clearCache', async () => {
         await this._models.selectedModel()?.clearCache();
+      }),
+      vscode.commands.registerCommand('pw.extension.command.closeBrowser', async (browserId?: string) => {
+        if (!browserId) {
+          const options = new Map<string, string>();
+          for (const b of this._browserList.get())
+            options.set(getBrowserTitle(b), b.id);
+          if (!options.size) {
+            await this._vscode.window.showErrorMessage('No browsers are open');
+            return;
+          }
+          const selection = await this._vscode.window.showQuickPick([...options.keys()], { title: 'Select browser to close' });
+          if (selection)
+            browserId = options.get(selection);
+        }
+        if (!browserId)
+          return;
+
+        // TODO: only close browserId
+
+        this._reusedBrowser.closeAllBrowsers();
       }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {
