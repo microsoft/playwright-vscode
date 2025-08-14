@@ -22,11 +22,11 @@ export class BrowserList {
   private _state = new Map<DebugController, DebugControllerState>();
   _moderniseForTest = false;
 
-  private _onChanged;
+  private _onChanged: vscodeTypes.EventEmitter<void>;
   readonly onChanged;
 
   constructor(private readonly _vscode: vscodeTypes.VSCode, private readonly _reusedBrowser: ReusedBrowser, private readonly _models: TestModelCollection) {
-    this._onChanged = new this._vscode.EventEmitter<void>();
+    this._onChanged = new this._vscode.EventEmitter();
     this.onChanged = this._onChanged.event;
 
     this._reusedBrowser.onBackend(b => this._add(b));
