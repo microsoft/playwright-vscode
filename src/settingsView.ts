@@ -145,19 +145,18 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
 
   private _updateBrowsers() {
     const browsers: BrowserEntry[] = this._browserList.get().map(b => {
-      const name = b.name || this._models.selectedModel()?.projects()[0]?.name || 'unknown';
       let svg = chromiumLogo;
       if (b.channel === 'msedge')
         svg = edgeLogo;
       else if (b.channel === 'chrome')
         svg = chromeLogo;
-      else if (name === 'firefox')
+      else if (b.name === 'firefox')
         svg = firefoxLogo;
-      else if (name === 'webkit')
+      else if (b.name === 'webkit')
         svg = webkitLogo;
 
       return {
-        text: getBrowserTitle({ ...b, name }),
+        text: getBrowserTitle(b),
         svg,
         actions: [
           {

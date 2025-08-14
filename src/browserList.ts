@@ -15,6 +15,7 @@
  */
 
 import { DebugController, DebugControllerState, ReusedBrowser } from './reusedBrowser';
+import { TestModelCollection } from './testModel';
 import * as vscodeTypes from './vscodeTypes';
 
 export class BrowserList {
@@ -23,7 +24,7 @@ export class BrowserList {
   private _onChanged;
   readonly onChanged;
 
-  constructor(private readonly _vscode: vscodeTypes.VSCode, private readonly _reusedBrowser: ReusedBrowser) {
+  constructor(private readonly _vscode: vscodeTypes.VSCode, private readonly _reusedBrowser: ReusedBrowser, private readonly _models: TestModelCollection) {
     this._onChanged = new this._vscode.EventEmitter<void>();
     this.onChanged = this._onChanged.event;
 
@@ -39,17 +40,16 @@ export class BrowserList {
       this._state.delete(backend);
       this._onChanged.fire();
     });
-    backend.on('stateChanged', params => {
-      this._state.set(backend, {
-        ...params,
-        browsers: params.browsers ?? [
-          {
-            id: 'unknown',
-            name: '',
-            contexts: [],
-          }
-        ]
-      });
+    backend.on('stateChanged', (params: DebugControllerState) => {
+      // compat for <1.56
+      if (!params.browsers) {
+        let name = this._models.selectedModel()?.projects()[0]?.name;
+        if (!name || !['chromium', 'firefox', 'webkit'].includes(name))
+          name = 'Browser';
+        params.browsers = [{ id: 'unknown', name, contexts: [] }];
+      }
+
+      this._state.set(backend, params);
       this._onChanged.fire();
     });
   }
