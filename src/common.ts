@@ -45,7 +45,7 @@ export interface BrowserEntry {
   actions: {
     svg: string;
     title: string;
-    state?: 'disabled' | 'active';
+    state?: 'disabled';
 
     command: string;
     args: any[];
