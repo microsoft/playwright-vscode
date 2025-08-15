@@ -35,7 +35,7 @@ test('should reuse browsers', async ({ activate }) => {
   expect(reusedBrowser._backend).toBeTruthy();
 });
 
-test('should be closed with Close all Browsers button', async ({ activate }) => {
+test('should be closed with Close Browser button', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = {}`,
     'test.spec.ts': `
@@ -45,7 +45,7 @@ test('should be closed with Close all Browsers button', async ({ activate }) => 
   });
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  const closeAllBrowsers = webView.getByRole('button', { name: 'Close all browsers' });
+  const closeAllBrowsers = webView.getByRole('button', { name: 'Close Browser' });
   await expect(closeAllBrowsers).toBeDisabled();
   const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
   await testController.run();
