@@ -19,7 +19,7 @@ import { TestModelCollection } from './testModel';
 import * as vscodeTypes from './vscodeTypes';
 
 export class BrowserList {
-  private _state = new Map<DebugController, DebugControllerState>();
+  private _state = new Map<DebugController, { id: string; name: string; channel?: string; title: string }[]>();
   _moderniseForTest = false;
 
   private _onChanged: vscodeTypes.EventEmitter<void>;
@@ -50,21 +50,25 @@ export class BrowserList {
         params.browsers = [{ id: 'unknown', name, contexts: [] }];
       }
 
-      this._state.set(backend, params);
+      this._state.set(backend, params.browsers.map(b => {
+        let title = b.channel ?? b.name;
+        const pages = b.contexts.flatMap(c => c.pages);
+        const url = pages[0]?.url;
+        if (url)
+          title += ` - ${new URL(url).hostname || url}`;
+
+        return {
+          id: b.id,
+          name: b.name,
+          channel: b.channel,
+          title,
+        };
+      }));
       this._onChanged.fire();
     });
   }
 
   get() {
-    return [...this._state.entries()].flatMap(([, state]) => state.browsers);
+    return [...this._state.entries()].flatMap(([, browsers]) => browsers);
   }
-}
-
-export function getBrowserTitle(browser: DebugControllerState['browsers'][0]): string {
-  const name = browser.channel ?? browser.name;
-  const pages = browser.contexts.flatMap(c => c.pages);
-  const url = pages[0]?.url;
-  if (!url)
-    return name;
-  return `${name} - ${new URL(url).hostname || url}`;
 }

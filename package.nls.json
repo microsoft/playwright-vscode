@@ -4,8 +4,7 @@
   "contributes.command.pw.extension.installBrowsers": "Install Playwright Browsers",
   "contributes.command.pw.extension.command.inspect": "Pick locator",
   "contributes.command.pw.extension.command.clearCache": "Clear cache",
-  "contributes.command.pw.extension.command.closeBrowsers": "Close all Playwright testing browsers",
-  "contributes.command.pw.extension.command.closeBrowser": "Close Playwright browser",
+  "contributes.command.pw.extension.command.closeBrowsers": "Close all Playwright browsers",
   "contributes.command.pw.extension.command.recordNew": "Record new",
   "contributes.command.pw.extension.command.recordAtCursor": "Record at cursor",
   "contributes.command.pw.extension.command.runGlobalSetup": "Run global setup",
@@ -24,6 +23,8 @@
   "configuration.playwright.pickLocatorCopyToClipboard": "Automatically copy picked locator to clipboard.",
   "configuration.playwright.updateSnapshots": "Update snapshots",
   "configuration.playwright.updateSourceMethod": "Update source method",
+  "views.test.pw.extension.noOpenBrowsers": "No open browsers.",
+  "views.test.pw.extension.closeBrowser": "Close Browser",
   "views.test.pw.extension.locatorsView": "Locators",
   "views.test.pw.extension.settingsView": "Playwright"
 }

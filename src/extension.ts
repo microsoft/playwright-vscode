@@ -185,7 +185,8 @@ export class Extension implements RunHooks {
 
         await this._reusedBrowser.inspect(this._models);
       }),
-      vscode.commands.registerCommand('pw.extension.command.closeBrowsers', () => {
+      vscode.commands.registerCommand('pw.extension.command.closeBrowsers', (browserId?: string) => {
+        // TODO: only close browserId
         this._reusedBrowser.closeAllBrowsers();
       }),
       vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
@@ -237,26 +238,6 @@ export class Extension implements RunHooks {
       }),
       vscode.commands.registerCommand('pw.extension.command.clearCache', async () => {
         await this._models.selectedModel()?.clearCache();
-      }),
-      vscode.commands.registerCommand('pw.extension.command.closeBrowser', async (browserId?: string) => {
-        if (!browserId) {
-          const options = new Map<string, string>();
-          for (const b of this._browserList.get())
-            options.set(getBrowserTitle(b), b.id);
-          if (!options.size) {
-            await this._vscode.window.showErrorMessage('No browsers are open');
-            return;
-          }
-          const selection = await this._vscode.window.showQuickPick([...options.keys()], { title: 'Select browser to close' });
-          if (selection)
-            browserId = options.get(selection);
-        }
-        if (!browserId)
-          return;
-
-        // TODO: only close browserId
-
-        this._reusedBrowser.closeAllBrowsers();
       }),
       vscode.workspace.onDidChangeTextDocument(() => {
         if (this._completedSteps.size) {

@@ -161,14 +161,14 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         actions: [
           {
             svg: pickElementIcon,
-            title: 'Pick locator',
+            title: this._vscode.l10n.t('Pick locator'),
             command: 'pw.extension.command.inspect',
             args: [b.id]
           },
           {
             svg: closeIcon,
-            title: 'Close Browser',
-            command: 'pw.extension.command.closeBrowser',
+            title: this._vscode.l10n.t('Close Browser'),
+            command: 'pw.extension.command.closeBrowsers',
             args: [b.id],
           }
         ]
@@ -178,18 +178,18 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
     if (browsers.length === 0) {
       browsers.push({
         svg: '',
-        text: 'No browsers open.',
+        text: this._vscode.l10n.t('No open browsers.'),
         actions: [
           {
             svg: pickElementIcon,
-            title: 'Pick locator',
+            title: this._vscode.l10n.t('Pick locator'),
             command: 'pw.extension.command.inspect',
             args: []
           },
           {
             svg: closeIcon,
-            title: 'Close Browser',
-            command: 'pw.extension.command.closeBrowser',
+            title: this._vscode.l10n.t('Close Browser'),
+            command: 'pw.extension.command.closeBrowsers',
             args: [],
             state: 'disabled'
           }

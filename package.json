@@ -44,11 +44,6 @@
       },
       {
         "category": "Test",
-        "command": "pw.extension.command.closeBrowser",
-        "title": "%contributes.command.pw.extension.command.closeBrowser%"
-      },
-      {
-        "category": "Test",
         "icon": "$(record)",
         "command": "pw.extension.command.recordNew",
         "title": "%contributes.command.pw.extension.command.recordNew%"
