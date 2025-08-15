@@ -49,7 +49,7 @@ function updateProjects(projects: ProjectEntry[]) {
 
 function updateBrowsers(browsers: BrowserEntry[]) {
   const browsersElement = document.getElementById('browsers') as HTMLUListElement;
-  browsersElement.innerHTML = '';
+  browsersElement.textContent = '';
 
   for (const browser of browsers) {
     const li = document.createElement('li');
