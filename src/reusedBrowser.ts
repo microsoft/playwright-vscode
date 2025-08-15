@@ -26,13 +26,15 @@ type RecorderMode = 'none' | 'standby' | 'inspecting' | 'recording';
 
 export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
-  private _backend: Backend | undefined;
+  private _backend: DebugController | undefined;
   private _cancelRecording: (() => void) | undefined;
   private _isRunningTests = false;
   private _insertedEditActionCount = 0;
   private _envProvider: () => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
   private _pageCount = 0;
+  private _onBackend: vscodeTypes.EventEmitter<DebugController>;
+  readonly onBackend: vscodeTypes.Event<DebugController>;
   private _onPageCountChangedEvent: vscodeTypes.EventEmitter<number>;
   readonly onPageCountChanged: vscodeTypes.Event<number>;
   readonly _onHighlightRequestedForTestEvent: vscodeTypes.EventEmitter<string>;
@@ -49,6 +51,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
     this._vscode = vscode;
     this._envProvider = envProvider;
+    this._onBackend = new vscode.EventEmitter();
+    this.onBackend = this._onBackend.event;
     this._onPageCountChangedEvent = new vscode.EventEmitter();
     this.onPageCountChanged = this._onPageCountChangedEvent.event;
     this._onRunningTestsChangedEvent = new vscode.EventEmitter();
@@ -98,7 +102,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     });
 
     const errors: string[] = [];
-    const backendServer = new BackendServer(this._vscode, () => new Backend(this._vscode), {
+    const backendServer = new BackendServer(this._vscode, () => new DebugController(this._vscode), {
       args,
       cwd,
       envProvider,
@@ -123,6 +127,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     });
 
     this._backend = backend;
+    this._onBackend.fire(backend);
 
     this._backend.on('inspectRequested', params => {
       if (this._settingsModel.pickLocatorCopyToClipboard.get() && params.locator)
@@ -408,7 +413,21 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 }
 
-export class Backend extends BackendClient {
+export interface DebugControllerState {
+  pageCount: number;
+  browsers: {
+    id: string;
+    name: string;
+    channel?: string;
+    contexts: {
+      pages: {
+        url: string;
+      }[];
+    }[];
+  }[];
+}
+
+export class DebugController extends BackendClient {
   constructor(vscode: vscodeTypes.VSCode) {
     super(vscode);
   }

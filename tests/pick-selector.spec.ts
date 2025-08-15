@@ -23,7 +23,7 @@ test('should pick locator and dismiss the toolbar', async ({ activate }) => {
   });
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
-  await settingsView.getByText('Pick locator').click();
+  await settingsView.getByRole('button', { name: 'Pick locator' }).click();
   await waitForRecorderMode(vscode, 'inspecting');
 
   const browser = await connectToSharedBrowser(vscode);
@@ -58,7 +58,7 @@ test('should highlight locator on edit', async ({ activate }) => {
   });
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
-  await settingsView.getByText('Pick locator').click();
+  await settingsView.getByRole('button', { name: 'Pick locator' }).click();
   await waitForRecorderMode(vscode, 'inspecting');
 
   const browser = await connectToSharedBrowser(vscode);
@@ -103,7 +103,7 @@ test('should pick locator and use the testIdAttribute from the config', async ({
   });
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
-  await settingsView.getByText('Pick locator').click();
+  await settingsView.getByRole('button', { name: 'Pick locator' }).click();
   await waitForRecorderMode(vscode, 'inspecting');
 
   const browser = await connectToSharedBrowser(vscode);
