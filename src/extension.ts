@@ -32,7 +32,7 @@ import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { RunHooks, TestConfig, ErrorContext } from './playwrightTestServer';
 import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
-import { BrowserList, getBrowserTitle } from './browserList';
+import { BrowserList } from './browserList';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'

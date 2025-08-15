@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { BrowserList, getBrowserTitle } from './browserList';
+import { BrowserList } from './browserList';
 import { BrowserEntry } from './common';
 import { DisposableBase } from './disposableBase';
 import type { ReusedBrowser } from './reusedBrowser';
@@ -156,7 +156,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         svg = webkitLogo;
 
       return {
-        text: getBrowserTitle(b),
+        text: b.title,
         svg,
         actions: [
           {
