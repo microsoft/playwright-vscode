@@ -15,11 +15,13 @@
  */
 
 import type { Extension } from '../src/extension';
-import { expect, test } from './utils';
+import { enableProjects, expect, test } from './utils';
 
 test('should show list of running browsers', async ({ activate }) => {
+  test.slow();
+
   const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'playwright.config.js': `module.exports = { testDir: 'tests', projects: [{ name: 'chromium', use: { browserName: 'chromium' } }, { name: 'firefox', use: { browserName: 'firefox' } }]  }`,
     'tests/test-1.spec.ts': `
       import { test } from '@playwright/test';
       test('should pass', async ({ page }) => {
@@ -27,6 +29,7 @@ test('should show list of running browsers', async ({ activate }) => {
       });
     `,
   });
+  await enableProjects(vscode, ['chromium', 'firefox']);
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
   await expect(settingsView.getByRole('list', { name: 'Browsers' })).toMatchAriaSnapshot(`
@@ -43,6 +46,11 @@ test('should show list of running browsers', async ({ activate }) => {
       - listitem:
         - img
         - text: chromium - example.com
+        - button "Pick locator"
+        - button "Close Browser"
+      - listitem:
+        - img
+        - text: firefox - example.com
         - button "Pick locator"
         - button "Close Browser"
   `);
