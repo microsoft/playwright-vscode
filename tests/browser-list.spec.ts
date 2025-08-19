@@ -17,6 +17,37 @@
 import type { Extension } from '../src/extension';
 import { expect, test } from './utils';
 
+test('should show list of running browsers', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test-1.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async ({ page }) => {
+        await page.goto('https://example.com');
+      });
+    `,
+  });
+
+  const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
+  await expect(settingsView.getByRole('list', { name: 'Browsers' })).toMatchAriaSnapshot(`
+    - list:
+      - listitem:
+        - text: No open browsers.
+        - button "Pick locator"
+        - button "Close Browser" [disabled]
+  `);
+
+  await testController.run();
+  await expect(settingsView.getByRole('list', { name: 'Browsers' })).toMatchAriaSnapshot(`
+    - list:
+      - listitem:
+        - img
+        - text: chromium - example.com
+        - button "Pick locator"
+        - button "Close Browser"
+  `);
+});
+
 test('should have good fallback for browser list', async ({ activate }) => {
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = {}`,
