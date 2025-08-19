@@ -198,7 +198,7 @@
   },
   "devDependencies": {
     "@babel/preset-typescript": "^7.23.2",
-    "@playwright/test": "1.54.1-beta-1753993012000",
+    "@playwright/test": "1.55.0-beta-1755602792000",
     "@types/babel__core": "^7.20.3",
     "@types/babel__helper-plugin-utils": "^7.10.2",
     "@types/babel__traverse": "^7.20.3",
