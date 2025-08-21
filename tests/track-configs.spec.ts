@@ -128,3 +128,16 @@ test('should show config loading errors', async ({ vscode, activate }) => {
   void testController.run(testItems);
   await expect.poll(() => vscode.window.activeTextEditor?.document.uri.toString()).toContain('playwright1.config.js');
 });
+
+test('should select root config by default', async ({ activate }) => {
+  const { vscode } = await activate({
+    'extension/playwright.config.ts': `module.exports = {};`,
+    'playwright.config.ts': `module.exports = {};`,
+  });
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await expect(webView.locator('body')).toMatchAriaSnapshot(`
+    - combobox "Select Playwright Config":
+      - option "playwright.config.ts"
+  `);
+});
