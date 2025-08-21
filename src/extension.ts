@@ -993,7 +993,7 @@ const traceUrlSymbol = Symbol('traceUrl');
  * sort paths intuitively.
  * [/foo/bar, /foo, /foo/baz] -> [/foo, /foo/bar, /foo/baz]
  */
-function sortPaths(a: string, b: string): number {
+export function sortPaths(a: string, b: string): number {
   const aDepth = a.split(path.sep).length;
   const bDepth = b.split(path.sep).length;
   if (aDepth !== bDepth)

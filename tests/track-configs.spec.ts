@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import type { TestItem } from './mock/vscode';
 import { enableConfigs, expect, test } from './utils';
 
 test('should load first config', async ({ activate }) => {
@@ -129,7 +130,7 @@ test('should show config loading errors', async ({ vscode, activate }) => {
   await expect.poll(() => vscode.window.activeTextEditor?.document.uri.toString()).toContain('playwright1.config.js');
 });
 
-test('should select root config by default', async ({ activate }) => {
+test('should order configs intuitively', async ({ activate }) => {
   const { vscode } = await activate({
     'extension/playwright.config.ts': `module.exports = {};`,
     'playwright.config.ts': `module.exports = {};`,
@@ -140,4 +141,20 @@ test('should select root config by default', async ({ activate }) => {
     - combobox "Select Playwright Config":
       - option "playwright.config.ts"
   `);
+
+  await expect.poll(async () => {
+    const items = new Promise(resolve => {
+      vscode.window.mockQuickPick = async (items: TestItem[]) => {
+        resolve(items.map(i => i.label));
+        return items;
+      };
+    });
+
+    await webView.getByTitle('Toggle Playwright Configs').click();
+
+    return items;
+  }).toEqual([
+    'playwright.config.ts',
+    'extension/playwright.config.ts'
+  ]);
 });
