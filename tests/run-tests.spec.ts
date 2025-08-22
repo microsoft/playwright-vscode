@@ -1226,3 +1226,34 @@ test('should not run global setup for other project', async ({ activate }) => {
   const testRun = await testController.run(items);
   expect(testRun.renderOutput()).not.toContain('RUNNING GLOBAL SETUP');
 });
+
+test('should start webServer', async ({ activate }, testInfo) => {
+  const port = testInfo.parallelIndex * 4 + 42130;
+  const { testController } = await activate({
+    'server.mjs': `
+      import http from "node:http";
+      http.createServer((req, res) => {
+        res.end('<h1>Hello world</h1>');
+      }).listen(${port})
+    `,
+    'playwright.config.js': `module.exports = {
+      use: {
+        baseURL: 'http://localhost:${port}'
+      },
+      webServer: {
+        command: 'node server.mjs',
+        url: 'http://localhost:${port}',
+      },
+    }`,
+    'tests/test.spec.ts': `
+      import { test, expect } from '@playwright/test';
+      test('one', async ({ page }) => {
+        await page.goto("/");
+        await expect(page.getByRole('heading')).toHaveText('Hello world');
+      });
+    `,
+  });
+
+  const testRun = await testController.run();
+  expect(testRun.renderLog()).toContain('passed');
+});
