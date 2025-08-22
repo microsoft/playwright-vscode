@@ -16,6 +16,7 @@
 
 import type { TestItem } from './mock/vscode';
 import { enableConfigs, expect, test } from './utils';
+import path from 'node:path';
 
 test('should load first config', async ({ activate }) => {
   const { vscode, testController, workspaceFolder } = await activate({});
