@@ -155,6 +155,6 @@ test('should order configs intuitively', async ({ activate }) => {
     return items;
   }).toEqual([
     'playwright.config.ts',
-    'extension/playwright.config.ts'
+    `extension${path.sep}playwright.config.ts`
   ]);
 });
