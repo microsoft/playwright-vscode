@@ -161,3 +161,16 @@ test('should hide unchecked projects', async ({ activate }) => {
     -    [playwright.config.js [projectTwo] — disabled]
   `);
 });
+
+test('should hide project section when there is just one', async ({ activate }) => {
+  const { vscode } = await activate({
+    'playwright.config.js': `module.exports = {
+      projects: [
+        { name: 'projectOne', testDir: 'tests1', },
+      ]
+    }`,
+  });
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await expect(webView.getByRole('heading', { name: 'PROJECTS' })).not.toBeVisible();
+});
