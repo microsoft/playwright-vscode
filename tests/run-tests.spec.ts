@@ -1257,3 +1257,39 @@ test('should start webServer', async ({ activate }, testInfo) => {
   const testRun = await testController.run();
   expect(testRun.renderLog()).toContain('passed');
 });
+
+test('should start webServer with npx command', async ({ activate }, testInfo) => {
+  const port = testInfo.parallelIndex * 4 + 42130;
+  const { testController } = await activate({
+    'node_modules/.bin/server': `
+#!/usr/bin/env node
+
+import http from "node:http";
+
+http.createServer((req, res) => {
+  res.end('<h1>Hello world</h1>');
+}).listen(${port})
+    `.trim(),
+    'playwright.config.js': `module.exports = {
+      use: {
+        baseURL: 'http://localhost:${port}'
+      },
+      webServer: {
+        command: 'server',
+        url: 'http://localhost:${port}',
+      },
+    }`,
+    'tests/test.spec.ts': `
+      import { test, expect } from '@playwright/test';
+      test('one', async ({ page }) => {
+        await page.goto("/");
+        await expect(page.getByRole('heading')).toHaveText('Hello world');
+      });
+    `,
+  });
+
+  fs.chmodSync(testInfo.outputPath('node_modules', '.bin', 'server'), 0o775);
+
+  const testRun = await testController.run();
+  expect(testRun.renderLog()).toContain('passed');
+});

@@ -140,6 +140,14 @@ async function findNodeViaShell(vscode: vscodeTypes.VSCode, cwd: string): Promis
   });
 }
 
+export async function findNpxOrNode(vscode: vscodeTypes.VSCode, cwd: string): Promise<string> {
+  const node = await findNode(vscode, cwd);
+  const npxPath = path.resolve(node, '..', 'npx');
+  if (fs.existsSync(npxPath))
+    return npxPath;
+  return node;
+}
+
 export function escapeRegex(text: string) {
   // playwright interprets absolute paths as regex,
   // removing the leading slash prevents that.
