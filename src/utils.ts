@@ -140,12 +140,25 @@ async function findNodeViaShell(vscode: vscodeTypes.VSCode, cwd: string): Promis
   });
 }
 
-export async function findNpxOrNode(vscode: vscodeTypes.VSCode, cwd: string): Promise<string> {
+export async function findNpx(vscode: vscodeTypes.VSCode, cwd: string): Promise<string | undefined> {
   const node = await findNode(vscode, cwd);
   const npxPath = path.resolve(node, '..', 'npx');
-  if (fs.existsSync(npxPath))
+  try {
+    const stat = await fs.promises.stat(npxPath);
+    if (!stat.isFile())
+      return;
+
+    if (process.platform !== 'win32') {
+      try {
+        await fs.promises.access(npxPath, fs.constants.X_OK);
+      } catch {
+        return;
+      }
+    }
+
     return npxPath;
-  return node;
+  } catch {
+  }
 }
 
 export function escapeRegex(text: string) {

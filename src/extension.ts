@@ -368,7 +368,7 @@ export class Extension implements RunHooks {
       if (error) {
         if (error.location) {
           const document = await this._vscode.workspace.openTextDocument(error.location.file);
-          const position = new this._vscode.Position(error.location.line - 1, error.location.column - 1);
+          const position = new this._vscode.Position(Math.max(0, error.location.line - 1), error.location.column - 1);
           await this._vscode.window.showTextDocument(document, {
             selection: new this._vscode.Range(position, position)
           });
@@ -586,7 +586,7 @@ export class Extension implements RunHooks {
           step = {
             location: new this._vscode.Location(
                 this._vscode.Uri.file(testStep.location.file),
-                new this._vscode.Position(testStep.location.line - 1, testStep.location?.column - 1)),
+                new this._vscode.Position(Math.max(testStep.location.line - 1, 0), testStep.location?.column - 1)),
             activeCount: 0,
             duration: 0,
           };
@@ -775,7 +775,7 @@ test('test', async ({ page }) => {
     if (!this._testRun || !this._testItemUnderDebug)
       return;
     const testMessage = this._testMessageFromText(errorStack);
-    const position = new this._vscode.Position(location.line - 1, location.column - 1);
+    const position = new this._vscode.Position(Math.max(location.line - 1, 0), location.column - 1);
     testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.file), position);
     this._testRun.failed(this._testItemUnderDebug, testMessage);
     this._testItemUnderDebug = undefined;
@@ -923,7 +923,7 @@ test('test', async ({ page }) => {
 function parseLocation(vscode: vscodeTypes.VSCode, location: reporterTypes.Location): vscodeTypes.Location {
   return new vscode.Location(
       vscode.Uri.file(location.file),
-      new vscode.Position(location.line - 1, location.column - 1));
+      new vscode.Position(Math.max(location.line - 1, 0), location.column - 1));
 }
 
 function topStackFrame(vscode: vscodeTypes.VSCode, stackTrace: vscodeTypes.TestMessageStackFrame[]): vscodeTypes.Location | undefined {
@@ -940,7 +940,7 @@ function parseStack(vscode: vscodeTypes.VSCode, stack: string): vscodeTypes.Test
     result.push(new vscode.TestMessageStackFrame(
         frame.method || '',
         vscode.Uri.file(frame.file),
-        new vscode.Position(frame.line - 1, frame.column - 1)));
+        new vscode.Position(Math.max(frame.line - 1, 0), frame.column - 1)));
   }
   return result;
 }

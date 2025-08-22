@@ -226,7 +226,7 @@ export class TestTree extends DisposableBase {
         item.description = `${path.relative(model.config.workspaceFolder, normalizePath(model.config.configFile))} — ${message}`;
         item.sortText = 'z' + errorId;
         if (error.location) {
-          const position = new this._vscode.Position(error.location.line - 1, error.location.column - 1);
+          const position = new this._vscode.Position(Math.max(error.location.line - 1, 0), error.location.column - 1);
           item.range = new this._vscode.Range(position, position);
         }
         (item as any)[configErrorSymbol] = error;
