@@ -23,6 +23,7 @@ import { spawnSync } from 'child_process';
 
 export type TestOptions = {
   vscodeVersion: string;
+  packageManager: 'npm' | 'pnpm';
 };
 
 type TestFixtures = TestOptions & {
@@ -33,6 +34,7 @@ type TestFixtures = TestOptions & {
 
 export const test = base.extend<TestFixtures>({
   vscodeVersion: ['insiders', { option: true }],
+  packageManager: ['npm', { option: true }],
   workbox: async ({ vscodeVersion, createProject, createTempDir }, use) => {
     const defaultCachePath = await createTempDir();
     const vscodePath = await downloadAndUnzipVSCode(vscodeVersion);
@@ -68,7 +70,7 @@ export const test = base.extend<TestFixtures>({
       await fs.promises.cp(logPath, logOutputPath, { recursive: true });
     }
   },
-  createProject: async ({ createTempDir }, use) => {
+  createProject: async ({ createTempDir, packageManager }, use) => {
     await use(async () => {
       // We want to be outside of the project directory to avoid already installed dependencies.
       const projectPath = await createTempDir();
@@ -76,7 +78,11 @@ export const test = base.extend<TestFixtures>({
         await fs.promises.rm(projectPath, { recursive: true });
       console.log(`Creating project in ${projectPath}`);
       await fs.promises.mkdir(projectPath);
-      spawnSync(`npm init playwright@latest --yes -- --quiet --browser=chromium --gha --install-deps`, {
+
+      let command = 'npm init';
+      if (packageManager === 'pnpm')
+        command = 'pnpm create';
+      spawnSync(`${command} playwright@latest --yes -- --quiet --browser=chromium --gha --install-deps`, {
         cwd: projectPath,
         stdio: 'inherit',
         shell: true,

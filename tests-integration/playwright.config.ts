@@ -26,9 +26,17 @@ export default defineConfig<void, TestOptions>({
   globalSetup: './globalSetup',
   projects: [
     {
-      name: 'VSCode insiders',
+      name: 'npm',
       use: {
         vscodeVersion: 'insiders',
+        packageManager: 'npm',
+      }
+    },
+    {
+      name: 'pnpm',
+      use: {
+        vscodeVersion: 'insiders',
+        packageManager: 'pnpm',
       }
     }
   ]
