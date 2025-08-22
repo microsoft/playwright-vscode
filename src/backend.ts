@@ -15,7 +15,7 @@
  */
 
 import { spawn } from 'child_process';
-import { findNode, findNpx, findNpxOrNode } from './utils';
+import { findNode, findNpx } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import EventEmitter from 'events';
 import { WebSocketTransport } from './transport';
