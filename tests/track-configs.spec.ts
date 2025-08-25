@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+import type { TestItem } from './mock/vscode';
 import { enableConfigs, expect, test } from './utils';
+import path from 'node:path';
 
 test('should load first config', async ({ activate }) => {
   const { vscode, testController, workspaceFolder } = await activate({});
@@ -127,4 +129,33 @@ test('should show config loading errors', async ({ vscode, activate }) => {
   const testItems = testController.findTestItems(/.*/);
   void testController.run(testItems);
   await expect.poll(() => vscode.window.activeTextEditor?.document.uri.toString()).toContain('playwright1.config.js');
+});
+
+test('should order configs intuitively', async ({ activate }) => {
+  const { vscode } = await activate({
+    'extension/playwright.config.ts': `module.exports = {};`,
+    'playwright.config.ts': `module.exports = {};`,
+  });
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await expect(webView.locator('body')).toMatchAriaSnapshot(`
+    - combobox "Select Playwright Config":
+      - option "playwright.config.ts"
+  `);
+
+  await expect.poll(async () => {
+    const items = new Promise(resolve => {
+      vscode.window.mockQuickPick = async (items: TestItem[]) => {
+        resolve(items.map(i => i.label));
+        return items;
+      };
+    });
+
+    await webView.getByTitle('Toggle Playwright Configs').click();
+
+    return items;
+  }).toEqual([
+    'playwright.config.ts',
+    `extension${path.sep}playwright.config.ts`
+  ]);
 });
