@@ -79,12 +79,14 @@ export const test = base.extend<TestFixtures>({
       console.log(`Creating project in ${projectPath}`);
       await fs.promises.mkdir(projectPath);
 
-      let command = 'npm init';
+      let command = 'npm init playwright@latest';
       if (packageManager === 'pnpm')
-        command = 'pnpm create';
-      else if (packageManager === 'yarn-classic' || packageManager === 'yarn-berry')
-        command = 'yarn create';
-      spawnSync(`${command} playwright@latest --yes -- --quiet --browser=chromium --gha --install-deps`, {
+        command = 'pnpm create playwright@latest';
+      else if (packageManager === 'yarn-classic')
+        command = 'yarn create playwright';
+      else if (packageManager === 'yarn-berry')
+        command = 'yarn create playwright@latest';
+      spawnSync(`${command} --yes -- --quiet --browser=chromium --gha --install-deps`, {
         cwd: projectPath,
         stdio: 'inherit',
         shell: true,
