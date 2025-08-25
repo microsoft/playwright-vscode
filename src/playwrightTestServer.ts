@@ -305,7 +305,7 @@ export class PlaywrightTestServer {
         env: {
           ...process.env,
           CI: this._options.isUnderTest ? undefined : process.env.CI,
-          ...this._options.envProvider(),
+          ...(await this._options.envProvider()),
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,
           FORCE_COLOR: '1',
