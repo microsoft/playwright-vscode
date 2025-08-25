@@ -30,7 +30,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _cancelRecording: (() => void) | undefined;
   private _isRunningTests = false;
   private _insertedEditActionCount = 0;
-  private _envProvider: () => NodeJS.ProcessEnv;
+  private _envProvider: () => Promise<NodeJS.ProcessEnv>;
   private _disposables: vscodeTypes.Disposable[] = [];
   private _pageCount = 0;
   private _onPageCountChangedEvent: vscodeTypes.EventEmitter<number>;
@@ -46,7 +46,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _settingsModel: SettingsModel;
   private _recorderModeForTest: RecorderMode = 'none';
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => NodeJS.ProcessEnv) {
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: () => Promise<NodeJS.ProcessEnv>) {
     this._vscode = vscode;
     this._envProvider = envProvider;
     this._onPageCountChangedEvent = new vscode.EventEmitter();
@@ -91,8 +91,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       `--path=/${createGuid()}`
     ];
     const cwd = config.workspaceFolder;
-    const envProvider = () => ({
-      ...this._envProvider(),
+    const envProvider = async () => ({
+      ...(await this._envProvider()),
       PW_CODEGEN_NO_INSPECTOR: '1',
       PW_EXTENSION_MODE: '1',
     });
