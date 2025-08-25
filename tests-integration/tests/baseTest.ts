@@ -23,7 +23,7 @@ import { spawnSync } from 'child_process';
 
 export type TestOptions = {
   vscodeVersion: string;
-  packageManager: 'npm' | 'pnpm';
+  packageManager: 'npm' | 'pnpm' | 'yarn-berry' | 'yarn-classic';
 };
 
 type TestFixtures = TestOptions & {
@@ -82,6 +82,8 @@ export const test = base.extend<TestFixtures>({
       let command = 'npm init';
       if (packageManager === 'pnpm')
         command = 'pnpm create';
+      else if (packageManager === 'yarn-classic' || packageManager === 'yarn-berry')
+        command = 'yarn create';
       spawnSync(`${command} playwright@latest --yes -- --quiet --browser=chromium --gha --install-deps`, {
         cwd: projectPath,
         stdio: 'inherit',

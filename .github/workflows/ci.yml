@@ -61,10 +61,10 @@ jobs:
     - run: npm ci
     - run: npx playwright install --with-deps chromium
     - run: npm run build
-    - run: xvfb-run npx playwright test
+    - run: xvfb-run npx playwright test --grep-invert yarn-berry
       working-directory: ./tests-integration
       if: matrix.os == 'ubuntu-latest'
-    - run: npx playwright test
+    - run: npx playwright test --grep-invert yarn-berry
       working-directory: ./tests-integration
       if: matrix.os != 'ubuntu-latest'
     - uses: actions/upload-artifact@v4
@@ -72,10 +72,16 @@ jobs:
       with:
         name: playwright-report-${{ matrix.os }}
         path: tests-integration/playwright-report/
-        retention-days: 30
+    - run: corepack enable
+    - run: corepack prepare yarn@4 --activate
+    - run: xvfb-run npx playwright test --grep yarn-berry
+      working-directory: ./tests-integration
+      if: matrix.os == 'ubuntu-latest'
+    - run: npx playwright test --grep yarn-berry
+      working-directory: ./tests-integration
+      if: matrix.os != 'ubuntu-latest'
     - uses: actions/upload-artifact@v4
-      if: failure()
+      if: always()
       with:
-        name: playwright-test-results-${{ matrix.os }}
-        path: tests-integration/test-results/
-        retention-days: 10
+        name: playwright-report-${{ matrix.os }}-yarn-berry
+        path: tests-integration/playwright-report/

@@ -14,12 +14,27 @@
  * limitations under the License.
  */
 import { test, expect } from './baseTest';
+import child_process from 'node:child_process';
 
-test('should be able to execute the first test of the example project', async ({ workbox }) => {
+test('should be able to execute the first test of the example project', async ({ workbox, packageManager }) => {
+  test.fail(packageManager === 'yarn-berry', 'yarn berry is not supported yet');
+
   await workbox.getByRole('treeitem', { name: 'tests', exact: true }).locator('a').click();
   await workbox.getByRole('treeitem', { name: 'example.spec.ts' }).locator('a').click();
   await expect(workbox.locator('.testing-run-glyph'), 'there are two tests in the file').toHaveCount(2);
   await workbox.locator('.testing-run-glyph').first().click();
   const passedLocator = workbox.locator('.monaco-editor').locator('.codicon-testing-passed-icon');
   await expect(passedLocator).toHaveCount(1);
+});
+
+test('is proper yarn classic', async ({ packageManager, createTempDir }) => {
+  test.skip(packageManager !== 'yarn-classic');
+  const result = child_process.execSync('yarn --version', { cwd: await createTempDir() });
+  expect(result.toString()).toMatch(/^1\./);
+});
+
+test('is proper yarn berry', async ({ packageManager, createTempDir }) => {
+  test.skip(packageManager !== 'yarn-berry');
+  const result = child_process.execSync('yarn --version', { cwd: await createTempDir() });
+  expect(result.toString()).toMatch(/^4\./);
 });
