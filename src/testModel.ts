@@ -567,8 +567,15 @@ export class TestModel extends DisposableBase {
       return;
 
     const externalOptions = await this._embedder.runHooks.onWillRunTests(this.config, true);
+
+    let headed = true;
+    if (this._embedder.isUnderTest)
+      headed = false;
+    if (process.platform === 'linux' && !process.env.DISPLAY)
+      headed = false;
+
     const options: PlaywrightTestRunOptions = {
-      headed: !this._embedder.isUnderTest,
+      headed,
       workers: 1,
       video: 'off',
       trace: 'off',
