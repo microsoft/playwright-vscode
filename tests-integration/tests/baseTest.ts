@@ -91,6 +91,18 @@ export const test = base.extend<TestFixtures>({
         stdio: 'inherit',
         shell: true,
       });
+
+      if (packageManager === 'yarn-berry') {
+        await fs.promises.mkdir(path.join(projectPath, '.vscode'), { recursive: true });
+
+        // see https://github.com/microsoft/playwright/issues/18931.
+        // ideally, we'd support this by default
+        await fs.promises.writeFile(path.join(projectPath, '.vscode', 'settings.json'), JSON.stringify({
+          'playwright.env': {
+            'NODE_OPTIONS': '-r ./.pnp.cjs --experimental-loader ./.pnp.loader.mjs'
+          }
+        }));
+      }
       return projectPath;
     });
   },
