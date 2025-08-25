@@ -121,12 +121,14 @@ export async function startBackend(vscode: vscodeTypes.VSCode, options: BackendS
   let command = await findNode(vscode, options.cwd);
   let args = options.args;
 
-  const npx = await findNpx(vscode, options.cwd);
-  if (npx) {
-    command = npx;
-    args = ['-c', args.join(' ')];
+  if (process.platform !== 'win32') {
+    const npx = await findNpx(vscode, options.cwd);
+    if (npx) {
+      command = npx;
+      args = ['-c', args.join(' ')];
+    }
   }
-
+  
   const serverProcess = spawn(command, args, {
     cwd: options.cwd,
     stdio: 'pipe',

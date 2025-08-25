@@ -1259,6 +1259,7 @@ test('should start webServer', async ({ activate }, testInfo) => {
 });
 
 test('should start webServer with npx command', async ({ activate }, testInfo) => {
+  test.skip(process.platform === 'win32', 'npx on windows is weird');
   const port = testInfo.parallelIndex * 4 + 42130;
   const { testController } = await activate({
     'node_modules/.bin/server': `
