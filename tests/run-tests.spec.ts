@@ -1264,7 +1264,7 @@ test('should start webServer with npx command', async ({ activate }, testInfo) =
     'node_modules/.bin/server': `
 #!/usr/bin/env node
 
-import http from "node:http";
+const http = require("node:http");
 
 http.createServer((req, res) => {
   res.end('<h1>Hello world</h1>');
