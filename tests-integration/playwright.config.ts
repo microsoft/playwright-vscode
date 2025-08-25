@@ -28,15 +28,25 @@ export default defineConfig<void, TestOptions>({
     {
       name: 'npm',
       use: {
-        vscodeVersion: 'insiders',
         packageManager: 'npm',
       }
     },
     {
       name: 'pnpm',
       use: {
-        vscodeVersion: 'insiders',
         packageManager: 'pnpm',
+      }
+    },
+    {
+      name: 'yarn-berry',
+      use: {
+        packageManager: 'yarn-berry',
+      }
+    },
+    {
+      name: 'yarn-classic',
+      use: {
+        packageManager: 'yarn-classic',
       }
     }
   ]
