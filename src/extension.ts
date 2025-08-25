@@ -352,6 +352,8 @@ export class Extension implements RunHooks {
     if (env.NODE_OPTIONS)
       return env;
 
+    // based on the workaround from https://github.com/microsoft/playwright/issues/18931
+    // TODO: support multiple .pnp.cjs files; always pick the one closest to the config file.
     const pnpFile = await this._vscode.workspace.findFiles('**/.pnp.cjs', null, 1);
     if (!pnpFile.length)
       return env;
