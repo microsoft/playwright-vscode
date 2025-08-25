@@ -23,7 +23,7 @@ import { WebSocketTransport } from './transport';
 export type BackendServerOptions = {
   args: string[];
   cwd: string;
-  envProvider: () => NodeJS.ProcessEnv;
+  envProvider: () => Promise<NodeJS.ProcessEnv>;
   dumpIO?: boolean;
   errors: string[];
 };
@@ -124,7 +124,7 @@ export async function startBackend(vscode: vscodeTypes.VSCode, options: BackendS
     stdio: 'pipe',
     env: {
       ...process.env,
-      ...options.envProvider(),
+      ...(await options.envProvider()),
     },
   });
   serverProcess.stderr?.on('data', data => {

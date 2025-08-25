@@ -304,7 +304,7 @@ export class Extension implements RunHooks {
 
       let playwrightInfo = null;
       try {
-        playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider());
+        playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, await this._envProvider());
       } catch (error) {
         if (userGesture) {
           void this._vscode.window.showWarningMessage(
@@ -339,11 +339,30 @@ export class Extension implements RunHooks {
     this._workspaceObserver.setWatchFolders(this._models.testDirs());
   }
 
-  private _envProvider(): NodeJS.ProcessEnv {
-    const env = this._vscode.workspace.getConfiguration('playwright').get('env', {});
-    return Object.fromEntries(Object.entries(env).map(entry => {
+  private _envProvider() {
+    const config = this._vscode.workspace.getConfiguration('playwright').get('env', {});
+    const env = Object.fromEntries(Object.entries(config).map(entry => {
       return typeof entry[1] === 'string' ? entry : [entry[0], JSON.stringify(entry[1])];
     })) as NodeJS.ProcessEnv;
+
+    return this._enrichWithPNP(env);
+  }
+
+  private async _enrichWithPNP(env: NodeJS.ProcessEnv): Promise<NodeJS.ProcessEnv> {
+    if (env.NODE_OPTIONS)
+      return env;
+
+    const pnpFile = await this._vscode.workspace.findFiles('**/.pnp.cjs', null, 1);
+    if (!pnpFile.length)
+      return env;
+
+    env.NODE_OPTIONS = `-r ${uriToPath(pnpFile[0])}`;
+
+    const loader = await this._vscode.workspace.findFiles('**/.pnp.loader.mjs', null, 1);
+    if (loader.length)
+      env.NODE_OPTIONS += ` --experimental-loader ${uriToPath(loader[0])}`;
+
+    return env;
   }
 
   private async _handleTestRun(isDebug: boolean, request: vscodeTypes.TestRunRequest, cancellationToken?: vscodeTypes.CancellationToken) {
