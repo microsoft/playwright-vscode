@@ -1291,5 +1291,5 @@ http.createServer((req, res) => {
   fs.chmodSync(testInfo.outputPath('node_modules', '.bin', 'server'), 0o775);
 
   const testRun = await testController.run();
-  expect(testRun.renderLog()).toContain('passed');
+  expect(testRun.renderLog({ output: true })).toContain('passed');
 });
