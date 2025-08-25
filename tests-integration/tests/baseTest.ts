@@ -23,7 +23,7 @@ import { spawnSync } from 'child_process';
 
 export type TestOptions = {
   vscodeVersion: string;
-  packageManager: 'npm' | 'pnpm';
+  packageManager: 'npm' | 'pnpm' | 'yarn-berry' | 'yarn-classic';
 };
 
 type TestFixtures = TestOptions & {
@@ -79,14 +79,30 @@ export const test = base.extend<TestFixtures>({
       console.log(`Creating project in ${projectPath}`);
       await fs.promises.mkdir(projectPath);
 
-      let command = 'npm init';
+      let command = 'npm init playwright@latest';
       if (packageManager === 'pnpm')
-        command = 'pnpm create';
-      spawnSync(`${command} playwright@latest --yes -- --quiet --browser=chromium --gha --install-deps`, {
+        command = 'pnpm create playwright@latest';
+      else if (packageManager === 'yarn-classic')
+        command = 'yarn create playwright';
+      else if (packageManager === 'yarn-berry')
+        command = 'yarn create playwright@latest';
+      spawnSync(`${command} --yes -- --quiet --browser=chromium --gha --install-deps`, {
         cwd: projectPath,
         stdio: 'inherit',
         shell: true,
       });
+
+      if (packageManager === 'yarn-berry') {
+        await fs.promises.mkdir(path.join(projectPath, '.vscode'), { recursive: true });
+
+        // see https://github.com/microsoft/playwright/issues/18931.
+        // ideally, we'd support this by default
+        await fs.promises.writeFile(path.join(projectPath, '.vscode', 'settings.json'), JSON.stringify({
+          'playwright.env': {
+            'NODE_OPTIONS': '-r ./.pnp.cjs --experimental-loader ./.pnp.loader.mjs'
+          }
+        }));
+      }
       return projectPath;
     });
   },

@@ -58,24 +58,31 @@ jobs:
     - uses: pnpm/action-setup@v4
       with:
         version: 10
+    - run: npm i -g yarn@1
     - run: npm ci
     - run: npx playwright install --with-deps chromium
     - run: npm run build
-    - run: xvfb-run npx playwright test
+    - run: xvfb-run npx playwright test --grep-invert yarn-berry --reporter=blob
       working-directory: ./tests-integration
       if: matrix.os == 'ubuntu-latest'
-    - run: npx playwright test
+    - run: npx playwright test --grep-invert yarn-berry --reporter=blob
       working-directory: ./tests-integration
       if: matrix.os != 'ubuntu-latest'
+    - run: corepack enable
+    - run: corepack prepare yarn@4 --activate
+    - run: xvfb-run npx playwright test --grep yarn-berry --reporter=blob
+      working-directory: ./tests-integration
+      if: matrix.os == 'ubuntu-latest'
+      env:
+        PWTEST_BLOB_DO_NOT_REMOVE: 1
+    - run: npx playwright test --grep yarn-berry --reporter=blob
+      working-directory: ./tests-integration
+      if: matrix.os != 'ubuntu-latest'
+      env:
+        PWTEST_BLOB_DO_NOT_REMOVE: 1
+    - run: npx playwright merge-reports blob-report --reporter=html
     - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: playwright-report-${{ matrix.os }}
-        path: tests-integration/playwright-report/
-        retention-days: 30
-    - uses: actions/upload-artifact@v4
-      if: failure()
-      with:
-        name: playwright-test-results-${{ matrix.os }}
-        path: tests-integration/test-results/
-        retention-days: 10
+        path: playwright-report/
