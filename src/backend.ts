@@ -15,7 +15,7 @@
  */
 
 import { spawn } from 'child_process';
-import { findNode } from './utils';
+import { findNode, findNpx } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import EventEmitter from 'events';
 import { WebSocketTransport } from './transport';
@@ -118,8 +118,18 @@ export class BackendClient extends EventEmitter {
 }
 
 export async function startBackend(vscode: vscodeTypes.VSCode, options: BackendServerOptions & { onError: (error: Error) => void, onClose: () => void }): Promise<string | null> {
-  const node = await findNode(vscode, options.cwd);
-  const serverProcess = spawn(node, options.args, {
+  let command = await findNode(vscode, options.cwd);
+  let args = options.args;
+
+  if (process.platform !== 'win32') {
+    const npx = await findNpx(vscode, options.cwd);
+    if (npx) {
+      command = npx;
+      args = ['-c', args.join(' ')];
+    }
+  }
+  
+  const serverProcess = spawn(command, args, {
     cwd: options.cwd,
     stdio: 'pipe',
     env: {
