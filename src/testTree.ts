@@ -102,7 +102,7 @@ export class TestTree extends DisposableBase {
           configErrorsByModel.set(model, configErrors);
 
         for (const project of model.projects()) {
-          if (project.isEnabled)
+          if (model.isProjectEnabled(project))
             rootSuite.suites.push(project.suite as TeleSuite);
           else
             disabledProjects.push(project);

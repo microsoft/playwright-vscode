@@ -156,12 +156,18 @@ export class TestModel extends DisposableBase {
     return [...new Set([...this._projects.values()].map(p => p.project.testDir))];
   }
 
+  isProjectEnabled(project: TestProject) {
+    if (this._projects.size < 2)
+      return true;
+    return project.isEnabled;
+  }
+
   enabledProjects(): TestProject[] {
-    return [...this._projects.values()].filter(p => p.isEnabled);
+    return [...this._projects.values()].filter(p => this.isProjectEnabled(p));
   }
 
   enabledProjectsFilter(): string[] {
-    const allEnabled = !([...this._projects.values()].some(p => !p.isEnabled));
+    const allEnabled = !([...this._projects.values()].some(p => !this.isProjectEnabled(p)));
     if (allEnabled)
       return [];
     return this.enabledProjects().map(p => p.name);
