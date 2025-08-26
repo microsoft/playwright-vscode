@@ -1331,7 +1331,7 @@ export class VSCode {
     const webView = this.webViews.get('pw.extension.settingsView')!;
     const selectedConfig = await webView.getByTestId('models').evaluate((e: HTMLSelectElement) => e.selectedOptions[0].textContent);
     result.push(`    config: ${selectedConfig}`);
-    const projectLocators = await webView.getByTestId('projects').locator('div').locator('label').all();
+    const projectLocators = await webView.getByTestId('projects').locator('div').locator('label').filter({ visible: true }).all();
     for (const projectLocator of projectLocators) {
       const checked = await projectLocator.locator('input').isChecked();
       const name = await projectLocator.textContent();

@@ -181,3 +181,37 @@ test('should hide project section when there is just one', async ({ activate }) 
     [x] projectOne
   `);
 });
+
+test('should ensure an enabled project when UI for it is hidden', async ({ activate }) => {
+  const { vscode, workspaceFolder } = await activate({
+    'playwright.config.js': `module.exports = {
+      projects: [
+        { name: 'projectOne', testDir: 'tests1', },
+        { name: 'projectTwo', testDir: 'tests2', },
+      ]
+    }`,
+    'foo/playwright.config.js': `module.exports = { testDir: '.', projects: [{ name: 'projectThree' }, { name: 'projectFour' }] }`,
+  });
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+
+  await enableProjects(vscode, ['projectTwo']);
+  await expect(vscode).toHaveProjectTree(`
+    config: playwright.config.js
+    [ ] projectOne
+    [x] projectTwo
+  `);
+
+  await workspaceFolder.changeFile('playwright.config.js', `module.exports = {
+    projects: [
+      { name: 'projectOne', testDir: 'tests1', },
+    ]
+  }`);
+  await expect(webView.getByRole('heading', { name: 'PROJECTS' })).not.toBeVisible();
+
+  await enableConfigs(vscode, [`playwright.config.js`, `foo${path.sep}playwright.config.js`]);
+  await expect(vscode).toHaveProjectTree(`
+    config: playwright.config.js
+    [x] projectOne
+  `);
+});
