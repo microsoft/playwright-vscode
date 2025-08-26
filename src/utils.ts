@@ -140,25 +140,27 @@ async function findNodeViaShell(vscode: vscodeTypes.VSCode, cwd: string): Promis
   });
 }
 
-export async function findNpx(vscode: vscodeTypes.VSCode, cwd: string): Promise<string | undefined> {
-  const node = await findNode(vscode, cwd);
-  const npxPath = path.resolve(node, '..', 'npx');
-  try {
-    const stat = await fs.promises.stat(npxPath);
-    if (!stat.isFile())
-      return;
+export function addNpmRunPath(env: NodeJS.ProcessEnv, cwd: string): NodeJS.ProcessEnv {
+  const newPath = [];
 
-    if (process.platform !== 'win32') {
-      try {
-        await fs.promises.access(npxPath, fs.constants.X_OK);
-      } catch {
-        return;
-      }
-    }
-
-    return npxPath;
-  } catch {
+  let currentPath = path.resolve(cwd);
+  let previousPath;
+  while (previousPath !== currentPath) {
+    newPath.push(path.join(currentPath, 'node_modules', '.bin'));
+    previousPath = currentPath;
+    currentPath = path.resolve(currentPath, '..');
   }
+
+  // On Windows, PATH key casing can be “Path”; preserve whichever exists
+  const defaultPath = process.platform === 'win32' ? 'Path' : 'PATH';
+  const pathKey = Object.keys(env).find(k => k.toLowerCase() === 'path') ?? defaultPath;
+  if (env[pathKey])
+    newPath.push(env[pathKey]);
+
+  return {
+    ...env,
+    [pathKey]: newPath.join(pathSeparator),
+  };
 }
 
 export function escapeRegex(text: string) {
