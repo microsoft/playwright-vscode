@@ -17,6 +17,8 @@
 import type { Extension } from '../src/extension';
 import { enableProjects, expect, test } from './utils';
 
+test.skip(({ showBrowser }) => !showBrowser);
+
 test('should show list of running browsers', async ({ activate }) => {
   test.slow();
 
