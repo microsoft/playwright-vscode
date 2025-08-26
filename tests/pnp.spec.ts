@@ -18,12 +18,20 @@ import { enableConfigs, expect, test } from './utils';
 import fs from 'node:fs/promises';
 
 test('should pick up .pnp.cjs file closest to config', async ({ activate }, testInfo) => {
-  const outfile = testInfo.outputPath('output.txt');
+  const pnpCjsOutfile = testInfo.outputPath('pnp-cjs.txt');
+  const esmLoaderInfile = testInfo.outputPath('esm-loader-in.txt');
+  const esmLoaderOutfile = testInfo.outputPath('esm-loader-out.txt');
+  await fs.writeFile(esmLoaderInfile, 'untouched');
+
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     '.pnp.cjs': `
       const fs = require("node:fs");
-      fs.writeFileSync("${outfile}", "root");
+      fs.writeFileSync("${pnpCjsOutfile}", "root");
+    `,
+    '.pnp.loader.mjs': `
+      import fs from 'node:fs';
+      fs.copyFileSync("${esmLoaderInfile}", "${esmLoaderOutfile}");
     `,
     'tests/root.spec.ts': `
       import { test } from '@playwright/test';
@@ -33,7 +41,7 @@ test('should pick up .pnp.cjs file closest to config', async ({ activate }, test
     'foo/playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'foo/.pnp.cjs': `
       const fs = require("node:fs");
-      fs.writeFileSync("${outfile}", "foo");
+      fs.writeFileSync("${pnpCjsOutfile}", "foo");
     `,
     'foo/tests/foo.spec.ts': `
       import { test } from '@playwright/test';
@@ -52,9 +60,11 @@ test('should pick up .pnp.cjs file closest to config', async ({ activate }, test
 
   let testRun = await testController.run(testController.findTestItems(/foo/));
   expect(testRun.renderLog()).toContain('passed');
-  expect(await fs.readFile(outfile, 'utf-8')).toBe('foo');
+  expect(await fs.readFile(pnpCjsOutfile, 'utf-8')).toBe('foo');
 
+  await fs.writeFile(esmLoaderInfile, 'root');
   testRun = await testController.run(testController.findTestItems(/root/));
   expect(testRun.renderLog()).toContain('passed');
-  expect(await fs.readFile(outfile, 'utf-8')).toBe('root');
+  expect(await fs.readFile(pnpCjsOutfile, 'utf-8')).toBe('root');
+  expect(await fs.readFile(esmLoaderOutfile, 'utf-8')).toBe('root');
 });
