@@ -169,8 +169,15 @@ test('should hide project section when there is just one', async ({ activate }) 
         { name: 'projectOne', testDir: 'tests1', },
       ]
     }`,
+    'foo/playwright.config.js': `module.exports = { testDir: '.', projects: [{ name: 'projectTwo' }, { name: 'projectThree' }] }`,
   });
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
   await expect(webView.getByRole('heading', { name: 'PROJECTS' })).not.toBeVisible();
+
+  await enableConfigs(vscode, [`playwright.config.js`, `foo${path.sep}playwright.config.js`]);
+  await expect(vscode, 'when two configs are enabled, and the other one has projects multiple, we show it').toHaveProjectTree(`
+    config: playwright.config.js
+    [x] projectOne
+  `);
 });

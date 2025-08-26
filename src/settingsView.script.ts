@@ -22,9 +22,9 @@ const selectAllButton = document.getElementById('selectAll') as HTMLAnchorElemen
 const unselectAllButton = document.getElementById('unselectAll') as HTMLAnchorElement;
 const toggleModels = document.getElementById('toggleModels') as HTMLAnchorElement;
 
-function updateProjects(projects: ProjectEntry[]) {
+function updateProjects(projects: ProjectEntry[], showProjectSelector: boolean) {
   const projectSelector = document.getElementById('project-selector')!;
-  if (projects.length < 2) {
+  if (!showProjectSelector) {
     projectSelector.style.display = 'none';
     return;
   }
@@ -104,7 +104,7 @@ window.addEventListener('message', event => {
         actionsElement.appendChild(actionElement);
     }
   } else if (method === 'models') {
-    const { configs, showModelSelector } = params;
+    const { configs, showModelSelector, showProjectSelector } = params;
     const select = document.getElementById('models') as HTMLSelectElement;
     select.textContent = '';
     const configsMap = new Map();
@@ -117,12 +117,12 @@ window.addEventListener('message', event => {
       if (config.selected) {
         selectConfig = config;
         select.value = config.configFile;
-        updateProjects(config.projects);
+        updateProjects(config.projects, showProjectSelector);
       }
     }
     select.addEventListener('change', event => {
       vscode.postMessage({ method: 'selectModel', params: { configFile: select.value } });
-      updateProjects(configsMap.get(select.value).projects);
+      updateProjects(configsMap.get(select.value).projects, showProjectSelector);
     });
     modelSelector.style.display = showModelSelector ? 'flex' : 'none';
   }
