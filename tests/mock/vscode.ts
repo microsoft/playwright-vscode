@@ -1191,6 +1191,9 @@ export class VSCode {
       };
     };
 
+    this.workspace.fs = {};
+    this.workspace.fs.stat = (uri: Uri) => fs.promises.stat(uri.fsPath);
+
     this.env.clipboard = {
       writeText: async (text: string) => this._clipboardText = text,
       readText: async () => this._clipboardText,
