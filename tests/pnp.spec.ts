@@ -14,24 +14,47 @@
  * limitations under the License.
  */
 
-import { expect, test } from './utils';
+import { enableConfigs, expect, test } from './utils';
 import fs from 'node:fs/promises';
 
-test('should pick up .pnp.cjs', async ({ activate }, testInfo) => {
+test('should pick up .pnp.cjs file closest to config', async ({ activate }, testInfo) => {
   const outfile = testInfo.outputPath('output.txt');
-  const { testController } = await activate({
+  const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     '.pnp.cjs': `
       const fs = require("node:fs");
+      fs.writeFileSync("${outfile}", "root");
+    `,
+    'tests/root.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => {});
+    `,
+
+    'foo/playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'foo/.pnp.cjs': `
+      const fs = require("node:fs");
       fs.writeFileSync("${outfile}", "foo");
     `,
-    'tests/test-1.spec.ts': `
+    'foo/tests/foo.spec.ts': `
       import { test } from '@playwright/test';
       test('should pass', async () => {});
     `,
   });
+  await enableConfigs(vscode, ['playwright.config.js', 'foo/playwright.config.js']);
 
-  const testRun = await testController.run();
+  await expect(testController).toHaveTestTree(`
+    -   foo
+      -   tests
+        -   foo.spec.ts
+    -   tests
+      -   root.spec.ts
+  `);
+
+  let testRun = await testController.run(testController.findTestItems(/foo/));
   expect(testRun.renderLog()).toContain('passed');
   expect(await fs.readFile(outfile, 'utf-8')).toBe('foo');
+
+  testRun = await testController.run(testController.findTestItems(/root/));
+  expect(testRun.renderLog()).toContain('passed');
+  expect(await fs.readFile(outfile, 'utf-8')).toBe('root');
 });
