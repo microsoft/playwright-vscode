@@ -296,7 +296,7 @@ export class Extension implements RunHooks {
 
     const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mts,mjs}', '**/node_modules/**');
     // findFiles returns results in a non-deterministic order - sort them to ensure consistent order when we enable the first model by default.
-    configFiles.sort((a, b) => uriToPath(a).localeCompare(uriToPath(b)));
+    configFiles.sort((a, b) => sortPaths(uriToPath(a), uriToPath(b)));
     for (const configFileUri of configFiles) {
       const configFilePath = uriToPath(configFileUri);
       // TODO: parse .gitignore
@@ -995,3 +995,15 @@ function ancestorProject(test: reporterTypes.TestCase): reporterTypes.FullProjec
 }
 
 const traceUrlSymbol = Symbol('traceUrl');
+
+/**
+ * sort paths intuitively.
+ * [/foo/bar, /foo, /foo/baz] -> [/foo, /foo/bar, /foo/baz]
+ */
+export function sortPaths(a: string, b: string): number {
+  const aDepth = a.split(path.sep).length;
+  const bDepth = b.split(path.sep).length;
+  if (aDepth !== bDepth)
+    return aDepth - bDepth;
+  return a.localeCompare(b);
+}

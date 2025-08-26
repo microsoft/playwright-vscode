@@ -17,6 +17,7 @@
 import { BrowserList } from './browserList';
 import { BrowserEntry } from './common';
 import { DisposableBase } from './disposableBase';
+import { sortPaths } from './extension';
 import type { ReusedBrowser } from './reusedBrowser';
 import type { SettingsModel } from './settingsModel';
 import type { TestModelCollection } from './testModel';
@@ -236,7 +237,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
       itemMap.set(model.config.configFile, modelItem);
       options.push(modelItem);
     }
-    options.sort((a, b) => a.label.localeCompare(b.label));
+    options.sort((a, b) => sortPaths(a.label, b.label));
     void this._vscode.window.showQuickPick(options, {
       title: this._vscode.l10n.t('Toggle Playwright Configs'),
       canPickMany: true,
