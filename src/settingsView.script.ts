@@ -118,5 +118,7 @@ window.addEventListener('message', event => {
       updateProjects(configsMap.get(select.value).projects);
     });
     modelSelector.style.display = showModelSelector ? 'flex' : 'none';
+  } else if (method === 'reveal') {
+    document.body.classList.remove('hidden');
   }
 });

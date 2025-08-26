@@ -43,6 +43,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
   private _settingsModel: SettingsModel;
   private _reusedBrowser: ReusedBrowser;
   private _models: TestModelCollection;
+  private _revealed = false;
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, models: TestModelCollection, reusedBrowser: ReusedBrowser, extensionUri: vscodeTypes.Uri) {
     super();
@@ -70,7 +71,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
       localResourceRoots: [this._extensionUri]
     };
 
-    webviewView.webview.html = htmlForWebview(this._vscode, this._extensionUri, webviewView.webview);
+    webviewView.webview.html = htmlForWebview(this._vscode, this._extensionUri, webviewView.webview, this._revealed);
     this._disposables.push(webviewView.webview.onDidReceiveMessage(data => {
       if (data.method === 'execute') {
         void this._vscode.commands.executeCommand(data.params.command);
@@ -88,6 +89,10 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         this._models.selectModel(data.params.configFile);
       }
     }));
+    this._disposables.push(webviewView.onDidChangeVisibility(() => {
+      if (webviewView.visible && this._revealed)
+        this.reveal();
+    }));
 
     this._disposables.push(this._settingsModel.onChange(() => {
       this._updateSettings();
@@ -104,6 +109,11 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
     this._updateSettings();
     this._updateModels();
     this._updateActions();
+  }
+
+  reveal() {
+    void this._view?.webview.postMessage({ method: 'reveal' });
+    this._revealed = true;
   }
 
   updateActions() {
@@ -194,7 +204,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
   }
 }
 
-function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri, webview: vscodeTypes.Webview) {
+function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Uri, webview: vscodeTypes.Webview, revealed: boolean) {
   const style = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'common.css'));
   const script = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'out', 'settingsView.script.js'));
   const nonce = getNonce();
@@ -208,7 +218,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
       <link href="${style}" rel="stylesheet">
       <title>Playwright</title>
     </head>
-    <body class="settings-view">
+    <body class="settings-view ${revealed ? '' : 'hidden'}">
       <h2 class="section-header">${vscode.l10n.t('TOOLS')}</h2>
       <div id="actions" class="vbox"></div>
       <div id="model-selector" class="vbox" style="display: none">

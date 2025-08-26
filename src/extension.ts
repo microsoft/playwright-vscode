@@ -276,6 +276,8 @@ export class Extension implements RunHooks {
     };
 
     await this._rebuildModels(false);
+    this._settingsView.reveal();
+
     fileSystemWatchers.map(w => w.onDidChange(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidCreate(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidDelete(rebuildModelForConfig));

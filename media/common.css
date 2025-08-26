@@ -161,6 +161,10 @@ body[data-vscode-theme-kind=vscode-dark] .combobox:hover {
   width: 100%;
 }
 
+.hidden {
+  display: none;
+}
+
 /* Locators view */
 
 .locators-view .section {
