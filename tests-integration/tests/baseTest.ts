@@ -23,6 +23,7 @@ import { spawnSync } from 'child_process';
 
 export type TestOptions = {
   vscodeVersion: string;
+  packageManager: 'npm' | 'pnpm' | 'yarn-berry' | 'yarn-classic';
 };
 
 type TestFixtures = TestOptions & {
@@ -33,6 +34,7 @@ type TestFixtures = TestOptions & {
 
 export const test = base.extend<TestFixtures>({
   vscodeVersion: ['insiders', { option: true }],
+  packageManager: ['npm', { option: true }],
   workbox: async ({ vscodeVersion, createProject, createTempDir }, use) => {
     const defaultCachePath = await createTempDir();
     const vscodePath = await downloadAndUnzipVSCode(vscodeVersion);
@@ -68,7 +70,7 @@ export const test = base.extend<TestFixtures>({
       await fs.promises.cp(logPath, logOutputPath, { recursive: true });
     }
   },
-  createProject: async ({ createTempDir }, use) => {
+  createProject: async ({ createTempDir, packageManager }, use) => {
     await use(async () => {
       // We want to be outside of the project directory to avoid already installed dependencies.
       const projectPath = await createTempDir();
@@ -76,11 +78,31 @@ export const test = base.extend<TestFixtures>({
         await fs.promises.rm(projectPath, { recursive: true });
       console.log(`Creating project in ${projectPath}`);
       await fs.promises.mkdir(projectPath);
-      spawnSync(`npm init playwright@latest --yes -- --quiet --browser=chromium --gha --install-deps`, {
+
+      let command = 'npm init playwright@latest';
+      if (packageManager === 'pnpm')
+        command = 'pnpm create playwright@latest';
+      else if (packageManager === 'yarn-classic')
+        command = 'yarn create playwright';
+      else if (packageManager === 'yarn-berry')
+        command = 'yarn create playwright@latest';
+      spawnSync(`${command} --yes -- --quiet --browser=chromium --gha --install-deps`, {
         cwd: projectPath,
         stdio: 'inherit',
         shell: true,
       });
+
+      if (packageManager === 'yarn-berry') {
+        await fs.promises.mkdir(path.join(projectPath, '.vscode'), { recursive: true });
+
+        // see https://github.com/microsoft/playwright/issues/18931.
+        // ideally, we'd support this by default
+        await fs.promises.writeFile(path.join(projectPath, '.vscode', 'settings.json'), JSON.stringify({
+          'playwright.env': {
+            'NODE_OPTIONS': '-r ./.pnp.cjs --experimental-loader ./.pnp.loader.mjs'
+          }
+        }));
+      }
       return projectPath;
     });
   },

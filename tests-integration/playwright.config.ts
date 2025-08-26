@@ -26,9 +26,27 @@ export default defineConfig<void, TestOptions>({
   globalSetup: './globalSetup',
   projects: [
     {
-      name: 'VSCode insiders',
+      name: 'npm',
       use: {
-        vscodeVersion: 'insiders',
+        packageManager: 'npm',
+      }
+    },
+    {
+      name: 'pnpm',
+      use: {
+        packageManager: 'pnpm',
+      }
+    },
+    {
+      name: 'yarn-berry',
+      use: {
+        packageManager: 'yarn-berry',
+      }
+    },
+    {
+      name: 'yarn-classic',
+      use: {
+        packageManager: 'yarn-classic',
       }
     }
   ]
