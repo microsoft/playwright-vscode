@@ -104,7 +104,7 @@ window.addEventListener('message', event => {
         actionsElement.appendChild(actionElement);
     }
   } else if (method === 'models') {
-    const { configs, showModelSelector, showProjectSelector } = params;
+    const { configs, showModelSelector } = params;
     const select = document.getElementById('models') as HTMLSelectElement;
     select.textContent = '';
     const configsMap = new Map();
