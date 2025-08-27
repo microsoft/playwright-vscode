@@ -162,7 +162,6 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
       params: {
         configs,
         showModelSelector: this._models.models().length > 1,
-        showProjectSelector: this._models.enabledModels().some(model => model.projects().length > 1),
       },
     });
   }

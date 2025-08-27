@@ -22,9 +22,9 @@ const selectAllButton = document.getElementById('selectAll') as HTMLAnchorElemen
 const unselectAllButton = document.getElementById('unselectAll') as HTMLAnchorElement;
 const toggleModels = document.getElementById('toggleModels') as HTMLAnchorElement;
 
-function updateProjects(projects: ProjectEntry[], showProjectSelector: boolean) {
+function updateProjects(projects: ProjectEntry[]) {
   const projectSelector = document.getElementById('project-selector')!;
-  if (!showProjectSelector) {
+  if (projects.length < 2) {
     projectSelector.style.display = 'none';
     return;
   }
@@ -117,12 +117,12 @@ window.addEventListener('message', event => {
       if (config.selected) {
         selectConfig = config;
         select.value = config.configFile;
-        updateProjects(config.projects, showProjectSelector);
+        updateProjects(config.projects);
       }
     }
     select.addEventListener('change', event => {
       vscode.postMessage({ method: 'selectModel', params: { configFile: select.value } });
-      updateProjects(configsMap.get(select.value).projects, showProjectSelector);
+      updateProjects(configsMap.get(select.value).projects);
     });
     modelSelector.style.display = showModelSelector ? 'flex' : 'none';
   }

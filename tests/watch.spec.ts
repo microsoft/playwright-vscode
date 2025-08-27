@@ -481,7 +481,7 @@ test('should batch watched tests, not queue', async ({ activate }, testInfo) => 
 test('should only watch a test from the enabled project when multiple projects share the same test directory', async ({ activate }) => {
   const { vscode, testController, workspaceFolder } = await activate({
     'playwright-1.config.js': `module.exports = { testDir: 'tests', projects: [{ name: 'project-from-config1' }] }`,
-    'playwright-2.config.js': `module.exports = { testDir: 'tests', projects: [{ name: 'project-from-config2' }, { name: 'project-from-config2-two' }] }`,
+    'playwright-2.config.js': `module.exports = { testDir: 'tests', projects: [{ name: 'project-from-config2' }] }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
       test('pass 1', async () => {});
@@ -495,13 +495,12 @@ test('should only watch a test from the enabled project when multiple projects s
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
   // Wait for the projects to be loaded.
-  await expect(webView.getByTestId('projects').locator('div').locator('label')).toHaveCount(2);
+  await expect(webView.getByTestId('projects').locator('div').locator('label')).toHaveCount(1);
   // Disable the project from config 2.
   await enableProjects(vscode, []);
   await expect(vscode).toHaveProjectTree(`
   config: playwright-2.config.js
     [ ] project-from-config2
-    [ ] project-from-config2-two
 `);
 
   await testController.expandTestItems(/test.spec/);
