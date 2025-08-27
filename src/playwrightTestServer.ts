@@ -165,7 +165,6 @@ export class PlaywrightTestServer {
 
     try {
       if (type === 'setup') {
-        testListener.onStdOut?.('\x1b[2mRunning global setup if any\u2026\x1b[0m\n');
         const { report, status } = await Promise.race([
           testServer.runGlobalSetup({}),
           new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
