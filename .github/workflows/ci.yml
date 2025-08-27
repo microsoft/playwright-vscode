@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest ]
+        os: [ ubuntu-latest, windows-latest ]
     env:
       DEBUG: pw:browser
     steps:
@@ -81,6 +81,7 @@ jobs:
       env:
         PWTEST_BLOB_DO_NOT_REMOVE: 1
     - run: npx playwright merge-reports blob-report --reporter=html
+      if: always()
     - uses: actions/upload-artifact@v4
       if: always()
       with:

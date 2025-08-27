@@ -85,7 +85,7 @@ export const test = base.extend<TestFixtures>({
       else if (packageManager === 'yarn-classic')
         command = 'yarn create playwright';
       else if (packageManager === 'yarn-berry')
-        command = 'yarn create playwright@latest';
+        command = 'yarn create playwright';
       spawnSync(`${command} --yes -- --quiet --browser=chromium --gha --install-deps`, {
         cwd: projectPath,
         stdio: 'inherit',
