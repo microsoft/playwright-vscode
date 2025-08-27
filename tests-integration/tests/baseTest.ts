@@ -17,7 +17,7 @@ import { test as base, type Page, _electron } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron/out/download';
 export { expect } from '@playwright/test';
 import path from 'path';
-import os, { platform } from 'os';
+import os from 'os';
 import fs from 'fs';
 import { spawnSync } from 'child_process';
 
