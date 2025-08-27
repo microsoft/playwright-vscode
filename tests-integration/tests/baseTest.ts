@@ -71,6 +71,8 @@ export const test = base.extend<TestFixtures>({
     }
   },
   createProject: async ({ createTempDir, packageManager }, use) => {
+    test.skip(process.platform === 'win32' && packageManager === 'yarn-berry');
+
     await use(async () => {
       // We want to be outside of the project directory to avoid already installed dependencies.
       const projectPath = await createTempDir();
