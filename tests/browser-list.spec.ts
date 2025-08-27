@@ -31,7 +31,20 @@ test('should show list of running browsers', async ({ activate }) => {
       });
     `,
   });
+  await expect(vscode).toHaveProjectTree(`
+    config: playwright.config.js
+    [x] chromium
+    [ ] firefox
+  `);
   await enableProjects(vscode, ['chromium', 'firefox']);
+  await testController.expandTestItems(/.*/);
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   test-1.spec.ts
+        -   should pass [2:0]
+          -   chromium [2:0]
+          -   firefox [2:0]
+  `);
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
   await expect(settingsView.getByRole('list', { name: 'Browsers' })).toMatchAriaSnapshot(`
