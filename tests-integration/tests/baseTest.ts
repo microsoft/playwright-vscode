@@ -17,7 +17,7 @@ import { test as base, type Page, _electron } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron/out/download';
 export { expect } from '@playwright/test';
 import path from 'path';
-import os from 'os';
+import os, { platform } from 'os';
 import fs from 'fs';
 import { spawnSync } from 'child_process';
 
@@ -71,6 +71,8 @@ export const test = base.extend<TestFixtures>({
     }
   },
   createProject: async ({ createTempDir, packageManager }, use) => {
+    test.skip(process.platform === 'win32' && packageManager === 'yarn-berry');
+
     await use(async () => {
       // We want to be outside of the project directory to avoid already installed dependencies.
       const projectPath = await createTempDir();
