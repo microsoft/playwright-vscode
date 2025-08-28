@@ -24,13 +24,13 @@ type RecorderMode = 'none' | 'standby' | 'inspecting' | 'recording';
 
 export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
-  private _backend: DebugController | undefined;
+  readonly _backend: DebugController | undefined;
   private _isRunningTests = false;
   private _envProvider: () => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
   private _pageCount = 0;
-  private _onPageCountChangedEvent: vscodeTypes.EventEmitter<number>;
-  private onPageCountChanged;
+  private _onPageCountChangedForTestEvent: vscodeTypes.EventEmitter<number>;
+  readonly onPageCountChangedForTest;
   private _onBackend: vscodeTypes.EventEmitter<DebugController>;
   readonly onBackend;
   private _onRunningTestsChangedEvent: vscodeTypes.EventEmitter<boolean>;
@@ -44,8 +44,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this.onBackend = this._onBackend.event;
     this._onRunningTestsChangedEvent = new vscode.EventEmitter();
     this.onRunningTestsChanged = this._onRunningTestsChangedEvent.event;
-    this._onPageCountChangedEvent = new vscode.EventEmitter();
-    this.onPageCountChanged = this._onPageCountChangedEvent.event;
+    this._onPageCountChangedForTestEvent = new vscode.EventEmitter();
+    this.onPageCountChangedForTest = this._onPageCountChangedForTestEvent.event;
 
     this._settingsModel = settingsModel;
 
@@ -125,7 +125,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   private _pageCountChanged(pageCount: number) {
     this._pageCount = pageCount;
-    this._onPageCountChangedEvent.fire(pageCount);
+    this._onPageCountChangedForTestEvent.fire(pageCount);
     if (this._isRunningTests)
       return;
     if (pageCount)

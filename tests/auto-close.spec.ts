@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { Extension } from '../src/extension';
 import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 
 test.skip(({ showBrowser }) => !showBrowser);
@@ -27,9 +28,10 @@ test('should reuse browsers', async ({ activate }) => {
     `
   });
 
-  const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
+  const extension = vscode.extensions[0] as Extension;
+  const reusedBrowser = extension.reusedBrowserForTest();
   const events: number[] = [];
-  reusedBrowser.onPageCountChanged((count: number) => events.push(count));
+  reusedBrowser.onPageCountChangedForTest((count: number) => events.push(count));
   await testController.run();
   await expect.poll(() => events).toEqual([1]);
   expect(reusedBrowser._backend).toBeTruthy();
@@ -47,7 +49,8 @@ test('should be closed with Close Browser button', async ({ activate }) => {
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
   const closeAllBrowsers = webView.getByRole('button', { name: 'Close Browser' });
   await expect(closeAllBrowsers).toBeDisabled();
-  const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
+  const extension = vscode.extensions[0] as Extension;
+  const reusedBrowser = extension.reusedBrowserForTest();
   await testController.run();
   expect(reusedBrowser._backend).toBeTruthy();
   await expect(closeAllBrowsers).toBeEnabled();
@@ -65,7 +68,8 @@ test('should auto-close after test', async ({ activate }) => {
   });
 
   await testController.run();
-  const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
+  const extension = vscode.extensions[0] as Extension;
+  const reusedBrowser = extension.reusedBrowserForTest();
   await expect.poll(() => !!reusedBrowser._backend).toBeFalsy();
 });
 
@@ -81,6 +85,7 @@ test('should auto-close after pick', async ({ activate }) => {
   const page = await waitForPage(browser);
   await page.close();
 
-  const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
+  const extension = vscode.extensions[0] as Extension;
+  const reusedBrowser = extension.reusedBrowserForTest();
   await expect.poll(() => !!reusedBrowser._backend).toBeFalsy();
 });
