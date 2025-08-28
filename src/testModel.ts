@@ -38,7 +38,7 @@ export type TestProject = {
   name: string;
   suite: reporterTypes.Suite;
   project: reporterTypes.FullProject;
-  isEnabled: boolean;
+  [kIsEnabled]: boolean;
 };
 
 export type TestModelEmbedder = {
@@ -54,6 +54,8 @@ export type TestModelEmbedder = {
 type Watch = {
   include: readonly vscodeTypes.TestItem[] | undefined;
 };
+
+const kIsEnabled = Symbol('isEnabled');
 
 export class TestModel extends DisposableBase {
   private _vscode: vscodeTypes.VSCode;
@@ -105,14 +107,14 @@ export class TestModel extends DisposableBase {
       for (const project of this.projects()) {
         const projectSettings = configSettings.projects.find(p => p.name === project.name);
         if (projectSettings)
-          project.isEnabled = projectSettings.enabled;
+          project[kIsEnabled] = projectSettings.enabled;
         else if (firstProject)
-          project.isEnabled = true;
+          project[kIsEnabled] = true;
         firstProject = false;
       }
     } else {
       if (this.projects().length)
-        this.projects()[0].isEnabled = true;
+        this.projects()[0][kIsEnabled] = true;
     }
   }
 
@@ -159,7 +161,7 @@ export class TestModel extends DisposableBase {
   isProjectEnabled(project: TestProject) {
     if (this._projects.size < 2)
       return true;
-    return project.isEnabled;
+    return project[kIsEnabled];
   }
 
   enabledProjects(): TestProject[] {
@@ -253,7 +255,7 @@ export class TestModel extends DisposableBase {
       name: projectReport.name,
       suite: projectSuite,
       project: projectSuite._project,
-      isEnabled: false,
+      [kIsEnabled]: false,
     };
     this._projects.set(project.name, project);
     return project;
@@ -745,9 +747,9 @@ export class TestModelCollection extends DisposableBase {
     const project = model.projectMap().get(name);
     if (!project)
       return;
-    if (project.isEnabled === enabled)
+    if (project[kIsEnabled] === enabled)
       return;
-    project.isEnabled = enabled;
+    project[kIsEnabled] = enabled;
     this._saveSettings();
     this._didUpdate.fire();
   }
@@ -756,11 +758,11 @@ export class TestModelCollection extends DisposableBase {
     const model = this._models.find(m => m.config.configFile === configFile);
     if (!model)
       return;
-    const projectsToUpdate = model.projects().filter(p => p.isEnabled !== enabled);
+    const projectsToUpdate = model.projects().filter(p => p[kIsEnabled] !== enabled);
     if (projectsToUpdate.length === 0)
       return;
     for (const project of projectsToUpdate)
-      project.isEnabled = enabled;
+      project[kIsEnabled] = enabled;
     this._saveSettings();
     this._didUpdate.fire();
   }
@@ -856,7 +858,7 @@ export class TestModelCollection extends DisposableBase {
         relativeConfigFile: path.relative(model.config.workspaceFolder, model.config.configFile),
         selected: model.config.configFile === this._selectedConfigFile,
         enabled: model.isEnabled,
-        projects: model.projects().map(p => ({ name: p.name, enabled: p.isEnabled })),
+        projects: model.projects().map(p => ({ name: p.name, enabled: model.isProjectEnabled(p)})),
       });
     }
     void this.embedder.context.workspaceState.update(workspaceStateKey, workspaceSettings);
