@@ -18,7 +18,7 @@ import path from 'path';
 import { ConfigFindRelatedTestFilesReport, ConfigListFilesReport } from './listTests';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
-import { TeleReporterReceiver } from './upstream/teleReceiver';
+import { TeleReporterReceiver, JsonConfig } from './upstream/teleReceiver';
 import { WebSocketTestServerTransport, TestServerConnection } from './upstream/testServerConnection';
 import { startBackend } from './backend';
 import { escapeRegex, pathSeparator } from './utils';
@@ -69,6 +69,7 @@ export class PlaywrightTestServer {
   private _options: PlaywrightTestOptions;
   private _model: TestModel;
   private _testServerPromise: Promise<TestServerConnectionWrapper> | undefined;
+  private _config?: JsonConfig;
 
   constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
@@ -94,6 +95,9 @@ export class PlaywrightTestServer {
     // TODO: remove ConfigListFilesReport and report suite directly once CLI is deprecated.
     const { report } = await testServer.connection.listFiles({});
     const teleReceiver = new TeleReporterReceiver({
+      onConfigure: (config: JsonConfig) => {
+        this._config = config;
+      },
       onBegin(rootSuite) {
         for (const projectSuite of rootSuite.suites) {
           const project = projectSuite.project()!;
@@ -165,6 +169,8 @@ export class PlaywrightTestServer {
 
     try {
       if (type === 'setup') {
+        if (!this._config || this._config.globalSetup)
+          testListener.onStdOut?.('\x1b[2mRunning global setup if any\u2026\x1b[0m\n');
         const { report, status } = await Promise.race([
           testServer.runGlobalSetup({}),
           new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
