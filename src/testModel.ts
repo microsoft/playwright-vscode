@@ -858,7 +858,7 @@ export class TestModelCollection extends DisposableBase {
         relativeConfigFile: path.relative(model.config.workspaceFolder, model.config.configFile),
         selected: model.config.configFile === this._selectedConfigFile,
         enabled: model.isEnabled,
-        projects: model.projects().map(p => ({ name: p.name, enabled: model.isProjectEnabled(p)})),
+        projects: model.projects().map(p => ({ name: p.name, enabled: p[kIsEnabled] })),
       });
     }
     void this.embedder.context.workspaceState.update(workspaceStateKey, workspaceSettings);

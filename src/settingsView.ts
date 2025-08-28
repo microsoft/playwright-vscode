@@ -153,7 +153,7 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
         configFile: model.config.configFile,
         selected: model === this._models.selectedModel(),
         enabled: model.isEnabled,
-        projects: model.projects().map(p => ({ name: p.name, enabled: p.isEnabled })),
+        projects: model.projects().map(p => ({ name: p.name, enabled: model.isProjectEnabled(p) })),
       });
     }
 
