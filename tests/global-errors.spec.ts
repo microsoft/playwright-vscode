@@ -61,6 +61,7 @@ test('should report error in global setup (explicit)', async ({ activate }) => {
   });
 
   const testRun = await testController.run();
+  await expect(testRun).toHaveOutput(/Running global setup if any…/);
   await expect(testRun).toHaveOutput(/Error: expect\(received\)\.toBe\(expected\)/);
 
   await expect(vscode).toHaveConnectionLog([

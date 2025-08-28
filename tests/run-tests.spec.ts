@@ -1052,7 +1052,6 @@ test('should produce output twice', async ({ activate }) => {
       started
       passed
     Output:
-    Running global setup if any…
 
 
     Running 1 test using 1 worker
