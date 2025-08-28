@@ -15,7 +15,6 @@
  */
 
 import { DisposableBase } from './disposableBase';
-import { ReusedBrowser } from './reusedBrowser';
 import { pickElementAction } from './settingsView';
 import { getNonce, html } from './utils';
 import type { SettingsModel } from './settingsModel';
