@@ -32,6 +32,7 @@ import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { RunHooks, TestConfig, ErrorContext } from './playwrightTestServer';
 import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
+import { pathToFileURL } from 'url';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -355,7 +356,7 @@ export class Extension implements RunHooks {
       if (pnpCJS)
         env.NODE_OPTIONS += ` --require ${pnpCJS}`;
       if (pnpLoader)
-        env.NODE_OPTIONS += ` --experimental-loader ${pnpLoader}`;
+        env.NODE_OPTIONS += ` --experimental-loader ${pathToFileURL(pnpLoader)}`;
     }
 
     return env;

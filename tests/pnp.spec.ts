@@ -16,6 +16,7 @@
 
 import { enableConfigs, expect, test } from './utils';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 
 test('should pick up .pnp.cjs file closest to config', async ({ activate }, testInfo) => {
   const pnpCjsOutfile = testInfo.outputPath('pnp-cjs.txt');
@@ -27,11 +28,11 @@ test('should pick up .pnp.cjs file closest to config', async ({ activate }, test
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     '.pnp.cjs': `
       const fs = require("node:fs");
-      fs.writeFileSync("${pnpCjsOutfile}", "root");
+      fs.writeFileSync(${JSON.stringify(pnpCjsOutfile)}, "root");
     `,
     '.pnp.loader.mjs': `
       import fs from 'node:fs';
-      fs.copyFileSync("${esmLoaderInfile}", "${esmLoaderOutfile}");
+      fs.copyFileSync(${JSON.stringify(esmLoaderInfile)}, ${JSON.stringify(esmLoaderOutfile)});
     `,
     'tests/root.spec.ts': `
       import { test } from '@playwright/test';
@@ -41,14 +42,14 @@ test('should pick up .pnp.cjs file closest to config', async ({ activate }, test
     'foo/playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'foo/.pnp.cjs': `
       const fs = require("node:fs");
-      fs.writeFileSync("${pnpCjsOutfile}", "foo");
+      fs.writeFileSync(${JSON.stringify(pnpCjsOutfile)}, "foo");
     `,
     'foo/tests/foo.spec.ts': `
       import { test } from '@playwright/test';
       test('should pass', async () => {});
     `,
   });
-  await enableConfigs(vscode, ['playwright.config.js', 'foo/playwright.config.js']);
+  await enableConfigs(vscode, ['playwright.config.js', `foo${path.sep}playwright.config.js`]);
 
   await expect(testController).toHaveTestTree(`
     -   foo
