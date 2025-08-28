@@ -161,3 +161,51 @@ test('should hide unchecked projects', async ({ activate }) => {
     -    [playwright.config.js [projectTwo] — disabled]
   `);
 });
+
+test('should hide project section when there is just one', async ({ activate }) => {
+  const { vscode } = await activate({
+    'playwright.config.js': `module.exports = {
+      projects: [
+        { name: 'projectOne', testDir: 'tests1', },
+      ]
+    }`
+  });
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await expect(webView.getByRole('heading', { name: 'PROJECTS' })).not.toBeVisible();
+});
+
+test('should treat project as enabled when UI for it is hidden', async ({ activate }) => {
+  const { vscode, workspaceFolder, testController } = await activate({
+    'playwright.config.js': `module.exports = {
+      projects: [
+        { name: 'projectOne', testDir: 'tests1', },
+        { name: 'projectTwo', testDir: 'tests2', },
+      ]
+    }`,
+    'tests1/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+
+  await enableProjects(vscode, ['projectTwo']);
+  await expect(vscode).toHaveProjectTree(`
+    config: playwright.config.js
+    [ ] projectOne
+    [x] projectTwo
+  `);
+
+  await workspaceFolder.changeFile('playwright.config.js', `module.exports = {
+    projects: [
+      { name: 'projectOne', testDir: 'tests1', },
+    ]
+  }`);
+  await expect(webView.getByRole('heading', { name: 'PROJECTS' })).not.toBeVisible();
+  await expect(testController).toHaveTestTree(`
+    -   tests1
+      -   test.spec.ts
+  `);
+});

@@ -23,6 +23,13 @@ const unselectAllButton = document.getElementById('unselectAll') as HTMLAnchorEl
 const toggleModels = document.getElementById('toggleModels') as HTMLAnchorElement;
 
 function updateProjects(projects: ProjectEntry[]) {
+  const projectSelector = document.getElementById('project-selector')!;
+  if (projects.length < 2) {
+    projectSelector.style.display = 'none';
+    return;
+  }
+  projectSelector.style.display = 'flex';
+
   const projectsElement = document.getElementById('projects') as HTMLElement;
   projectsElement.textContent = '';
   for (const project of projects) {
