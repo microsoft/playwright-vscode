@@ -57,8 +57,10 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
     this._extensionUri = extensionUri;
     this._disposables = [
       reusedBrowser.onRunningTestsChanged(() => this._updateActions()),
-      reusedBrowser.onPageCountChanged(() => this._updateActions()),
-      browserList.onChanged(() => this._updateBrowsers()),
+      browserList.onChanged(() => {
+        this._updateActions();
+        this._updateBrowsers();
+      }),
       vscode.window.registerWebviewViewProvider('pw.extension.settingsView', this),
     ];
     this._models.onUpdated(() => {
@@ -393,15 +395,6 @@ export const revealTestOutputAction = (vscode: vscodeTypes.VSCode) => {
 };
 
 const closeIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path xmlns="http://www.w3.org/2000/svg" d="m12.45 37.65-2.1-2.1L21.9 24 10.35 12.45l2.1-2.1L24 21.9l11.55-11.55 2.1 2.1L26.1 24l11.55 11.55-2.1 2.1L24 26.1Z"/></svg>`;
-
-export const closeBrowsersAction = (vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser) => {
-  return {
-    command: 'pw.extension.command.closeBrowsers',
-    svg: closeIcon,
-    text: vscode.l10n.t('Close all browsers'),
-    disabled: !reusedBrowser.canClose(),
-  };
-};
 
 export const runGlobalSetupAction = (vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, models: TestModelCollection) => {
   return {

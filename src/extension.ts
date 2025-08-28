@@ -105,17 +105,17 @@ export class Extension implements RunHooks {
 
     this._settingsModel = new SettingsModel(vscode, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
-    this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._models = new TestModelCollection(vscode, {
       context,
       settingsModel: this._settingsModel,
       runHooks: this,
       isUnderTest: this._isUnderTest,
       envProvider: this._envProvider.bind(this),
-      onStdOut: this._debugHighlight.onStdOut.bind(this._debugHighlight),
+      onStdOut: (...args) => this._debugHighlight.onStdOut(...args),
       requestWatchRun: this._runWatchedTests.bind(this),
     });
-    this._browserList = new BrowserList(this._vscode, this._reusedBrowser, this._models);
+    this._browserList = new BrowserList(this._vscode, this._reusedBrowser, this._models, this._settingsModel);
+    this._debugHighlight = new DebugHighlight(vscode, this._browserList);
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModels(true).then(() => {});
@@ -152,7 +152,7 @@ export class Extension implements RunHooks {
   async activate() {
     const vscode = this._vscode;
     this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, this._context.extensionUri, this._browserList);
-    this._locatorsView = new LocatorsView(vscode, this._settingsModel, this._reusedBrowser, this._context.extensionUri);
+    this._locatorsView = new LocatorsView(vscode, this._settingsModel, this._browserList, this._context.extensionUri);
     const messageNoPlaywrightTestsFound = this._vscode.l10n.t('No Playwright tests found.');
     this._disposables = [
       this._debugHighlight,
@@ -181,9 +181,7 @@ export class Extension implements RunHooks {
           return;
         }
 
-        // TODO: only show locator on browserId
-
-        await this._reusedBrowser.inspect(this._models);
+        await this._browserList.inspect(browserId, this._models);
       }),
       vscode.commands.registerCommand('pw.extension.command.closeBrowsers', (browserId?: string) => {
         // TODO: only close browserId
@@ -206,7 +204,7 @@ export class Extension implements RunHooks {
         try {
           await this._settingsModel.showBrowser.set(true);
           await this._showBrowserForRecording(file, project);
-          await this._reusedBrowser.record(model, project);
+          await this._browserList.record(model, project);
         } finally {
           await this._settingsModel.showBrowser.set(showBrowser);
         }
@@ -215,7 +213,7 @@ export class Extension implements RunHooks {
         const model = this._models.selectedModel();
         if (!model)
           return vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
-        await this._reusedBrowser.record(model);
+        await this._browserList.record(model);
       }),
       vscode.commands.registerCommand('pw.extension.command.toggleModels', async () => {
         this._settingsView.toggleModels();
@@ -897,7 +895,7 @@ test('test', async ({ page }) => {
   }
 
   recorderModeForTest() {
-    return this._reusedBrowser.recorderModeForTest();
+    return this._browserList.recorderModeForTest();
   }
 
   fireTreeItemSelectedForTest(testItem: vscodeTypes.TestItem | null) {

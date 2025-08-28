@@ -18,10 +18,10 @@ import { locatorForSourcePosition, pruneAstCaches } from './babelHighlightUtil';
 import { debugSessionName } from './debugSessionName';
 import { replaceActionWithLocator, locatorMethodRegex } from './methodNames';
 import type { Location } from './upstream/reporter';
-import { ReusedBrowser } from './reusedBrowser';
 import * as vscodeTypes from './vscodeTypes';
 import { normalizePath, uriToPath } from './utils';
 import StackUtils from 'stack-utils';
+import { BrowserList } from './browserList';
 
 export type DebuggerError = { error: string, location: Location };
 
@@ -32,10 +32,8 @@ export class DebugHighlight {
   private _onStdOutEmitter: vscodeTypes.EventEmitter<string>;
   readonly onStdOut: vscodeTypes.Event<string>;
   private _disposables: vscodeTypes.Disposable[] = [];
-  private _reusedBrowser: ReusedBrowser;
 
-  constructor(vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser) {
-    this._reusedBrowser = reusedBrowser;
+  constructor(vscode: vscodeTypes.VSCode, private readonly _browserList: BrowserList) {
     this._onErrorInDebuggerEmitter = new vscode.EventEmitter();
     this.onErrorInDebugger = this._onErrorInDebuggerEmitter.event;
     this._onStdOutEmitter = new vscode.EventEmitter();
@@ -103,17 +101,17 @@ export class DebugHighlight {
   }
 
   private async _highlightLocator(document: vscodeTypes.TextDocument, position: vscodeTypes.Position, token?: vscodeTypes.CancellationToken) {
-    if (!this._reusedBrowser.pageCount())
+    if (!this._browserList.pageCount())
       return;
     const result = await locatorToHighlight(this._debugSessions, document, position, token);
     if (result)
-      this._reusedBrowser.highlight(result).catch(() => {});
+      this._browserList.highlight(result).catch(() => {});
     else
       this._hideHighlight();
   }
 
   private _hideHighlight() {
-    this._reusedBrowser.hideHighlight();
+    this._browserList.hideHighlight();
   }
 
   dispose() {

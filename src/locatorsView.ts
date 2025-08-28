@@ -20,6 +20,7 @@ import { pickElementAction } from './settingsView';
 import { getNonce, html } from './utils';
 import type { SettingsModel } from './settingsModel';
 import * as vscodeTypes from './vscodeTypes';
+import { BrowserList } from './browserList';
 
 export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewViewProvider {
   private _vscode: vscodeTypes.VSCode;
@@ -28,26 +29,23 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
   private _locator: { locator: string, error?: string } = { locator: '' };
   private _ariaSnapshot: { yaml: string, error?: string } = { yaml: '' };
   private _settingsModel: SettingsModel;
-  private _reusedBrowser: ReusedBrowser;
   private _backendVersion = 0;
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, reusedBrowser: ReusedBrowser, extensionUri: vscodeTypes.Uri) {
+  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, private readonly _browserList: BrowserList, extensionUri: vscodeTypes.Uri) {
     super();
     this._vscode = vscode;
     this._extensionUri = extensionUri;
     this._settingsModel = settingsModel;
-    this._reusedBrowser = reusedBrowser;
     this._disposables = [
       vscode.window.registerWebviewViewProvider('pw.extension.locatorsView', this),
-      this._reusedBrowser.onInspectRequested(async ({ locator, ariaSnapshot, backendVersion }) => {
+      _browserList.onInspectRequested(async ({ locator, ariaSnapshot, backendVersion }) => {
         await vscode.commands.executeCommand('pw.extension.locatorsView.focus');
         this._backendVersion = backendVersion;
         this._locator = { locator: locator || '' };
         this._ariaSnapshot = { yaml: ariaSnapshot || '' };
         this._updateValues();
       }),
-      reusedBrowser.onRunningTestsChanged(() => this._updateActions()),
-      reusedBrowser.onPageCountChanged(() => this._updateActions()),
+      _browserList.onChanged(() => this._updateActions()),
       settingsModel.onChange(() => this._updateSettings()),
     ];
   }
@@ -66,7 +64,7 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
         void this._vscode.commands.executeCommand(data.params.command);
       } else if (data.method === 'locatorChanged') {
         this._locator.locator = data.params.locator;
-        this._reusedBrowser.highlight(this._locator.locator).then(() => {
+        this._browserList.highlight(this._locator.locator).then(() => {
           this._locator.error = undefined;
           this._updateValues();
         }).catch(e => {
@@ -75,7 +73,7 @@ export class LocatorsView extends DisposableBase implements vscodeTypes.WebviewV
         });
       } else if (data.method === 'ariaSnapshotChanged') {
         this._ariaSnapshot.yaml = data.params.ariaSnapshot;
-        this._reusedBrowser.highlightAria(this._ariaSnapshot.yaml).then(() => {
+        this._browserList.highlightAria(this._ariaSnapshot.yaml).then(() => {
           this._ariaSnapshot.error = undefined;
           this._updateValues();
         }).catch(e => {
