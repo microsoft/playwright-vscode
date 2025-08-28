@@ -15,7 +15,7 @@
  */
 
 import { spawn } from 'child_process';
-import { findNode } from './utils';
+import { addNpmRunPath, findNode } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import EventEmitter from 'events';
 import { WebSocketTransport } from './transport';
@@ -123,7 +123,7 @@ export async function startBackend(vscode: vscodeTypes.VSCode, options: BackendS
     cwd: options.cwd,
     stdio: 'pipe',
     env: {
-      ...process.env,
+      ...addNpmRunPath(process.env, options.cwd),
       ...options.envProvider(),
     },
   });
