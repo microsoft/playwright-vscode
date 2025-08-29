@@ -125,3 +125,24 @@ test('should pick locator and use the testIdAttribute from the config', async ({
   // TODO: remove as per TODO above.
   selectors.setTestIdAttribute('data-testid');
 });
+
+test('running test should dismiss the toolbar', async ({ activate, showBrowser }) => {
+  test.skip(!showBrowser);
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', () => {});
+    `,
+  });
+
+  const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
+  await settingsView.getByRole('button', { name: 'Pick locator' }).click();
+  await waitForRecorderMode(vscode, 'inspecting');
+
+  const testRun = await testController.run();
+  await expect(testRun).toHaveOutput('passed');
+
+  await waitForRecorderMode(vscode, 'none');
+});

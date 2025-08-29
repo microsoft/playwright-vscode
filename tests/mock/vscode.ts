@@ -968,7 +968,7 @@ export class VSCode {
   readonly webViews = new Map<string, Page>();
   readonly commandLog: string[] = [];
   readonly l10n = new L10n();
-  lastWithProgressData = undefined;
+  lastWithProgressData: any;
   private _hoverProviders: Map<string, HoverProvider> = new Map();
   readonly version: string;
   readonly connectionLog: any[] = [];
@@ -1111,6 +1111,7 @@ export class VSCode {
         report: (data: any) => this.lastWithProgressData = data,
       };
       await callback(progress, new CancellationTokenSource().token);
+      this.lastWithProgressData = 'finished';
     };
     this.window.showTextDocument = (document: TextDocument) => {
       const editor = new TextEditor(document);
