@@ -22,13 +22,13 @@ import { TraceViewer } from './traceViewer';
 
 export class SpawnTraceViewer implements TraceViewer {
   private _vscode: vscodeTypes.VSCode;
-  private _envProvider: () => NodeJS.ProcessEnv;
+  private _envProvider: (configFile: string) => NodeJS.ProcessEnv;
   private _traceViewerProcess: ChildProcess | undefined;
   private _currentFile?: string;
   private _config: TestConfig;
   private _serverUrlPrefixForTest?: string;
 
-  constructor(vscode: vscodeTypes.VSCode, envProvider: () => NodeJS.ProcessEnv, config: TestConfig) {
+  constructor(vscode: vscodeTypes.VSCode, envProvider: (configFile: string) => NodeJS.ProcessEnv, config: TestConfig) {
     this._vscode = vscode;
     this._envProvider = envProvider;
     this._config = config;
@@ -65,7 +65,7 @@ export class SpawnTraceViewer implements TraceViewer {
       detached: true,
       env: {
         ...process.env,
-        ...this._envProvider(),
+        ...this._envProvider(this._config.configFile),
       },
     });
     this._traceViewerProcess = traceViewerProcess;
