@@ -174,7 +174,6 @@ body[data-vscode-theme-kind=vscode-dark] .combobox:hover {
   width: 14px;
   height: 14px;
   padding: 1px;
-  filter: saturate(70%);
 }
 
 .browser button {
