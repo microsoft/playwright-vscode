@@ -350,9 +350,9 @@ export class Extension implements RunHooks {
       return typeof entry[1] === 'string' ? entry : [entry[0], JSON.stringify(entry[1])];
     })) as NodeJS.ProcessEnv;
 
-    if (configFile && this._pnpFiles.has(configFile)) {
+    if (!env.NODE_OPTIONS && this._pnpFiles.has(configFile)) {
       const { pnpCJS, pnpLoader } = this._pnpFiles.get(configFile)!;
-      env.NODE_OPTIONS ??= '';
+      env.NODE_OPTIONS = '';
       if (pnpCJS)
         env.NODE_OPTIONS += ` --require ${pnpCJS}`;
       if (pnpLoader)
