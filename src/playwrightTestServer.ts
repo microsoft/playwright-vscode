@@ -48,7 +48,7 @@ export type PlaywrightTestRunOptions = {
 };
 
 export interface RunHooks {
-  onWillRunTests(config: TestConfig, debug: boolean): Promise<{ connectWsEndpoint?: string }>;
+  onWillRunTests(model: TestModel, debug: boolean): Promise<{ connectWsEndpoint?: string }>;
   onDidRunTests(debug: boolean): Promise<void>;
 }
 

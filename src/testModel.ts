@@ -526,7 +526,7 @@ export class TestModel extends DisposableBase {
     if (globalSetupResult !== 'passed')
       return;
 
-    const externalOptions = await this._embedder.runHooks.onWillRunTests(this.config, false);
+    const externalOptions = await this._embedder.runHooks.onWillRunTests(this, false);
     const showBrowser = this._embedder.settingsModel.showBrowser.get() && !!externalOptions.connectWsEndpoint;
 
     let trace: 'on' | 'off' | undefined;
@@ -574,7 +574,7 @@ export class TestModel extends DisposableBase {
     if (token?.isCancellationRequested)
       return;
 
-    const externalOptions = await this._embedder.runHooks.onWillRunTests(this.config, true);
+    const externalOptions = await this._embedder.runHooks.onWillRunTests(this, true);
 
     let headed = true;
     if (this._embedder.isUnderTest)
