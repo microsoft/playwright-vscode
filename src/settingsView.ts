@@ -53,7 +53,10 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
     this._reusedBrowser = reusedBrowser;
     this._extensionUri = extensionUri;
     this._disposables = [
-      reusedBrowser.onRunningTestsChanged(() => this._updateActions()),
+      reusedBrowser.onRunningTestsChanged(() => {
+        this._updateActions();
+        this._updateSettings();
+      }),
       reusedBrowser.onPageCountChanged(() => {
         this._updateActions();
         this._updateBrowsers();
@@ -118,7 +121,35 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
   }
 
   private _updateSettings() {
-    void this._view!.webview.postMessage({ method: 'settings', params: { settings: this._settingsModel.json() } });
+    const settings = [
+      {
+        name: this._settingsModel.showBrowser.settingName,
+        value: this._settingsModel.showBrowser.get(),
+        disabled: this._reusedBrowser.isRunningTests(),
+      },
+      {
+        name: this._settingsModel.showTrace.settingName,
+        value: this._settingsModel.showTrace.get(),
+        disabled: this._reusedBrowser.isRunningTests(),
+      },
+      {
+        name: this._settingsModel.runGlobalSetupOnEachRun.settingName,
+        value: this._settingsModel.runGlobalSetupOnEachRun.get(),
+      },
+      {
+        name: this._settingsModel.updateSnapshots.settingName,
+        value: this._settingsModel.updateSnapshots.get(),
+      },
+      {
+        name: this._settingsModel.updateSourceMethod.settingName,
+        value: this._settingsModel.updateSourceMethod.get(),
+      },
+      {
+        name: this._settingsModel.pickLocatorCopyToClipboard.settingName,
+        value: this._settingsModel.pickLocatorCopyToClipboard.get(),
+      }
+    ];
+    void this._view!.webview.postMessage({ method: 'settings', params: { settings } });
   }
 
   private _updateActions() {
