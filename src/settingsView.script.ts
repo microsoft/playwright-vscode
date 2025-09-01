@@ -136,8 +136,10 @@ window.addEventListener('message', event => {
         input.disabled = !!disabled;
       }
       const select = document.querySelector('select[setting=' + name + ']') as HTMLSelectElement;
-      if (select)
+      if (select) {
         select.value = value as string;
+        select.disabled = !!disabled;
+      }
     }
   } else if (method === 'actions') {
     actionsElement.textContent = '';
