@@ -38,6 +38,12 @@ export default defineConfig<void, TestOptions>({
       }
     },
     {
+      name: 'pnpm-pnp',
+      use: {
+        packageManager: 'pnpm-pnp',
+      }
+    },
+    {
       name: 'yarn-berry',
       use: {
         packageManager: 'yarn-berry',
