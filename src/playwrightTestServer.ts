@@ -47,13 +47,7 @@ export type PlaywrightTestRunOptions = {
   updateSourceMethod?: 'overwrite' | 'patch' | '3way' | undefined;
 };
 
-export interface RunHooks {
-  onWillRunTests(model: TestModel, debug: boolean): Promise<{ connectWsEndpoint?: string }>;
-  onDidRunTests(debug: boolean): Promise<void>;
-}
-
 export type PlaywrightTestOptions = {
-  runHooks: RunHooks;
   isUnderTest: boolean;
   envProvider: () => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
@@ -362,7 +356,6 @@ export class PlaywrightTestServer {
       if (!token.isCancellationRequested && debugTestServer && !debugTestServer.isClosed())
         await this._runGlobalHooksInServer(debugTestServer, 'teardown', reporter, token);
       debugTestServer?.close();
-      await this._options.runHooks.onDidRunTests(true);
     }
   }
 
