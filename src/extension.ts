@@ -369,8 +369,8 @@ export class Extension implements RunHooks {
   private async _detectPnp(configFileUri: vscodeTypes.Uri, root: string) {
     let dir = this._vscode.Uri.joinPath(configFileUri, '..');
     while (uriToPath(dir).length >= root.length) {
-      const pnpCjs = this._vscode.Uri.joinPath(configFileUri, '..', '.pnp.cjs');
-      const pnpLoader = this._vscode.Uri.joinPath(configFileUri, '..', '.pnp.loader.mjs');
+      const pnpCjs = this._vscode.Uri.joinPath(dir, '.pnp.cjs');
+      const pnpLoader = this._vscode.Uri.joinPath(dir, '.pnp.loader.mjs');
       const [pnpCjsExists, pnpLoaderExists] = await Promise.all([
         this._fileExists(pnpCjs),
         this._fileExists(pnpLoader)

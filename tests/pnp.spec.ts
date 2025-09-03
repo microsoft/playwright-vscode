@@ -24,8 +24,7 @@ test('should pick up .pnp.cjs file closest to config', async ({ activate }, test
   const esmLoaderOutfile = testInfo.outputPath('esm-loader-out.txt');
   await fs.writeFile(esmLoaderInfile, 'untouched');
 
-  const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+  const { vscode, testController, workspaceFolder } = await activate({
     '.pnp.cjs': `
       const fs = require("node:fs");
       fs.writeFileSync(${JSON.stringify(pnpCjsOutfile)}, "root");
@@ -34,7 +33,7 @@ test('should pick up .pnp.cjs file closest to config', async ({ activate }, test
       import fs from 'node:fs';
       fs.copyFileSync(${JSON.stringify(esmLoaderInfile)}, ${JSON.stringify(esmLoaderOutfile)});
     `,
-    'tests/root.spec.ts': `
+    'apps/tests/tests/root.spec.ts': `
       import { test } from '@playwright/test';
       test('should pass', async () => {});
     `,
@@ -49,19 +48,28 @@ test('should pick up .pnp.cjs file closest to config', async ({ activate }, test
       test('should pass', async () => {});
     `,
   });
-  await enableConfigs(vscode, ['playwright.config.js', `foo${path.sep}playwright.config.js`]);
 
   await expect(testController).toHaveTestTree(`
     -   foo
       -   tests
         -   foo.spec.ts
-    -   tests
-      -   root.spec.ts
   `);
 
-  let testRun = await testController.run(testController.findTestItems(/foo/));
+  let testRun = await testController.run();
   expect(testRun.renderLog()).toContain('passed');
   expect(await fs.readFile(pnpCjsOutfile, 'utf-8')).toBe('foo');
+
+  await workspaceFolder.addFile('apps/tests/playwright.config.js', `module.exports = { testDir: 'tests' }`)
+  await enableConfigs(vscode, [`apps${path.sep}tests${path.sep}playwright.config.js`, `foo${path.sep}playwright.config.js`]);
+  await expect(testController).toHaveTestTree(`
+    -   apps
+      -   tests
+        -   tests
+          -   root.spec.ts
+    -   foo
+      -   tests
+        -   foo.spec.ts
+  `);
 
   await fs.writeFile(esmLoaderInfile, 'root');
   testRun = await testController.run(testController.findTestItems(/root/));
