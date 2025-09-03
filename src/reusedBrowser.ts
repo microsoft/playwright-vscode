@@ -400,8 +400,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     await this._startBackendIfNeeded(model);
   }
 
-  async onDidRunTests(debug: boolean) {
-    if (debug && !this._settingsModel.showBrowser.get()) {
+  async onDidRunTests() {
+    if (!this._settingsModel.showBrowser.get()) {
       this._stop();
     } else {
       if (!this._pageCount)
