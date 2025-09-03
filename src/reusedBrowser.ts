@@ -129,7 +129,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return {};
   }
 
-  async connectToDebugController(wsEndpoint: string, version: number, onClose: () => void) {
+  async connectToDebugController({ wsEndpoint, version, onClose }: { wsEndpoint: string, version: number, onClose: () => void }) {
     const backend = new Backend(this._vscode, version);
     backend.onClose(onClose);
     backend.onError(onClose);
