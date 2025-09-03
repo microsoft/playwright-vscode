@@ -94,7 +94,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     ];
     const cwd = model.config.workspaceFolder;
     const envProvider = () => ({
-      ...this._envProvider(config.configFile),
+      ...this._envProvider(model.config.configFile),
       PW_CODEGEN_NO_INSPECTOR: '1',
       PW_EXTENSION_MODE: '1',
     });
