@@ -101,3 +101,24 @@ test('test', async ({ page }) => {
 });`
   }]);
 });
+
+test('running test should stop the recording', async ({ activate, showBrowser }) => {
+  test.skip(!showBrowser);
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', () => {});
+    `,
+  });
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await webView.getByText('Record new').click();
+  await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+
+  const testRun = await testController.run();
+  await expect(testRun).toHaveOutput('passed');
+
+  await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual('finished');
+});

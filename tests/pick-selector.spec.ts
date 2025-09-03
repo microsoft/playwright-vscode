@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { selectors } from '@playwright/test';
-import { connectToSharedBrowser, expect, test, waitForPage, waitForRecorderMode } from './utils';
+import { chromium, firefox, selectors } from '@playwright/test';
+import { connectToSharedBrowser, enableProjects, expect, test, waitForPage, waitForRecorderMode } from './utils';
 
 test('should pick locator and dismiss the toolbar', async ({ activate }) => {
   const { vscode } = await activate({
@@ -23,7 +23,7 @@ test('should pick locator and dismiss the toolbar', async ({ activate }) => {
   });
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
-  await settingsView.getByText('Pick locator').click();
+  await settingsView.getByRole('button', { name: 'Pick locator' }).click();
   await waitForRecorderMode(vscode, 'inspecting');
 
   const browser = await connectToSharedBrowser(vscode);
@@ -58,7 +58,7 @@ test('should highlight locator on edit', async ({ activate }) => {
   });
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
-  await settingsView.getByText('Pick locator').click();
+  await settingsView.getByRole('button', { name: 'Pick locator' }).click();
   await waitForRecorderMode(vscode, 'inspecting');
 
   const browser = await connectToSharedBrowser(vscode);
@@ -103,7 +103,7 @@ test('should pick locator and use the testIdAttribute from the config', async ({
   });
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
-  await settingsView.getByText('Pick locator').click();
+  await settingsView.getByRole('button', { name: 'Pick locator' }).click();
   await waitForRecorderMode(vscode, 'inspecting');
 
   const browser = await connectToSharedBrowser(vscode);
@@ -124,4 +124,69 @@ test('should pick locator and use the testIdAttribute from the config', async ({
   `);
   // TODO: remove as per TODO above.
   selectors.setTestIdAttribute('data-testid');
+});
+
+test('should pick locator only on specified browser', async ({ activate, showBrowser }) => {
+  test.skip(!showBrowser);
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests', projects: [{ name: 'chromium', use: { browserName: 'chromium' } }, { name: 'firefox', use: { browserName: 'firefox' } }]  }`,
+    'tests/test-1.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async ({ page }) => {});
+    `,
+  });
+  await enableProjects(vscode, ['chromium', 'firefox']);
+  await testController.run();
+
+  const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
+  await expect(settingsView.getByRole('list', { name: 'Browsers' })).toMatchAriaSnapshot(`
+    - list:
+      - listitem /chromium/
+      - listitem /firefox/
+  `);
+
+  let browser = await connectToSharedBrowser(vscode, chromium);
+  let page = await waitForPage(browser);
+  await page.setContent(`<h1>Hello</h1>`);
+
+  await settingsView.getByRole('listitem', { name: 'chromium' }).getByRole('button', { name: 'Pick locator' }).click();
+  await waitForRecorderMode(vscode, 'inspecting');
+  await page.locator('h1').click();
+
+  const locatorsView = vscode.webViews.get('pw.extension.locatorsView')!;
+  await expect(locatorsView.locator('body')).toMatchAriaSnapshot(`
+    - textbox "Locator": "getByRole('heading', { name: 'Hello' })"
+  `);
+
+  await browser.close();
+
+  browser = await connectToSharedBrowser(vscode, firefox);
+  page = await waitForPage(browser);
+  await page.setContent(`<h1>Foo</h1>`);
+  await page.locator('h1').click();
+  await expect(locatorsView.locator('body')).toMatchAriaSnapshot(`
+    - textbox "Locator": "getByRole('heading', { name: 'Hello' })"
+  `);
+});
+
+test('running test should dismiss the toolbar', async ({ activate, showBrowser }) => {
+  test.skip(!showBrowser);
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', () => {});
+    `,
+  });
+
+  const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
+  await settingsView.getByRole('button', { name: 'Pick locator' }).click();
+  await waitForRecorderMode(vscode, 'inspecting');
+
+  const testRun = await testController.run();
+  await expect(testRun).toHaveOutput('passed');
+
+  await waitForRecorderMode(vscode, 'none');
 });

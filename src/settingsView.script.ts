@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Config, createAction, ProjectEntry, vscode } from './common';
+import { BrowserEntry, Config, createAction, ProjectEntry, vscode } from './common';
 
 let selectConfig: Config;
 
@@ -23,6 +23,13 @@ const unselectAllButton = document.getElementById('unselectAll') as HTMLAnchorEl
 const toggleModels = document.getElementById('toggleModels') as HTMLAnchorElement;
 
 function updateProjects(projects: ProjectEntry[]) {
+  const projectSelector = document.getElementById('project-selector')!;
+  if (projects.length < 2) {
+    projectSelector.style.display = 'none';
+    return;
+  }
+  projectSelector.style.display = 'flex';
+
   const projectsElement = document.getElementById('projects') as HTMLElement;
   projectsElement.textContent = '';
   for (const project of projects) {
@@ -47,16 +54,63 @@ function updateProjects(projects: ProjectEntry[]) {
   unselectAllButton.hidden = !allEnabled;
 }
 
+function updateBrowsers(browsers: BrowserEntry[]) {
+  const browsersElement = document.getElementById('browsers') as HTMLUListElement;
+  browsersElement.textContent = '';
+
+  for (const browser of browsers) {
+    const li = document.createElement('li');
+    li.classList.add('browser');
+
+    if (browser.title)
+      li.title = browser.title;
+
+    const span = document.createElement('span');
+
+    const svg = document.createElement('span');
+    svg.innerHTML = browser.svg;
+    svg.classList.add('browser-icon');
+    span.appendChild(svg);
+
+    span.appendChild(document.createTextNode(browser.text));
+
+    li.appendChild(span);
+
+    const actionSpan = document.createElement('span');
+    for (const action of browser.actions) {
+      const button = document.createElement('button');
+      button.title = action.title;
+      button.onclick = () => executeCommand(action.command, ...action.args);
+      button.disabled = action.state === 'disabled';
+
+      // todo: active css
+
+      const svg = document.createElement('svg');
+      button.appendChild(svg);
+      svg.outerHTML = action.svg;
+
+      actionSpan.appendChild(button);
+    }
+    li.appendChild(actionSpan);
+
+    browsersElement.appendChild(li);
+  }
+}
+
 function setAllProjectsEnabled(enabled: boolean) {
   vscode.postMessage({ method: 'setAllProjectsEnabled', params: { configFile: selectConfig.configFile, enabled } });
 }
 selectAllButton.addEventListener('click', () => setAllProjectsEnabled(true));
 unselectAllButton.addEventListener('click', () => setAllProjectsEnabled(false));
-toggleModels.addEventListener('click', () => (vscode.postMessage({ method: 'execute', params: { command: 'pw.extension.command.toggleModels' } })));
+
+function executeCommand(command: string, ...args: any[]) {
+  vscode.postMessage({ method: 'execute', params: { command, args } });
+}
+toggleModels.addEventListener('click', () => executeCommand('pw.extension.command.toggleModels'));
 
 for (const input of Array.from(document.querySelectorAll('input[type=checkbox]'))) {
   input.addEventListener('change', event => {
-    vscode.postMessage({ method: 'toggle', params: { setting: input.getAttribute('setting') } });
+    executeCommand(`pw.extension.toggle.${input.getAttribute('setting')}`);
   });
 }
 for (const select of Array.from(document.querySelectorAll<HTMLSelectElement>('select[setting]'))) {
@@ -118,5 +172,7 @@ window.addEventListener('message', event => {
       updateProjects(configsMap.get(select.value).projects);
     });
     modelSelector.style.display = showModelSelector ? 'flex' : 'none';
+  } else if (method === 'browsers') {
+    updateBrowsers(params.browsers);
   }
 });

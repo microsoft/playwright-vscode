@@ -976,7 +976,7 @@ export class VSCode {
   readonly webViews = new Map<string, Page>();
   readonly commandLog: string[] = [];
   readonly l10n = new L10n();
-  lastWithProgressData = undefined;
+  lastWithProgressData: any;
   private _hoverProviders: Map<string, HoverProvider> = new Map();
   readonly version: string;
   readonly connectionLog: any[] = [];
@@ -994,13 +994,13 @@ export class VSCode {
     this.context = { subscriptions: [], extensionUri: Uri.file(baseDir), workspaceState };
     this._browser = browser;
     (globalThis as any).__logForTest = (message: any) => this.connectionLog.push(message);
-    const commands = new Map<string, () => Promise<void>>();
-    this.commands.registerCommand = (name: string, callback: () => Promise<void>) => {
+    const commands = new Map<string, (...args: any[]) => Promise<void>>();
+    this.commands.registerCommand = (name: string, callback: (...args: any[]) => Promise<void>) => {
       commands.set(name, callback);
       return disposable;
     };
-    this.commands.executeCommand = async (name: string) => {
-      await commands.get(name)?.();
+    this.commands.executeCommand = async (name: string, ...args: any[]) => {
+      await commands.get(name)?.(...args);
       this.commandLog.push(name);
     };
     this.debug = new Debug();
@@ -1119,6 +1119,7 @@ export class VSCode {
         report: (data: any) => this.lastWithProgressData = data,
       };
       await callback(progress, new CancellationTokenSource().token);
+      this.lastWithProgressData = 'finished';
     };
     this.window.showTextDocument = (document: TextDocument) => {
       const editor = new TextEditor(document);
@@ -1352,7 +1353,7 @@ export class VSCode {
     const webView = this.webViews.get('pw.extension.settingsView')!;
     const selectedConfig = await webView.getByTestId('models').evaluate((e: HTMLSelectElement) => e.selectedOptions[0].textContent);
     result.push(`    config: ${selectedConfig}`);
-    const projectLocators = await webView.getByTestId('projects').locator('div').locator('label').all();
+    const projectLocators = await webView.getByTestId('projects').locator('div').locator('label').filter({ visible: true }).all();
     for (const projectLocator of projectLocators) {
       const checked = await projectLocator.locator('input').isChecked();
       const name = await projectLocator.textContent();

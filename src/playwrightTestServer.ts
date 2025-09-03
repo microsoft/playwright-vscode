@@ -18,7 +18,7 @@ import path from 'path';
 import { ConfigFindRelatedTestFilesReport, ConfigListFilesReport } from './listTests';
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
-import { TeleReporterReceiver } from './upstream/teleReceiver';
+import { TeleReporterReceiver, JsonConfig } from './upstream/teleReceiver';
 import { WebSocketTestServerTransport, TestServerConnection } from './upstream/testServerConnection';
 import { startBackend } from './backend';
 import { escapeRegex, pathSeparator } from './utils';
@@ -47,13 +47,7 @@ export type PlaywrightTestRunOptions = {
   updateSourceMethod?: 'overwrite' | 'patch' | '3way' | undefined;
 };
 
-export interface RunHooks {
-  onWillRunTests(config: TestConfig, debug: boolean): Promise<{ connectWsEndpoint?: string }>;
-  onDidRunTests(debug: boolean): Promise<void>;
-}
-
 export type PlaywrightTestOptions = {
-  runHooks: RunHooks;
   isUnderTest: boolean;
   envProvider: (configFile: string) => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
@@ -69,6 +63,7 @@ export class PlaywrightTestServer {
   private _options: PlaywrightTestOptions;
   private _model: TestModel;
   private _testServerPromise: Promise<TestServerConnectionWrapper> | undefined;
+  private _config?: JsonConfig;
 
   constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
@@ -94,6 +89,9 @@ export class PlaywrightTestServer {
     // TODO: remove ConfigListFilesReport and report suite directly once CLI is deprecated.
     const { report } = await testServer.connection.listFiles({});
     const teleReceiver = new TeleReporterReceiver({
+      onConfigure: (config: JsonConfig) => {
+        this._config = config;
+      },
       onBegin(rootSuite) {
         for (const projectSuite of rootSuite.suites) {
           const project = projectSuite.project()!;
@@ -165,7 +163,8 @@ export class PlaywrightTestServer {
 
     try {
       if (type === 'setup') {
-        testListener.onStdOut?.('\x1b[2mRunning global setup if any\u2026\x1b[0m\n');
+        if (!this._config || this._config.globalSetup)
+          testListener.onStdOut?.('\x1b[2mRunning global setup if any\u2026\x1b[0m\n');
         const { report, status } = await Promise.race([
           testServer.runGlobalSetup({}),
           new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
@@ -357,7 +356,6 @@ export class PlaywrightTestServer {
       if (!token.isCancellationRequested && debugTestServer && !debugTestServer.isClosed())
         await this._runGlobalHooksInServer(debugTestServer, 'teardown', reporter, token);
       debugTestServer?.close();
-      await this._options.runHooks.onDidRunTests(true);
     }
   }
 

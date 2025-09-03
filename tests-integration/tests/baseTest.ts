@@ -23,7 +23,7 @@ import { spawnSync } from 'child_process';
 
 export type TestOptions = {
   vscodeVersion: string;
-  packageManager: 'npm' | 'pnpm' | 'yarn-berry' | 'yarn-classic';
+  packageManager: 'npm' | 'pnpm' | 'pnpm-pnp' | 'yarn-berry' | 'yarn-classic';
 };
 
 type TestFixtures = TestOptions & {
@@ -80,12 +80,15 @@ export const test = base.extend<TestFixtures>({
       await fs.promises.mkdir(projectPath);
 
       let command = 'npm init playwright@latest';
-      if (packageManager === 'pnpm')
+      if (packageManager === 'pnpm' || packageManager === 'pnpm-pnp')
         command = 'pnpm create playwright@latest';
       else if (packageManager === 'yarn-classic')
         command = 'yarn create playwright';
       else if (packageManager === 'yarn-berry')
         command = 'yarn create playwright';
+      if (packageManager === 'pnpm-pnp')
+        await fs.promises.writeFile(path.join(projectPath, '.npmrc'), 'node-linker=pnp');
+
       spawnSync(`${command} --yes -- --quiet --browser=chromium --gha --install-deps`, {
         cwd: projectPath,
         stdio: 'inherit',

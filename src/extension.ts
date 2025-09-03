@@ -23,13 +23,12 @@ import * as reporterTypes from './upstream/reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
-import { TestModel, TestModelCollection, TestProject } from './testModel';
+import { RunHooks, TestModel, TestModelCollection, TestProject } from './testModel';
 import { configError, disabledProjectName as disabledProject, TestTree } from './testTree';
 import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
-import { RunHooks, TestConfig, ErrorContext } from './playwrightTestServer';
 import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
 import { pathToFileURL } from 'url';
@@ -69,7 +68,7 @@ export class Extension implements RunHooks {
   private _completedStepDecorationType: vscodeTypes.TextEditorDecorationType;
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
-  private _reusedBrowser: ReusedBrowser;
+  _reusedBrowser: ReusedBrowser;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
   private _locatorsView!: LocatorsView;
@@ -129,15 +128,15 @@ export class Extension implements RunHooks {
     this._treeItemObserver = new TreeItemObserver(this._vscode);
   }
 
-  async onWillRunTests(config: TestConfig, debug: boolean) {
-    await this._reusedBrowser.onWillRunTests(config, debug);
+  async onWillRunTests(model: TestModel, debug: boolean) {
+    await this._reusedBrowser.onWillRunTests(model, debug);
     return {
       connectWsEndpoint: this._reusedBrowser.browserServerWSEndpoint(),
     };
   }
 
-  async onDidRunTests(debug: boolean) {
-    await this._reusedBrowser.onDidRunTests(debug);
+  async onDidRunTests() {
+    await this._reusedBrowser.onDidRunTests();
   }
 
   reusedBrowserForTest(): ReusedBrowser {
@@ -175,15 +174,19 @@ export class Extension implements RunHooks {
         for (const model of versions.values())
           await installBrowsers(this._vscode, model);
       }),
-      vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
+      vscode.commands.registerCommand('pw.extension.command.inspect', async (browserId?: string) => {
         if (!this._models.hasEnabledModels()) {
           await vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
-        await this._reusedBrowser.inspect(this._models);
+
+        await this._reusedBrowser.inspect(this._models, browserId);
       }),
-      vscode.commands.registerCommand('pw.extension.command.closeBrowsers', () => {
-        this._reusedBrowser.closeAllBrowsers();
+      vscode.commands.registerCommand('pw.extension.command.closeBrowsers', async (browserId?: string) => {
+        if (browserId)
+          await this._reusedBrowser.closeBrowser(browserId, 'User requested close from VS Code Extension');
+        else
+          this._reusedBrowser.closeAllBrowsers();
       }),
       vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
         const model = this._models.selectedModel();
@@ -420,7 +423,7 @@ export class Extension implements RunHooks {
       if (error) {
         if (error.location) {
           const document = await this._vscode.workspace.openTextDocument(error.location.file);
-          const position = new this._vscode.Position(error.location.line - 1, error.location.column - 1);
+          const position = new this._vscode.Position(Math.max(0, error.location.line - 1), error.location.column - 1);
           await this._vscode.window.showTextDocument(document, {
             selection: new this._vscode.Range(position, position)
           });
@@ -638,7 +641,7 @@ export class Extension implements RunHooks {
           step = {
             location: new this._vscode.Location(
                 this._vscode.Uri.file(testStep.location.file),
-                new this._vscode.Position(testStep.location.line - 1, testStep.location?.column - 1)),
+                new this._vscode.Position(Math.max(testStep.location.line - 1, 0), testStep.location?.column - 1)),
             activeCount: 0,
             duration: 0,
           };
@@ -710,7 +713,7 @@ export class Extension implements RunHooks {
     // 1.52
     if (attachment.contentType === 'application/json' && attachment.body) {
       try {
-        const errorContext = JSON.parse(attachment.body.toString()) as ErrorContext;
+        const errorContext: { pageSnapshot?: string } = JSON.parse(attachment.body.toString());
         if (errorContext.pageSnapshot)
           return `### Page Snapshot at Failure\n\n${errorContext.pageSnapshot}`; // cannot use ``` codeblocks, vscode markdown does not support it
       } catch {}
@@ -827,7 +830,7 @@ test('test', async ({ page }) => {
     if (!this._testRun || !this._testItemUnderDebug)
       return;
     const testMessage = this._testMessageFromText(errorStack);
-    const position = new this._vscode.Position(location.line - 1, location.column - 1);
+    const position = new this._vscode.Position(Math.max(location.line - 1, 0), location.column - 1);
     testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.file), position);
     this._testRun.failed(this._testItemUnderDebug, testMessage);
     this._testItemUnderDebug = undefined;
@@ -975,7 +978,7 @@ test('test', async ({ page }) => {
 function parseLocation(vscode: vscodeTypes.VSCode, location: reporterTypes.Location): vscodeTypes.Location {
   return new vscode.Location(
       vscode.Uri.file(location.file),
-      new vscode.Position(location.line - 1, location.column - 1));
+      new vscode.Position(Math.max(location.line - 1, 0), location.column - 1));
 }
 
 function topStackFrame(vscode: vscodeTypes.VSCode, stackTrace: vscodeTypes.TestMessageStackFrame[]): vscodeTypes.Location | undefined {
@@ -992,7 +995,7 @@ function parseStack(vscode: vscodeTypes.VSCode, stack: string): vscodeTypes.Test
     result.push(new vscode.TestMessageStackFrame(
         frame.method || '',
         vscode.Uri.file(frame.file),
-        new vscode.Position(frame.line - 1, frame.column - 1)));
+        new vscode.Position(Math.max(frame.line - 1, 0), frame.column - 1)));
   }
   return result;
 }
