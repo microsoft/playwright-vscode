@@ -23,7 +23,7 @@ import { spawnSync } from 'child_process';
 
 export type TestOptions = {
   vscodeVersion: string;
-  packageManager: 'npm' | 'pnpm' | 'yarn-berry' | 'yarn-classic';
+  packageManager: 'npm' | 'pnpm' | 'pnpm-pnp' | 'yarn-berry' | 'yarn-classic';
 };
 
 type TestFixtures = TestOptions & {
@@ -80,27 +80,31 @@ export const test = base.extend<TestFixtures>({
       await fs.promises.mkdir(projectPath);
 
       let command = 'npm init playwright@latest';
-      if (packageManager === 'pnpm')
+      if (packageManager === 'pnpm' || packageManager === 'pnpm-pnp')
         command = 'pnpm create playwright@latest';
       else if (packageManager === 'yarn-classic')
         command = 'yarn create playwright';
       else if (packageManager === 'yarn-berry')
         command = 'yarn create playwright';
+      if (packageManager === 'pnpm-pnp')
+        await fs.promises.writeFile(path.join(projectPath, '.npmrc'), 'node-linker=pnp');
+
       spawnSync(`${command} --yes -- --quiet --browser=chromium --gha --install-deps`, {
         cwd: projectPath,
         stdio: 'inherit',
         shell: true,
       });
 
-      if (packageManager === 'yarn-berry') {
+      if (packageManager === 'yarn-berry' || packageManager === 'pnpm-pnp') {
         await fs.promises.mkdir(path.join(projectPath, '.vscode'), { recursive: true });
 
         // see https://github.com/microsoft/playwright/issues/18931.
         // ideally, we'd support this by default
+        let NODE_OPTIONS = '-r ./.pnp.cjs';
+        if (packageManager === 'yarn-berry')
+          NODE_OPTIONS += ' --experimental-loader ./.pnp.loader.mjs';
         await fs.promises.writeFile(path.join(projectPath, '.vscode', 'settings.json'), JSON.stringify({
-          'playwright.env': {
-            'NODE_OPTIONS': '-r ./.pnp.cjs --experimental-loader ./.pnp.loader.mjs'
-          }
+          'playwright.env': { NODE_OPTIONS }
         }));
       }
       return projectPath;
