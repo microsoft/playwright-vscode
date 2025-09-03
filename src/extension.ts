@@ -392,8 +392,8 @@ export class Extension implements RunHooks {
 
   private async _fileExists(uri: vscodeTypes.Uri) {
     try {
-      await this._vscode.workspace.fs.stat(uri);
-      return true;
+      const stat = await this._vscode.workspace.fs.stat(uri);
+      return !!(stat.type & this._vscode.FileType.File);
     } catch {
       return false;
     }
