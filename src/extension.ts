@@ -367,8 +367,9 @@ export class Extension implements RunHooks {
   }
 
   private async _detectPnp(configFileUri: vscodeTypes.Uri, root: string) {
-    let dir = this._vscode.Uri.joinPath(configFileUri, '..');
-    while (uriToPath(dir).length >= root.length) {
+    let dir = configFileUri;
+    while (uriToPath(dir) !== root) {
+      dir = this._vscode.Uri.joinPath(dir, '..');
       const pnpCjs = this._vscode.Uri.joinPath(dir, '.pnp.cjs');
       const pnpLoader = this._vscode.Uri.joinPath(dir, '.pnp.loader.mjs');
       const [pnpCjsExists, pnpLoaderExists] = await Promise.all([
@@ -385,15 +386,13 @@ export class Extension implements RunHooks {
         );
         return;
       }
-
-      dir = this._vscode.Uri.joinPath(dir, '..');
     }
   }
 
   private async _fileExists(uri: vscodeTypes.Uri) {
     try {
       const stat = await this._vscode.workspace.fs.stat(uri);
-      return !!(stat.type & this._vscode.FileType.File);
+      return !!(stat.type | this._vscode.FileType.File);
     } catch {
       return false;
     }

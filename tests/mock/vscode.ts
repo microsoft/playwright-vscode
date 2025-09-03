@@ -89,6 +89,13 @@ export enum DiagnosticSeverity {
   Hint = 'Hint'
 }
 
+enum FileType {
+  Unknown = 0,
+  File = 1,
+  Directory = 2,
+  SymbolicLink = 64
+}
+
 type Diagnostic = {
   message: string;
   location: Location;
@@ -923,6 +930,7 @@ export class VSCode {
   TestRunRequest = TestRunRequest;
   Uri = Uri;
   UIKind = UIKind;
+  FileType = FileType;
   commands: any = {};
   debug: Debug;
   languages: any = {};
@@ -1192,7 +1200,17 @@ export class VSCode {
     };
 
     this.workspace.fs = {};
-    this.workspace.fs.stat = (uri: Uri) => fs.promises.stat(uri.fsPath);
+    this.workspace.fs.stat = async (uri: Uri) => {
+      const stat = await fs.promises.stat(uri.fsPath);
+      let type = FileType.Unknown;
+      if (stat.isFile())
+        type = FileType.File;
+      if (stat.isDirectory())
+        type = FileType.Directory;
+      if (stat.isSymbolicLink())
+        type += FileType.SymbolicLink;
+      return { ...stat, type };
+    };
 
     this.env.clipboard = {
       writeText: async (text: string) => this._clipboardText = text,
