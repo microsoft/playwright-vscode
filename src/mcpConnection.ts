@@ -44,6 +44,12 @@ export class McpConnection {
         toolInvocationToken: undefined,
         input: { debugController: true }
       });
+      /**
+       * Example output:
+       * ### Result
+       * URL: ws://localhost:9222?debug-controller=1
+       * Version: 1.55.0-next-1756900598057
+       */
       const text = result.content.map(c => '' + c).join('\n');
       const wsEndpoint = text.match(/URL: (.+)/)?.[1];
       const version = parseFloat(text.match(/Version: (\d+\.\d+)/)?.[1] ?? 'NaN');
