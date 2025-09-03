@@ -69,7 +69,7 @@ export class Extension implements RunHooks {
   private _completedStepDecorationType: vscodeTypes.TextEditorDecorationType;
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
-  _reusedBrowser: ReusedBrowser;
+  private _reusedBrowser: ReusedBrowser;
   private _mcpConnection: McpConnection;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;

@@ -26,7 +26,7 @@ type RecorderMode = 'none' | 'standby' | 'inspecting' | 'recording';
 
 export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
-  private _testingBackend: Backend | undefined;
+  _testingBackend: Backend | undefined;
   private _cancelRecording: (() => void) | undefined;
   private _isRunningTests = false;
   private _insertedEditActionCount = 0;

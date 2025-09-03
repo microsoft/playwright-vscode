@@ -76,7 +76,7 @@ test('should have good fallback for browser list', async ({ activate }) => {
   });
 
   const extension = vscode.extensions[0] as Extension;
-  extension._reusedBrowser._moderniseForTest = true;
+  extension.reusedBrowserForTest()._moderniseForTest = true;
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
   await settingsView.getByRole('button', { name: 'Pick locator' }).click();
@@ -96,7 +96,7 @@ test('should have good fallback for browser list with non-default project name',
   });
 
   const extension = vscode.extensions[0] as Extension;
-  extension._reusedBrowser._moderniseForTest = true;
+  extension.reusedBrowserForTest()._moderniseForTest = true;
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
   await settingsView.getByRole('button', { name: 'Pick locator' }).click();
