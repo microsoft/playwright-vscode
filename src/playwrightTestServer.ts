@@ -310,6 +310,7 @@ export class PlaywrightTestServer {
           FORCE_COLOR: '1',
           PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
           PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
+          PWDEBUG: 'console',
         },
         program: paths.cli,
         args: ['test-server', '-c', paths.config],
