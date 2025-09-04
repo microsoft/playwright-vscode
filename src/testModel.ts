@@ -25,7 +25,7 @@ import type { ConfigSettings, SettingsModel, WorkspaceSettings } from './setting
 import path from 'path';
 import { DisposableBase } from './disposableBase';
 import { MultiMap } from './multimap';
-import { PlaywrightTestRunOptions, PlaywrightTestServer, RunHooks, TestConfig } from './playwrightTestServer';
+import { PlaywrightTestRunOptions, PlaywrightTestServer, TestConfig } from './playwrightTestServer';
 import { upstreamTreeItem } from './testTree';
 import { collectTestIds } from './upstream/testTree';
 import { TraceViewer } from './traceViewer';
@@ -40,6 +40,11 @@ export type TestProject = {
   project: reporterTypes.FullProject;
   [kIsEnabled]: boolean;
 };
+
+export interface RunHooks {
+  onWillRunTests(model: TestModel, debug: boolean): Promise<{ connectWsEndpoint?: string }>;
+  onDidRunTests(): Promise<void>;
+}
 
 export type TestModelEmbedder = {
   context: vscodeTypes.ExtensionContext;
@@ -559,7 +564,7 @@ export class TestModel extends DisposableBase {
         return;
       await this._playwrightTest.runTests(request, options, reporter, token);
     } finally {
-      await this._embedder.runHooks.onDidRunTests(false);
+      await this._embedder.runHooks.onDidRunTests();
     }
   }
 
@@ -597,7 +602,7 @@ export class TestModel extends DisposableBase {
         return;
       await this._playwrightTest.debugTests(request, options, reporter, token);
     } finally {
-      await this._embedder.runHooks.onDidRunTests(false);
+      await this._embedder.runHooks.onDidRunTests();
     }
   }
 

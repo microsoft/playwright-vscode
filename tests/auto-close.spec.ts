@@ -106,3 +106,31 @@ test('should auto-close after pick', async ({ activate }) => {
   const reusedBrowser = (vscode.extensions[0] as Extension).reusedBrowserForTest();
   await expect.poll(() => !!reusedBrowser._testingBackend).toBeFalsy();
 });
+
+test('should enact "Show Browser" setting change after test finishes', async ({ activate, createLatch }) => {
+  const latch = createLatch();
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+    'test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async ({ page }) => {
+        await page.setContent('foo');
+        ${latch.blockingCode}
+      });
+    `
+  });
+
+  const runPromise = testController.run();
+
+  const reusedBrowser = vscode.extensions[0].reusedBrowserForTest();
+  await expect.poll(() => !!reusedBrowser._backend, 'wait until test started').toBeTruthy();
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await webView.getByRole('checkbox', { name: 'Show Browser' }).uncheck();
+  await expect.poll(() => !!reusedBrowser._backend, 'contrary to setting change, browser stays open during test run').toBeTruthy();
+  latch.open();
+  await runPromise;
+
+  await expect.poll(() => !!reusedBrowser._backend, 'after test run, setting change is honored').toBeFalsy();
+});

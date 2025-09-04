@@ -23,13 +23,12 @@ import * as reporterTypes from './upstream/reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
-import { TestModel, TestModelCollection, TestProject } from './testModel';
+import { RunHooks, TestModel, TestModelCollection, TestProject } from './testModel';
 import { configError, disabledProjectName as disabledProject, TestTree } from './testTree';
 import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
-import { RunHooks, ErrorContext } from './playwrightTestServer';
 import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
 import { McpConnection } from './mcpConnection';
@@ -136,8 +135,8 @@ export class Extension implements RunHooks {
     };
   }
 
-  async onDidRunTests(debug: boolean) {
-    await this._reusedBrowser.onDidRunTests(debug);
+  async onDidRunTests() {
+    await this._reusedBrowser.onDidRunTests();
   }
 
   reusedBrowserForTest(): ReusedBrowser {
@@ -666,7 +665,7 @@ export class Extension implements RunHooks {
     // 1.52
     if (attachment.contentType === 'application/json' && attachment.body) {
       try {
-        const errorContext = JSON.parse(attachment.body.toString()) as ErrorContext;
+        const errorContext: { pageSnapshot?: string } = JSON.parse(attachment.body.toString());
         if (errorContext.pageSnapshot)
           return `### Page Snapshot at Failure\n\n${errorContext.pageSnapshot}`; // cannot use ``` codeblocks, vscode markdown does not support it
       } catch {}
