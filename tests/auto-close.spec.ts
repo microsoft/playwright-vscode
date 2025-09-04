@@ -123,14 +123,14 @@ test('should enact "Show Browser" setting change after test finishes', async ({ 
 
   const runPromise = testController.run();
 
-  const reusedBrowser = vscode.extensions[0].reusedBrowserForTest();
-  await expect.poll(() => !!reusedBrowser._backend, 'wait until test started').toBeTruthy();
+  const reusedBrowser = (vscode.extensions[0] as Extension).reusedBrowserForTest();
+  await expect.poll(() => !!reusedBrowser._testingBackend, 'wait until test started').toBeTruthy();
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
   await webView.getByRole('checkbox', { name: 'Show Browser' }).uncheck();
-  await expect.poll(() => !!reusedBrowser._backend, 'contrary to setting change, browser stays open during test run').toBeTruthy();
+  await expect.poll(() => !!reusedBrowser._testingBackend, 'contrary to setting change, browser stays open during test run').toBeTruthy();
   latch.open();
   await runPromise;
 
-  await expect.poll(() => !!reusedBrowser._backend, 'after test run, setting change is honored').toBeFalsy();
+  await expect.poll(() => !!reusedBrowser._testingBackend, 'after test run, setting change is honored').toBeFalsy();
 });
