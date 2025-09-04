@@ -342,6 +342,7 @@ export class PlaywrightTestServer {
         locations: locationPatterns,
         testIds,
         errorContext: { format: 'json' },
+        timeout: 0,
         ...runOptions,
       };
       void debugTestServer.runTests(options);
