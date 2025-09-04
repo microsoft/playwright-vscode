@@ -106,6 +106,7 @@ export class SettingsModel extends DisposableBase {
 }
 
 export interface Setting<T> extends vscodeTypes.Disposable {
+  readonly settingName: string;
   readonly onChange: vscodeTypes.Event<T>;
   get(): T | undefined;
   set(value: T): Promise<void>;
