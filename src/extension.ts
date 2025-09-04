@@ -31,6 +31,7 @@ import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
+import { McpConnection } from './mcpConnection';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -67,7 +68,8 @@ export class Extension implements RunHooks {
   private _completedStepDecorationType: vscodeTypes.TextEditorDecorationType;
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
-  _reusedBrowser: ReusedBrowser;
+  private _reusedBrowser: ReusedBrowser;
+  private _mcpConnection: McpConnection;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
   private _locatorsView!: LocatorsView;
@@ -102,6 +104,7 @@ export class Extension implements RunHooks {
 
     this._settingsModel = new SettingsModel(vscode, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
+    this._mcpConnection = new McpConnection(this._vscode, this._reusedBrowser);
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._models = new TestModelCollection(vscode, {
       context,
@@ -261,6 +264,7 @@ export class Extension implements RunHooks {
       this._diagnostics,
       this._treeItemObserver,
       registerTerminalLinkProvider(this._vscode),
+      this._mcpConnection.startScanning(),
     ];
     const fileSystemWatchers = [
       // Glob parser does not supported nested group, hence multiple watchers.
