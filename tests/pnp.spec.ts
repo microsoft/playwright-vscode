@@ -59,7 +59,7 @@ test('should pick up .pnp.cjs file closest to config', async ({ activate }, test
   expect(testRun.renderLog()).toContain('passed');
   expect(await fs.readFile(pnpCjsOutfile, 'utf-8')).toBe('foo');
 
-  await workspaceFolder.addFile('apps/tests/playwright.config.js', `module.exports = { testDir: 'tests' }`)
+  await workspaceFolder.addFile('apps/tests/playwright.config.js', `module.exports = { testDir: 'tests' }`);
   await enableConfigs(vscode, [`apps${path.sep}tests${path.sep}playwright.config.js`, `foo${path.sep}playwright.config.js`]);
   await expect(testController).toHaveTestTree(`
     -   apps
