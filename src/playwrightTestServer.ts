@@ -49,7 +49,7 @@ export type PlaywrightTestRunOptions = {
 
 export type PlaywrightTestOptions = {
   isUnderTest: boolean;
-  envProvider: () => NodeJS.ProcessEnv;
+  envProvider: (configFile: string) => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
 };
 
@@ -304,7 +304,7 @@ export class PlaywrightTestServer {
         env: {
           ...process.env,
           CI: this._options.isUnderTest ? undefined : process.env.CI,
-          ...this._options.envProvider(),
+          ...this._options.envProvider(this._model.config.configFile),
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,
           FORCE_COLOR: '1',
@@ -342,6 +342,7 @@ export class PlaywrightTestServer {
         locations: locationPatterns,
         testIds,
         errorContext: { format: 'json' },
+        timeout: 0,
         ...runOptions,
       };
       void debugTestServer.runTests(options);
@@ -390,7 +391,7 @@ export class PlaywrightTestServer {
       cwd: paths.cwd,
       envProvider: () => {
         return {
-          ...this._options.envProvider(),
+          ...this._options.envProvider(this._model.config.configFile),
           FORCE_COLOR: '1',
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,

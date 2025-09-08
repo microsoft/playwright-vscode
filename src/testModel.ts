@@ -51,7 +51,7 @@ export type TestModelEmbedder = {
   settingsModel: SettingsModel;
   runHooks: RunHooks;
   isUnderTest: boolean;
-  envProvider: () => NodeJS.ProcessEnv;
+  envProvider: (configFile: string) => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
   requestWatchRun: (files: string[], testItems: vscodeTypes.TestItem[]) => void;
 };
