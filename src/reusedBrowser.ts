@@ -209,8 +209,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
       if (backend === this._testingBackend) {
         this._testingPageCount = params.pageCount;
-        if (!this._isRunningTests && this._testingPageCount === 0)
-          this._stop();
+        this._maybeStopTestingBackend();
       }
     });
     backend.on('sourceChanged', async params => {
@@ -275,6 +274,16 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }
 
     return [...this._openBrowsers.keys()];
+  }
+
+  private _maybeStopTestingBackend() {
+    if (this._isRunningTests)
+      return;
+
+    if (this._testingPageCount > 0 && this._settingsModel.showBrowser.get())
+      return;
+
+    this._stop();
   }
 
   private _scheduleEdit(callback: () => Promise<void>) {
@@ -446,14 +455,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   async onDidRunTests() {
-    if (!this._settingsModel.showBrowser.get()) {
-      this._stop();
-    } else {
-      if (!this._testingPageCount)
-        this._stop();
-    }
     this._isRunningTests = false;
     this._onRunningTestsChangedEvent.fire(false);
+    this._maybeStopTestingBackend();
   }
 
   async closeBrowser(id: string, reason: string) {
