@@ -1293,27 +1293,3 @@ http.createServer((req, res) => {
   const testRun = await testController.run();
   expect(testRun.renderLog({ output: true })).toContain('passed');
 });
-
-test('should disable browser settings while tests are running', async ({ activate, createLatch, showBrowser }) => {
-  test.skip(!showBrowser);
-
-  const latch = createLatch();
-
-  const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = {}`,
-    'test.spec.ts': `
-      import { test } from '@playwright/test';
-      test('blocking test', async () => ${latch.blockingCode});
-    `,
-  });
-
-  const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  const showBrowserButton = webView.getByLabel('Show browser');
-
-  await expect(showBrowserButton).toBeEnabled();
-  const runPromise = testController.run();
-  await expect(showBrowserButton).toBeDisabled();
-  latch.open();
-  await runPromise;
-  await expect(showBrowserButton).toBeEnabled();
-});
