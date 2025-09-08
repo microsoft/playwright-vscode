@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import type { BrowserServer } from '@playwright/test';
 import type { Extension } from '../src/extension';
 import { enableProjects, expect, test } from './utils';
 
@@ -75,7 +76,7 @@ test('should have good fallback for browser list', async ({ activate }) => {
   });
 
   const extension = vscode.extensions[0] as Extension;
-  extension._reusedBrowser._moderniseForTest = true;
+  extension.reusedBrowserForTest()._moderniseForTest = true;
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
   await settingsView.getByRole('button', { name: 'Pick locator' }).click();
@@ -95,7 +96,7 @@ test('should have good fallback for browser list with non-default project name',
   });
 
   const extension = vscode.extensions[0] as Extension;
-  extension._reusedBrowser._moderniseForTest = true;
+  extension.reusedBrowserForTest()._moderniseForTest = true;
 
   const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
   await settingsView.getByRole('button', { name: 'Pick locator' }).click();
@@ -107,4 +108,34 @@ test('should have good fallback for browser list with non-default project name',
         - button "Pick locator"
         - button "Close Browser"
   `);
+});
+
+test('should add MCP debug controllers to browser list', async ({ activate, playwright }) => {
+  const { vscode } = await activate({ 'playwright.config.js': `module.exports = {}` });
+
+  const browser = await playwright.chromium.launch({});
+  const browserServer = await (browser as any)._launchServer({ _debugController: true }) as BrowserServer;
+  const page = await browser.newPage();
+  await page.goto('data:text/html,MCP');
+
+  vscode.lm.registerTool('playwright_browser_connect', {
+    description: `unused`,
+    invoke: ({ input }) => {
+      expect(input).toEqual({ debugController: true });
+      const url = new URL(browserServer.wsEndpoint());
+      url.searchParams.set('debug-controller', '');
+      return { content: [
+        `URL: ${url.toString()}\nVersion: 1.55`,
+      ] };
+    }
+  });
+
+  const settingsView = vscode.webViews.get('pw.extension.settingsView')!;
+  await expect(settingsView.getByRole('list', { name: 'Browsers' })).toMatchAriaSnapshot(`
+    - list "Browsers":
+      - listitem "chromium - data:text/html,MCP"
+  `);
+
+  await browser.close();
+  await expect(settingsView.getByRole('listitem', { name: 'chromium - data:text/html,MCP' })).not.toBeVisible();
 });
