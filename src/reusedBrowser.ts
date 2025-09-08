@@ -74,7 +74,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   dispose() {
-    this._stop();
+    this._stopTestingBackend();
     for (const d of this._disposables)
       d.dispose();
     this._disposables = [];
@@ -276,16 +276,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return [...this._openBrowsers.keys()];
   }
 
-  private _maybeStopTestingBackend() {
-    if (this._isRunningTests)
-      return;
-
-    if (this._testingPageCount > 0 && this._settingsModel.showBrowser.get())
-      return;
-
-    this._stop();
-  }
-
   private _scheduleEdit(callback: () => Promise<void>) {
     this._editOperations = this._editOperations.then(callback).catch(e => console.log(e));
   }
@@ -419,7 +409,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       this._recorderModeForTest = 'recording';
     } catch (e) {
       showExceptionAsUserError(this._vscode, model, e as Error);
-      this._stop();
+      this._stopTestingBackend();
       return;
     }
 
@@ -457,7 +447,11 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   async onDidRunTests() {
     this._isRunningTests = false;
     this._onRunningTestsChangedEvent.fire(false);
-    this._maybeStopTestingBackend();
+
+    if (!this._settingsModel.showBrowser.get())
+      this._stopTestingBackend();
+    else
+      this._maybeStopTestingBackend();
   }
 
   async closeBrowser(id: string, reason: string) {
@@ -478,7 +472,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       );
       return;
     }
-    this._stop();
+    this._stopTestingBackend();
   }
 
   private _resetExtensionState() {
@@ -493,11 +487,21 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     await backend.setRecorderMode({ mode });
   }
 
-  private _stop() {
+  private _stopTestingBackend() {
     this._resetExtensionState();
     this._testingBackend?.requestGracefulTermination();
     this._testingBackend = undefined;
     this._testingPageCount = 0;
+  }
+
+  private _maybeStopTestingBackend() {
+    if (this._isRunningTests)
+      return;
+
+    if (this._testingPageCount > 0)
+      return;
+
+    this._stopTestingBackend();
   }
 }
 
