@@ -116,9 +116,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         this._testingBackend = undefined;
       }
     });
-    backend.onError(e => {
+    backend.onError(() => {
       if (backend === this._testingBackend) {
-        void this._vscode.window.showErrorMessage(e.message);
         void this._reset('none', this._testingBackend);
         this._testingBackend = undefined;
       }
