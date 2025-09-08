@@ -923,7 +923,6 @@ export class VSCode {
   TestRunRequest = TestRunRequest;
   Uri = Uri;
   UIKind = UIKind;
-  FileType = FileType;
   commands: any = {};
   debug: Debug;
   languages: any = {};
