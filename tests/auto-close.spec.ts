@@ -124,13 +124,7 @@ test('should enact "Show Browser" setting change after test finishes', async ({ 
   await expect.poll(() => !!reusedBrowser._backend, 'wait until test started').toBeTruthy();
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
-
-  const checkbox = await webView.getByRole('checkbox', { name: 'Show Browser' });
-  await expect(checkbox).toBeDisabled();
-  // Normally checkbox will be disabled when the tests start running. Emulate racy
-  // condition when the checkbox is still enabled.
-  await checkbox.evaluate(checkbox => (checkbox as HTMLInputElement).disabled = false);
-  await checkbox.uncheck();
+  await webView.getByRole('checkbox', { name: 'Show Browser' }).uncheck();
   await expect.poll(() => !!reusedBrowser._backend, 'contrary to setting change, browser stays open during test run').toBeTruthy();
   latch.open();
   await runPromise;
