@@ -308,7 +308,7 @@ export class Extension implements RunHooks {
       if (configFilePath.includes('test-results') && !workspaceFolderPath.includes('test-results'))
         continue;
 
-      await this._detectPnp(configFileUri, workspaceFolderPath);
+      await this._detectPnp(configFilePath, workspaceFolderPath);
 
       let playwrightInfo = null;
       try {
@@ -369,22 +369,22 @@ export class Extension implements RunHooks {
     return env;
   }
 
-  private async _detectPnp(configFileUri: vscodeTypes.Uri, root: string) {
+  private async _detectPnp(configFileUri: string, root: string) {
     let dir = configFileUri;
-    while (uriToPath(dir) !== root) {
-      dir = this._vscode.Uri.joinPath(dir, '..');
-      const pnpCjs = this._vscode.Uri.joinPath(dir, '.pnp.cjs');
-      const pnpLoader = this._vscode.Uri.joinPath(dir, '.pnp.loader.mjs');
+    while (dir !== root) {
+      dir = path.resolve(dir, '..');
+      const pnpCjs = path.join(dir, '.pnp.cjs');
+      const pnpLoader = path.join(dir, '.pnp.loader.mjs');
       const [pnpCjsExists, pnpLoaderExists] = await Promise.all([
         this._fileExists(pnpCjs),
         this._fileExists(pnpLoader)
       ]);
       if (pnpCjsExists || pnpLoaderExists) {
         this._pnpFiles.set(
-            uriToPath(configFileUri),
+            configFileUri,
             {
-              pnpCJS: pnpCjsExists ? uriToPath(pnpCjs) : undefined,
-              pnpLoader: pnpLoaderExists ? uriToPath(pnpLoader) : undefined
+              pnpCJS: pnpCjsExists ? pnpCjs : undefined,
+              pnpLoader: pnpLoaderExists ? pnpLoader : undefined
             }
         );
         return;
@@ -392,10 +392,10 @@ export class Extension implements RunHooks {
     }
   }
 
-  private async _fileExists(uri: vscodeTypes.Uri) {
+  private async _fileExists(path: string) {
     try {
-      const stat = await this._vscode.workspace.fs.stat(uri);
-      return !!(stat.type | this._vscode.FileType.File);
+      const stat = await fs.promises.stat(path);
+      return stat.isFile();
     } catch {
       return false;
     }
