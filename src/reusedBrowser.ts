@@ -33,7 +33,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _envProvider: (configFile: string) => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
   private _testingPageCount = 0; // test runner pagecount
-  private _openBrowsers = new Map<Backend, { id?: string; name: string; channel?: string; title: string }[]>();
+  private _openBrowsers = new Map<Backend, { id?: string; name: string; channel?: string; title: string; pageCount: number }[]>();
   private _onPageCountChangedEvent: vscodeTypes.EventEmitter<number>;
   readonly onPageCountChanged: vscodeTypes.Event<number>;
   readonly _onHighlightRequestedForTestEvent: vscodeTypes.EventEmitter<string>;
@@ -187,6 +187,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         this._openBrowsers.set(backend, [{
           name,
           title: name,
+          pageCount: params.pageCount,
         }]);
       } else {
         this._openBrowsers.set(backend, params.browsers.map(b => {
@@ -201,6 +202,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
             name: b.name,
             channel: b.channel,
             title,
+            pageCount: pages.length,
           };
         }));
       }
@@ -286,8 +288,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   pageCount() {
     let sum = 0;
-    for (const browsers of this._openBrowsers.values())
-      sum += browsers.length;
+    for (const browsers of this._openBrowsers.values()) {
+      for (const browser of browsers)
+        sum += browser.pageCount;
+    }
     return sum;
   }
 
