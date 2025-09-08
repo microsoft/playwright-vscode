@@ -31,6 +31,7 @@ import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
+import { pathToFileURL } from 'url';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -78,6 +79,8 @@ export class Extension implements RunHooks {
   private _commandQueue = Promise.resolve();
   private _watchFilesBatch?: vscodeTypes.TestItem[];
   private _watchItemsBatch?: vscodeTypes.TestItem[];
+
+  private _pnpFiles = new Map<string, { pnpCJS?: string, pnpLoader?: string }>();
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     this._vscode = vscode;
@@ -305,9 +308,11 @@ export class Extension implements RunHooks {
       if (configFilePath.includes('test-results') && !workspaceFolderPath.includes('test-results'))
         continue;
 
+      await this._detectPnp(configFilePath, workspaceFolderPath);
+
       let playwrightInfo = null;
       try {
-        playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider());
+        playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider(configFilePath));
       } catch (error) {
         if (userGesture) {
           void this._vscode.window.showWarningMessage(
@@ -328,7 +333,7 @@ export class Extension implements RunHooks {
         continue;
       }
 
-      await this._models.createModel(workspaceFolderPath, uriToPath(configFileUri), playwrightInfo);
+      await this._models.createModel(workspaceFolderPath, configFilePath, playwrightInfo);
     }
 
     this._models.ensureHasEnabledModels();
@@ -342,11 +347,58 @@ export class Extension implements RunHooks {
     this._workspaceObserver.setWatchFolders(this._models.testDirs());
   }
 
-  private _envProvider(): NodeJS.ProcessEnv {
-    const env = this._vscode.workspace.getConfiguration('playwright').get('env', {});
-    return Object.fromEntries(Object.entries(env).map(entry => {
+  private _envProvider(configFile: string) {
+    const config = this._vscode.workspace.getConfiguration('playwright').get('env', {});
+    const env = Object.fromEntries(Object.entries(config).map(entry => {
       return typeof entry[1] === 'string' ? entry : [entry[0], JSON.stringify(entry[1])];
     })) as NodeJS.ProcessEnv;
+
+    if (env.NODE_OPTIONS?.includes('.pnp.cjs') || env.NODE_OPTIONS?.includes('.pnp.loader.mjs'))
+      return env;
+
+    if (!this._pnpFiles.has(configFile))
+      return env;
+
+    env.NODE_OPTIONS ??= '';
+    const { pnpCJS, pnpLoader } = this._pnpFiles.get(configFile)!;
+    if (pnpCJS)
+      env.NODE_OPTIONS += ` --require ${pnpCJS}`;
+    if (pnpLoader)
+      env.NODE_OPTIONS += ` --experimental-loader ${pathToFileURL(pnpLoader)}`;
+
+    return env;
+  }
+
+  private async _detectPnp(configFileUri: string, root: string) {
+    let dir = configFileUri;
+    while (dir !== root) {
+      dir = path.resolve(dir, '..');
+      const pnpCjs = path.join(dir, '.pnp.cjs');
+      const pnpLoader = path.join(dir, '.pnp.loader.mjs');
+      const [pnpCjsExists, pnpLoaderExists] = await Promise.all([
+        this._fileExists(pnpCjs),
+        this._fileExists(pnpLoader)
+      ]);
+      if (pnpCjsExists || pnpLoaderExists) {
+        this._pnpFiles.set(
+            configFileUri,
+            {
+              pnpCJS: pnpCjsExists ? pnpCjs : undefined,
+              pnpLoader: pnpLoaderExists ? pnpLoader : undefined
+            }
+        );
+        return;
+      }
+    }
+  }
+
+  private async _fileExists(path: string) {
+    try {
+      const stat = await fs.promises.stat(path);
+      return stat.isFile();
+    } catch {
+      return false;
+    }
   }
 
   private async _handleTestRun(isDebug: boolean, request: vscodeTypes.TestRunRequest, cancellationToken?: vscodeTypes.CancellationToken) {
