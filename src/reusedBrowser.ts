@@ -83,7 +83,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private async _startBackendIfNeeded(model: TestModel): Promise<{ errors?: string[] }> {
     // Unconditionally close selector dialog, it might send inspect(enabled: false).
     if (this._testingBackend) {
-      await this._reset('none');
+      await this._reset('none', this._testingBackend);
       return {};
     }
 
@@ -112,15 +112,15 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return { errors };
     backend.onClose(() => {
       if (backend === this._testingBackend) {
+        void this._reset('none', this._testingBackend);
         this._testingBackend = undefined;
-        void this._reset('none');
       }
     });
     backend.onError(e => {
       if (backend === this._testingBackend) {
         void this._vscode.window.showErrorMessage(e.message);
+        void this._reset('none', this._testingBackend);
         this._testingBackend = undefined;
-        void this._reset('none');
       }
     });
 
@@ -161,7 +161,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         // When "pick locator" is cancelled from inside the browser UI,
         // get rid of the recorder toolbar for better experience.
         // Assume "pick locator" is active when we are not recording.
-        void this._reset(this._cancelRecording ? 'standby' : 'none');
+        void this._reset(this._cancelRecording ? 'standby' : 'none', backend);
         return;
       }
       if (params.mode === 'recording' && !this._cancelRecording) {
@@ -483,10 +483,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._cancelRecording = undefined;
   }
 
-  private async _reset(mode: 'none' | 'standby') {
+  private async _reset(mode: 'none' | 'standby', backend: Backend) {
     this._resetExtensionState();
     this._recorderModeForTest = mode;
-    await this._testingBackend?.setRecorderMode({ mode });
+    await backend.setRecorderMode({ mode });
   }
 
   private _stop() {
