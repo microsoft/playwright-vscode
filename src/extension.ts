@@ -1051,11 +1051,16 @@ const traceUrlSymbol = Symbol('traceUrl');
 /**
  * sort paths intuitively.
  * [/foo/bar, /foo, /foo/baz] -> [/foo, /foo/bar, /foo/baz]
+ * prefers playwright.config.ts over playwright.bail.config.ts
  */
 export function sortPaths(a: string, b: string): number {
-  const aDepth = a.split(path.sep).length;
-  const bDepth = b.split(path.sep).length;
-  if (aDepth !== bDepth)
-    return aDepth - bDepth;
+  const depth = a.split(path.sep).length - b.split(path.sep).length;
+  if (depth !== 0)
+    return depth;
+
+  const length = path.basename(a).length - path.basename(b).length;
+  if (length !== 0)
+    return length;
+
   return a.localeCompare(b);
 }
