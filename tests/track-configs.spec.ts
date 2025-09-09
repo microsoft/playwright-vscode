@@ -134,6 +134,7 @@ test('should show config loading errors', async ({ vscode, activate }) => {
 test('should order configs intuitively', async ({ activate }) => {
   const { vscode } = await activate({
     'extension/playwright.config.ts': `module.exports = {};`,
+    'playwright.bail.config.ts': `module.exports = {};`,
     'playwright.config.ts': `module.exports = {};`,
   });
 
@@ -156,6 +157,7 @@ test('should order configs intuitively', async ({ activate }) => {
     return items;
   }).toEqual([
     'playwright.config.ts',
-    `extension${path.sep}playwright.config.ts`
+    `playwright.bail.config.ts`,
+    `extension${path.sep}playwright.config.ts`,
   ]);
 });
