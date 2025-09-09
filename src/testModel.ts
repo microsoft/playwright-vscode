@@ -118,24 +118,28 @@ export class TestModel extends DisposableBase {
         firstProject = false;
       }
     } else {
-      const inner = new Set<string>();
-      for (const { project: { dependencies, teardown } } of this._projects.values()) {
-        for (const dep of dependencies)
-          inner.add(dep);
-        if (teardown)
-          inner.add(teardown);
-      }
-
-      const firstRootProject = this.projects().find(p => !inner.has(p.name));
-      if (!firstRootProject)
-        return;
-
-      for (const project of this._dependencies(firstRootProject))
-        project[kIsEnabled] = true;
+      this._markInitiallyEnabledProjects();
     }
   }
 
-  private _dependencies(project: TestProject) {
+  private _markInitiallyEnabledProjects() {
+    const inner = new Set<string>();
+    for (const { project: { dependencies, teardown } } of this._projects.values()) {
+      for (const dep of dependencies)
+        inner.add(dep);
+      if (teardown)
+        inner.add(teardown);
+    }
+
+    const firstRootProject = this.projects().find(p => !inner.has(p.name));
+    if (!firstRootProject)
+      return;
+
+    for (const project of this._projectClosure(firstRootProject))
+      project[kIsEnabled] = true;
+  }
+
+  private _projectClosure(project: TestProject) {
     const result = new Set<TestProject>();
     const visit = (p: TestProject) => {
       if (result.has(p))
