@@ -49,7 +49,12 @@ const testsWithSetup = {
 
 test('should run setup and teardown projects (1)', async ({ activate }) => {
   const { vscode, testController } = await activate(testsWithSetup);
-  await enableProjects(vscode, ['setup', 'teardown', 'test']);
+  await expect(vscode).toHaveProjectTree(`
+    config: playwright.config.ts
+    [x] setup
+    [x] test
+    [x] teardown
+  `);
   const testRun = await testController.run();
 
   await expect(testController).toHaveTestTree(`
@@ -114,7 +119,12 @@ test('should run setup and teardown projects (3)', async ({ activate }) => {
 
 test('should run part of the setup only', async ({ activate }) => {
   const { vscode, testController } = await activate(testsWithSetup);
-  await enableProjects(vscode, ['setup', 'teardown', 'test']);
+  await expect(vscode).toHaveProjectTree(`
+    config: playwright.config.ts
+    [x] setup
+    [x] test
+    [x] teardown
+  `);
 
   await testController.expandTestItems(/setup.ts/);
   const testItems = testController.findTestItems(/setup/);
@@ -131,7 +141,12 @@ test('should run part of the setup only', async ({ activate }) => {
 
 test('should run setup and teardown for test', async ({ activate }) => {
   const { vscode, testController } = await activate(testsWithSetup);
-  await enableProjects(vscode, ['setup', 'teardown', 'test']);
+  await expect(vscode).toHaveProjectTree(`
+    config: playwright.config.ts
+    [x] setup
+    [x] test
+    [x] teardown
+  `);
 
   await testController.expandTestItems(/test.ts/);
   const testItems = testController.findTestItems(/test/);

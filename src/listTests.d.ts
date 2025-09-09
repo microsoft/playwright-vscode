@@ -27,6 +27,8 @@ export type ProjectConfigWithFiles = {
     testIdAttribute?: string;
   };
   files: string[];
+  dependencies: string[];
+  teardown?: string;
 };
 
 export type ConfigListFilesReport = {

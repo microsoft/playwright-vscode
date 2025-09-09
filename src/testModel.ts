@@ -118,9 +118,43 @@ export class TestModel extends DisposableBase {
         firstProject = false;
       }
     } else {
-      if (this.projects().length)
-        this.projects()[0][kIsEnabled] = true;
+      const inner = new Set<string>();
+      for (const { project: { dependencies, teardown } } of this._projects.values()) {
+        for (const dep of dependencies)
+          inner.add(dep);
+        if (teardown)
+          inner.add(teardown);
+      }
+
+      const firstRootProject = this.projects().find(p => !inner.has(p.name));
+      if (!firstRootProject)
+        return;
+
+      for (const project of this._dependencies(firstRootProject))
+        project[kIsEnabled] = true;
     }
+  }
+
+  private _dependencies(project: TestProject) {
+    const result = new Set<TestProject>();
+    const visit = (p: TestProject) => {
+      if (result.has(p))
+        return;
+      result.add(p);
+
+      for (const dep of p.project.dependencies) {
+        const project = this._projects.get(dep);
+        if (project)
+          visit(project);
+      }
+      if (p.project.teardown) {
+        const project = this._projects.get(p.project.teardown);
+        if (project)
+          visit(project);
+      }
+    };
+    visit(project);
+    return result;
   }
 
   dispose() {
@@ -240,7 +274,8 @@ export class TestModel extends DisposableBase {
   private _createProject(projectReport: ProjectConfigWithFiles): TestProject {
     const projectSuite = new TeleSuite(projectReport.name, 'project');
     projectSuite._project = {
-      dependencies: [],
+      dependencies: projectReport.dependencies,
+      teardown: projectReport.teardown,
       grep: '.*',
       grepInvert: null,
       metadata: {},

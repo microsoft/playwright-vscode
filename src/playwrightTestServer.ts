@@ -99,6 +99,8 @@ export class PlaywrightTestServer {
           result.projects.push({
             name: project.name,
             testDir: project.testDir,
+            dependencies: project.dependencies,
+            teardown: project.teardown,
             use: project.use || {},
             files,
           });
