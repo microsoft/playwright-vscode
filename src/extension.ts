@@ -1058,13 +1058,9 @@ export function sortPaths(a: string, b: string): number {
   if (depth !== 0)
     return depth;
 
-  const basenameA = path.basename(a);
-  const basenameB = path.basename(b);
-  if (basenameA !== basenameB) {
-    const dots = basenameA.split('.').length - basenameB.split('.').length;
-    if (dots !== 0)
-      return dots;
-  }
+  const length = path.basename(a).length - path.basename(b).length;
+  if (length !== 0)
+    return length;
 
   return a.localeCompare(b);
 }
