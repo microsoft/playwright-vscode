@@ -222,7 +222,10 @@ export async function enableProjects(vscode: VSCode, projects: string[]) {
   const projectLocators = await webView.getByTestId('projects').locator('div').locator('label').all();
   for (const projectLocator of projectLocators) {
     const name = await projectLocator.textContent();
-    await projectLocator.locator('input').setChecked(projects.includes(name!));
+    // ensure change, so that settings get saved
+    await projectLocator.locator('input').uncheck();
+    if (projects.includes(name!))
+      await projectLocator.locator('input').check();
   }
 }
 
