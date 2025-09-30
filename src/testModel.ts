@@ -710,6 +710,11 @@ export class TestModel extends DisposableBase {
     }
     return false;
   }
+
+  configLabel(): string {
+    const prefix = this._collection.hasMultipleWorkspaces ? path.basename(this.config.workspaceFolder) + path.sep : '';
+    return prefix + path.relative(this.config.workspaceFolder, this.config.configFile);
+  }
 }
 
 export class TestModelCollection extends DisposableBase {
@@ -719,6 +724,7 @@ export class TestModelCollection extends DisposableBase {
   readonly onUpdated: vscodeTypes.Event<void>;
   readonly vscode: vscodeTypes.VSCode;
   readonly embedder: TestModelEmbedder;
+  hasMultipleWorkspaces = false;
 
   constructor(vscode: vscodeTypes.VSCode, embedder: TestModelEmbedder) {
     super();
@@ -787,6 +793,7 @@ export class TestModelCollection extends DisposableBase {
     const configSettings = this._configSettings(model.config);
     model.isEnabled = configSettings?.enabled || (this._models.length === 1 && !configSettings);
     await model._loadModelIfNeeded(configSettings);
+    this.hasMultipleWorkspaces = new Set(this._models.map(m => m.config.workspaceFolder)).size > 1;
     this._didUpdate.fire();
   }
 
