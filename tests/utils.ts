@@ -219,6 +219,8 @@ export async function selectConfig(vscode: VSCode, label: string) {
 
 export async function enableProjects(vscode: VSCode, projects: string[]) {
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  for (const project of projects)
+    await expect(webView.getByTestId('projects').locator('div').locator('label').getByLabel(project)).toBeVisible();
   const projectLocators = await webView.getByTestId('projects').locator('div').locator('label').all();
   for (const projectLocator of projectLocators) {
     const name = await projectLocator.textContent();
