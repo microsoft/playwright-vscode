@@ -143,38 +143,32 @@ export class Extension implements RunHooks {
   }
 
   private async _showProjectQuickPick(): Promise<any> {
-    const items: vscodeTypes.QuickPickItem[] = [];
-    const itemToProjectMap = new Map<vscodeTypes.QuickPickItem, { model: TestModel, projectName: string }>();
-
-    const models = this._models.models();
-    for (const model of models) {
-      for (const project of model.projects()) {
-        const item: vscodeTypes.QuickPickItem = {
-          label: project.name,
-          detail: models.length > 1 ? model.configLabel() : undefined,
-          picked: model.isProjectEnabled(project),
-        };
-        items.push(item);
-        itemToProjectMap.set(item, { model, projectName: project.name });
-      }
-    }
-
-    if (items.length < 2)
+    const model = this._models.selectedModel();
+    if (!model)
       return;
 
-    const result = await this._vscode.window.showQuickPick(items, {
-      title: this._vscode.l10n.t('Select Projects'),
-      canPickMany: true,
-      placeHolder: this._vscode.l10n.t('Choose which projects to run')
-    });
+    const projects = model.projects();
+    if (projects.length < 2)
+      return;
+
+    const result = await this._vscode.window.showQuickPick(
+        projects.map(project => ({
+          label: project.name,
+          picked: model.isProjectEnabled(project),
+        })),
+        {
+          title: this._vscode.l10n.t('Select Projects'),
+          canPickMany: true,
+          placeHolder: this._vscode.l10n.t('Choose which projects to run')
+        }
+    );
 
     if (!result)
       return;
 
-    for (const [item, { model, projectName }] of itemToProjectMap) {
-      const shouldBeEnabled = result.includes(item);
-      this._models.setProjectEnabled(model.config.configFile, projectName, shouldBeEnabled);
-    }
+    const enabled = new Set(result.map(item => item.label));
+    for (const project of projects)
+      this._models.setProjectEnabled(model.config.configFile, project.name, enabled.has(project.name));
   }
 
   reusedBrowserForTest(): ReusedBrowser {
@@ -533,12 +527,11 @@ export class Extension implements RunHooks {
     this._executionLinesChanged();
     const include = request.include;
 
-    if (true || this._models.isFreshOpen() && mode !== 'watch') {
+    if (true || this._models.isFreshOpen() && mode !== 'watch')
       await this._showProjectQuickPick();
 
-      // update request in case user enabled/disabled some models/projects
-      // filter include / exclude to only enabled tests
-    }
+    // update request in case user enabled/disabled some models/projects
+    // filter include / exclude to only enabled tests
 
 
     const rootItems: vscodeTypes.TestItem[] = [];
