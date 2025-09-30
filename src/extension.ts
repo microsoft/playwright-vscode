@@ -157,9 +157,9 @@ export class Extension implements RunHooks {
           picked: model.isProjectEnabled(project),
         })),
         {
-          title: this._vscode.l10n.t('Select Projects'),
+          title: this._vscode.l10n.t('Pick Playwright projects'),
           canPickMany: true,
-          placeHolder: this._vscode.l10n.t('Choose which projects to run')
+          placeHolder: this._vscode.l10n.t(`Which projects should be used to run your tests?`)
         }
     );
 
