@@ -527,7 +527,7 @@ export class Extension implements RunHooks {
     this._executionLinesChanged();
     const include = request.include;
 
-    if (this._models.isFreshOpen() && mode !== 'watch')
+    if (this._models.isFreshOpen())
       await this._showProjectQuickPick();
 
     const rootItems: vscodeTypes.TestItem[] = [];
