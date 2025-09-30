@@ -527,12 +527,8 @@ export class Extension implements RunHooks {
     this._executionLinesChanged();
     const include = request.include;
 
-    if (true || this._models.isFreshOpen() && mode !== 'watch')
+    if (this._models.isFreshOpen() && mode !== 'watch')
       await this._showProjectQuickPick();
-
-    // update request in case user enabled/disabled some models/projects
-    // filter include / exclude to only enabled tests
-
 
     const rootItems: vscodeTypes.TestItem[] = [];
     this._testController.items.forEach(item => rootItems.push(item));
