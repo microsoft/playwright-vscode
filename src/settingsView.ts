@@ -231,9 +231,13 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
   toggleModels() {
     const options: vscodeTypes.QuickPickItem[] = [];
     const itemMap = new Map<string, vscodeTypes.QuickPickItem>();
+    const workspaceFolders = new Set<string>();
+    this._models.models().forEach(model => workspaceFolders.add(model.config.workspaceFolder));
+
     for (const model of this._models.models()) {
+      const prefix = workspaceFolders.size > 1 ? path.basename(model.config.workspaceFolder) + path.sep : '';
       const modelItem: vscodeTypes.QuickPickItem = {
-        label: model.configLabel(),
+        label: prefix + path.relative(model.config.workspaceFolder, model.config.configFile),
         picked: model.isEnabled,
       };
       itemMap.set(model.config.configFile, modelItem);
