@@ -806,6 +806,11 @@ export class TestModelCollection extends DisposableBase {
     return (workspaceSettings.configs || []).find(c => c.relativeConfigFile === path.relative(config.workspaceFolder, config.configFile));
   }
 
+  isFreshOpen(): boolean {
+    const workspaceSettings = this.embedder.context.workspaceState.get(workspaceStateKey) as WorkspaceSettings | undefined;
+    return !workspaceSettings || !workspaceSettings.configs || workspaceSettings.configs.length === 0;
+  }
+
   ensureHasEnabledModels() {
     if (this._models.length && !this.hasEnabledModels())
       this.setModelEnabled(this._models[0].config.configFile, false);

@@ -142,6 +142,41 @@ export class Extension implements RunHooks {
     await this._reusedBrowser.onDidRunTests();
   }
 
+  private async _showProjectQuickPick(): Promise<any> {
+    const items: vscodeTypes.QuickPickItem[] = [];
+    const itemToProjectMap = new Map<vscodeTypes.QuickPickItem, { model: TestModel, projectName: string }>();
+
+    const models = this._models.models();
+    for (const model of models) {
+      for (const project of model.projects()) {
+        const item: vscodeTypes.QuickPickItem = {
+          label: project.name,
+          detail: models.length > 1 ? model.configLabel() : undefined,
+          picked: model.isProjectEnabled(project),
+        };
+        items.push(item);
+        itemToProjectMap.set(item, { model, projectName: project.name });
+      }
+    }
+
+    if (items.length < 2)
+      return;
+
+    const result = await this._vscode.window.showQuickPick(items, {
+      title: this._vscode.l10n.t('Select Projects'),
+      canPickMany: true,
+      placeHolder: this._vscode.l10n.t('Choose which projects to run')
+    });
+
+    if (!result)
+      return;
+
+    for (const [item, { model, projectName }] of itemToProjectMap) {
+      const shouldBeEnabled = result.includes(item);
+      this._models.setProjectEnabled(model.config.configFile, projectName, shouldBeEnabled);
+    }
+  }
+
   reusedBrowserForTest(): ReusedBrowser {
     return this._reusedBrowser;
   }
@@ -497,6 +532,14 @@ export class Extension implements RunHooks {
     this._completedSteps.clear();
     this._executionLinesChanged();
     const include = request.include;
+
+    if (true || this._models.isFreshOpen() && mode !== 'watch') {
+      await this._showProjectQuickPick();
+
+      // update request in case user enabled/disabled some models/projects
+      // filter include / exclude to only enabled tests
+    }
+
 
     const rootItems: vscodeTypes.TestItem[] = [];
     this._testController.items.forEach(item => rootItems.push(item));
