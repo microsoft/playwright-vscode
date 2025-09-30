@@ -873,6 +873,10 @@ export class TestModelCollection extends DisposableBase {
     }
     void this.embedder.context.workspaceState.update(workspaceStateKey, workspaceSettings);
   }
+
+  async clearSettings() {
+    await this.embedder.context.workspaceState.update(workspaceStateKey, undefined);
+  }
 }
 
 function projectFiles(project: TestProject): Map<string, reporterTypes.Suite> {

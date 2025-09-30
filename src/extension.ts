@@ -298,6 +298,13 @@ export class Extension implements RunHooks {
       registerTerminalLinkProvider(this._vscode),
       this._mcpConnection.startScanning(),
     ];
+    if (this._context.extensionMode === this._vscode.ExtensionMode.Development) {
+      this._disposables.push(
+          vscode.commands.registerCommand('pw.extension.command.clearWorkspaceSettings', async () => {
+            await this._models.clearSettings();
+          })
+      );
+    }
     const fileSystemWatchers = [
       // Glob parser does not supported nested group, hence multiple watchers.
       this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mts,mjs}'),
