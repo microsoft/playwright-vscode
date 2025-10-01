@@ -116,26 +116,13 @@ textarea {
   margin: 8px 12px;
   border: 1px solid var(--vscode-editorWidget-border);
   border-radius: 4px;
-  background-color: var(--vscode-editorWidget-background);
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 8px 12px;
+  padding: 8px 8px 8px 12px;
+  display: none;
 }
 
 .project-notification.show {
-  opacity: 1;
-  transform: translateY(0);
+  display: unset;
   animation: notification-sequence 2.3s ease-out;
-}
-
-.project-notification.hide {
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 @keyframes notification-sequence {
@@ -150,39 +137,26 @@ textarea {
   }
 }
 
-.project-notification.hidden {
-  display: none;
-}
-
-.project-notification.hidden {
-  display: none;
-}
-
 .project-notification-text {
   color: var(--vscode-foreground);
   font-size: 12px;
-  flex: 1;
-  margin-right: 8px;
 }
 
 .project-notification-close {
+  float: right;
   background: none;
   border: none;
-  color: var(--vscode-foreground);
   cursor: pointer;
-  padding: 0;
   width: 20px;
   height: 20px;
-  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 2px;
+  padding: 2px;
 }
 
 .project-notification-close svg {
-  width: 16px;
-  height: 16px;
   fill: var(--vscode-foreground);
 }
 
