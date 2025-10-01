@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import type { Extension } from '../src/extension';
-import { connectToSharedBrowser, enableProjects, expect, test, waitForPage } from './utils';
+import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 
 test.skip(({ showBrowser }) => !showBrowser);
 
@@ -24,57 +23,36 @@ test('should reuse browsers', async ({ activate }) => {
     'playwright.config.js': `module.exports = {}`,
     'test.spec.ts': `
       import { test } from '@playwright/test';
-      test('pass', async ({ page }) => {
-        await page.setContent('');
-      });
+      test('pass', async ({ page }) => {});
     `
   });
 
-  const reusedBrowser = (vscode.extensions[0] as Extension).reusedBrowserForTest();
+  const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
   const events: number[] = [];
   reusedBrowser.onPageCountChanged((count: number) => events.push(count));
   await testController.run();
   await expect.poll(() => events).toEqual([1]);
-  expect(reusedBrowser._testingBackend).toBeTruthy();
+  expect(reusedBrowser._backend).toBeTruthy();
 });
 
-test('should be closed with Close Browser button', async ({ activate }) => {
+test('should be closed with Close all Browsers button', async ({ activate }) => {
   const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = { projects: [{ name: 'chromium', use: { browserName: 'chromium' } }, { name: 'firefox', use: { browserName: 'firefox' } }]  }`,
+    'playwright.config.js': `module.exports = {}`,
     'test.spec.ts': `
       import { test } from '@playwright/test';
       test('pass', async ({ page }) => {});
     `
   });
-  await enableProjects(vscode, ['chromium', 'firefox']);
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  await expect(webView.getByRole('list', { name: 'Browsers' })).toMatchAriaSnapshot(`
-    - list:
-      - listitem:
-        - button "Close Browser" [disabled]
-  `);
-  const reusedBrowser = (vscode.extensions[0] as Extension).reusedBrowserForTest();
+  const closeAllBrowsers = webView.getByRole('button', { name: 'Close all browsers' });
+  await expect(closeAllBrowsers).toBeDisabled();
+  const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
   await testController.run();
-  expect(reusedBrowser._testingBackend).toBeTruthy();
-  await expect(webView.getByRole('list', { name: 'Browsers' })).toMatchAriaSnapshot(`
-    - list:
-      - listitem /chromium/:
-        - button "Close Browser"
-      - listitem /firefox/:
-        - button "Close Browser"
-  `);
-  await webView.getByRole('listitem', { name: 'chromium' }).getByRole('button', { name: 'Close Browser' }).click();
-
-  await expect(webView.getByRole('list', { name: 'Browsers' })).toMatchAriaSnapshot(`
-    - list:
-      - /children: equal
-      - listitem /firefox/
-  `);
-  expect(reusedBrowser._testingBackend).toBeTruthy();
-
-  await webView.getByRole('listitem', { name: 'firefox' }).getByRole('button', { name: 'Close Browser' }).click();
-  await expect.poll(() => reusedBrowser._testingBackend).toBeFalsy();
+  expect(reusedBrowser._backend).toBeTruthy();
+  await expect(closeAllBrowsers).toBeEnabled();
+  await closeAllBrowsers.click();
+  await expect.poll(() => reusedBrowser._backend).toBeFalsy();
 });
 
 test('should auto-close after test', async ({ activate }) => {
@@ -87,8 +65,8 @@ test('should auto-close after test', async ({ activate }) => {
   });
 
   await testController.run();
-  const reusedBrowser = (vscode.extensions[0] as Extension).reusedBrowserForTest();
-  await expect.poll(() => !!reusedBrowser._testingBackend).toBeFalsy();
+  const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
+  await expect.poll(() => !!reusedBrowser._backend).toBeFalsy();
 });
 
 test('should auto-close after pick', async ({ activate }) => {
@@ -103,8 +81,8 @@ test('should auto-close after pick', async ({ activate }) => {
   const page = await waitForPage(browser);
   await page.close();
 
-  const reusedBrowser = (vscode.extensions[0] as Extension).reusedBrowserForTest();
-  await expect.poll(() => !!reusedBrowser._testingBackend).toBeFalsy();
+  const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
+  await expect.poll(() => !!reusedBrowser._backend).toBeFalsy();
 });
 
 test('should enact "Show Browser" setting change after test finishes', async ({ activate, createLatch }) => {
@@ -123,14 +101,14 @@ test('should enact "Show Browser" setting change after test finishes', async ({ 
 
   const runPromise = testController.run();
 
-  const reusedBrowser = (vscode.extensions[0] as Extension).reusedBrowserForTest();
-  await expect.poll(() => !!reusedBrowser._testingBackend, 'wait until test started').toBeTruthy();
+  const reusedBrowser = vscode.extensions[0].reusedBrowserForTest();
+  await expect.poll(() => !!reusedBrowser._backend, 'wait until test started').toBeTruthy();
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
   await webView.getByRole('checkbox', { name: 'Show Browser' }).uncheck();
-  await expect.poll(() => !!reusedBrowser._testingBackend, 'contrary to setting change, browser stays open during test run').toBeTruthy();
+  await expect.poll(() => !!reusedBrowser._backend, 'contrary to setting change, browser stays open during test run').toBeTruthy();
   latch.open();
   await runPromise;
 
-  await expect.poll(() => !!reusedBrowser._testingBackend, 'after test run, setting change is honored').toBeFalsy();
+  await expect.poll(() => !!reusedBrowser._backend, 'after test run, setting change is honored').toBeFalsy();
 });

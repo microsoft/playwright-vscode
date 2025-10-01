@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { expect as baseExpect, test as baseTest, Browser, BrowserContextOptions, BrowserType, chromium, Page } from '@playwright/test';
+import { expect as baseExpect, test as baseTest, Browser, BrowserContextOptions, chromium, Page } from '@playwright/test';
 // @ts-ignore
 import { Extension } from '../out/extension';
 import { TestController, VSCode, WorkspaceFolder, TestRun, TestItem } from './mock/vscode';
@@ -170,10 +170,10 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
   },
 });
 
-export async function connectToSharedBrowser(vscode: VSCode, browserType: BrowserType = chromium) {
+export async function connectToSharedBrowser(vscode: VSCode) {
   await expect.poll(() => vscode.extensions[0].browserServerWSForTest()).toBeTruthy();
-  const wsEndpoint = new URL(vscode.extensions[0].browserServerWSForTest());
-  return await browserType.connect(wsEndpoint.toString());
+  const wsEndpoint = vscode.extensions[0].browserServerWSForTest();
+  return await chromium.connect(wsEndpoint);
 }
 
 export async function waitForRecorderMode(vscode: VSCode, mode: string) {
