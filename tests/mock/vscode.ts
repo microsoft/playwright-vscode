@@ -986,13 +986,13 @@ export class VSCode {
     this.context = { subscriptions: [], extensionUri: Uri.file(baseDir), workspaceState };
     this._browser = browser;
     (globalThis as any).__logForTest = (message: any) => this.connectionLog.push(message);
-    const commands = new Map<string, (...args: any[]) => Promise<void>>();
-    this.commands.registerCommand = (name: string, callback: (...args: any[]) => Promise<void>) => {
+    const commands = new Map<string, () => Promise<void>>();
+    this.commands.registerCommand = (name: string, callback: () => Promise<void>) => {
       commands.set(name, callback);
       return disposable;
     };
-    this.commands.executeCommand = async (name: string, ...args: any[]) => {
-      await commands.get(name)?.(...args);
+    this.commands.executeCommand = async (name: string) => {
+      await commands.get(name)?.();
       this.commandLog.push(name);
     };
     this.debug = new Debug();

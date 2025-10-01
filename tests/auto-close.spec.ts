@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { connectToSharedBrowser, enableProjects, expect, test, waitForPage } from './utils';
+import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 
 test.skip(({ showBrowser }) => !showBrowser);
 
@@ -35,42 +35,23 @@ test('should reuse browsers', async ({ activate }) => {
   expect(reusedBrowser._backend).toBeTruthy();
 });
 
-test('should be closed with Close Browser button', async ({ activate }) => {
+test('should be closed with Close all Browsers button', async ({ activate }) => {
   const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = { projects: [{ name: 'chromium', use: { browserName: 'chromium' } }, { name: 'firefox', use: { browserName: 'firefox' } }]  }`,
+    'playwright.config.js': `module.exports = {}`,
     'test.spec.ts': `
       import { test } from '@playwright/test';
       test('pass', async ({ page }) => {});
     `
   });
-  await enableProjects(vscode, ['chromium', 'firefox']);
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  await expect(webView.getByRole('list', { name: 'Browsers' })).toMatchAriaSnapshot(`
-    - list:
-      - listitem:
-        - button "Close Browser" [disabled]
-  `);
+  const closeAllBrowsers = webView.getByRole('button', { name: 'Close all browsers' });
+  await expect(closeAllBrowsers).toBeDisabled();
   const reusedBrowser = await vscode.extensions[0].reusedBrowserForTest();
   await testController.run();
   expect(reusedBrowser._backend).toBeTruthy();
-  await expect(webView.getByRole('list', { name: 'Browsers' })).toMatchAriaSnapshot(`
-    - list:
-      - listitem /chromium/:
-        - button "Close Browser"
-      - listitem /firefox/:
-        - button "Close Browser"
-  `);
-  await webView.getByRole('listitem', { name: 'chromium' }).getByRole('button', { name: 'Close Browser' }).click();
-
-  await expect(webView.getByRole('list', { name: 'Browsers' })).toMatchAriaSnapshot(`
-    - list:
-      - /children: equal
-      - listitem /firefox/
-  `);
-  expect(reusedBrowser._backend).toBeTruthy();
-
-  await webView.getByRole('listitem', { name: 'firefox' }).getByRole('button', { name: 'Close Browser' }).click();
+  await expect(closeAllBrowsers).toBeEnabled();
+  await closeAllBrowsers.click();
   await expect.poll(() => reusedBrowser._backend).toBeFalsy();
 });
 
