@@ -228,6 +228,11 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
     });
   }
 
+  async highlightProjects() {
+    await this._vscode.commands.executeCommand('pw.extension.settingsView.focus');
+    await this._view?.webview.postMessage({ method: 'highlightProjects' });
+  }
+
   toggleModels() {
     const options: vscodeTypes.QuickPickItem[] = [];
     const itemMap = new Map<string, vscodeTypes.QuickPickItem>();
@@ -310,6 +315,12 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           </div>
         </h2>
         <div data-testid="projects" id="projects" class="vbox"></div>
+        <div id="project-notification" class="project-notification hidden">
+          <span class="project-notification-text">By default, all projects are enabled. Uncheck projects you don't want to run.</span>
+          <button class="project-notification-close" type="button" title="Close">
+            ${closeIcon}
+          </button>
+        </div>
       </div>
       <h2 class="section-header">${vscode.l10n.t('SETUP')}</h2>
       <div id="rareActions" class="vbox"></div>

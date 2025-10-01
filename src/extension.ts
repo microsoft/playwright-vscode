@@ -534,8 +534,8 @@ export class Extension implements RunHooks {
     this._executionLinesChanged();
     const include = request.include;
 
-    if (this._models.isFreshOpen())
-      await this._showProjectQuickPick();
+    if (true)
+      await this._settingsView.highlightProjects();
 
     const rootItems: vscodeTypes.TestItem[] = [];
     this._testController.items.forEach(item => rootItems.push(item));

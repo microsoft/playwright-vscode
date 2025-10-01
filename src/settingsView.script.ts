@@ -119,13 +119,42 @@ for (const select of Array.from(document.querySelectorAll<HTMLSelectElement>('se
   });
 }
 
-window.addEventListener('message', event => {
+function highlightProjectsSection() {
+  const projectSelector = document.getElementById('project-selector')!;
+  
+  // Scroll to projects section
+  projectSelector.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  
+  // Show the notification with CSS-controlled animation
+  const notification = document.getElementById('project-notification');
+  if (notification) {
+    notification.classList.remove('hidden');
+    notification.classList.add('show');
+    
+    // Add close button functionality
+    const closeButton = notification.querySelector('.project-notification-close');
+    if (closeButton) {
+      closeButton.addEventListener('click', () => {
+        notification.classList.remove('show');
+        notification.classList.add('hide');
+        
+        // Hide completely after animation
+        notification.addEventListener('transitionend', () => {
+          notification.classList.add('hidden');
+          notification.classList.remove('hide');
+        }, { once: true });
+      });
+    }
+  }
+}window.addEventListener('message', event => {
   const actionsElement = document.getElementById('actions')!;
   const rareActionsElement = document.getElementById('rareActions')!;
   const modelSelector = document.getElementById('model-selector')!;
 
   const { method, params } = event.data;
-  if (method === 'settings') {
+  if (method === 'highlightProjects') {
+    highlightProjectsSection();
+  } else if (method === 'settings') {
     for (const [key, value] of Object.entries(params.settings as Record<string, string | boolean>)) {
       const input = document.querySelector('input[setting=' + key + ']') as HTMLInputElement;
       if (input) {
