@@ -142,35 +142,6 @@ export class Extension implements RunHooks {
     await this._reusedBrowser.onDidRunTests();
   }
 
-  private async _showProjectQuickPick(): Promise<any> {
-    const model = this._models.selectedModel();
-    if (!model)
-      return;
-
-    const projects = model.projects();
-    if (projects.length < 2)
-      return;
-
-    const result = await this._vscode.window.showQuickPick(
-        projects.map(project => ({
-          label: project.name,
-          picked: model.isProjectEnabled(project),
-        })),
-        {
-          title: this._vscode.l10n.t('Pick Playwright projects'),
-          canPickMany: true,
-          placeHolder: this._vscode.l10n.t(`Which projects should be used to run your tests?`)
-        }
-    );
-
-    if (!result)
-      return;
-
-    const enabled = new Set(result.map(item => item.label));
-    for (const project of projects)
-      this._models.setProjectEnabled(model.config.configFile, project.name, enabled.has(project.name));
-  }
-
   reusedBrowserForTest(): ReusedBrowser {
     return this._reusedBrowser;
   }
