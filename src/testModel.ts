@@ -42,7 +42,7 @@ export type TestProject = {
 };
 
 export interface RunHooks {
-  onWillRunTests(model: TestModel, debug: boolean): Promise<{ connectWsEndpoint?: string }>;
+  onWillRunTests(config: TestConfig, debug: boolean): Promise<{ connectWsEndpoint?: string }>;
   onDidRunTests(): Promise<void>;
 }
 
@@ -531,7 +531,7 @@ export class TestModel extends DisposableBase {
     if (globalSetupResult !== 'passed')
       return;
 
-    const externalOptions = await this._embedder.runHooks.onWillRunTests(this, false);
+    const externalOptions = await this._embedder.runHooks.onWillRunTests(this.config, false);
     const showBrowser = this._embedder.settingsModel.showBrowser.get() && !!externalOptions.connectWsEndpoint;
 
     let trace: 'on' | 'off' | undefined;
@@ -579,7 +579,7 @@ export class TestModel extends DisposableBase {
     if (token?.isCancellationRequested)
       return;
 
-    const externalOptions = await this._embedder.runHooks.onWillRunTests(this, true);
+    const externalOptions = await this._embedder.runHooks.onWillRunTests(this.config, true);
 
     let headed = true;
     if (this._embedder.isUnderTest)

@@ -24,8 +24,6 @@
   "configuration.playwright.pickLocatorCopyToClipboard": "Automatically copy picked locator to clipboard.",
   "configuration.playwright.updateSnapshots": "Update snapshots",
   "configuration.playwright.updateSourceMethod": "Update source method",
-  "views.test.pw.extension.noOpenBrowsers": "No open browsers.",
-  "views.test.pw.extension.closeBrowser": "Close Browser",
   "views.test.pw.extension.locatorsView": "Locators",
   "views.test.pw.extension.settingsView": "Playwright"
 }

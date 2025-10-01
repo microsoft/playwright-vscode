@@ -79,7 +79,7 @@ export const test = base.extend<TestFixtures>({
       console.log(`Creating project in ${projectPath}`);
       await fs.promises.mkdir(projectPath);
 
-      let command = 'npm init playwright@latest';
+      let command = 'npm init playwright@latest --';
       if (packageManager === 'pnpm' || packageManager === 'pnpm-pnp')
         command = 'pnpm create playwright@latest';
       else if (packageManager === 'yarn-classic')
@@ -89,7 +89,7 @@ export const test = base.extend<TestFixtures>({
       if (packageManager === 'pnpm-pnp')
         await fs.promises.writeFile(path.join(projectPath, '.npmrc'), 'node-linker=pnp');
 
-      spawnSync(`${command} --yes -- --quiet --browser=chromium --gha --install-deps`, {
+      spawnSync(`${command} --quiet --browser=chromium --gha --install-deps`, {
         cwd: projectPath,
         stdio: 'inherit',
         shell: true,

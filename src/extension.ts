@@ -31,8 +31,8 @@ import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
 import { registerTerminalLinkProvider } from './terminalLinkProvider';
 import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
-import { McpConnection } from './mcpConnection';
 import { pathToFileURL } from 'url';
+import { TestConfig } from './playwrightTestServer';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -70,7 +70,6 @@ export class Extension implements RunHooks {
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
   private _reusedBrowser: ReusedBrowser;
-  private _mcpConnection: McpConnection;
   private _settingsModel: SettingsModel;
   private _settingsView!: SettingsView;
   private _locatorsView!: LocatorsView;
@@ -107,7 +106,6 @@ export class Extension implements RunHooks {
 
     this._settingsModel = new SettingsModel(vscode, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
-    this._mcpConnection = new McpConnection(this._vscode, this._reusedBrowser);
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
     this._models = new TestModelCollection(vscode, {
       context,
@@ -131,8 +129,8 @@ export class Extension implements RunHooks {
     this._treeItemObserver = new TreeItemObserver(this._vscode);
   }
 
-  async onWillRunTests(model: TestModel, debug: boolean) {
-    await this._reusedBrowser.onWillRunTests(model, debug);
+  async onWillRunTests(config: TestConfig, debug: boolean) {
+    await this._reusedBrowser.onWillRunTests(config, debug);
     return {
       connectWsEndpoint: this._reusedBrowser.browserServerWSEndpoint(),
     };
@@ -177,19 +175,15 @@ export class Extension implements RunHooks {
         for (const model of versions.values())
           await installBrowsers(this._vscode, model);
       }),
-      vscode.commands.registerCommand('pw.extension.command.inspect', async (browserId?: string) => {
+      vscode.commands.registerCommand('pw.extension.command.inspect', async () => {
         if (!this._models.hasEnabledModels()) {
           await vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
           return;
         }
-
-        await this._reusedBrowser.inspect(this._models, browserId);
+        await this._reusedBrowser.inspect(this._models);
       }),
-      vscode.commands.registerCommand('pw.extension.command.closeBrowsers', async (browserId?: string) => {
-        if (browserId)
-          await this._reusedBrowser.closeBrowser(browserId, 'User requested close from VS Code Extension');
-        else
-          this._reusedBrowser.closeAllBrowsers();
+      vscode.commands.registerCommand('pw.extension.command.closeBrowsers', () => {
+        this._reusedBrowser.closeAllBrowsers();
       }),
       vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
         const model = this._models.selectedModel();
@@ -267,7 +261,6 @@ export class Extension implements RunHooks {
       this._diagnostics,
       this._treeItemObserver,
       registerTerminalLinkProvider(this._vscode),
-      this._mcpConnection.startScanning(),
     ];
     if (this._context.extensionMode === this._vscode.ExtensionMode.Development) {
       this._disposables.push(
