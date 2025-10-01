@@ -248,7 +248,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           </div>
         </h2>
         <div data-testid="projects" id="projects" class="vbox"></div>
-        <div id="project-notification" class="project-notification hidden" role="region">
+        <div id="project-notification" class="project-notification" role="region">
           <button class="project-notification-close" type="button" title="Close Hint">
             ${closeIcon}
           </button>
