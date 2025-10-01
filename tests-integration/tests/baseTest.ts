@@ -81,7 +81,7 @@ export const test = base.extend<TestFixtures>({
 
       let command = 'npm init playwright@latest';
       if (packageManager === 'pnpm' || packageManager === 'pnpm-pnp')
-        command = 'pnpm create playwright@latest';
+        command = 'pnpm create playwright@1.17.137'; // 1.17.138 is broken, doesn't like --yes. need to investigate.
       else if (packageManager === 'yarn-classic')
         command = 'yarn create playwright';
       else if (packageManager === 'yarn-berry')
