@@ -80,10 +80,7 @@ function highlightProjectsSection() {
   notification.classList.add('show');
 
   const closeButton = notification.querySelector('.project-notification-close')!;
-  closeButton.addEventListener('click', () => {
-    notification.classList.remove('show');
-    notification.classList.add('hide');
-  });
+  closeButton.addEventListener('click', () => notification.classList.remove('show'));
 }
 
 window.addEventListener('message', event => {
