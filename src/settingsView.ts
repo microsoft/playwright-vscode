@@ -317,8 +317,8 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           </div>
         </h2>
         <div data-testid="projects" id="projects" class="vbox"></div>
-        <div id="project-notification" class="project-notification hidden">
-          <button class="project-notification-close" type="button" title="Close">
+        <div id="project-notification" class="project-notification hidden" role="region">
+          <button class="project-notification-close" type="button" title="Close Hint">
             ${closeIcon}
           </button>
           <span class="project-notification-text">By default, all projects are enabled. Uncheck projects you don't want to run.</span>
