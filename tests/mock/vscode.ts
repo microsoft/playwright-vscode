@@ -22,8 +22,7 @@ import { minimatch } from 'minimatch';
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import which from 'which';
 import { Browser, Page } from '@playwright/test';
-import { CancellationToken, LanguageModelToolInformation } from '../../src/vscodeTypes';
-import { ChatParticipantToolToken, LanguageModelTool } from 'vscode';
+import { CancellationToken } from '../../src/vscodeTypes';
 
 /* eslint-disable no-restricted-properties */
 
@@ -906,30 +905,6 @@ type HoverProvider = {
   provideHover?(document: TextDocument, position: Position, token: CancellationToken): void
 };
 
-class LM {
-  tools: (LanguageModelToolInformation & LanguageModelTool<any>)[] = [];
-  registerTool(name: string, tool: LanguageModelTool<any> & { description: string }): Disposable {
-    const info: (LanguageModelTool<any> & LanguageModelToolInformation) = {
-      name,
-      inputSchema: undefined,
-      tags: [],
-      ...tool,
-    };
-    this.tools.push(info);
-    return { dispose: () => this.tools.splice(this.tools.indexOf(info), 1) };
-  }
-  async invokeTool(name: string, { input, toolInvocationToken }: { input: any, toolInvocationToken?: ChatParticipantToolToken }) {
-    const tool = this.tools.find(t => t.name === name);
-    if (!tool)
-      throw new Error(`Tool ${name} not found`);
-
-    if (tool.prepareInvocation)
-      throw new Error(`Not yet implemented in mock`);
-
-    return await tool.invoke({ input, toolInvocationToken }, new CancellationTokenSource().token);
-  }
-}
-
 export class VSCode {
   isUnderTest = true;
   CancellationTokenSource = CancellationTokenSource;
@@ -947,7 +922,6 @@ export class VSCode {
   TestRunProfileKind = TestRunProfileKind;
   TestRunRequest = TestRunRequest;
   Uri = Uri;
-  Disposable = class implements Disposable { constructor(readonly dispose: () => void) {} };
   UIKind = UIKind;
   commands: any = {};
   debug: Debug;
@@ -965,7 +939,6 @@ export class VSCode {
   };
   ProgressLocation = { Notification: 1 };
   ViewColumn = { Active: -1 };
-  lm = new LM();
 
   private _didChangeActiveTextEditor = new EventEmitter();
   private _didChangeVisibleTextEditors = new EventEmitter();
