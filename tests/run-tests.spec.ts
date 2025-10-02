@@ -782,7 +782,7 @@ test('should filter selected project', async ({ activate }) => {
   `);
 
   const testItems = testController.findTestItems(/test.spec/);
-  expect(testItems.length).toBe(1);
+  expect(testItems).toHaveLength(1);
   const testRun = await testController.run(testItems);
   expect(testRun.renderLog()).toBe(`
     tests1 > test.spec.ts > one [2:0]
