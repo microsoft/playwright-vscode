@@ -80,7 +80,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   private async _startBackendIfNeeded(config: TestConfig) {
     if (this._backend) {
-      // cancel any ongoing recording and hide toolbar, so the caller of _startBackendIfNeeded gets a clean slate.
+      // cancel any ongoing recording and hide toolbar, so running tests / picking locator / starting recording starts from a clean slate.
       this._resetNoWait('none');
       return;
     }
