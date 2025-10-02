@@ -55,7 +55,7 @@ extends:
         - task: DotNetCoreCLI@2
           displayName: Sign
           inputs:
-            command: 'build'
+            command: 'build -binaryLogger'
             projects: 'PlaywrightVSCode.signproj'
         - task: AzureCLI@2
           displayName: 'Publishing with Managed Identity'  
