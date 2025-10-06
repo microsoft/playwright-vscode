@@ -262,6 +262,13 @@ export class Extension implements RunHooks {
       this._treeItemObserver,
       registerTerminalLinkProvider(this._vscode),
     ];
+    if (this._context.extensionMode === this._vscode.ExtensionMode.Development) {
+      this._disposables.push(
+          vscode.commands.registerCommand('pw.extension.command.clearWorkspaceSettings', async () => {
+            await this._models.clearSettings();
+          })
+      );
+    }
     const fileSystemWatchers = [
       // Glob parser does not supported nested group, hence multiple watchers.
       this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mts,mjs}'),
@@ -490,6 +497,9 @@ export class Extension implements RunHooks {
     this._completedSteps.clear();
     this._executionLinesChanged();
     const include = request.include;
+
+    if (this._models.isFreshOpen())
+      await this._settingsView.highlightProjects();
 
     const rootItems: vscodeTypes.TestItem[] = [];
     this._testController.items.forEach(item => rootItems.push(item));

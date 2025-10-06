@@ -768,6 +768,8 @@ test('should show project-specific tests', async ({ activate }, testInfo) => {
     `
   });
 
+  await enableProjects(vscode, ['chromium']);
+
   await expect(testController).toHaveTestTree(`
     -   test.spec.ts
     -    [playwright.config.ts [firefox] — disabled]
