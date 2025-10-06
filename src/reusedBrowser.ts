@@ -78,11 +78,11 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._disposables = [];
   }
 
-  private async _startBackendIfNeeded(config: TestConfig): Promise<{ errors?: string[] }> {
-    // Unconditionally close selector dialog, it might send inspect(enabled: false).
+  private async _startBackendIfNeeded(config: TestConfig) {
     if (this._backend) {
+      // cancel any ongoing recording and hide toolbar, so running tests / picking locator / starting recording starts from a clean slate.
       this._resetNoWait('none');
-      return {};
+      return;
     }
 
     const args = [
@@ -106,8 +106,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       dumpIO: false,
     });
     const backend = await backendServer.startAndConnect();
-    if (!backend)
-      return { errors };
+    if (!backend) {
+      void this._vscode.window.showErrorMessage('Error starting the backend: ' + errors.join('\n'));
+      return;
+    }
     backend.onClose(() => {
       if (backend === this._backend) {
         this._backend = undefined;
@@ -192,7 +194,6 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         }
       });
     });
-    return {};
   }
 
   private _scheduleEdit(callback: () => Promise<void>) {
@@ -234,9 +235,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     if (!selectedModel || !this._checkVersion(selectedModel.config, 'selector picker'))
       return;
 
-    const { errors } = await this._startBackendIfNeeded(selectedModel.config);
-    if (errors)
-      void this._vscode.window.showErrorMessage('Error starting the backend: ' + errors.join('\n'));
+    await this._startBackendIfNeeded(selectedModel.config);
     const testIdAttributeName = this._getTestIdAttribute(selectedModel, selectedModel.enabledProjects()[0]);
     // Keep running, errors could be non-fatal.
     try {
