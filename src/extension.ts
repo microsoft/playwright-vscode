@@ -78,6 +78,7 @@ export class Extension implements RunHooks {
   private _runProfile: vscodeTypes.TestRunProfile;
   private _debugProfile: vscodeTypes.TestRunProfile;
   private _commandQueue = Promise.resolve();
+  private _rebuildPromise?: Promise<void>;
   private _watchFilesBatch?: vscodeTypes.TestItem[];
   private _watchItemsBatch?: vscodeTypes.TestItem[];
 
@@ -118,7 +119,7 @@ export class Extension implements RunHooks {
     });
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
-    this._testController.refreshHandler = () => this._rebuildModels(true).then(() => {});
+    this._testController.refreshHandler = () => this._rebuildModels(true);
     const supportsContinuousRun = true;
     this._runProfile = this._testController.createRunProfile('playwright-run', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, false), true, undefined, supportsContinuousRun);
     this._debugProfile = this._testController.createRunProfile('playwright-debug', this._vscode.TestRunProfileKind.Debug, this._handleTestRun.bind(this, true), true, undefined, supportsContinuousRun);
@@ -285,57 +286,68 @@ export class Extension implements RunHooks {
     this._context.subscriptions.push(this);
   }
 
-  private async _rebuildModels(userGesture: boolean): Promise<vscodeTypes.Uri[]> {
-    this._commandQueue = Promise.resolve();
-    this._models.clear();
-    this._testTree.startedLoading();
-
-    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mts,mjs}', '**/node_modules/**');
-    // findFiles returns results in a non-deterministic order - sort them to ensure consistent order when we enable the first model by default.
-    configFiles.sort((a, b) => sortPaths(uriToPath(a), uriToPath(b)));
-    for (const configFileUri of configFiles) {
-      const configFilePath = uriToPath(configFileUri);
-      // TODO: parse .gitignore
-      if (!this._isUnderTest && configFilePath.includes('test-results'))
-        continue;
-
-      // Dog-food support
-      const workspaceFolder = this._vscode.workspace.getWorkspaceFolder(configFileUri)!;
-      const workspaceFolderPath = uriToPath(workspaceFolder.uri);
-      if (configFilePath.includes('test-results') && !workspaceFolderPath.includes('test-results'))
-        continue;
-
-      await this._detectPnp(configFilePath, workspaceFolderPath);
-
-      let playwrightInfo = null;
-      try {
-        playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider(configFilePath));
-      } catch (error) {
-        if (userGesture) {
-          void this._vscode.window.showWarningMessage(
-              error instanceof NodeJSNotFoundError ? error.message : this._vscode.l10n.t('Please install Playwright Test via running `npm i --save-dev @playwright/test`')
-          );
-        }
-        console.error('[Playwright Test]:', (error as any)?.message);
-        continue;
-      }
-
-      const minimumPlaywrightVersion = 1.38;
-      if (playwrightInfo.version < minimumPlaywrightVersion) {
-        if (userGesture) {
-          void this._vscode.window.showWarningMessage(
-              this._vscode.l10n.t('Playwright Test v{0} or newer is required', minimumPlaywrightVersion)
-          );
-        }
-        continue;
-      }
-
-      await this._models.createModel(workspaceFolderPath, configFilePath, playwrightInfo);
+  private async _rebuildModels(userGesture: boolean): Promise<void> {
+    // Coalesce rapid rebuilds triggered by file changes,
+    // but explicit user gestures always trigger fresh rebuild immediately.
+    if (!userGesture && this._rebuildPromise) {
+      await this._rebuildPromise;
+      return;
     }
 
-    this._models.ensureHasEnabledModels();
-    this._testTree.finishedLoading();
-    return configFiles;
+    this._rebuildPromise = (async () => {
+      this._models.clear();
+      this._testTree.startedLoading();
+
+      const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mts,mjs}', '**/node_modules/**');
+      // findFiles returns results in a non-deterministic order - sort them to ensure consistent order when we enable the first model by default.
+      configFiles.sort((a, b) => sortPaths(uriToPath(a), uriToPath(b)));
+      for (const configFileUri of configFiles) {
+        const configFilePath = uriToPath(configFileUri);
+        // TODO: parse .gitignore
+        if (!this._isUnderTest && configFilePath.includes('test-results'))
+          continue;
+
+        // Dog-food support
+        const workspaceFolder = this._vscode.workspace.getWorkspaceFolder(configFileUri)!;
+        const workspaceFolderPath = uriToPath(workspaceFolder.uri);
+        if (configFilePath.includes('test-results') && !workspaceFolderPath.includes('test-results'))
+          continue;
+
+        await this._detectPnp(configFilePath, workspaceFolderPath);
+
+        let playwrightInfo = null;
+        try {
+          playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider(configFilePath));
+        } catch (error) {
+          if (userGesture) {
+            void this._vscode.window.showWarningMessage(
+                error instanceof NodeJSNotFoundError ? error.message : this._vscode.l10n.t('Please install Playwright Test via running `npm i --save-dev @playwright/test`')
+            );
+          }
+          console.error('[Playwright Test]:', (error as any)?.message);
+          continue;
+        }
+
+        const minimumPlaywrightVersion = 1.38;
+        if (playwrightInfo.version < minimumPlaywrightVersion) {
+          if (userGesture) {
+            void this._vscode.window.showWarningMessage(
+                this._vscode.l10n.t('Playwright Test v{0} or newer is required', minimumPlaywrightVersion)
+            );
+          }
+          continue;
+        }
+
+        await this._models.createModel(workspaceFolderPath, configFilePath, playwrightInfo);
+      }
+
+      this._models.ensureHasEnabledModels();
+      this._testTree.finishedLoading();
+    })().finally(() => {
+      this._rebuildPromise = undefined;
+    });
+
+    await this._rebuildPromise;
   }
 
   private async _modelsUpdated() {
