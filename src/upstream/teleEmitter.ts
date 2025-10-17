@@ -147,6 +147,10 @@ export class TeleReporterEmitter implements ReporterV2 {
   }
 
   async onExit() {
+    this._messageSink({
+      method: 'onExit',
+      params: {}
+    });
   }
 
   printsToStdio() {
