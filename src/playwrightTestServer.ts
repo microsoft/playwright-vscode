@@ -427,10 +427,10 @@ export class PlaywrightTestServer {
     return new Promise<void>(resolve => {
       const disposables = [
         testServer.onReport(async message => {
-          if (token.isCancellationRequested && message.method !== 'onEnd')
+          if (token.isCancellationRequested && message.method !== 'onExit')
             return;
           await teleReceiver.dispatch(message);
-          if (message.method === 'onEnd') {
+          if (message.method === 'onExit') {
             disposables.forEach(d => d.dispose());
             resolve();
           }
