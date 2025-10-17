@@ -33,6 +33,7 @@ import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
 import { pathToFileURL } from 'url';
 import { TestConfig } from './playwrightTestServer';
+import { Batched } from './batched';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -78,6 +79,7 @@ export class Extension implements RunHooks {
   private _runProfile: vscodeTypes.TestRunProfile;
   private _debugProfile: vscodeTypes.TestRunProfile;
   private _commandQueue = Promise.resolve();
+  private _rebuildModelsBatched = new Batched(() => this._rebuildModels(false), 50);
   private _watchFilesBatch?: vscodeTypes.TestItem[];
   private _watchItemsBatch?: vscodeTypes.TestItem[];
 
@@ -118,7 +120,13 @@ export class Extension implements RunHooks {
     });
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
-    this._testController.refreshHandler = () => this._rebuildModels(true).then(() => {});
+    this._testController.refreshHandler = async () => {
+      // all other rebuilds go through the batch, this one does not.
+      // refreshHandler is only called on user gesture,
+      // and it's a "last resort" reload that's only used when something is broken.
+      // We want it to run immediately, even if it's prone to race conditions.
+      await this._rebuildModels(true);
+    };
     const supportsContinuousRun = true;
     this._runProfile = this._testController.createRunProfile('playwright-run', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, false), true, undefined, supportsContinuousRun);
     this._debugProfile = this._testController.createRunProfile('playwright-debug', this._vscode.TestRunProfileKind.Debug, this._handleTestRun.bind(this, true), true, undefined, supportsContinuousRun);
@@ -158,7 +166,7 @@ export class Extension implements RunHooks {
       this._debugHighlight,
       this._settingsModel,
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
-        void this._rebuildModels(false);
+        void this._rebuildModelsBatched.invoke();
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         void this._updateVisibleEditorItems();
@@ -243,7 +251,7 @@ export class Extension implements RunHooks {
       }),
       vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('playwright.env'))
-          void this._rebuildModels(false);
+          void this._rebuildModelsBatched.invoke();
       }),
       this._testTree,
       this._models,
@@ -275,18 +283,17 @@ export class Extension implements RunHooks {
         return;
       if (!this._isUnderTest && uriToPath(uri).includes('test-results'))
         return;
-      void this._rebuildModels(false);
+      void this._rebuildModelsBatched.invoke();
     };
 
-    await this._rebuildModels(false);
+    await this._rebuildModelsBatched.invoke();
     fileSystemWatchers.map(w => w.onDidChange(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidCreate(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidDelete(rebuildModelForConfig));
     this._context.subscriptions.push(this);
   }
 
-  private async _rebuildModels(userGesture: boolean): Promise<vscodeTypes.Uri[]> {
-    this._commandQueue = Promise.resolve();
+  private async _rebuildModels(userGesture: boolean): Promise<void> {
     this._models.clear();
     this._testTree.startedLoading();
 
@@ -335,7 +342,6 @@ export class Extension implements RunHooks {
 
     this._models.ensureHasEnabledModels();
     this._testTree.finishedLoading();
-    return configFiles;
   }
 
   private async _modelsUpdated() {
