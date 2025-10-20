@@ -293,7 +293,10 @@ export class Extension implements RunHooks {
     this._models.clear();
     this._testTree.startedLoading();
 
-    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mts,mjs}', '**/node_modules/**');
+    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mts,mjs}', '**/node_modules/**', undefined, token);
+    if (token.isCancellationRequested)
+      return;
+
     // findFiles returns results in a non-deterministic order - sort them to ensure consistent order when we enable the first model by default.
     configFiles.sort((a, b) => sortPaths(uriToPath(a), uriToPath(b)));
     for (const configFileUri of configFiles) {
@@ -309,6 +312,8 @@ export class Extension implements RunHooks {
         continue;
 
       await this._detectPnp(configFilePath, workspaceFolderPath);
+      if (token.isCancellationRequested)
+        return;
 
       let playwrightInfo = null;
       try {
@@ -322,6 +327,8 @@ export class Extension implements RunHooks {
         console.error('[Playwright Test]:', (error as any)?.message);
         continue;
       }
+      if (token.isCancellationRequested)
+        return;
 
       const minimumPlaywrightVersion = 1.38;
       if (playwrightInfo.version < minimumPlaywrightVersion) {
@@ -334,6 +341,8 @@ export class Extension implements RunHooks {
       }
 
       await this._models.createModel(workspaceFolderPath, configFilePath, playwrightInfo);
+      if (token.isCancellationRequested)
+        return;
     }
 
     this._models.ensureHasEnabledModels();
