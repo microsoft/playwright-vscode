@@ -226,12 +226,14 @@ export class PlaywrightTestServer {
       errorContext: { format: 'json' },
       ...runOptions,
     };
-    void connection.runTests(options);
+    const testEndPromise = connection.runTests(options);
 
     token.onCancellationRequested(() => {
       connection.stopTestsNoReply({});
     });
-    await this._wireTestServer(connection, reporter, token);
+    void this._wireTestServer(connection, reporter, token);
+
+    await testEndPromise;
   }
 
   private _normalizePaths() {
@@ -345,12 +347,12 @@ export class PlaywrightTestServer {
         timeout: 0,
         ...runOptions,
       };
-      void debugTestServer.runTests(options);
+      const testEndPromise = debugTestServer.runTests(options);
 
       disposables.push(token.onCancellationRequested(() => {
         debugTestServer!.stopTestsNoReply({});
       }));
-      const testEndPromise = this._wireTestServer(debugTestServer, reporter, token);
+      void this._wireTestServer(debugTestServer, reporter, token);
       await testEndPromise;
     } finally {
       disposables.forEach(disposable => disposable.dispose());
@@ -427,10 +429,10 @@ export class PlaywrightTestServer {
     return new Promise<void>(resolve => {
       const disposables = [
         testServer.onReport(async message => {
-          if (token.isCancellationRequested && message.method !== 'onExit')
+          if (token.isCancellationRequested && message.method !== 'onEnd')
             return;
           await teleReceiver.dispatch(message);
-          if (message.method === 'onExit') {
+          if (message.method === 'onEnd') {
             disposables.forEach(d => d.dispose());
             resolve();
           }

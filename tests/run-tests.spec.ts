@@ -1294,17 +1294,17 @@ http.createServer((req, res) => {
   expect(testRun.renderLog({ output: true })).toContain('passed');
 });
 
-test('should only end test run after all config reporters exited', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/37867' } }, async ({ activate }) => {
+test('should only end test run after all config reporters ended', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/37867' } }, async ({ activate }) => {
   const { testController } = await activate({
     'playwright.config.js': `module.exports = {
       reporter: [['./my-reporter.js']],
     }`,
     'my-reporter.js': `
       export default class MyReporter {
-        async onExit() {
-          console.log("%onExit started");
+        async onEnd() {
+          console.log("%onEnd started");
           await new Promise(f => setTimeout(f, 100));
-          console.log("%onExit ended");
+          console.log("%onEnd ended");
         }
       }
     `,
@@ -1326,8 +1326,8 @@ test('should only end test run after all config reporters exited', { annotation:
   });
   await testController.run();
   expect(events).toEqual([
-    'onExit started',
-    'onExit ended',
+    'onEnd started',
+    'onEnd ended',
     'testRun ended',
   ]);
 });
