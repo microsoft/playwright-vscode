@@ -14,40 +14,67 @@
  * limitations under the License.
  */
 
-import { CancellationToken, VSCode } from './vscodeTypes';
+import { CancellationToken, CancellationTokenSource, VSCode } from './vscodeTypes';
 
-export class Batched<T> {
-  private _batch?: Promise<T>;
+export class Batched<I> {
+  private _batch?: { inputs: I[]; result: Promise<void>; cancel: CancellationTokenSource; promote: CancellationTokenSource };
+  private _ongoing?: { result: Promise<void>; cancel: CancellationTokenSource };
   private readonly _delay: number;
-  private readonly _impl: (token: CancellationToken) => Promise<T>;
+  private readonly _impl: (inputs: I[], token: CancellationToken) => Promise<void>;
   private readonly _vscode: Pick<VSCode, 'CancellationTokenSource'>;
 
-  constructor(vscode: Pick<VSCode, 'CancellationTokenSource'>, impl: (token: CancellationToken) => Promise<T>, delay: number) {
+  constructor(vscode: Pick<VSCode, 'CancellationTokenSource'>, impl: (inputs: I[], token: CancellationToken) => Promise<void>, delay: number) {
     this._vscode = vscode;
     this._impl = impl;
     this._delay = delay;
   }
 
-  async invoke(): Promise<T> {
-    if (this._batch)
-      return await this._batch;
+  async invoke(input: I): Promise<void> {
+    if (this._batch) {
+      this._batch.inputs.push(input);
+      return await this._batch.result;
+    }
 
-    const tokenSource = new this._vscode.CancellationTokenSource();
+    const promote = new this._vscode.CancellationTokenSource();
+    const batch = {
+      inputs: [input],
+      cancel: new this._vscode.CancellationTokenSource(),
+      promote,
+      result: new Promise<void>(async (resolve, reject) => {
+        try {
+          await Promise.race([
+            Promise.all([
+              new Promise(res => setTimeout(res, this._delay)),
+              this._ongoing?.result.catch(() => { })
+            ]),
+            new Promise<void>(res => promote.token.onCancellationRequested(() => res()))
+          ]);
 
-    this._batch = new Promise<T>(async (resolve, reject) => {
-      try {
-        await new Promise(res => setTimeout(res, this._delay));
-        this._batch = undefined;
-        const result = await this._impl(tokenSource.token);
-        resolve(result);
-      } catch (e) {
-        reject(e);
-      } finally {
-        this._batch = undefined;
-      }
-    });
+          this._ongoing = this._batch;
+          this._batch = undefined;
+          await this._impl(batch.inputs, batch.cancel.token);
+          resolve();
+        } catch (e) {
+          reject(e);
+        } finally {
+          if (this._ongoing === batch)
+            this._ongoing = undefined;
+          if (this._batch === batch)
+            this._batch = undefined;
+          batch.cancel.dispose();
+          batch.promote.dispose();
+        }
+      })
+    };
+    this._batch = batch;
+    return await batch.result;
+  }
 
-    return await this._batch;
+  async invokeImmediately(input: I) {
+    this._ongoing?.cancel.cancel();
+    const result = this.invoke(input);
+    this._batch!.promote.cancel();
+    return await result;
   }
 
 }
