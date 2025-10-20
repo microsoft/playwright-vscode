@@ -422,7 +422,11 @@ export class PlaywrightTestServer {
       resolvePath,
     });
     disposables.push(
-        testServer.onReport(message => teleReceiver.dispatch(message)),
+        testServer.onReport(message => {
+          if (token.isCancellationRequested && message.method !== 'onEnd')
+            return;
+          void teleReceiver.dispatch(message);
+        }),
         this._pipeStdio(testServer, reporter),
     );
   }
