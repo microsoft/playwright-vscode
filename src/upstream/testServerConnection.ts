@@ -115,6 +115,9 @@ export class TestServerConnection implements TestServerInterface, TestServerInte
       this._isClosed = true;
       this._onCloseEmitter.fire();
       clearInterval(pingInterval);
+      for (const callback of this._callbacks.values())
+        callback.reject(new Error('test server connection closed'));
+      this._callbacks.clear();
     });
   }
 

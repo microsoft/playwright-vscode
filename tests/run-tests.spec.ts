@@ -1293,3 +1293,41 @@ http.createServer((req, res) => {
   const testRun = await testController.run();
   expect(testRun.renderLog({ output: true })).toContain('passed');
 });
+
+test('should only end test run after all config reporters exited', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/37867' } }, async ({ activate }) => {
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = {
+      reporter: [['./my-reporter.js']],
+    }`,
+    'my-reporter.js': `
+      export default class MyReporter {
+        async onExit() {
+          console.log("%onExit started");
+          await new Promise(f => setTimeout(f, 100));
+          console.log("%onExit ended");
+        }
+      }
+    `,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  const events: string[] = [];
+  testController.onDidCreateTestRun(run => {
+    run.onDidOutput(msg => {
+      if (msg.startsWith('%'))
+        events.push(msg.slice(1).trim());
+    });
+    run.onDidEnd(() => {
+      events.push('testRun ended');
+    });
+  });
+  await testController.run();
+  expect(events).toEqual([
+    'onExit started',
+    'onExit ended',
+    'testRun ended',
+  ]);
+});
