@@ -14,20 +14,31 @@
  * limitations under the License.
  */
 
+import { CancellationToken, VSCode } from './vscodeTypes';
+
 export class Batched<T> {
   private _batch?: Promise<T>;
+  private readonly _delay: number;
+  private readonly _impl: (token: CancellationToken) => Promise<T>;
+  private readonly _vscode: Pick<VSCode, 'CancellationTokenSource'>;
 
-  constructor(private readonly _impl: () => Promise<T>, private readonly _delay: number) {}
+  constructor(vscode: Pick<VSCode, 'CancellationTokenSource'>, impl: (token: CancellationToken) => Promise<T>, delay: number) {
+    this._vscode = vscode;
+    this._impl = impl;
+    this._delay = delay;
+  }
 
   async invoke(): Promise<T> {
     if (this._batch)
       return await this._batch;
 
+    const tokenSource = new this._vscode.CancellationTokenSource();
+
     this._batch = new Promise<T>(async (resolve, reject) => {
       try {
         await new Promise(res => setTimeout(res, this._delay));
         this._batch = undefined;
-        const result = await this._impl();
+        const result = await this._impl(tokenSource.token);
         resolve(result);
       } catch (e) {
         reject(e);

@@ -14,27 +14,37 @@
  * limitations under the License.
  */
 
-import { test, expect } from '@playwright/test';
+import { JSHandle } from '@playwright/test';
+import { test as baseTest, expect } from './utils';
 import { Batched } from '../src/batched';
 
-test('batched', async ({ page }) => {
-  await page.clock.install();
-  await page.clock.pauseAt(Date.now());
+const test = baseTest.extend<{ batched: JSHandle<{ batched: Batched<number>, start: number[], end: number[] }> }>({
+  batched: async ({ vscode, page }, use) => {
+    await page.clock.install();
+    await page.clock.pauseAt(Date.now());
 
-  const clazz = await page.evaluateHandle<typeof Batched>(`(${Batched.toString()})`);
-  const batched = await clazz.evaluateHandle(Batched => {
-    const start: number[] = [];
-    const end: number[] = [];
-    const batched = new Batched(async () => {
-      const now = Date.now();
-      start.push(now);
-      await new Promise(res => setTimeout(res, 1));
-      end.push(Date.now());
-      return now;
-    }, 1);
-    return { start, end, batched };
-  });
+    await page.evaluate(`globalThis._events = { EventEmitter: (${vscode.EventEmitter.toString()}) }`);
+    await page.evaluate(`globalThis.CancellationTokenSource = (${vscode.CancellationTokenSource.toString()})`);
+    const clazz = await page.evaluateHandle<typeof Batched>(`(${Batched.toString()})`);
+    const batched = await clazz.evaluateHandle(Batched => {
+      const start: number[] = [];
+      const end: number[] = [];
+      const batched = new Batched(globalThis as any, async () => {
+        const now = Date.now();
+        start.push(now);
+        await new Promise(res => setTimeout(res, 1));
+        end.push(Date.now());
+        return now;
+      }, 1);
+      return { start, end, batched };
+    });
 
+    await use(batched);
+  }
+});
+
+
+test('coalescing', async ({ page, batched }) => {
   // invocations within the batching window are coalesced
   const invocation1 = batched.evaluate(({ batched }) => batched.invoke());
   const invocation2 = batched.evaluate(({ batched }) => batched.invoke());
