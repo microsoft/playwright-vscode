@@ -162,19 +162,10 @@ export class PlaywrightTestServer {
     const disposable = this._pipeStdio(testServer, testListener);
 
     try {
-      if (type === 'setup') {
-        if (!this._config || this._config.globalSetup)
-          testListener.onStdOut?.('\x1b[2mRunning global setup if any\u2026\x1b[0m\n');
-        const { report, status } = await Promise.race([
-          testServer.runGlobalSetup({}),
-          new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
-        ]);
-        for (const message of report)
-          void teleReceiver.dispatch(message);
-        return status;
-      }
+      if (type === 'setup' && (!this._config || this._config.globalSetup))
+        testListener.onStdOut?.('\x1b[2mRunning global setup if any\u2026\x1b[0m\n');
       const { report, status } = await Promise.race([
-        testServer.runGlobalTeardown({}),
+        type === 'setup' ? testServer.runGlobalSetup({}) : testServer.runGlobalTeardown({}),
         new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
       ]);
       for (const message of report)
@@ -426,24 +417,19 @@ export class PlaywrightTestServer {
       mergeTestCases: true,
       resolvePath,
     });
-    return new Promise<void>(resolve => {
-      const disposables = [
-        testServer.onReport(async message => {
-          if (token.isCancellationRequested && message.method !== 'onEnd')
-            return;
-          await teleReceiver.dispatch(message);
-          if (message.method === 'onEnd') {
-            disposables.forEach(d => d.dispose());
-            resolve();
-          }
-        }),
-        this._pipeStdio(testServer, reporter),
-        testServer.onClose(() => {
+    const disposables = [
+      testServer.onReport(async message => {
+        if (token.isCancellationRequested && message.method !== 'onEnd')
+          return;
+        await teleReceiver.dispatch(message);
+        if (message.method === 'onEnd')
           disposables.forEach(d => d.dispose());
-          resolve();
-        }),
-      ];
-    });
+      }),
+      this._pipeStdio(testServer, reporter),
+      testServer.onClose(() => {
+        disposables.forEach(d => d.dispose());
+      }),
+    ];
   }
 
   private _testFilesChanged(testFiles: string[]) {
