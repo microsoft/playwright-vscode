@@ -217,13 +217,11 @@ export class PlaywrightTestServer {
       errorContext: { format: 'json' },
       ...runOptions,
     };
-
-    // TODO: check if it's safe to also add this to disposables. are there cases where we want to send stopTestsNoReply after runTests is finished?
-    token.onCancellationRequested(() => {
-      connection.stopTestsNoReply({});
-    });
-
-    const disposables: vscodeTypes.Disposable[] = [];
+    const disposables = [
+      token.onCancellationRequested(() => {
+        connection.stopTestsNoReply({});
+      })
+    ];
     this._wireTestServer(connection, reporter, token, disposables);
 
     try {
