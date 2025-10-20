@@ -163,7 +163,9 @@ export class Extension implements RunHooks {
     this._disposables = [
       this._debugHighlight,
       this._settingsModel,
-      vscode.workspace.onDidChangeWorkspaceFolders(() => this._rebuildModelsBatched.invoke(false)),
+      vscode.workspace.onDidChangeWorkspaceFolders(_ => {
+        void this._rebuildModelsBatched.invoke(false);
+      }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         void this._updateVisibleEditorItems();
       }),
