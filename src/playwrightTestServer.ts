@@ -218,7 +218,7 @@ export class PlaywrightTestServer {
       ...runOptions,
     };
 
-    // TODO: check if it's safe to also add this to disposables. are there cases where we want to send stopTestsNoReply after runTests is finished? 
+    // TODO: check if it's safe to also add this to disposables. are there cases where we want to send stopTestsNoReply after runTests is finished?
     token.onCancellationRequested(() => {
       connection.stopTestsNoReply({});
     });
