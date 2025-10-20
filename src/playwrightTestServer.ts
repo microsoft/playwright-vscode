@@ -217,14 +217,20 @@ export class PlaywrightTestServer {
       errorContext: { format: 'json' },
       ...runOptions,
     };
-    const testEndPromise = connection.runTests(options);
 
     token.onCancellationRequested(() => {
       connection.stopTestsNoReply({});
     });
-    void this._wireTestServer(connection, reporter, token);
 
-    await testEndPromise;
+    const disposables: vscodeTypes.Disposable[] = [];
+    this._wireTestServer(connection, reporter, token, disposables);
+
+    try {
+      await connection.runTests(options);
+    } finally {
+      for (const disposable of disposables)
+        disposable.dispose();
+    }
   }
 
   private _normalizePaths() {
@@ -338,13 +344,12 @@ export class PlaywrightTestServer {
         timeout: 0,
         ...runOptions,
       };
-      const testEndPromise = debugTestServer.runTests(options);
 
       disposables.push(token.onCancellationRequested(() => {
         debugTestServer!.stopTestsNoReply({});
       }));
-      void this._wireTestServer(debugTestServer, reporter, token);
-      await testEndPromise;
+      this._wireTestServer(debugTestServer, reporter, token, disposables);
+      await debugTestServer.runTests(options);
     } finally {
       disposables.forEach(disposable => disposable.dispose());
       if (!token.isCancellationRequested && debugTestServer && !debugTestServer.isClosed())
@@ -411,25 +416,16 @@ export class PlaywrightTestServer {
     return { connection, errors };
   }
 
-  private async _wireTestServer(testServer: TestServerConnection, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
+  private _wireTestServer(testServer: TestServerConnection, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken, disposables: vscodeTypes.Disposable[]): void {
     const teleReceiver = new TeleReporterReceiver(reporter, {
       mergeProjects: true,
       mergeTestCases: true,
       resolvePath,
     });
-    const disposables = [
-      testServer.onReport(async message => {
-        if (token.isCancellationRequested && message.method !== 'onEnd')
-          return;
-        await teleReceiver.dispatch(message);
-        if (message.method === 'onEnd')
-          disposables.forEach(d => d.dispose());
-      }),
-      this._pipeStdio(testServer, reporter),
-      testServer.onClose(() => {
-        disposables.forEach(d => d.dispose());
-      }),
-    ];
+    disposables.push(
+        testServer.onReport(message => teleReceiver.dispatch(message)),
+        this._pipeStdio(testServer, reporter),
+    );
   }
 
   private _testFilesChanged(testFiles: string[]) {
