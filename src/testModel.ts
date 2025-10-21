@@ -670,7 +670,10 @@ export class TestModel extends DisposableBase {
             locations.add(treeItemPath);
         }
       } else {
-        if (!enabledFiles.has(treeItem.location.file))
+        let fileItem = treeItem;
+        while (!(fileItem.kind === 'group' && fileItem.subKind === 'file') && fileItem.parent)
+          fileItem = fileItem.parent;
+        if (!enabledFiles.has(fileItem.location.file))
           continue;
         testIds.push(...collectTestIds(treeItem));
       }
