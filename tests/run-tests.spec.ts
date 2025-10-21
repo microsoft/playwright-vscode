@@ -1226,6 +1226,36 @@ test('should not run global setup for other project', async ({ activate }) => {
   expect(testRun.renderOutput()).not.toContain('RUNNING GLOBAL SETUP');
 });
 
+test('should run single test defined outside of .spec.ts file', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/37930' } }, async ({ activate }) => {
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: '.' }`,
+    'example.spec.ts': `
+      import './impl';
+    `,
+    'impl.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+  await expect(testController).toHaveTestTree(`
+    -   example.spec.ts
+  `);
+  await testController.expandTestItems(/.*/);
+  await expect(testController).toHaveTestTree(`
+    -   example.spec.ts
+      -   one [2:0]
+  `);
+  const items = testController.findTestItems(/one/);
+  const testRun = await testController.run(items);
+  expect(testRun.renderLog()).toEqual(`
+    example.spec.ts > one [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+});
+
 test('should start webServer', async ({ activate }, testInfo) => {
   const port = testInfo.parallelIndex * 4 + 42130;
   const { testController } = await activate({
