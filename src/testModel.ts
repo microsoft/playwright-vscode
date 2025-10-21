@@ -235,6 +235,7 @@ export class TestModel extends DisposableBase {
     }
 
     this._collection._modelUpdated(this);
+    await this._updateFileWatches();
   }
 
   private _createProject(projectReport: ProjectConfigWithFiles): TestProject {
@@ -395,7 +396,6 @@ export class TestModel extends DisposableBase {
       },
     }, new this._vscode.CancellationTokenSource().token);
     this._updateProjects(rootSuite!.suites, files, errors);
-    await this._updateFileWatches();
   }
 
   private _updateProjects(newProjectSuites: reporterTypes.Suite[], requestedFiles: string[], errors: reporterTypes.TestError[]) {
