@@ -574,3 +574,87 @@ test('should only watch a test from the enabled project when multiple projects s
     },
   ]);
 });
+
+test('watching all tests should also execute newly added files', async ({ activate }) => {
+  const { testController, workspaceFolder, vscode } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/foo.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => {});
+    `,
+  });
+
+  await testController.watch();
+
+  await workspaceFolder.addFile('tests/bar.spec.ts', `
+    import { test } from '@playwright/test';
+    test('scaffolding', async () => {});
+  `);
+  await vscode.openEditors('**/tests/bar.spec.ts');
+
+  const [testRun] = await Promise.all([
+    new Promise<TestRun>(f => testController.onDidCreateTestRun(f)),
+    workspaceFolder.changeFile('tests/bar.spec.ts', `
+      import { test } from '@playwright/test';
+      test('implemented', async () => {});
+    `)
+  ]);
+  await new Promise(f => testRun.onDidEnd(f));
+
+  expect(testRun.renderLog()).toContain('bar.spec.ts');
+  expect(testRun.renderLog()).toContain('implemented');
+});
+
+test('should watch test suite and run tests when file in suite is saved', async ({ activate }) => {
+  const { testController, workspaceFolder } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/completing-todos/complete-single-todo.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should complete single todo', async () => {});
+    `,
+    'tests/completing-todos/complete-all-todos.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should complete all todos', async () => {});
+    `,
+  });
+
+  await testController.watch(testController.findTestItems(/completing-todos/));
+
+  await Promise.all([
+    new Promise(f => testController.onDidCreateTestRun(run => run.onDidEnd(f))),
+    workspaceFolder.changeFile('tests/completing-todos/complete-single-todo.spec.ts', `
+      import { test } from '@playwright/test';
+      test('should complete single todo - modified', async () => {});
+    `),
+  ]);
+});
+
+test('should execute new test file when "watch all" is enabled', async ({ activate }) => {
+  const { testController, workspaceFolder, vscode } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/foo.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => {});
+    `,
+  });
+
+  await testController.watch();
+
+  await workspaceFolder.addFile('tests/bar.spec.ts', `
+    import { test } from '@playwright/test';
+    test('new test', async () => {});
+  `);
+  await vscode.openEditors('**/tests/bar.spec.ts');
+
+  const [testRun] = await Promise.all([
+    new Promise<TestRun>(f => testController.onDidCreateTestRun(f)),
+    workspaceFolder.changeFile('tests/bar.spec.ts', `
+      import { test } from '@playwright/test';
+      test('new test, but updated', async () => {});
+    `)
+  ]);
+  await new Promise(f => testRun.onDidEnd(f));
+
+  expect(testRun.renderLog()).toContain('bar.spec.ts');
+  expect(testRun.renderLog()).toContain('new test, but updated');
+});

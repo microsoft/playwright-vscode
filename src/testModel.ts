@@ -310,7 +310,7 @@ export class TestModel extends DisposableBase {
     if (!testFiles.length)
       return;
 
-    const enabledFiles = this.enabledFiles();
+    const enabledFiles = [...this.enabledFiles()];
     const files: string[] = [];
     const items: vscodeTypes.TestItem[] = [];
     for (const watch of this._watches || []) {
@@ -325,7 +325,7 @@ export class TestModel extends DisposableBase {
           if (!include.uri)
             continue;
           const fsPath = uriToPath(include.uri);
-          if (!enabledFiles.has(fsPath))
+          if (!enabledFiles.some(file => file.startsWith(fsPath)))
             continue;
           // Folder is watched => add file.
           if (testFile.startsWith(fsPath + path.sep)) {
@@ -395,6 +395,7 @@ export class TestModel extends DisposableBase {
       },
     }, new this._vscode.CancellationTokenSource().token);
     this._updateProjects(rootSuite!.suites, files, errors);
+    await this._updateFileWatches();
   }
 
   private _updateProjects(newProjectSuites: reporterTypes.Suite[], requestedFiles: string[], errors: reporterTypes.TestError[]) {
@@ -622,22 +623,15 @@ export class TestModel extends DisposableBase {
 
   async addToWatch(include: readonly vscodeTypes.TestItem[] | undefined, cancellationToken: vscodeTypes.CancellationToken) {
     const watch: Watch = { include };
+    cancellationToken.onCancellationRequested(() => {
+      this._watches.delete(watch);
+      void this._updateFileWatches();
+    });
     this._watches.add(watch);
-    cancellationToken.onCancellationRequested(() => this._watches.delete(watch));
+    await this._updateFileWatches();
+  }
 
-    // Watch contract has a bug in 1.86 - when outer non-global watch is disabled, it assumes that inner watches are
-    // discarded as well without issuing the token cancelation.
-    for (const ri of include || []) {
-      for (const watch of this._watches) {
-        for (const wi of watch.include || []) {
-          if (isAncestorOf(ri, wi)) {
-            this._watches.delete(watch);
-            break;
-          }
-        }
-      }
-    }
-
+  private async _updateFileWatches() {
     const filesToWatch = new Set<string>();
     for (const watch of this._watches) {
       if (!watch.include) {
@@ -883,15 +877,6 @@ function projectFiles(project: TestProject): Map<string, reporterTypes.Suite> {
 }
 
 const listFilesFlag = Symbol('listFilesFlag');
-
-function isAncestorOf(root: vscodeTypes.TestItem, descendent: vscodeTypes.TestItem) {
-  while (descendent.parent) {
-    if (descendent.parent === root)
-      return true;
-    descendent = descendent.parent;
-  }
-  return false;
-}
 
 function noOverrideToUndefined<T>(value: T | 'no-override'): T | undefined {
   return value === 'no-override' ? undefined : value;
