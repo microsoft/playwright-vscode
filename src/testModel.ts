@@ -235,6 +235,8 @@ export class TestModel extends DisposableBase {
     }
 
     this._collection._modelUpdated(this);
+
+    // if "watch all" is enabled, any added files need to be sent to the test server.
     await this._updateFileWatches();
   }
 
