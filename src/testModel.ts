@@ -183,9 +183,11 @@ export class TestModel extends DisposableBase {
   enabledFiles(): Set<string> {
     const result = new Set<string>();
     for (const project of this.enabledProjects()) {
-      const files = projectFiles(project);
-      for (const file of files.keys())
+      for (const [file, suite] of projectFiles(project)) {
         result.add(file);
+        for (const test of suite.allTests())
+          result.add(test.location.file);
+      }
     }
     return result;
   }
@@ -670,12 +672,7 @@ export class TestModel extends DisposableBase {
             locations.add(treeItemPath);
         }
       } else {
-        // test case might be imported in the .spec.ts file, so it has a different location.
-        // comparisons with enabledFiles need to happen on the .spec.ts file level, so we walk up to it.
-        let fileItem = treeItem;
-        while (!(fileItem.kind === 'group' && fileItem.subKind === 'file') && fileItem.parent)
-          fileItem = fileItem.parent;
-        if (!enabledFiles.has(fileItem.location.file))
+        if (!enabledFiles.has(treeItem.location.file))
           continue;
         testIds.push(...collectTestIds(treeItem));
       }
