@@ -235,9 +235,6 @@ export class TestModel extends DisposableBase {
     }
 
     this._collection._modelUpdated(this);
-
-    // if "watch all" is enabled, any added files need to be sent to the test server.
-    await this._updateFileWatches();
   }
 
   private _createProject(projectReport: ProjectConfigWithFiles): TestProject {
@@ -637,9 +634,13 @@ export class TestModel extends DisposableBase {
     const filesToWatch = new Set<string>();
     for (const watch of this._watches) {
       if (!watch.include) {
-        for (const file of this.enabledFiles())
-          filesToWatch.add(file);
-        continue;
+        filesToWatch.clear();
+        for (let testDir of this.testDirs()) {
+          if (!testDir.endsWith(path.sep))
+            testDir += path.sep;
+          filesToWatch.add(testDir);
+        }
+        break;
       }
       for (const include of watch.include) {
         if (!include.uri)

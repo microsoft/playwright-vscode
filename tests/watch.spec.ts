@@ -66,8 +66,7 @@ test('should watch all tests', async ({ activate }) => {
       method: 'watch',
       params: expect.objectContaining({
         fileNames: [
-          expect.stringContaining(`tests${path.sep}test-1.spec.ts`),
-          expect.stringContaining(`tests${path.sep}test-2.spec.ts`),
+          expect.stringContaining(`tests${path.sep}`),
         ],
       })
     },
@@ -128,9 +127,14 @@ test('should unwatch all tests', async ({ activate }) => {
       method: 'watch',
       params: expect.objectContaining({
         fileNames: [
-          expect.stringContaining(`tests${path.sep}test-1.spec.ts`),
-          expect.stringContaining(`tests${path.sep}test-2.spec.ts`),
+          expect.stringContaining(`tests${path.sep}`),
         ],
+      })
+    },
+    {
+      method: 'watch',
+      params: expect.objectContaining({
+        fileNames: [],
       })
     },
     {
@@ -194,7 +198,6 @@ test('should watch test file', async ({ activate }) => {
 });
 
 test('should watch tests via helper', async ({ activate }) => {
-  // This test requires nightly playwright.
   const { vscode, testController, workspaceFolder } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/helper.ts': `
@@ -241,7 +244,7 @@ test('should watch tests via helper', async ({ activate }) => {
     {
       method: 'watch',
       params: expect.objectContaining({
-        fileNames: [expect.stringContaining(`tests${path.sep}test.spec.ts`)],
+        fileNames: [expect.stringContaining(`tests${path.sep}`)],
       })
     },
     {
