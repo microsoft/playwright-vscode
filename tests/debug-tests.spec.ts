@@ -89,7 +89,9 @@ test('should debug one test', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: undefined,
+        locations: [
+          expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`),
+        ],
         testIds: [expect.any(String)]
       })
     },

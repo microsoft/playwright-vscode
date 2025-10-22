@@ -663,13 +663,14 @@ export class TestModel extends DisposableBase {
     const enabledFiles = this.enabledFiles();
     for (const item of request.include) {
       const treeItem = upstreamTreeItem(item);
-      if (treeItem.kind === 'group' && (treeItem.subKind === 'folder' || treeItem.subKind === 'file')) {
-        const treeItemPath = treeItem.location.file + (treeItem.subKind === 'folder' ? path.sep : '');
-        for (const file of enabledFiles) {
-          if (file === treeItemPath || file.startsWith(treeItemPath))
-            locations.add(treeItemPath);
-        }
-      } else {
+      const representsPath = treeItem.kind === 'group' && (treeItem.subKind === 'file' || treeItem.subKind === 'folder');
+      const treeItemPath = treeItem.location.file + (representsPath && treeItem.subKind === 'folder' ? path.sep : '');
+      for (const file of enabledFiles) {
+        if (file === treeItemPath || file.startsWith(treeItemPath))
+          locations.add(treeItemPath);
+      }
+
+      if (!representsPath) {
         // test case might be imported in the .spec.ts file, so it has a different location.
         // comparisons with enabledFiles need to happen on the .spec.ts file level, so we walk up to it.
         let fileItem = treeItem;
