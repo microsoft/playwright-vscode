@@ -663,25 +663,26 @@ export class TestModel extends DisposableBase {
     const enabledFiles = this.enabledFiles();
     for (const item of request.include) {
       const treeItem = upstreamTreeItem(item);
-      const representsPath = treeItem.kind === 'group' && (treeItem.subKind === 'folder' || treeItem.subKind === 'file');
-      const treeItemPath = treeItem.location.file + (representsPath && treeItem.subKind === 'folder' ? path.sep : '');
+
+      // test case might be imported in the .spec.ts file, so it has a different location.
+      // comparisons with enabledFiles need to happen on the .spec.ts file level, so we walk up to it.
+      let fileItem = treeItem;
+      while (!(fileItem.kind === 'group' && fileItem.subKind === 'file') && fileItem.parent)
+        fileItem = fileItem.parent;
+      if (!enabledFiles.has(fileItem.location.file))
+        continue;
+
+      const fileItemPath = fileItem.location.file + (fileItem.kind === 'group' && fileItem.subKind === 'folder' ? path.sep : '');
       for (const file of enabledFiles) {
-        if (file === treeItemPath || file.startsWith(treeItemPath)) {
-          locations.add(treeItemPath);
+        if (file === fileItemPath || file.startsWith(fileItemPath)) {
+          locations.add(fileItemPath);
           break;
         }
       }
 
-      if (!representsPath) {
-        // test case might be imported in the .spec.ts file, so it has a different location.
-        // comparisons with enabledFiles need to happen on the .spec.ts file level, so we walk up to it.
-        let fileItem = treeItem;
-        while (!(fileItem.kind === 'group' && fileItem.subKind === 'file') && fileItem.parent)
-          fileItem = fileItem.parent;
-        if (!enabledFiles.has(fileItem.location.file))
-          continue;
+      const representsPath = treeItem.kind === 'group' && (treeItem.subKind === 'folder' || treeItem.subKind === 'file');
+      if (!representsPath)
         testIds.push(...collectTestIds(treeItem));
-      }
     }
 
     return { locations: locations.size ? [...locations] : null, testIds: testIds.length ? testIds : undefined };
