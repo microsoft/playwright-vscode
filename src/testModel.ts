@@ -666,8 +666,10 @@ export class TestModel extends DisposableBase {
       const representsPath = treeItem.kind === 'group' && (treeItem.subKind === 'file' || treeItem.subKind === 'folder');
       const treeItemPath = treeItem.location.file + (representsPath && treeItem.subKind === 'folder' ? path.sep : '');
       for (const file of enabledFiles) {
-        if (file === treeItemPath || file.startsWith(treeItemPath))
+        if (file === treeItemPath || file.startsWith(treeItemPath)) {
           locations.add(treeItemPath);
+          break;
+        }
       }
 
       if (!representsPath) {
