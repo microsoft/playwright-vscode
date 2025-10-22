@@ -667,7 +667,7 @@ export class TestModel extends DisposableBase {
       // test case might be imported in the .spec.ts file, so it has a different location.
       // comparisons with enabledFiles need to happen on the .spec.ts file level, so we walk up to it.
       let fileItem = treeItem;
-      while (!(fileItem.kind === 'group' && fileItem.subKind === 'file') && fileItem.parent)
+      while (!(fileItem.kind === 'group' && (fileItem.subKind === 'file' || fileItem.subKind === 'folder')) && fileItem.parent)
         fileItem = fileItem.parent;
       if (!enabledFiles.has(fileItem.location.file))
         continue;
