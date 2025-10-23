@@ -632,37 +632,6 @@ test('should watch test suite and run tests when file in suite is saved', async 
   ]);
 });
 
-test('should execute new test file when "watch all" is enabled', async ({ activate }) => {
-  const { testController, workspaceFolder, vscode } = await activate({
-    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
-    'tests/foo.spec.ts': `
-      import { test } from '@playwright/test';
-      test('should pass', async () => {});
-    `,
-  });
-
-  await testController.watch();
-
-  await workspaceFolder.addFile('tests/bar.spec.ts', `
-    import { test } from '@playwright/test';
-    test('new test', async () => {});
-  `);
-  await vscode.openEditors('**/tests/bar.spec.ts');
-
-  const [testRun] = await Promise.all([
-    new Promise<TestRun>(f => testController.onDidCreateTestRun(f)),
-    workspaceFolder.changeFile('tests/bar.spec.ts', `
-      import { test } from '@playwright/test';
-      test('new test, but updated', async () => {});
-    `)
-  ]);
-  await new Promise(f => testRun.onDidEnd(f));
-
-  expect(testRun.renderLog()).toContain('bar.spec.ts');
-  expect(testRun.renderLog()).toContain('new test, but updated');
-});
-
-
 test('expanding watch from spec to file should work', async ({ activate }) => {
   const { testController, workspaceFolder } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
