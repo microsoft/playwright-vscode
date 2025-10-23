@@ -670,7 +670,7 @@ export class TestModel extends DisposableBase {
       while (!(fileItem.kind === 'group' && (fileItem.subKind === 'file' || fileItem.subKind === 'folder')) && fileItem.parent)
         fileItem = fileItem.parent;
       const fileItemPath = fileItem.location.file + (fileItem.kind === 'group' && fileItem.subKind === 'folder' ? path.sep : '');
-      if (!enabledFiles.some(file => file === fileItemPath || file.startsWith(fileItemPath)))
+      if (!enabledFiles.some(file => file.startsWith(fileItemPath)))
         continue;
 
       locations.add(fileItemPath);
