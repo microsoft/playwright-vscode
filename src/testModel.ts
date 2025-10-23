@@ -626,6 +626,20 @@ export class TestModel extends DisposableBase {
       this._watches.delete(watch);
       void this._updateFileWatches();
     });
+
+    // Watch contract has a bug in 1.86 - when outer non-global watch is disabled, it assumes that inner watches are
+    // discarded as well without issuing the token cancelation.
+    for (const ri of include || []) {
+      for (const watch of this._watches) {
+        for (const wi of watch.include || []) {
+          if (isAncestorOf(ri, wi)) {
+            this._watches.delete(watch);
+            break;
+          }
+        }
+      }
+    }
+
     this._watches.add(watch);
     await this._updateFileWatches();
   }
@@ -880,6 +894,15 @@ function projectFiles(project: TestProject): Map<string, reporterTypes.Suite> {
 }
 
 const listFilesFlag = Symbol('listFilesFlag');
+
+function isAncestorOf(root: vscodeTypes.TestItem, descendent: vscodeTypes.TestItem) {
+  while (descendent.parent) {
+    if (descendent.parent === root)
+      return true;
+    descendent = descendent.parent;
+  }
+  return false;
+}
 
 function noOverrideToUndefined<T>(value: T | 'no-override'): T | undefined {
   return value === 'no-override' ? undefined : value;

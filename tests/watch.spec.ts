@@ -661,3 +661,81 @@ test('should execute new test file when "watch all" is enabled', async ({ activa
   expect(testRun.renderLog()).toContain('bar.spec.ts');
   expect(testRun.renderLog()).toContain('new test, but updated');
 });
+
+
+test('expanding watch from spec to file should work', async ({ activate }) => {
+  const { testController, workspaceFolder } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/foo.spec.ts': `
+      import { test } from '@playwright/test';
+      test('foo', async () => {});
+      test('bar', async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/.*/);
+
+  let [testRun] = await Promise.all([
+    new Promise<TestRun>(f => testController.onDidCreateTestRun(testRun => {
+      testRun.onDidEnd(() => f(testRun));
+    })),
+    testController.watch(testController.findTestItems(/bar/)),
+  ]);
+  expect(testRun.renderLog()).toBe(`
+    tests > foo.spec.ts > bar [3:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+
+  [testRun] = await Promise.all([
+    new Promise<TestRun>(f => testController.onDidCreateTestRun(testRun => {
+      testRun.onDidEnd(() => f(testRun));
+    })),
+    testController.watch(testController.findTestItems(/foo\.spec/))
+  ]);
+  expect(testRun.renderLog()).toBe(`
+    tests > foo.spec.ts > foo [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+    tests > foo.spec.ts > bar [3:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+
+  [testRun] = await Promise.all([
+    new Promise<TestRun>(f => testController.onDidCreateTestRun(testRun => {
+      testRun.onDidEnd(() => f(testRun));
+    })),
+    workspaceFolder.changeFile('tests/foo.spec.ts', `
+      import { test } from '@playwright/test';
+      test('foo', async () => { throw new Error('kaboom'); });
+      test('bar', async () => {});
+    `),
+  ]);
+
+  expect.soft(testRun.renderLog()).toBe(`
+    tests > foo.spec.ts > foo [2:0]
+      enqueued
+      enqueued
+      started
+      failed
+    tests > foo.spec.ts > bar [3:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   foo.spec.ts
+        - ❌ foo [2:0]
+        - ✅ bar [3:0]
+  `);
+});
