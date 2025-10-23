@@ -650,6 +650,7 @@ export class TestModel extends DisposableBase {
       if (!watch.include) {
         filesToWatch.clear();
         for (let testDir of this.testDirs()) {
+          // ensure testDir ends with /. filesToWatch is globs, and we don't want to watch "test-unit" when our testDir is "test".
           if (!testDir.endsWith(path.sep))
             testDir += path.sep;
           filesToWatch.add(testDir);
