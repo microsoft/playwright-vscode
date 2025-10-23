@@ -660,7 +660,7 @@ export class TestModel extends DisposableBase {
       return { locations: [] };
     const locations = new Set<string>();
     const testIds: string[] = [];
-    const enabledFiles = this.enabledFiles();
+    const enabledFiles = [...this.enabledFiles()];
     for (const item of request.include) {
       const treeItem = upstreamTreeItem(item);
 
@@ -669,17 +669,11 @@ export class TestModel extends DisposableBase {
       let fileItem = treeItem;
       while (!(fileItem.kind === 'group' && (fileItem.subKind === 'file' || fileItem.subKind === 'folder')) && fileItem.parent)
         fileItem = fileItem.parent;
-      if (!enabledFiles.has(fileItem.location.file))
+      const fileItemPath = fileItem.location.file + (fileItem.kind === 'group' && fileItem.subKind === 'folder' ? path.sep : '');
+      if (!enabledFiles.some(file => file === fileItemPath || file.startsWith(fileItemPath)))
         continue;
 
-      const fileItemPath = fileItem.location.file + (fileItem.kind === 'group' && fileItem.subKind === 'folder' ? path.sep : '');
-      for (const file of enabledFiles) {
-        if (file === fileItemPath || file.startsWith(fileItemPath)) {
-          locations.add(fileItemPath);
-          break;
-        }
-      }
-
+      locations.add(fileItemPath);
       const representsPath = treeItem.kind === 'group' && (treeItem.subKind === 'folder' || treeItem.subKind === 'file');
       if (!representsPath)
         testIds.push(...collectTestIds(treeItem));
