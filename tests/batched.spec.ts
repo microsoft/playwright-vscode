@@ -18,6 +18,7 @@ import { test, expect } from './utils';
 import { Batched } from '../src/batched';
 
 test('batched', async ({ page, vscode }) => {
+  test.setTimeout(1000);
   await page.clock.install();
   await page.clock.pauseAt(Date.now());
 
@@ -27,10 +28,12 @@ test('batched', async ({ page, vscode }) => {
   const clazz = await page.evaluateHandle<typeof Batched>(`(${Batched.toString()})`);
   const batched = await clazz.evaluateHandle(Batched => {
     const log: string[] = [];
-    const batched = new Batched<number>(globalThis as any, async inputs => {
+    const batched = new Batched<number>(globalThis as any, async (inputs, token) => {
       log.push(`start ${inputs.join(',')}`);
+      const listener = token.onCancellationRequested(() => log.push(`canceled ${inputs.join(',')}`));
       await new Promise(res => setTimeout(res, 2));
       log.push(`end   ${inputs.join(',')}`);
+      listener.dispose();
     }, 1);
     return { batched, log };
   });
@@ -80,4 +83,34 @@ test('batched', async ({ page, vscode }) => {
     'start 4',
     'end   4'
   ]);
+
+  // invokeImmediately cancels ongoing batch
+  const invocation5 = batched.evaluate(({ batched }) => batched.invoke(5));
+  await page.clock.runFor(1);
+  expect(await batched.evaluate(b => b.log)).toEqual([
+    'start 1,2',
+    'end   1,2',
+    'start 3',
+    'end   3',
+    'start 4',
+    'end   4',
+    'start 5'
+  ]);
+
+  const invocation6 = batched.evaluate(({ batched }) => batched.invokeImmediately(6));
+  expect(await batched.evaluate(b => b.log)).toEqual([
+    'start 1,2',
+    'end   1,2',
+    'start 3',
+    'end   3',
+    'start 4',
+    'end   4',
+    'start 5',
+    'canceled 5',
+    'start 6'
+  ]);
+
+  await page.clock.runFor(2);
+  await invocation5;
+  await invocation6;
 });

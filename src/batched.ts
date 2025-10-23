@@ -21,9 +21,9 @@ export class Batched<I> {
   private _ongoing?: { result: Promise<void>; cancel: CancellationTokenSource };
   private readonly _delay: number;
   private readonly _impl: (inputs: I[], token: CancellationToken) => Promise<void>;
-  private readonly _vscode: Pick<VSCode, 'CancellationTokenSource'>;
+  private readonly _vscode: VSCode;
 
-  constructor(vscode: Pick<VSCode, 'CancellationTokenSource'>, impl: (inputs: I[], token: CancellationToken) => Promise<void>, delay: number) {
+  constructor(vscode: VSCode, impl: (inputs: I[], token: CancellationToken) => Promise<void>, delay: number) {
     this._vscode = vscode;
     this._impl = impl;
     this._delay = delay;
@@ -72,6 +72,8 @@ export class Batched<I> {
 
   async invokeImmediately(input: I) {
     this._ongoing?.cancel.cancel();
+    // we don't wait for the ongoing to finish, so we run as fast as possible.
+    // this means there might be a slight overlap, which is acceptable for our usecases.
     const result = this.invoke(input);
     this._batch!.promote.cancel();
     return await result;
