@@ -300,7 +300,9 @@ test('should watch one test in a file', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: undefined,
+        locations: [
+          expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`),
+        ],
         testIds: [
           expect.any(String)
         ]
@@ -321,7 +323,9 @@ test('should watch one test in a file', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: undefined,
+        locations: [
+          expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`),
+        ],
         testIds: [expect.any(String)]
       })
     },
@@ -379,7 +383,9 @@ test('should watch two tests in a file', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: undefined,
+        locations: [
+          expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`),
+        ],
         testIds: [
           expect.any(String),
           expect.any(String),
@@ -401,7 +407,9 @@ test('should watch two tests in a file', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: undefined,
+        locations: [
+          expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`),
+        ],
         testIds: [expect.any(String), expect.any(String)]
       })
     },
@@ -541,7 +549,9 @@ test('should only watch a test from the enabled project when multiple projects s
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: undefined,
+        locations: [
+          expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`),
+        ],
         testIds: [
           expect.any(String)
         ]
@@ -568,7 +578,9 @@ test('should only watch a test from the enabled project when multiple projects s
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: undefined,
+        locations: [
+          expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`),
+        ],
         testIds: [expect.any(String)]
       })
     },
