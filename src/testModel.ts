@@ -647,9 +647,10 @@ export class TestModel extends DisposableBase {
       if (!watch.include) {
         filesToWatch.clear();
         for (const project of this.enabledProjects()) {
-          // Watch testDirs instead of enabled files, so we get notifications about new files added.
           let testDir = project.project.testDir;
-          // ensure testDir ends with /. filesToWatch is globs, and we don't want to watch "test-unit" when our testDir is "test".
+          // We watch testDirs instead of enabled files, so we get notifications about new files added.
+          // We ensure it ends with a trailing slash, because filesToWatch are globs.
+          // Without a trailing slash, we'd also watch "test-unit" when our testDir is "test".
           if (!testDir.endsWith(path.sep))
             testDir += path.sep;
           filesToWatch.add(testDir);
