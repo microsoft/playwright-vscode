@@ -33,6 +33,7 @@ import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
 import { pathToFileURL } from 'url';
 import { TestConfig } from './playwrightTestServer';
+import { Batched } from './batched';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -78,6 +79,7 @@ export class Extension implements RunHooks {
   private _runProfile: vscodeTypes.TestRunProfile;
   private _debugProfile: vscodeTypes.TestRunProfile;
   private _commandQueue = Promise.resolve();
+  private _rebuildModelsBatched: Batched<boolean>;
   private _watchFilesBatch?: vscodeTypes.TestItem[];
   private _watchItemsBatch?: vscodeTypes.TestItem[];
 
@@ -104,6 +106,10 @@ export class Extension implements RunHooks {
       },
     });
 
+    this._rebuildModelsBatched = new Batched(this._vscode, async (input, token) => {
+      const userGesture = input.some(v => v);
+      await this._rebuildModels(userGesture, token);
+    }, 50);
     this._settingsModel = new SettingsModel(vscode, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
@@ -118,7 +124,7 @@ export class Extension implements RunHooks {
     });
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
-    this._testController.refreshHandler = () => this._rebuildModels(true).then(() => {});
+    this._testController.refreshHandler = () => this._rebuildModelsBatched.invokeImmediately(true);
     const supportsContinuousRun = true;
     this._runProfile = this._testController.createRunProfile('playwright-run', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, false), true, undefined, supportsContinuousRun);
     this._debugProfile = this._testController.createRunProfile('playwright-debug', this._vscode.TestRunProfileKind.Debug, this._handleTestRun.bind(this, true), true, undefined, supportsContinuousRun);
@@ -158,7 +164,7 @@ export class Extension implements RunHooks {
       this._debugHighlight,
       this._settingsModel,
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
-        void this._rebuildModels(false);
+        this._rebuildModelsBatched.invoke(false);
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         void this._updateVisibleEditorItems();
@@ -243,7 +249,7 @@ export class Extension implements RunHooks {
       }),
       vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('playwright.env'))
-          void this._rebuildModels(false);
+          this._rebuildModelsBatched.invoke(false);
       }),
       this._testTree,
       this._models,
@@ -275,22 +281,24 @@ export class Extension implements RunHooks {
         return;
       if (!this._isUnderTest && uriToPath(uri).includes('test-results'))
         return;
-      void this._rebuildModels(false);
+      this._rebuildModelsBatched.invoke(false);
     };
 
-    await this._rebuildModels(false);
+    await this._rebuildModelsBatched.invokeImmediately(false);
     fileSystemWatchers.map(w => w.onDidChange(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidCreate(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidDelete(rebuildModelForConfig));
     this._context.subscriptions.push(this);
   }
 
-  private async _rebuildModels(userGesture: boolean): Promise<vscodeTypes.Uri[]> {
-    this._commandQueue = Promise.resolve();
+  private async _rebuildModels(userGesture: boolean, token: vscodeTypes.CancellationToken): Promise<void> {
     this._models.clear();
     this._testTree.startedLoading();
 
-    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mts,mjs}', '**/node_modules/**');
+    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mts,mjs}', '**/node_modules/**', undefined, token);
+    if (token.isCancellationRequested)
+      return;
+
     // findFiles returns results in a non-deterministic order - sort them to ensure consistent order when we enable the first model by default.
     configFiles.sort((a, b) => sortPaths(uriToPath(a), uriToPath(b)));
     for (const configFileUri of configFiles) {
@@ -306,6 +314,8 @@ export class Extension implements RunHooks {
         continue;
 
       await this._detectPnp(configFilePath, workspaceFolderPath);
+      if (token.isCancellationRequested)
+        return;
 
       let playwrightInfo = null;
       try {
@@ -319,6 +329,8 @@ export class Extension implements RunHooks {
         console.error('[Playwright Test]:', (error as any)?.message);
         continue;
       }
+      if (token.isCancellationRequested)
+        return;
 
       const minimumPlaywrightVersion = 1.38;
       if (playwrightInfo.version < minimumPlaywrightVersion) {
@@ -331,11 +343,12 @@ export class Extension implements RunHooks {
       }
 
       await this._models.createModel(workspaceFolderPath, configFilePath, playwrightInfo);
+      if (token.isCancellationRequested)
+        return;
     }
 
     this._models.ensureHasEnabledModels();
     this._testTree.finishedLoading();
-    return configFiles;
   }
 
   private async _modelsUpdated() {
