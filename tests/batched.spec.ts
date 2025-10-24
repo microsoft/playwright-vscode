@@ -39,21 +39,20 @@ test('batched', async ({ page, vscode }) => {
   });
 
   // invocations within the batching window are coalesced
-  const invocation1 = batched.evaluate(({ batched }) => batched.invoke(1));
-  const invocation2 = batched.evaluate(({ batched }) => batched.invoke(2));
+  await batched.evaluate(({ batched }) => batched.invoke(1));
+  await batched.evaluate(({ batched }) => batched.invoke(2));
   await page.clock.runFor(1);
   expect(await batched.evaluate(b => b.log)).toEqual([
     'start 1,2'
   ]);
   await page.clock.runFor(2);
-  expect(await invocation1).toBe(await invocation2);
   expect(await batched.evaluate(b => b.log)).toEqual([
     'start 1,2',
     'end   1,2'
   ]);
 
   // invocations during execution get their own batch
-  const invocation3 = batched.evaluate(({ batched }) => batched.invoke(3));
+  await batched.evaluate(({ batched }) => batched.invoke(3));
   await page.clock.runFor(1);
   expect(await batched.evaluate(b => b.log)).toEqual([
     'start 1,2',
@@ -62,9 +61,8 @@ test('batched', async ({ page, vscode }) => {
   ]);
 
   // invocation during ongoing execution creates a new batch
-  const invocation4 = batched.evaluate(({ batched }) => batched.invoke(4));
+  await batched.evaluate(({ batched }) => batched.invoke(4));
   await page.clock.runFor(2);
-  await invocation3;
   expect(await batched.evaluate(b => b.log)).toEqual([
     'start 1,2',
     'end   1,2',
@@ -74,7 +72,6 @@ test('batched', async ({ page, vscode }) => {
   ]);
 
   await page.clock.runFor(2);
-  await invocation4;
   expect(await batched.evaluate(b => b.log)).toEqual([
     'start 1,2',
     'end   1,2',
@@ -85,7 +82,7 @@ test('batched', async ({ page, vscode }) => {
   ]);
 
   // invokeImmediately cancels ongoing batch
-  const invocation5 = batched.evaluate(({ batched }) => batched.invoke(5));
+  await batched.evaluate(({ batched }) => batched.invoke(5));
   await page.clock.runFor(1);
   expect(await batched.evaluate(b => b.log)).toEqual([
     'start 1,2',
@@ -111,6 +108,5 @@ test('batched', async ({ page, vscode }) => {
   ]);
 
   await page.clock.runFor(2);
-  await invocation5;
   await invocation6;
 });

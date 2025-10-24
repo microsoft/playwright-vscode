@@ -17,8 +17,8 @@
 import { CancellationToken, CancellationTokenSource, VSCode } from './vscodeTypes';
 
 export class Batched<I> {
-  private _batch?: { inputs: I[]; result: Promise<void>; cancel: CancellationTokenSource; promote: CancellationTokenSource };
-  private _ongoing?: { result: Promise<void>; cancel: CancellationTokenSource };
+  private _needsRebuild: I[] = [];
+  private _running?: CancellationTokenSource;
   private readonly _delay: number;
   private readonly _impl: (inputs: I[], token: CancellationToken) => Promise<void>;
   private readonly _vscode: VSCode;
@@ -29,54 +29,43 @@ export class Batched<I> {
     this._delay = delay;
   }
 
-  async invoke(input: I): Promise<void> {
-    if (this._batch) {
-      this._batch.inputs.push(input);
-      return await this._batch.result;
-    }
-
-    const promote = new this._vscode.CancellationTokenSource();
-    const batch = {
-      inputs: [input],
-      cancel: new this._vscode.CancellationTokenSource(),
-      promote,
-      result: new Promise<void>(async (resolve, reject) => {
-        try {
-          await Promise.race([
-            Promise.all([
-              new Promise(res => setTimeout(res, this._delay)),
-              this._ongoing?.result.catch(() => { })
-            ]),
-            new Promise<void>(res => promote.token.onCancellationRequested(() => res()))
-          ]);
-
-          this._ongoing = this._batch;
-          this._batch = undefined;
-          await this._impl(batch.inputs, batch.cancel.token);
-          resolve();
-        } catch (e) {
-          reject(e);
-        } finally {
-          if (this._ongoing === batch)
-            this._ongoing = undefined;
-          if (this._batch === batch)
-            this._batch = undefined;
-          batch.cancel.dispose();
-          batch.promote.dispose();
-        }
-      })
-    };
-    this._batch = batch;
-    return await batch.result;
+  invoke(input: I): void {
+    this._needsRebuild.push(input);
+    if (this._running)
+      return;
+    void this._runBatch(true);
   }
 
-  async invokeImmediately(input: I) {
-    this._ongoing?.cancel.cancel();
+  async invokeImmediately(input: I): Promise<void> {
+    this._needsRebuild.push(input);
+    this._running?.cancel();
     // we don't wait for the ongoing to finish, so we run as fast as possible.
     // this means there might be a slight overlap, which is acceptable for our usecases.
-    const result = this.invoke(input);
-    this._batch!.promote.cancel();
-    return await result;
+    await this._runBatch(false);
+  }
+
+  private async _runBatch(wait: boolean): Promise<void> {
+    const cancel = new this._vscode.CancellationTokenSource();
+    this._running = cancel;
+    if (wait) {
+      await Promise.race([
+        new Promise(f => setTimeout(f, this._delay)),
+        new Promise(f => cancel.token.onCancellationRequested(f))
+      ]);
+      if (cancel.token.isCancellationRequested)
+        return;
+    }
+
+    const inputs = this._needsRebuild;
+    this._needsRebuild = [];
+    try {
+      await this._impl(inputs, cancel.token);
+      if (this._needsRebuild.length)
+        void this._runBatch(false);
+    } finally {
+      if (this._running === cancel)
+        this._running = undefined;
+    }
   }
 
 }
