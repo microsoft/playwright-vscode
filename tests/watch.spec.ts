@@ -66,8 +66,7 @@ test('should watch all tests', async ({ activate }) => {
       method: 'watch',
       params: expect.objectContaining({
         fileNames: [
-          expect.stringContaining(`tests${path.sep}test-1.spec.ts`),
-          expect.stringContaining(`tests${path.sep}test-2.spec.ts`),
+          expect.stringContaining(`tests${path.sep}`),
         ],
       })
     },
@@ -128,9 +127,14 @@ test('should unwatch all tests', async ({ activate }) => {
       method: 'watch',
       params: expect.objectContaining({
         fileNames: [
-          expect.stringContaining(`tests${path.sep}test-1.spec.ts`),
-          expect.stringContaining(`tests${path.sep}test-2.spec.ts`),
+          expect.stringContaining(`tests${path.sep}`),
         ],
+      })
+    },
+    {
+      method: 'watch',
+      params: expect.objectContaining({
+        fileNames: [],
       })
     },
     {
@@ -194,7 +198,6 @@ test('should watch test file', async ({ activate }) => {
 });
 
 test('should watch tests via helper', async ({ activate }) => {
-  // This test requires nightly playwright.
   const { vscode, testController, workspaceFolder } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/helper.ts': `
@@ -241,7 +244,7 @@ test('should watch tests via helper', async ({ activate }) => {
     {
       method: 'watch',
       params: expect.objectContaining({
-        fileNames: [expect.stringContaining(`tests${path.sep}test.spec.ts`)],
+        fileNames: [expect.stringContaining(`tests${path.sep}`)],
       })
     },
     {
@@ -585,4 +588,135 @@ test('should only watch a test from the enabled project when multiple projects s
       })
     },
   ]);
+});
+
+test('watching all tests should also execute newly added files', async ({ activate }) => {
+  const { testController, workspaceFolder, vscode } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/foo.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => {});
+    `,
+  });
+
+  await testController.watch();
+
+  await workspaceFolder.addFile('tests/bar.spec.ts', `
+    import { test } from '@playwright/test';
+    test('scaffolding', async () => {});
+  `);
+  await vscode.openEditors('**/tests/bar.spec.ts');
+
+  const [testRun] = await Promise.all([
+    new Promise<TestRun>(f => testController.onDidCreateTestRun(f)),
+    workspaceFolder.changeFile('tests/bar.spec.ts', `
+      import { test } from '@playwright/test';
+      test('implemented', async () => {});
+    `)
+  ]);
+  await new Promise(f => testRun.onDidEnd(f));
+
+  expect(testRun.renderLog()).toContain('bar.spec.ts');
+  expect(testRun.renderLog()).toContain('implemented');
+});
+
+test('should watch test suite and run tests when file in suite is saved', async ({ activate }) => {
+  const { testController, workspaceFolder } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/completing-todos/complete-single-todo.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should complete single todo', async () => {});
+    `,
+    'tests/completing-todos/complete-all-todos.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should complete all todos', async () => {});
+    `,
+  });
+
+  await testController.watch(testController.findTestItems(/completing-todos/));
+
+  await Promise.all([
+    new Promise(f => testController.onDidCreateTestRun(run => run.onDidEnd(f))),
+    workspaceFolder.changeFile('tests/completing-todos/complete-single-todo.spec.ts', `
+      import { test } from '@playwright/test';
+      test('should complete single todo - modified', async () => {});
+    `),
+  ]);
+});
+
+test('expanding watch from spec to file should work', async ({ activate }) => {
+  const { testController, workspaceFolder } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/foo.spec.ts': `
+      import { test } from '@playwright/test';
+      test('foo', async () => {});
+      test('bar', async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/.*/);
+
+  let [testRun] = await Promise.all([
+    new Promise<TestRun>(f => testController.onDidCreateTestRun(testRun => {
+      testRun.onDidEnd(() => f(testRun));
+    })),
+    testController.watch(testController.findTestItems(/bar/)),
+  ]);
+  expect(testRun.renderLog()).toBe(`
+    tests > foo.spec.ts > bar [3:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+
+  [testRun] = await Promise.all([
+    new Promise<TestRun>(f => testController.onDidCreateTestRun(testRun => {
+      testRun.onDidEnd(() => f(testRun));
+    })),
+    testController.watch(testController.findTestItems(/foo\.spec/))
+  ]);
+  expect(testRun.renderLog()).toBe(`
+    tests > foo.spec.ts > foo [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+    tests > foo.spec.ts > bar [3:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+
+  [testRun] = await Promise.all([
+    new Promise<TestRun>(f => testController.onDidCreateTestRun(testRun => {
+      testRun.onDidEnd(() => f(testRun));
+    })),
+    workspaceFolder.changeFile('tests/foo.spec.ts', `
+      import { test } from '@playwright/test';
+      test('foo', async () => { throw new Error('kaboom'); });
+      test('bar', async () => {});
+    `),
+  ]);
+
+  expect.soft(testRun.renderLog()).toBe(`
+    tests > foo.spec.ts > foo [2:0]
+      enqueued
+      enqueued
+      started
+      failed
+    tests > foo.spec.ts > bar [3:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   foo.spec.ts
+        - ❌ foo [2:0]
+        - ✅ bar [3:0]
+  `);
 });

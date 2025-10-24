@@ -310,7 +310,6 @@ export class TestModel extends DisposableBase {
     if (!testFiles.length)
       return;
 
-    const enabledFiles = this.enabledFiles();
     const files: string[] = [];
     const items: vscodeTypes.TestItem[] = [];
     for (const watch of this._watches || []) {
@@ -325,8 +324,6 @@ export class TestModel extends DisposableBase {
           if (!include.uri)
             continue;
           const fsPath = uriToPath(include.uri);
-          if (!enabledFiles.has(fsPath))
-            continue;
           // Folder is watched => add file.
           if (testFile.startsWith(fsPath + path.sep)) {
             files.push(testFile);
@@ -622,8 +619,10 @@ export class TestModel extends DisposableBase {
 
   async addToWatch(include: readonly vscodeTypes.TestItem[] | undefined, cancellationToken: vscodeTypes.CancellationToken) {
     const watch: Watch = { include };
-    this._watches.add(watch);
-    cancellationToken.onCancellationRequested(() => this._watches.delete(watch));
+    cancellationToken.onCancellationRequested(() => {
+      this._watches.delete(watch);
+      void this._updateFileWatches();
+    });
 
     // Watch contract has a bug in 1.86 - when outer non-global watch is disabled, it assumes that inner watches are
     // discarded as well without issuing the token cancelation.
@@ -638,12 +637,25 @@ export class TestModel extends DisposableBase {
       }
     }
 
+    this._watches.add(watch);
+    await this._updateFileWatches();
+  }
+
+  private async _updateFileWatches() {
     const filesToWatch = new Set<string>();
     for (const watch of this._watches) {
       if (!watch.include) {
-        for (const file of this.enabledFiles())
-          filesToWatch.add(file);
-        continue;
+        filesToWatch.clear();
+        for (const project of this.enabledProjects()) {
+          let testDir = project.project.testDir;
+          // We watch testDirs instead of enabled files, so we get notifications about new files added.
+          // We ensure it ends with a trailing slash, because filesToWatch are globs.
+          // Without a trailing slash, we'd also watch "test-unit" when our testDir is "test".
+          if (!testDir.endsWith(path.sep))
+            testDir += path.sep;
+          filesToWatch.add(testDir);
+        }
+        break;
       }
       for (const include of watch.include) {
         if (!include.uri)
