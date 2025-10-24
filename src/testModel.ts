@@ -679,6 +679,9 @@ export class TestModel extends DisposableBase {
         testIds.push(...collectTestIds(treeItem));
     }
 
+    // known bug: for a combination of location items, and test IDs outside those locations, those test IDs will never be run.
+    // See the "should run both file and specific test from another file" test for an example.
+
     return { locations: locations.size ? [...locations] : null, testIds: testIds.length ? testIds : undefined };
   }
 
