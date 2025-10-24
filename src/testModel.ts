@@ -310,7 +310,6 @@ export class TestModel extends DisposableBase {
     if (!testFiles.length)
       return;
 
-    const enabledFiles = [...this.enabledFiles()];
     const files: string[] = [];
     const items: vscodeTypes.TestItem[] = [];
     for (const watch of this._watches || []) {
@@ -325,8 +324,6 @@ export class TestModel extends DisposableBase {
           if (!include.uri)
             continue;
           const fsPath = uriToPath(include.uri);
-          if (!enabledFiles.some(file => file.startsWith(fsPath)))
-            continue;
           // Folder is watched => add file.
           if (testFile.startsWith(fsPath + path.sep)) {
             files.push(testFile);
