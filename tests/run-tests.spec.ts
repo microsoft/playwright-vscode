@@ -1371,3 +1371,47 @@ test('should only end test run after all config reporters exited', { annotation:
     'testRun ended',
   ]);
 });
+
+test('should run both file and specific test from another file', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright-vscode/pull/706' } }, async ({ activate }) => {
+  test.fail(true, 'since we specify both locations and test IDs, the single test doesnt get found.');
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/foo.spec.ts': `
+      import { test } from '@playwright/test';
+      test('foo-test', async () => {});
+    `,
+    'tests/bar.spec.ts': `
+      import { test } from '@playwright/test';
+      test('bar-test', async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/.*/);
+  const [fooFile] = testController.findTestItems(/foo.spec.ts$/);
+  const [barTest] = testController.findTestItems(/bar-test/);
+  const testRun = await testController.run([fooFile, barTest]);
+
+  await expect(vscode).toHaveConnectionLog(expect.arrayContaining([{
+    method: 'runTests',
+    params: expect.objectContaining({
+      locations: [
+        expect.stringContaining(`foo\\.spec\\.ts`),
+        expect.stringContaining(`bar\\.spec\\.ts`),
+      ],
+      testIds: [expect.any(String)]
+    })
+  }]));
+  expect(testRun.renderLog()).toBe(`
+    tests > foo.spec.ts > bar-test [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+    tests > bar.spec.ts > foo-test [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+});
