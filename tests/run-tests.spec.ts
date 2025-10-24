@@ -1372,8 +1372,13 @@ test('should only end test run after all config reporters exited', { annotation:
   ]);
 });
 
-test('should run both file and specific test from another file', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright-vscode/pull/706' } }, async ({ activate }) => {
-  test.fail(true, 'since we specify both locations and test IDs, the single test doesnt get found.');
+test('should run both file and specific test from another file', async ({ activate }) => {
+  test.fail(true, `
+    Since we specify both locations and test IDs, the single test doesnt get found.
+    It's a rare case because the UI doesn't support it, it can only be done via API.
+    In watch mode, the _runWatchedTests implementation separates files and test IDs,
+    which also prevents the bug.
+  `);
 
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
