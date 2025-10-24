@@ -1371,3 +1371,52 @@ test('should only end test run after all config reporters exited', { annotation:
     'testRun ended',
   ]);
 });
+
+test('should run both file and specific test from another file', async ({ activate }) => {
+  test.fail(true, `
+    Since we specify both locations and test IDs, the single test doesnt get found.
+    It's a rare case because the UI doesn't support it, it can only be done via API.
+    In watch mode, the _runWatchedTests implementation separates files and test IDs,
+    which also prevents the bug.
+  `);
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/foo.spec.ts': `
+      import { test } from '@playwright/test';
+      test('foo-test', async () => {});
+    `,
+    'tests/bar.spec.ts': `
+      import { test } from '@playwright/test';
+      test('bar-test', async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/.*/);
+  const [fooFile] = testController.findTestItems(/foo.spec.ts$/);
+  const [barTest] = testController.findTestItems(/bar-test/);
+  const testRun = await testController.run([fooFile, barTest]);
+
+  await expect(vscode).toHaveConnectionLog(expect.arrayContaining([{
+    method: 'runTests',
+    params: expect.objectContaining({
+      locations: [
+        expect.stringContaining(`foo\\.spec\\.ts`),
+        expect.stringContaining(`bar\\.spec\\.ts`),
+      ],
+      testIds: [expect.any(String)]
+    })
+  }]));
+  expect(testRun.renderLog()).toBe(`
+    tests > foo.spec.ts > bar-test [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+    tests > bar.spec.ts > foo-test [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+});
