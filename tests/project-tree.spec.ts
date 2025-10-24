@@ -30,6 +30,7 @@ test('should switch between configs', async ({ activate }) => {
       test('one', async () => {});
     `,
   });
+  await enableProjects(vscode, ['projectOne']);
   await expect(testController).toHaveTestTree(`
     -   tests1
       -   test.spec.ts
@@ -46,6 +47,7 @@ test('should switch between configs', async ({ activate }) => {
   ]);
 
   await enableConfigs(vscode, [`tests2${path.sep}playwright.config.js`]);
+  await enableProjects(vscode, ['projectThree']);
 
   await expect(vscode).toHaveProjectTree(`
     config: tests2/playwright.config.js
@@ -81,6 +83,8 @@ test('should switch between projects', async ({ activate }) => {
       test('two', async () => {});
     `,
   });
+
+  await enableProjects(vscode, ['projectOne']);
 
   await expect(testController).toHaveTestTree(`
     -   tests1
@@ -135,6 +139,8 @@ test('should hide unchecked projects', async ({ activate }) => {
       test('two', async () => {});
     `,
   });
+
+  await enableProjects(vscode, ['projectOne']);
 
   await expect(testController).toHaveTestTree(`
     -   tests1
@@ -208,4 +214,45 @@ test('should treat project as enabled when UI for it is hidden', async ({ activa
     -   tests1
       -   test.spec.ts
   `);
+});
+
+test('should enable all projects by default, and highlight project list on first test run', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'tests1/playwright.config.js': `module.exports = { testDir: '.', projects: [{ name: 'projectOne' }, { name: 'projectTwo' }] }`,
+    'tests2/playwright.config.js': `module.exports = { testDir: '.', projects: [{ name: 'projectThree' }, { name: 'projectFour' }] }`,
+    'tests1/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+    'tests2/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await expect(vscode).toHaveProjectTree(`
+    config: tests1/playwright.config.js
+    [x] projectOne
+    [x] projectTwo
+  `);
+
+  await testController.run();
+  await expect(testController).toHaveTestTree(`
+    -   tests1
+      -   test.spec.ts
+        -   one [2:0]
+          - ✅ projectOne [2:0]
+          - ✅ projectTwo [2:0]
+  `);
+
+  await expect.poll(() => vscode.commandLog).toContain('pw.extension.settingsView.focus');
+  await expect(webView.locator('body')).toMatchAriaSnapshot(`
+    - region:
+      - button "Close Hint"
+      - text: By default, all projects are enabled. Uncheck projects you don't want to run.
+  `);
+  await webView.getByRole('button', { name: 'Close Hint' }).click();
+
+  await testController.run();
+  await expect(webView.getByRole('button', { name: 'Close Hint' })).not.toBeVisible();
 });
