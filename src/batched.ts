@@ -58,14 +58,10 @@ export class Batched<I> {
 
     const inputs = this._needsRebuild;
     this._needsRebuild = [];
-    try {
-      await this._impl(inputs, cancel.token);
-      if (this._needsRebuild.length)
-        void this._runBatch(false);
-    } finally {
-      if (this._running === cancel)
-        this._running = undefined;
-    }
+    await this._impl(inputs, cancel.token).catch(() => {});
+    this._running = undefined;
+    if (this._needsRebuild.length)
+      void this._runBatch(false);
   }
 
 }
