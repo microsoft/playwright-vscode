@@ -164,7 +164,7 @@ export class Extension implements RunHooks {
       this._debugHighlight,
       this._settingsModel,
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
-        void this._rebuildModelsBatched.invoke(false);
+        this._rebuildModelsBatched.invoke(false);
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         void this._updateVisibleEditorItems();
@@ -249,7 +249,7 @@ export class Extension implements RunHooks {
       }),
       vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('playwright.env'))
-          void this._rebuildModelsBatched.invoke(false);
+          this._rebuildModelsBatched.invoke(false);
       }),
       this._testTree,
       this._models,
@@ -281,10 +281,10 @@ export class Extension implements RunHooks {
         return;
       if (!this._isUnderTest && uriToPath(uri).includes('test-results'))
         return;
-      void this._rebuildModelsBatched.invoke(false);
+      this._rebuildModelsBatched.invoke(false);
     };
 
-    await this._rebuildModelsBatched.invoke(false);
+    await this._rebuildModelsBatched.invokeImmediately(false);
     fileSystemWatchers.map(w => w.onDidChange(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidCreate(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidDelete(rebuildModelForConfig));
