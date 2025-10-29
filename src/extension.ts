@@ -160,7 +160,7 @@ export class Extension implements RunHooks {
       this._debugHighlight,
       this._settingsModel,
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
-        void this._rebuildModels();
+        this._rebuildModels();
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         void this._updateVisibleEditorItems();
@@ -245,7 +245,7 @@ export class Extension implements RunHooks {
       }),
       vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('playwright.env'))
-          void this._rebuildModels();
+          this._rebuildModels();
       }),
       this._testTree,
       this._models,
@@ -275,7 +275,7 @@ export class Extension implements RunHooks {
         return true;
       });
       if (hasRelevantFile)
-        void this._rebuildModels();
+        this._rebuildModels();
     });
     configObserver.setPatterns(new Set([
       '**/*playwright*.config.{ts,js,mts,mjs}',
@@ -287,13 +287,13 @@ export class Extension implements RunHooks {
     this._context.subscriptions.push(this);
   }
 
-  private async _rebuildModels() {
+  private _rebuildModels() {
     if (this._modelRebuild) {
       this._modelRebuild.needsAnother = true;
       return;
     }
 
-    await this._rebuildModelsImmediately(false);
+    void this._rebuildModelsImmediately(false);
   }
 
   private async _rebuildModelsImmediately(userGesture: boolean) {
@@ -304,8 +304,7 @@ export class Extension implements RunHooks {
     const rebuild = { result: this._innerRebuildModels(userGesture, cancel.token), token: cancel, needsAnother: false };
     this._modelRebuild = rebuild;
     await this._modelRebuild.result.finally(() => {
-      if (this._modelRebuild === rebuild)
-        this._modelRebuild = undefined;
+      this._modelRebuild = undefined;
       if (rebuild.needsAnother)
         void this._rebuildModelsImmediately(false);
     });
