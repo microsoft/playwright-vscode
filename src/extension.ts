@@ -81,6 +81,8 @@ export class Extension implements RunHooks {
   private _watchFilesBatch?: vscodeTypes.TestItem[];
   private _watchItemsBatch?: vscodeTypes.TestItem[];
 
+  private _modelRebuild?: { result: Promise<void>; token: vscodeTypes.CancellationTokenSource; needsAnother: boolean; };
+
   private _pnpFiles = new Map<string, { pnpCJS?: string, pnpLoader?: string }>();
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
@@ -118,7 +120,7 @@ export class Extension implements RunHooks {
     });
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
-    this._testController.refreshHandler = () => this._rebuildModels(true).then(() => {});
+    this._testController.refreshHandler = () => this._rebuildModelsImmediately(true);
     const supportsContinuousRun = true;
     this._runProfile = this._testController.createRunProfile('playwright-run', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, false), true, undefined, supportsContinuousRun);
     this._debugProfile = this._testController.createRunProfile('playwright-debug', this._vscode.TestRunProfileKind.Debug, this._handleTestRun.bind(this, true), true, undefined, supportsContinuousRun);
@@ -158,7 +160,7 @@ export class Extension implements RunHooks {
       this._debugHighlight,
       this._settingsModel,
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
-        void this._rebuildModels(false);
+        this._rebuildModels();
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         void this._updateVisibleEditorItems();
@@ -243,7 +245,7 @@ export class Extension implements RunHooks {
       }),
       vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('playwright.env'))
-          void this._rebuildModels(false);
+          this._rebuildModels();
       }),
       this._testTree,
       this._models,
@@ -262,35 +264,60 @@ export class Extension implements RunHooks {
       this._treeItemObserver,
       registerTerminalLinkProvider(this._vscode),
     ];
-    const fileSystemWatchers = [
-      // Glob parser does not supported nested group, hence multiple watchers.
-      this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mts,mjs}'),
-      this._vscode.workspace.createFileSystemWatcher('**/*.env*'),
-    ];
-    this._disposables.push(...fileSystemWatchers);
 
-    const rebuildModelForConfig = (uri: vscodeTypes.Uri) => {
-      // TODO: parse .gitignore
-      if (uriToPath(uri).includes('node_modules'))
-        return;
-      if (!this._isUnderTest && uriToPath(uri).includes('test-results'))
-        return;
-      void this._rebuildModels(false);
-    };
+    const configObserver = new WorkspaceObserver(this._vscode, async change => {
+      const hasRelevantFile = [...change.created, ...change.changed, ...change.deleted].some(path => {
+        // TODO: parse .gitignore
+        if (path.includes('node_modules'))
+          return false;
+        if (!this._isUnderTest && path.includes('test-results'))
+          return false;
+        return true;
+      });
+      if (hasRelevantFile)
+        this._rebuildModels();
+    });
+    configObserver.setPatterns(new Set([
+      '**/*playwright*.config.{ts,js,mts,mjs}',
+      '**/*.env*',
+    ]));
+    this._disposables.push(configObserver);
+    await this._rebuildModelsImmediately(false);
 
-    await this._rebuildModels(false);
-    fileSystemWatchers.map(w => w.onDidChange(rebuildModelForConfig));
-    fileSystemWatchers.map(w => w.onDidCreate(rebuildModelForConfig));
-    fileSystemWatchers.map(w => w.onDidDelete(rebuildModelForConfig));
     this._context.subscriptions.push(this);
   }
 
-  private async _rebuildModels(userGesture: boolean): Promise<vscodeTypes.Uri[]> {
-    this._commandQueue = Promise.resolve();
+  private _rebuildModels() {
+    if (this._modelRebuild) {
+      this._modelRebuild.needsAnother = true;
+      return;
+    }
+
+    void this._rebuildModelsImmediately(false);
+  }
+
+  private async _rebuildModelsImmediately(userGesture: boolean) {
+    this._modelRebuild?.token.cancel();
+    const previousCompletion = this._modelRebuild?.result.catch(() => {}) ?? Promise.resolve();
+
+    const cancel = new this._vscode.CancellationTokenSource();
+    const rebuild = { result: previousCompletion.then(() => this._innerRebuildModels(userGesture, cancel.token)), token: cancel, needsAnother: false };
+    this._modelRebuild = rebuild;
+    await this._modelRebuild.result.finally(() => {
+      this._modelRebuild = undefined;
+      if (rebuild.needsAnother)
+        void this._rebuildModelsImmediately(false);
+    });
+  }
+
+  private async _innerRebuildModels(userGesture: boolean, token: vscodeTypes.CancellationToken): Promise<void> {
     this._models.clear();
     this._testTree.startedLoading();
 
-    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mts,mjs}', '**/node_modules/**');
+    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mts,mjs}', '**/node_modules/**', undefined, token);
+    if (token.isCancellationRequested)
+      return;
+
     // findFiles returns results in a non-deterministic order - sort them to ensure consistent order when we enable the first model by default.
     configFiles.sort((a, b) => sortPaths(uriToPath(a), uriToPath(b)));
     for (const configFileUri of configFiles) {
@@ -306,6 +333,8 @@ export class Extension implements RunHooks {
         continue;
 
       await this._detectPnp(configFilePath, workspaceFolderPath);
+      if (token.isCancellationRequested)
+        return;
 
       let playwrightInfo = null;
       try {
@@ -319,6 +348,8 @@ export class Extension implements RunHooks {
         console.error('[Playwright Test]:', (error as any)?.message);
         continue;
       }
+      if (token.isCancellationRequested)
+        return;
 
       const minimumPlaywrightVersion = 1.38;
       if (playwrightInfo.version < minimumPlaywrightVersion) {
@@ -331,17 +362,22 @@ export class Extension implements RunHooks {
       }
 
       await this._models.createModel(workspaceFolderPath, configFilePath, playwrightInfo);
+      if (token.isCancellationRequested)
+        return;
     }
 
     this._models.ensureHasEnabledModels();
     this._testTree.finishedLoading();
-    return configFiles;
   }
 
   private async _modelsUpdated() {
     await this._updateVisibleEditorItems();
     this._updateDiagnostics();
-    this._workspaceObserver.setWatchFolders(this._models.testDirs());
+
+    // Make sure to use lowercase drive letter in the pattern.
+    // eslint-disable-next-line no-restricted-properties
+    const testDirPatterns = [...this._models.testDirs()].map(dir => this._vscode.Uri.file(dir).fsPath.replaceAll(path.sep, '/') + '/**');
+    this._workspaceObserver.setPatterns(new Set(testDirPatterns));
   }
 
   private _envProvider(configFile: string) {
