@@ -33,7 +33,6 @@ import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
 import { pathToFileURL } from 'url';
 import { TestConfig } from './playwrightTestServer';
-import { Batched } from './batched';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -79,9 +78,12 @@ export class Extension implements RunHooks {
   private _runProfile: vscodeTypes.TestRunProfile;
   private _debugProfile: vscodeTypes.TestRunProfile;
   private _commandQueue = Promise.resolve();
-  private _rebuildModelsBatched: Batched<boolean>;
   private _watchFilesBatch?: vscodeTypes.TestItem[];
   private _watchItemsBatch?: vscodeTypes.TestItem[];
+
+  private _waitingModelRebuild?: vscodeTypes.CancellationTokenSource;
+  private _ongoingModelRebuild?: vscodeTypes.CancellationTokenSource;
+  private _needsAnotherModelRebuild = false;
 
   private _pnpFiles = new Map<string, { pnpCJS?: string, pnpLoader?: string }>();
 
@@ -106,10 +108,6 @@ export class Extension implements RunHooks {
       },
     });
 
-    this._rebuildModelsBatched = new Batched(this._vscode, async (input, token) => {
-      const userGesture = input.some(v => v);
-      await this._rebuildModels(userGesture, token);
-    }, 50);
     this._settingsModel = new SettingsModel(vscode, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
@@ -124,7 +122,7 @@ export class Extension implements RunHooks {
     });
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
-    this._testController.refreshHandler = () => this._rebuildModelsBatched.invokeImmediately(true);
+    this._testController.refreshHandler = () => this._rebuildModelsImmediately(true);
     const supportsContinuousRun = true;
     this._runProfile = this._testController.createRunProfile('playwright-run', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, false), true, undefined, supportsContinuousRun);
     this._debugProfile = this._testController.createRunProfile('playwright-debug', this._vscode.TestRunProfileKind.Debug, this._handleTestRun.bind(this, true), true, undefined, supportsContinuousRun);
@@ -164,7 +162,7 @@ export class Extension implements RunHooks {
       this._debugHighlight,
       this._settingsModel,
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
-        this._rebuildModelsBatched.invoke(false);
+        void this._rebuildModels();
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         void this._updateVisibleEditorItems();
@@ -249,7 +247,7 @@ export class Extension implements RunHooks {
       }),
       vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('playwright.env'))
-          this._rebuildModelsBatched.invoke(false);
+          void this._rebuildModels();
       }),
       this._testTree,
       this._models,
@@ -281,17 +279,54 @@ export class Extension implements RunHooks {
         return;
       if (!this._isUnderTest && uriToPath(uri).includes('test-results'))
         return;
-      this._rebuildModelsBatched.invoke(false);
+      void this._rebuildModels();
     };
 
-    await this._rebuildModelsBatched.invokeImmediately(false);
+    await this._rebuildModelsImmediately(false);
     fileSystemWatchers.map(w => w.onDidChange(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidCreate(rebuildModelForConfig));
     fileSystemWatchers.map(w => w.onDidDelete(rebuildModelForConfig));
     this._context.subscriptions.push(this);
   }
 
-  private async _rebuildModels(userGesture: boolean, token: vscodeTypes.CancellationToken): Promise<void> {
+  private async _rebuildModels() {
+    if (this._waitingModelRebuild)
+      return;
+
+    if (this._ongoingModelRebuild) {
+      this._needsAnotherModelRebuild = true;
+      return;
+    }
+
+    const cancel = new this._vscode.CancellationTokenSource();
+    this._waitingModelRebuild = cancel;
+    await new Promise(res => setTimeout(res, 10));
+    if (this._waitingModelRebuild === cancel)
+      this._waitingModelRebuild = undefined;
+
+    if (cancel.token.isCancellationRequested)
+      return;
+
+    await this._rebuildModelsImmediately(false);
+  }
+
+  private async _rebuildModelsImmediately(userGesture: boolean) {
+    this._waitingModelRebuild?.cancel();
+    this._waitingModelRebuild = undefined;
+    this._ongoingModelRebuild?.cancel();
+    this._ongoingModelRebuild = undefined;
+
+    const cancel = new this._vscode.CancellationTokenSource();
+    this._ongoingModelRebuild = cancel;
+    this._needsAnotherModelRebuild = false;
+    await this._innerRebuildModels(userGesture, cancel.token);
+    if (this._ongoingModelRebuild === cancel)
+      this._ongoingModelRebuild = undefined;
+    if (this._needsAnotherModelRebuild)
+      void this._rebuildModelsImmediately(false);
+  }
+
+  private async _innerRebuildModels(userGesture: boolean, token: vscodeTypes.CancellationToken): Promise<void> {
     this._models.clear();
     this._testTree.startedLoading();
 
