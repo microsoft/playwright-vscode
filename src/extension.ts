@@ -265,26 +265,26 @@ export class Extension implements RunHooks {
       this._treeItemObserver,
       registerTerminalLinkProvider(this._vscode),
     ];
-    const fileSystemWatchers = [
-      // Glob parser does not supported nested group, hence multiple watchers.
-      this._vscode.workspace.createFileSystemWatcher('**/*playwright*.config.{ts,js,mts,mjs}'),
-      this._vscode.workspace.createFileSystemWatcher('**/*.env*'),
-    ];
-    this._disposables.push(...fileSystemWatchers);
 
-    const rebuildModelForConfig = (uri: vscodeTypes.Uri) => {
-      // TODO: parse .gitignore
-      if (uriToPath(uri).includes('node_modules'))
-        return;
-      if (!this._isUnderTest && uriToPath(uri).includes('test-results'))
-        return;
-      void this._rebuildModels();
-    };
-
+    const configObserver = new WorkspaceObserver(this._vscode, async change => {
+      const hasRelevantFile = [...change.created, ...change.changed, ...change.deleted].some(path => {
+        // TODO: parse .gitignore
+        if (path.includes('node_modules'))
+          return false;
+        if (!this._isUnderTest && path.includes('test-results'))
+          return false;
+        return true;
+      });
+      if (hasRelevantFile)
+        void this._rebuildModels();
+    });
+    configObserver.setPatterns(new Set([
+      '**/*playwright*.config.{ts,js,mts,mjs}',
+      '**/*.env*',
+    ]));
+    this._disposables.push(configObserver);
     await this._rebuildModelsImmediately(false);
-    fileSystemWatchers.map(w => w.onDidChange(rebuildModelForConfig));
-    fileSystemWatchers.map(w => w.onDidCreate(rebuildModelForConfig));
-    fileSystemWatchers.map(w => w.onDidDelete(rebuildModelForConfig));
+
     this._context.subscriptions.push(this);
   }
 
@@ -390,7 +390,11 @@ export class Extension implements RunHooks {
   private async _modelsUpdated() {
     await this._updateVisibleEditorItems();
     this._updateDiagnostics();
-    this._workspaceObserver.setWatchFolders(this._models.testDirs());
+
+    // Make sure to use lowercase drive letter in the pattern.
+    // eslint-disable-next-line no-restricted-properties
+    const testDirPatterns = [...this._models.testDirs()].map(dir => this._vscode.Uri.file(dir).fsPath.replaceAll(path.sep, '/') + '/**');
+    this._workspaceObserver.setPatterns(new Set(testDirPatterns));
   }
 
   private _envProvider(configFile: string) {
