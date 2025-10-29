@@ -82,8 +82,7 @@ export class Extension implements RunHooks {
   private _watchItemsBatch?: vscodeTypes.TestItem[];
 
   private _waitingModelRebuild?: vscodeTypes.CancellationTokenSource;
-  private _ongoingModelRebuild?: vscodeTypes.CancellationTokenSource;
-  private _needsAnotherModelRebuild = false;
+  private _ongoingModelRebuild?: { result: Promise<void>; token: vscodeTypes.CancellationTokenSource; needsAnother: boolean; };
 
   private _pnpFiles = new Map<string, { pnpCJS?: string, pnpLoader?: string }>();
 
@@ -294,13 +293,16 @@ export class Extension implements RunHooks {
       return;
 
     if (this._ongoingModelRebuild) {
-      this._needsAnotherModelRebuild = true;
+      this._ongoingModelRebuild.needsAnother = true;
       return;
     }
 
     const cancel = new this._vscode.CancellationTokenSource();
     this._waitingModelRebuild = cancel;
-    await new Promise(res => setTimeout(res, 10));
+    await Promise.race([
+      new Promise(res => setTimeout(res, 10)),
+      new Promise<void>(res => cancel.token.onCancellationRequested(() => res()))
+    ]);
     if (this._waitingModelRebuild === cancel)
       this._waitingModelRebuild = undefined;
 
@@ -312,17 +314,16 @@ export class Extension implements RunHooks {
 
   private async _rebuildModelsImmediately(userGesture: boolean) {
     this._waitingModelRebuild?.cancel();
-    this._waitingModelRebuild = undefined;
-    this._ongoingModelRebuild?.cancel();
-    this._ongoingModelRebuild = undefined;
+    this._ongoingModelRebuild?.token.cancel();
+    await this._ongoingModelRebuild?.result;
 
     const cancel = new this._vscode.CancellationTokenSource();
-    this._ongoingModelRebuild = cancel;
-    this._needsAnotherModelRebuild = false;
-    await this._innerRebuildModels(userGesture, cancel.token);
-    if (this._ongoingModelRebuild === cancel)
+    const rebuild = { result: this._innerRebuildModels(userGesture, cancel.token), token: cancel, needsAnother: false };
+    this._ongoingModelRebuild = rebuild;
+    await this._ongoingModelRebuild.result;
+    if (this._ongoingModelRebuild === rebuild)
       this._ongoingModelRebuild = undefined;
-    if (this._needsAnotherModelRebuild)
+    if (rebuild.needsAnother)
       void this._rebuildModelsImmediately(false);
   }
 
