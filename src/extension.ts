@@ -298,10 +298,10 @@ export class Extension implements RunHooks {
 
   private async _rebuildModelsImmediately(userGesture: boolean) {
     this._modelRebuild?.token.cancel();
-    await this._modelRebuild?.result;
+    const previousCompletion = this._modelRebuild?.result.catch(() => {}) ?? Promise.resolve();
 
     const cancel = new this._vscode.CancellationTokenSource();
-    const rebuild = { result: this._innerRebuildModels(userGesture, cancel.token), token: cancel, needsAnother: false };
+    const rebuild = { result: previousCompletion.then(() => this._innerRebuildModels(userGesture, cancel.token)), token: cancel, needsAnother: false };
     this._modelRebuild = rebuild;
     await this._modelRebuild.result.finally(() => {
       this._modelRebuild = undefined;
