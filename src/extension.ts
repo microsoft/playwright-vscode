@@ -81,8 +81,7 @@ export class Extension implements RunHooks {
   private _watchFilesBatch?: vscodeTypes.TestItem[];
   private _watchItemsBatch?: vscodeTypes.TestItem[];
 
-  private _waitingModelRebuild?: vscodeTypes.CancellationTokenSource;
-  private _ongoingModelRebuild?: { result: Promise<void>; token: vscodeTypes.CancellationTokenSource; needsAnother: boolean; };
+  private _modelRebuild?: { result: Promise<void>; token: vscodeTypes.CancellationTokenSource; needsAnother: boolean; };
 
   private _pnpFiles = new Map<string, { pnpCJS?: string, pnpLoader?: string }>();
 
@@ -289,42 +288,27 @@ export class Extension implements RunHooks {
   }
 
   private async _rebuildModels() {
-    if (this._waitingModelRebuild)
-      return;
-
-    if (this._ongoingModelRebuild) {
-      this._ongoingModelRebuild.needsAnother = true;
+    if (this._modelRebuild) {
+      this._modelRebuild.needsAnother = true;
       return;
     }
-
-    const cancel = new this._vscode.CancellationTokenSource();
-    this._waitingModelRebuild = cancel;
-    await Promise.race([
-      new Promise(res => setTimeout(res, 10)),
-      new Promise<void>(res => cancel.token.onCancellationRequested(() => res()))
-    ]);
-    if (this._waitingModelRebuild === cancel)
-      this._waitingModelRebuild = undefined;
-
-    if (cancel.token.isCancellationRequested)
-      return;
 
     await this._rebuildModelsImmediately(false);
   }
 
   private async _rebuildModelsImmediately(userGesture: boolean) {
-    this._waitingModelRebuild?.cancel();
-    this._ongoingModelRebuild?.token.cancel();
-    await this._ongoingModelRebuild?.result;
+    this._modelRebuild?.token.cancel();
+    await this._modelRebuild?.result;
 
     const cancel = new this._vscode.CancellationTokenSource();
     const rebuild = { result: this._innerRebuildModels(userGesture, cancel.token), token: cancel, needsAnother: false };
-    this._ongoingModelRebuild = rebuild;
-    await this._ongoingModelRebuild.result;
-    if (this._ongoingModelRebuild === rebuild)
-      this._ongoingModelRebuild = undefined;
-    if (rebuild.needsAnother)
-      void this._rebuildModelsImmediately(false);
+    this._modelRebuild = rebuild;
+    await this._modelRebuild.result.finally(() => {
+      if (this._modelRebuild === rebuild)
+        this._modelRebuild = undefined;
+      if (rebuild.needsAnother)
+        void this._rebuildModelsImmediately(false);
+    });
   }
 
   private async _innerRebuildModels(userGesture: boolean, token: vscodeTypes.CancellationToken): Promise<void> {
