@@ -266,11 +266,14 @@ export class Extension implements RunHooks {
     ];
     if (this._context.extensionMode === this._vscode.ExtensionMode.Development) {
       this._disposables.push(
-          vscode.commands.registerCommand('pw.extension.command.clearWorkspaceSettings', async () => {
+          vscode.commands.registerCommand('pw.extension.command.clearSettings', async () => {
             await this._models.clearSettings();
+            await this._context.globalState.update('pw.hasSeenProjectNotification', undefined);
           })
       );
     }
+
+    this._context.globalState.setKeysForSync([kHasSeenProjectNotification]);
 
     const configObserver = new WorkspaceObserver(this._vscode, async change => {
       const hasRelevantFile = [...change.created, ...change.changed, ...change.deleted].some(path => {
@@ -534,8 +537,12 @@ export class Extension implements RunHooks {
     this._executionLinesChanged();
     const include = request.include;
 
-    if (this._models.isFreshOpen())
-      await this._settingsView.highlightProjects();
+    if (this._models.enabledModels().flatMap(model => model.projects()).length > 1) {
+      if (!this._context.globalState.get(kHasSeenProjectNotification, false)) {
+        await this._context.globalState.update(kHasSeenProjectNotification, true);
+        await this._settingsView.highlightProjects();
+      }
+    }
 
     const rootItems: vscodeTypes.TestItem[] = [];
     this._testController.items.forEach(item => rootItems.push(item));
@@ -1077,6 +1084,8 @@ class TreeItemObserver implements vscodeTypes.Disposable{
     this._timeout = setTimeout(() => this._poll().catch(() => {}), 250);
   }
 }
+
+const kHasSeenProjectNotification = 'pw.hasSeenProjectNotification';
 
 function ancestorProject(test: reporterTypes.TestCase): reporterTypes.FullProject {
   let suite: reporterTypes.Suite = test.parent;

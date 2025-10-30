@@ -917,6 +917,20 @@ enum ExtensionMode {
   Test
 }
 
+class Memento {
+  private _storage = new Map<string, any>();
+
+  get(key: string, defaultValue?: any): any {
+    return this._storage.has(key) ? this._storage.get(key) : defaultValue;
+  }
+
+  async update(key: string, value: any) {
+    this._storage.set(key, value);
+  }
+
+  setKeysForSync() {}
+}
+
 export class VSCode {
   isUnderTest = true;
   CancellationTokenSource = CancellationTokenSource;
@@ -974,7 +988,7 @@ export class VSCode {
   readonly fsWatchers = new Set<FileSystemWatcher>();
   readonly warnings: string[] = [];
   readonly errors: string[] = [];
-  readonly context: { subscriptions: any[]; extensionUri: Uri; workspaceState: any; extensionMode: ExtensionMode; };
+  readonly context: { subscriptions: any[]; extensionUri: Uri; workspaceState: Memento; globalState: Memento; extensionMode: ExtensionMode; };
   readonly extensions: any[] = [];
   private _webviewProviders = new Map<string, any>();
   private _browser: Browser;
@@ -992,12 +1006,9 @@ export class VSCode {
 
   constructor(readonly versionNumber: number, baseDir: string, browser: Browser) {
     this.version = String(versionNumber);
-    const workspaceStateStorage = new Map();
-    const workspaceState = {
-      get: (key: string) => workspaceStateStorage.get(key),
-      update: (key: string, value: any) => workspaceStateStorage.set(key, value)
-    };
-    this.context = { subscriptions: [], extensionUri: Uri.file(baseDir), workspaceState, extensionMode: ExtensionMode.Test };
+    const workspaceState = new Memento();
+    const globalState = new Memento();
+    this.context = { subscriptions: [], extensionUri: Uri.file(baseDir), workspaceState, globalState, extensionMode: ExtensionMode.Test };
     this._browser = browser;
     (globalThis as any).__logForTest = (message: any) => this.connectionLog.push(message);
     const commands = new Map<string, () => Promise<void>>();

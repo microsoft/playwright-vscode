@@ -107,8 +107,8 @@
       },
       {
         "category": "Test",
-        "command": "pw.extension.command.clearWorkspaceSettings",
-        "title": "%contributes.command.pw.extension.command.clearWorkspaceSettings%"
+        "command": "pw.extension.command.clearSettings",
+        "title": "%contributes.command.pw.extension.command.clearSettings%"
       }
     ],
     "configuration": {

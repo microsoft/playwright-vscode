@@ -216,7 +216,7 @@ test('should treat project as enabled when UI for it is hidden', async ({ activa
   `);
 });
 
-test('should enable all projects by default, and highlight project list on first test run', async ({ activate }) => {
+test('should highlight project list on first test run', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'tests1/playwright.config.js': `module.exports = { testDir: '.', projects: [{ name: 'projectOne' }, { name: 'projectTwo' }] }`,
     'tests2/playwright.config.js': `module.exports = { testDir: '.', projects: [{ name: 'projectThree' }, { name: 'projectFour' }] }`,
@@ -254,5 +254,49 @@ test('should enable all projects by default, and highlight project list on first
   await webView.getByRole('button', { name: 'Close Hint' }).click();
 
   await testController.run();
+  await expect(webView.getByRole('button', { name: 'Close Hint' })).not.toBeVisible();
+});
+
+test('should not open settings view on first test run when there is only one project', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'tests1/playwright.config.js': `module.exports = { testDir: '.', projects: [{ name: 'projectOne' }] }`,
+    'tests1/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+
+  await testController.run();
+  await expect(testController).toHaveTestTree(`
+    -   tests1
+      -   test.spec.ts
+        - ✅ one [2:0]
+  `);
+
+  expect(vscode.commandLog).not.toContain('pw.extension.settingsView.focus');
+  await expect(webView.getByRole('button', { name: 'Close Hint' })).not.toBeVisible();
+});
+
+test('should not show hint when globalState flag is already set from another workspace', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'tests1/playwright.config.js': `module.exports = { testDir: '.', projects: [{ name: 'projectOne' }, { name: 'projectTwo' }] }`,
+    'tests1/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  await vscode.context.globalState.update('pw.hasSeenProjectNotification', true);
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await testController.run();
+  await expect(testController).toHaveTestTree(`
+    -   tests1
+      -   test.spec.ts
+        -   one [2:0]
+          - ✅ projectOne [2:0]
+          - ✅ projectTwo [2:0]
+  `);
   await expect(webView.getByRole('button', { name: 'Close Hint' })).not.toBeVisible();
 });
