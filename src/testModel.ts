@@ -107,7 +107,7 @@ export class TestModel extends DisposableBase {
     if (!this.isEnabled)
       return;
     await this._listFiles();
-    if (configSettings && configSettings.projects.length) {
+    if (configSettings) {
       let firstProject = true;
       for (const project of this.projects()) {
         const projectSettings = configSettings.projects.find(p => p.name === project.name);
