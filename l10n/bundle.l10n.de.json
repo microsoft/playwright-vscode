@@ -33,6 +33,7 @@
   "PROJECTS": "PROJEKTE",
   "TOOLS": "WERKZEUGE",
   "SETUP": "KONFIGURATION",
+  "CONFIGS": "KONFIGURATIONEN",
   "Select All": "Alle auswählen",
   "Unselect All": "Alle abwählen",
   "one worker": "ein worker",

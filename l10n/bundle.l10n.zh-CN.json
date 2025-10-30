@@ -34,5 +34,10 @@
   "one worker": "一个 worker",
   "Project is disabled in the Playwright sidebar": "在 Playwright 侧边栏中禁用项目",
   "Enable project": "启用项目",
-  "Cancel": "取消"
+  "Cancel": "取消",
+  "SETTINGS": "设置",
+  "TOOLS": "工具",
+  "SETUP": "设置",
+  "PROJECTS": "项目",
+  "CONFIGS": "配置"
 }

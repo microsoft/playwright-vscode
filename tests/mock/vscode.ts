@@ -892,7 +892,10 @@ class DiagnosticsCollection {
 }
 
 class L10n {
+  readonly accessedMessages = new Set<string>();
+
   t(message: string, ...args: Array<string | number | boolean>): string {
+    this.accessedMessages.add(message);
     return message.replace(/{(\d+)}/g, function(match: string, idx) {
       return (args[parseInt(idx, 10)] ?? match) as string;
     });
