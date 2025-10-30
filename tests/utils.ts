@@ -108,13 +108,30 @@ export const expect = baseExpect.extend({
   },
 });
 
+let _l10Bundles: [bundle: string, contents: Record<string, string>][];
+function l10Bundles() {
+  if (!_l10Bundles) {
+    const l10nDir = path.resolve(__dirname, '..', 'l10n');
+    _l10Bundles = fs.readdirSync(l10nDir).map(file => [file, JSON.parse(fs.readFileSync(path.join(l10nDir, file), 'utf-8'))]);
+  }
+  return _l10Bundles;
+}
+
 export const test = baseTest.extend<TestFixtures, WorkerOptions>({
   showBrowser: [false, { option: true, scope: 'worker' }],
   showTrace: [undefined, { option: true, scope: 'worker' }],
   vsCodeVersion: [1.86, { option: true, scope: 'worker' }],
 
   vscode: async ({ browser, vsCodeVersion }, use) => {
-    await use(new VSCode(vsCodeVersion, path.resolve(__dirname, '..'), browser));
+    const vscode = new VSCode(vsCodeVersion, path.resolve(__dirname, '..'), browser);
+    await use(vscode);
+
+    if (true || process.env.VALIDATE_L10N) {
+      for (const message of vscode.l10n.accessedMessages) {
+        for (const [bundle, contents] of l10Bundles())
+          expect.soft(contents[message], `message "${message}" missing in ${bundle}`).toBeDefined();
+      }
+    }
   },
 
   activate: async ({ vscode, showBrowser, showTrace }, use, testInfo) => {
