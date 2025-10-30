@@ -252,7 +252,7 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           <button class="project-notification-close" type="button" title="Close Hint">
             ${closeIcon}
           </button>
-          <span class="project-notification-text">By default, all projects are enabled. Uncheck projects you don't want to run.</span>
+          <span class="project-notification-text">${vscode.l10n.t('By default, all projects are enabled. Uncheck projects you don\'t want to run.')}</span>
         </div>
       </div>
       <h2 class="section-header">${vscode.l10n.t('SETUP')}</h2>
