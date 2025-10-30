@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import path from 'path';
 import * as vscodeTypes from './vscodeTypes';
 import { uriToPath } from './utils';
 
@@ -29,21 +28,19 @@ export class WorkspaceObserver {
   private _handler: (change: WorkspaceChange) => void;
   private _pendingChange: WorkspaceChange | undefined;
   private _timeout: NodeJS.Timeout | undefined;
-  private _folderWatchers = new Map<string, vscodeTypes.Disposable[]>();
+  private _watchers = new Map<string, vscodeTypes.Disposable[]>();
 
   constructor(vscode: vscodeTypes.VSCode, handler: (change: WorkspaceChange) => void) {
     this._vscode = vscode;
     this._handler = handler;
   }
 
-  setWatchFolders(folders: Set<string>) {
-    for (const folder of folders) {
-      if (this._folderWatchers.has(folder))
+  setPatterns(patterns: Set<string>) {
+    for (const pattern of patterns) {
+      if (this._watchers.has(pattern))
         continue;
 
-      // Make sure to use lowercase drive letter in the pattern.
-      // eslint-disable-next-line no-restricted-properties
-      const watcher = this._vscode.workspace.createFileSystemWatcher(this._vscode.Uri.file(folder).fsPath.replaceAll(path.sep, '/') + '/**');
+      const watcher = this._vscode.workspace.createFileSystemWatcher(pattern);
       const disposables: vscodeTypes.Disposable[] = [
         watcher.onDidCreate(uri => {
           if (uri.scheme === 'file')
@@ -59,13 +56,13 @@ export class WorkspaceObserver {
         }),
         watcher,
       ];
-      this._folderWatchers.set(folder, disposables);
+      this._watchers.set(pattern, disposables);
     }
 
-    for (const [folder, disposables] of this._folderWatchers) {
-      if (!folders.has(folder)) {
+    for (const [pattern, disposables] of this._watchers) {
+      if (!patterns.has(pattern)) {
         disposables.forEach(d => d.dispose());
-        this._folderWatchers.delete(folder);
+        this._watchers.delete(pattern);
       }
     }
   }
@@ -93,8 +90,8 @@ export class WorkspaceObserver {
   dispose() {
     if (this._timeout)
       clearTimeout(this._timeout);
-    for (const disposables of this._folderWatchers.values())
+    for (const disposables of this._watchers.values())
       disposables.forEach(d => d.dispose());
-    this._folderWatchers.clear();
+    this._watchers.clear();
   }
 }

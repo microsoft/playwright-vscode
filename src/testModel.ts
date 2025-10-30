@@ -310,7 +310,6 @@ export class TestModel extends DisposableBase {
     if (!testFiles.length)
       return;
 
-    const enabledFiles = this.enabledFiles();
     const files: string[] = [];
     const items: vscodeTypes.TestItem[] = [];
     for (const watch of this._watches || []) {
@@ -325,8 +324,6 @@ export class TestModel extends DisposableBase {
           if (!include.uri)
             continue;
           const fsPath = uriToPath(include.uri);
-          if (!enabledFiles.has(fsPath))
-            continue;
           // Folder is watched => add file.
           if (testFile.startsWith(fsPath + path.sep)) {
             files.push(testFile);
@@ -622,8 +619,10 @@ export class TestModel extends DisposableBase {
 
   async addToWatch(include: readonly vscodeTypes.TestItem[] | undefined, cancellationToken: vscodeTypes.CancellationToken) {
     const watch: Watch = { include };
-    this._watches.add(watch);
-    cancellationToken.onCancellationRequested(() => this._watches.delete(watch));
+    cancellationToken.onCancellationRequested(() => {
+      this._watches.delete(watch);
+      void this._updateFileWatches();
+    });
 
     // Watch contract has a bug in 1.86 - when outer non-global watch is disabled, it assumes that inner watches are
     // discarded as well without issuing the token cancelation.
@@ -638,12 +637,25 @@ export class TestModel extends DisposableBase {
       }
     }
 
+    this._watches.add(watch);
+    await this._updateFileWatches();
+  }
+
+  private async _updateFileWatches() {
     const filesToWatch = new Set<string>();
     for (const watch of this._watches) {
       if (!watch.include) {
-        for (const file of this.enabledFiles())
-          filesToWatch.add(file);
-        continue;
+        filesToWatch.clear();
+        for (const project of this.enabledProjects()) {
+          let testDir = project.project.testDir;
+          // We watch testDirs instead of enabled files, so we get notifications about new files added.
+          // We ensure it ends with a trailing slash, because filesToWatch are globs.
+          // Without a trailing slash, we'd also watch "test-unit" when our testDir is "test".
+          if (!testDir.endsWith(path.sep))
+            testDir += path.sep;
+          filesToWatch.add(testDir);
+        }
+        break;
       }
       for (const include of watch.include) {
         if (!include.uri)
@@ -660,21 +672,27 @@ export class TestModel extends DisposableBase {
       return { locations: [] };
     const locations = new Set<string>();
     const testIds: string[] = [];
-    const enabledFiles = this.enabledFiles();
+    const enabledFiles = [...this.enabledFiles()];
     for (const item of request.include) {
       const treeItem = upstreamTreeItem(item);
-      if (treeItem.kind === 'group' && (treeItem.subKind === 'folder' || treeItem.subKind === 'file')) {
-        const treeItemPath = treeItem.location.file + (treeItem.subKind === 'folder' ? path.sep : '');
-        for (const file of enabledFiles) {
-          if (file === treeItemPath || file.startsWith(treeItemPath))
-            locations.add(treeItemPath);
-        }
-      } else {
-        if (!enabledFiles.has(treeItem.location.file))
-          continue;
+
+      // test case might be imported in the .spec.ts file, so it has a different location.
+      // comparisons with enabledFiles need to happen on the .spec.ts file level, so we walk up to it.
+      let fileItem = treeItem;
+      while (!(fileItem.kind === 'group' && (fileItem.subKind === 'file' || fileItem.subKind === 'folder')) && fileItem.parent)
+        fileItem = fileItem.parent;
+      const fileItemPath = fileItem.location.file + (fileItem.kind === 'group' && fileItem.subKind === 'folder' ? path.sep : '');
+      if (!enabledFiles.some(file => file.startsWith(fileItemPath)))
+        continue;
+
+      locations.add(fileItemPath);
+      const representsPath = treeItem.kind === 'group' && (treeItem.subKind === 'folder' || treeItem.subKind === 'file');
+      if (!representsPath)
         testIds.push(...collectTestIds(treeItem));
-      }
     }
+
+    // known bug: for a combination of location items, and test IDs outside those locations, those test IDs will never be run.
+    // See the "should run both file and specific test from another file" test for an example.
 
     return { locations: locations.size ? [...locations] : null, testIds: testIds.length ? testIds : undefined };
   }

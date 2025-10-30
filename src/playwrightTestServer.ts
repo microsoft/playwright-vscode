@@ -162,19 +162,10 @@ export class PlaywrightTestServer {
     const disposable = this._pipeStdio(testServer, testListener);
 
     try {
-      if (type === 'setup') {
-        if (!this._config || this._config.globalSetup)
-          testListener.onStdOut?.('\x1b[2mRunning global setup if any\u2026\x1b[0m\n');
-        const { report, status } = await Promise.race([
-          testServer.runGlobalSetup({}),
-          new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
-        ]);
-        for (const message of report)
-          void teleReceiver.dispatch(message);
-        return status;
-      }
+      if (type === 'setup' && (!this._config || this._config.globalSetup))
+        testListener.onStdOut?.('\x1b[2mRunning global setup if any\u2026\x1b[0m\n');
       const { report, status } = await Promise.race([
-        testServer.runGlobalTeardown({}),
+        type === 'setup' ? testServer.runGlobalSetup({}) : testServer.runGlobalTeardown({}),
         new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
       ]);
       for (const message of report)
@@ -226,12 +217,19 @@ export class PlaywrightTestServer {
       errorContext: { format: 'json' },
       ...runOptions,
     };
-    void connection.runTests(options);
+    const disposables = [
+      token.onCancellationRequested(() => {
+        connection.stopTestsNoReply({});
+      })
+    ];
+    this._wireTestServer(connection, reporter, token, disposables);
 
-    token.onCancellationRequested(() => {
-      connection.stopTestsNoReply({});
-    });
-    await this._wireTestServer(connection, reporter, token);
+    try {
+      await connection.runTests(options);
+    } finally {
+      for (const disposable of disposables)
+        disposable.dispose();
+    }
   }
 
   private _normalizePaths() {
@@ -345,13 +343,12 @@ export class PlaywrightTestServer {
         timeout: 0,
         ...runOptions,
       };
-      void debugTestServer.runTests(options);
 
       disposables.push(token.onCancellationRequested(() => {
         debugTestServer!.stopTestsNoReply({});
       }));
-      const testEndPromise = this._wireTestServer(debugTestServer, reporter, token);
-      await testEndPromise;
+      this._wireTestServer(debugTestServer, reporter, token, disposables);
+      await debugTestServer.runTests(options);
     } finally {
       disposables.forEach(disposable => disposable.dispose());
       if (!token.isCancellationRequested && debugTestServer && !debugTestServer.isClosed())
@@ -418,30 +415,20 @@ export class PlaywrightTestServer {
     return { connection, errors };
   }
 
-  private async _wireTestServer(testServer: TestServerConnection, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
+  private _wireTestServer(testServer: TestServerConnection, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken, disposables: vscodeTypes.Disposable[]): void {
     const teleReceiver = new TeleReporterReceiver(reporter, {
       mergeProjects: true,
       mergeTestCases: true,
       resolvePath,
     });
-    return new Promise<void>(resolve => {
-      const disposables = [
-        testServer.onReport(async message => {
+    disposables.push(
+        testServer.onReport(message => {
           if (token.isCancellationRequested && message.method !== 'onEnd')
             return;
-          await teleReceiver.dispatch(message);
-          if (message.method === 'onEnd') {
-            disposables.forEach(d => d.dispose());
-            resolve();
-          }
+          void teleReceiver.dispatch(message);
         }),
         this._pipeStdio(testServer, reporter),
-        testServer.onClose(() => {
-          disposables.forEach(d => d.dispose());
-          resolve();
-        }),
-      ];
-    });
+    );
   }
 
   private _testFilesChanged(testFiles: string[]) {

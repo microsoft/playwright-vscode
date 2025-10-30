@@ -161,3 +161,44 @@ test('should order configs intuitively', async ({ activate }) => {
     `extension${path.sep}playwright.config.ts`,
   ]);
 });
+
+function debounceAsync<T>(fn: (...args: any[]) => Promise<T>, delay: number) {
+  const pendingCalls: ((result: T) => void)[] = [];
+  let debounce: NodeJS.Timeout | undefined;
+  return function(...args: any[]): Promise<T> {
+    return new Promise(resolve => {
+      pendingCalls.push(resolve);
+      clearTimeout(debounce);
+      debounce = setTimeout(async () => {
+        const result = await fn(...args);
+        for (const call of pendingCalls)
+          call(result);
+        pendingCalls.length = 0;
+      }, delay);
+    });
+  };
+}
+
+test('git checkout should not lead to duplicate configs', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/37764' } }, async ({ activate }) => {
+  const { vscode, workspaceFolder } = await activate({
+    'playwright.config.js': `module.exports = {};`,
+    'playwright-two.config.js': `module.exports = {};`,
+  });
+
+  // Simulate VS Code coalescing findFiles calls
+  vscode.workspace.findFiles = debounceAsync(vscode.workspace.findFiles, 50);
+
+  await Promise.all([
+    workspaceFolder.changeFile('playwright.config.js', `module.exports = {}`),
+    workspaceFolder.changeFile('playwright-two.config.js', `module.exports = {}`),
+  ]);
+
+  await expect.poll(async () => {
+    const webView = vscode.webViews.get('pw.extension.settingsView')!;
+    const [testItems] = await Promise.all([
+      new Promise<TestItem[]>(resolve => { vscode.window.mockQuickPick = resolve; }),
+      webView.getByTitle('Toggle Playwright Configs').click(),
+    ]);
+    return testItems.map(i => i.label);
+  }).toEqual(['playwright.config.js', 'playwright-two.config.js']);
+});

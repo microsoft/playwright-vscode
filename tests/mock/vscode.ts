@@ -433,6 +433,8 @@ export class TestRun {
   readonly onDidChange = this._didChange.event;
   readonly _didEnd = new EventEmitter<void>();
   readonly onDidEnd = this._didEnd.event;
+  readonly _didOutput = new EventEmitter<string>();
+  readonly onDidOutput = this._didOutput.event;
   readonly entries = new Map<TestItem, LogEntry[]>();
   readonly token = new CancellationTokenSource().token;
   readonly output: { output: string, location?: Location, test?: TestItem }[] = [];
@@ -480,6 +482,7 @@ export class TestRun {
 
   appendOutput(output: string, location?: Location, test?: TestItem) {
     this.output.push({ output, location, test });
+    this._didOutput.fire(output);
   }
 
   end() {

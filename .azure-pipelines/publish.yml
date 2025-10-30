@@ -12,14 +12,14 @@ variables:
 
 resources:
   repositories:
-  - repository: 1esPipelines
+  - repository: MicroBuildTemplate
     type: git
-    name: 1ESPipelineTemplates/1ESPipelineTemplates
+    name: 1ESPipelineTemplates/MicroBuildTemplate
     ref: refs/tags/release
 
 # VSCode extension signing: https://aka.ms/vsm-ms-publisher-sign
 extends:
-  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  template: azure-pipelines/MicroBuild.1ES.Official.yml@MicroBuildTemplate
   parameters:
     pool:
       # https://aka.ms/MicroBuild
@@ -29,15 +29,17 @@ extends:
     - stage: Stage
       jobs:
       - job: HostJob
+        templateContext:
+          mb:
+            signing:
+              enabled: true
+              signType: real
+              signWithProd: true
         steps:
         - task: UseNode@1
           inputs:
             version: '20.x'
           displayName: 'Install Node.js'
-        - task: MicroBuildSigningPlugin@4
-          inputs:
-            signType: real
-            feedSource: 'https://devdiv.pkgs.visualstudio.com/DefaultCollection/_packaging/MicroBuildToolset/nuget/v3/index.json'
         - script: npm ci
           displayName: 'Install dependencies'
         - task: PowerShell@2

@@ -102,7 +102,7 @@ test('should run one test', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: undefined,
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
         testIds: [expect.any(String)]
       })
     },
@@ -553,7 +553,9 @@ test('should run all parametrized tests', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: undefined,
+        locations: [
+          expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`),
+        ],
         testIds: [
           expect.any(String),
           expect.any(String),
@@ -596,7 +598,9 @@ test('should run one parametrized test', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: undefined,
+        locations: [
+          expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`),
+        ],
         testIds: [expect.any(String)]
       })
     },
@@ -646,7 +650,9 @@ test('should run one parametrized groups', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: undefined,
+        locations: [
+          expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`),
+        ],
         testIds: [
           expect.any(String),
           expect.any(String),
@@ -695,7 +701,9 @@ test('should run tests in parametrized groups', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: undefined,
+        locations: [
+          expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`),
+        ],
         testIds: [
           expect.any(String),
         ]
@@ -719,7 +727,9 @@ test('should run tests in parametrized groups', async ({ activate }) => {
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: undefined,
+        locations: [
+          expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`),
+        ],
         testIds: [
           expect.any(String),
         ]
@@ -1163,6 +1173,36 @@ test('should not run global setup for other project', async ({ activate }) => {
   expect(testRun.renderOutput()).not.toContain('RUNNING GLOBAL SETUP');
 });
 
+test('should run single test defined outside of .spec.ts file', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/37930' } }, async ({ activate }) => {
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: '.' }`,
+    'example.spec.ts': `
+      import './impl';
+    `,
+    'impl.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+  await expect(testController).toHaveTestTree(`
+    -   example.spec.ts
+  `);
+  await testController.expandTestItems(/.*/);
+  await expect(testController).toHaveTestTree(`
+    -   example.spec.ts
+      -   one [2:0]
+  `);
+  const items = testController.findTestItems(/one/);
+  const testRun = await testController.run(items);
+  expect(testRun.renderLog()).toEqual(`
+    example.spec.ts > one [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+});
+
 test('should start webServer', async ({ activate }, testInfo) => {
   const port = testInfo.parallelIndex * 4 + 42130;
   const { testController } = await activate({
@@ -1229,4 +1269,91 @@ http.createServer((req, res) => {
 
   const testRun = await testController.run();
   expect(testRun.renderLog({ output: true })).toContain('passed');
+});
+
+test('should only end test run after all config reporters exited', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/37867' } }, async ({ activate }) => {
+  const { testController } = await activate({
+    'playwright.config.js': `module.exports = {
+      reporter: [['./my-reporter.js']],
+    }`,
+    'my-reporter.js': `
+      export default class MyReporter {
+        async onExit() {
+          console.log("%onExit started");
+          await new Promise(f => setTimeout(f, 100));
+          console.log("%onExit ended");
+        }
+      }
+    `,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  const events: string[] = [];
+  testController.onDidCreateTestRun(run => {
+    run.onDidOutput(msg => {
+      if (msg.startsWith('%'))
+        events.push(msg.slice(1).trim());
+    });
+    run.onDidEnd(() => {
+      events.push('testRun ended');
+    });
+  });
+  await testController.run();
+  expect(events).toEqual([
+    'onExit started',
+    'onExit ended',
+    'testRun ended',
+  ]);
+});
+
+test('should run both file and specific test from another file', async ({ activate }) => {
+  test.fail(true, `
+    Since we specify both locations and test IDs, the single test doesnt get found.
+    It's a rare case because the UI doesn't support it, it can only be done via API.
+    In watch mode, the _runWatchedTests implementation separates files and test IDs,
+    which also prevents the bug.
+  `);
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/foo.spec.ts': `
+      import { test } from '@playwright/test';
+      test('foo-test', async () => {});
+    `,
+    'tests/bar.spec.ts': `
+      import { test } from '@playwright/test';
+      test('bar-test', async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/.*/);
+  const [fooFile] = testController.findTestItems(/foo.spec.ts$/);
+  const [barTest] = testController.findTestItems(/bar-test/);
+  const testRun = await testController.run([fooFile, barTest]);
+
+  await expect(vscode).toHaveConnectionLog(expect.arrayContaining([{
+    method: 'runTests',
+    params: expect.objectContaining({
+      locations: [
+        expect.stringContaining(`foo\\.spec\\.ts`),
+        expect.stringContaining(`bar\\.spec\\.ts`),
+      ],
+      testIds: [expect.any(String)]
+    })
+  }]));
+  expect(testRun.renderLog()).toBe(`
+    tests > foo.spec.ts > bar-test [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+    tests > bar.spec.ts > foo-test [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
 });
