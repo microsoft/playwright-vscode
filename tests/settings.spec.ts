@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { expect, test } from './utils';
+import { enableProjects, expect, test } from './utils';
 
 test.beforeEach(async ({ showBrowser }) => {
   test.skip(showBrowser);
@@ -58,6 +58,7 @@ test('should select-all/unselect-all', async ({ activate }) => {
       });
     `,
   });
+  await enableProjects(vscode, ['foo']);
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
 
@@ -194,6 +195,8 @@ test('should sync project enabled state to workspace settings', async ({ activat
     `,
   });
 
+  await enableProjects(vscode, ['foo']);
+
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
 
   await expect(webView.locator('body')).toMatchAriaSnapshot(`
@@ -241,7 +244,7 @@ test('should sync project enabled state to workspace settings', async ({ activat
 });
 
 test('should read project enabled state from workspace settings', async ({ vscode, activate }) => {
-  vscode.context.workspaceState.update('pw.workspace-settings', {
+  await vscode.context.workspaceState.update('pw.workspace-settings', {
     configs: [
       {
         relativeConfigFile: 'playwright.config.ts',

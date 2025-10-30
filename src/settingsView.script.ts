@@ -72,13 +72,26 @@ for (const select of Array.from(document.querySelectorAll<HTMLSelectElement>('se
   });
 }
 
+function highlightProjectsSection() {
+  const projectSelector = document.getElementById('project-selector')!;
+  projectSelector.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  const notification = document.getElementById('project-notification')!;
+  notification.classList.add('show');
+
+  const closeButton = notification.querySelector('.project-notification-close')!;
+  closeButton.addEventListener('click', () => notification.classList.remove('show'));
+}
+
 window.addEventListener('message', event => {
   const actionsElement = document.getElementById('actions')!;
   const rareActionsElement = document.getElementById('rareActions')!;
   const modelSelector = document.getElementById('model-selector')!;
 
   const { method, params } = event.data;
-  if (method === 'settings') {
+  if (method === 'highlightProjects') {
+    highlightProjectsSection();
+  } else if (method === 'settings') {
     for (const [key, value] of Object.entries(params.settings as Record<string, string | boolean>)) {
       const input = document.querySelector('input[setting=' + key + ']') as HTMLInputElement;
       if (input) {

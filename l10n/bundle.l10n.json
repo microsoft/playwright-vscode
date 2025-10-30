@@ -34,5 +34,6 @@
   "one worker": "one worker",
   "Project is disabled in the Playwright sidebar": "Project is disabled in the Playwright sidebar",
   "Enable project": "Enable project",
-  "Cancel": "Cancel"
+  "Cancel": "Cancel",
+  "By default, all projects are enabled. Uncheck projects you don't want to run.": "By default, all projects are enabled. Uncheck projects you don't want to run."
 }
