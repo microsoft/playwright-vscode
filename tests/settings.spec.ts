@@ -244,7 +244,7 @@ test('should sync project enabled state to workspace settings', async ({ activat
 });
 
 test('should read project enabled state from workspace settings', async ({ vscode, activate }) => {
-  vscode.context.workspaceState.update('pw.workspace-settings', {
+  await vscode.context.workspaceState.update('pw.workspace-settings', {
     configs: [
       {
         relativeConfigFile: 'playwright.config.ts',
