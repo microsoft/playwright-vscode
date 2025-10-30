@@ -126,7 +126,7 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
     const vscode = new VSCode(vsCodeVersion, path.resolve(__dirname, '..'), browser);
     await use(vscode);
 
-    if (true || process.env.VALIDATE_L10N) {
+    if (process.env.VALIDATE_L10N) {
       for (const message of vscode.l10n.accessedMessages) {
         for (const [bundle, contents] of l10Bundles())
           expect.soft(contents[message], `message "${message}" missing in ${bundle}`).toBeDefined();
