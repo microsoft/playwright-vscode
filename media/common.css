@@ -113,7 +113,7 @@ textarea {
 }
 
 .project-notification {
-  margin: 8px 12px;
+  margin: 8px 18px 0px 12px;
   border: 1px solid var(--vscode-editorWidget-border);
   border-radius: 4px;
   padding: 8px 8px 8px 12px;
