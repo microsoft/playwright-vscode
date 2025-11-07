@@ -887,7 +887,7 @@ export class TestModelCollection extends DisposableBase {
     void this.embedder.context.workspaceState.update(workspaceStateKey, workspaceSettings);
   }
 
-  async clearSettings() {
+  async clearSettingsForTesting() {
     await this.embedder.context.workspaceState.update(workspaceStateKey, undefined);
   }
 }

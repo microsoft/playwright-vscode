@@ -266,8 +266,8 @@ export class Extension implements RunHooks {
     ];
     if (this._context.extensionMode === this._vscode.ExtensionMode.Development) {
       this._disposables.push(
-          vscode.commands.registerCommand('pw.extension.command.clearSettings', async () => {
-            await this._models.clearSettings();
+          vscode.commands.registerCommand('pw.extension.command.clearSettingsForTesting', async () => {
+            await this._models.clearSettingsForTesting();
             await this._context.globalState.update(kHasSeenProjectNotification, undefined);
           })
       );

@@ -107,8 +107,8 @@
       },
       {
         "category": "Test",
-        "command": "pw.extension.command.clearSettings",
-        "title": "%contributes.command.pw.extension.command.clearSettings%"
+        "command": "pw.extension.command.clearSettingsForTesting",
+        "title": "%contributes.command.pw.extension.command.clearSettingsForTesting%"
       }
     ],
     "configuration": {

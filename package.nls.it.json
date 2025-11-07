@@ -4,7 +4,7 @@
   "contributes.command.pw.extension.installBrowsers": "Installa i browser di Playwright",
   "contributes.command.pw.extension.command.inspect": "Seleziona il locator",
   "contributes.command.pw.extension.command.clearCache": "Pulisci cache",
-  "contributes.command.pw.extension.command.clearSettings": "Cancella impostazioni Playwright",
+  "contributes.command.pw.extension.command.clearSettingsForTesting": "Cancella impostazioni Playwright",
   "contributes.command.pw.extension.command.closeBrowsers": "Chiudi tutti i browser di Playwright",
   "contributes.command.pw.extension.command.recordNew": "Nuova registrazione",
   "contributes.command.pw.extension.command.recordAtCursor": "Registra dal cursore",
