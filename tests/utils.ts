@@ -220,14 +220,12 @@ export async function selectConfig(vscode: VSCode, label: string) {
 export async function enableProjects(vscode: VSCode, projects: string[]) {
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
   for (const project of projects)
-    await expect(webView.getByTestId('projects').locator('div').locator('label').getByLabel(project)).toBeVisible();
-  const projectLocators = await webView.getByTestId('projects').locator('div').locator('label').all();
-  for (const projectLocator of projectLocators) {
-    const name = await projectLocator.textContent();
+    await expect(webView.getByTestId('projects').getByLabel(project)).toBeVisible();
+  for (const project of await webView.getByTestId('projects').locator('label').all()) {
     // ensure change, so that settings get saved
-    await projectLocator.locator('input').uncheck();
-    if (projects.includes(name!))
-      await projectLocator.locator('input').check();
+    await project.locator('input').uncheck();
+    if (projects.includes(await project.textContent() ?? ''))
+      await project.locator('input').check();
   }
 }
 
