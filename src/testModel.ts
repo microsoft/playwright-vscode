@@ -451,6 +451,10 @@ export class TestModel extends DisposableBase {
 
   canRunGlobalHooks(type: 'setup' | 'teardown') {
     if (type === 'setup') {
+      const config = this._playwrightTest.config();
+      if (config && !config.globalSetup && !config.globalTeardown && !config.webServer)
+        return false;
+
       if (this._embedder.settingsModel.runGlobalSetupOnEachRun.get())
         return true;
 
