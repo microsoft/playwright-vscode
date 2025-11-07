@@ -457,9 +457,6 @@ export class TestModel extends DisposableBase {
     if (config && !config.globalSetup && !config.globalTeardown && !config.webServer)
       return false;
 
-    if (this._embedder.settingsModel.runGlobalSetupOnEachRun.get())
-      return true;
-
     return !this._ranGlobalSetup;
   }
 
