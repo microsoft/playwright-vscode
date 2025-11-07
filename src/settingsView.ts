@@ -344,7 +344,7 @@ export const runGlobalSetupAction = (vscode: vscodeTypes.VSCode, settingsModel: 
     command: 'pw.extension.command.runGlobalSetup',
     svg: ``,
     text: vscode.l10n.t('Run global setup'),
-    disabled: settingsModel.runGlobalSetupOnEachRun.get() || !models.selectedModel() || !models.selectedModel()!.canRunGlobalHooks('setup'),
+    disabled: settingsModel.runGlobalSetupOnEachRun.get() || !models.selectedModel() || !models.selectedModel()!.canManuallyRunGlobalHooks('setup'),
   };
 };
 
@@ -353,7 +353,7 @@ export const runGlobalTeardownAction = (vscode: vscodeTypes.VSCode, settingsMode
     command: 'pw.extension.command.runGlobalTeardown',
     svg: ``,
     text: vscode.l10n.t('Run global teardown'),
-    disabled: settingsModel.runGlobalSetupOnEachRun.get() || !models.selectedModel() || !models.selectedModel()!.canRunGlobalHooks('teardown'),
+    disabled: settingsModel.runGlobalSetupOnEachRun.get() || !models.selectedModel() || !models.selectedModel()!.canManuallyRunGlobalHooks('teardown'),
   };
 };
 
