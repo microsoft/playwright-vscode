@@ -449,25 +449,18 @@ export class TestModel extends DisposableBase {
     this._collection._modelUpdated(this);
   }
 
-  canManuallyRunGlobalHooks(type: 'setup' | 'teardown'): boolean {
-    if (type === 'setup') {
-      const config = this._playwrightTest.config();
-      if (config && !config.globalSetup && !config.globalTeardown && !config.webServer)
-        return false;
-    }
+  canRunGlobalHooks(type: 'setup' | 'teardown'): boolean {
+    if (type === 'teardown')
+      return this._ranGlobalSetup;
 
-    return this.canRunGlobalHooks(type);
-  }
+    const config = this._playwrightTest.config();
+    if (config && !config.globalSetup && !config.globalTeardown && !config.webServer)
+      return false;
 
-  canRunGlobalHooks(type: 'setup' | 'teardown') {
-    if (type === 'setup') {
-      if (this._embedder.settingsModel.runGlobalSetupOnEachRun.get())
-        return true;
+    if (this._embedder.settingsModel.runGlobalSetupOnEachRun.get())
+      return true;
 
-      return !this._ranGlobalSetup;
-    }
-
-    return this._ranGlobalSetup;
+    return !this._ranGlobalSetup;
   }
 
   needsGlobalHooks(type: 'setup' | 'teardown'): boolean {
@@ -479,10 +472,8 @@ export class TestModel extends DisposableBase {
   }
 
   async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<reporterTypes.FullResult['status']> {
-    if (!this.canRunGlobalHooks(type))
-      return 'passed';
     if (type === 'setup') {
-      if (!this.canRunGlobalHooks('setup'))
+      if (this._ranGlobalSetup && !this._embedder.settingsModel.runGlobalSetupOnEachRun.get())
         return 'passed';
       const status = await this._playwrightTest.runGlobalHooks('setup', testListener, token);
       if (status === 'passed')
@@ -531,10 +522,7 @@ export class TestModel extends DisposableBase {
 
     this._collection._saveSettings();
 
-    // Run global setup with the first test.
-    let globalSetupResult: reporterTypes.FullResult['status'] = 'passed';
-    if (this.canRunGlobalHooks('setup'))
-      globalSetupResult = await this.runGlobalHooks('setup', reporter, token);
+    const globalSetupResult = await this.runGlobalHooks('setup', reporter, token);
     if (globalSetupResult !== 'passed')
       return;
 
