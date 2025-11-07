@@ -75,6 +75,10 @@ export class PlaywrightTestServer {
     this._disposeTestServer();
   }
 
+  config() {
+    return this._config;
+  }
+
   async listFiles(): Promise<ConfigListFilesReport> {
     const testServer = await this._testServer();
     if (!testServer.connection) {
