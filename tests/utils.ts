@@ -221,11 +221,10 @@ export async function enableProjects(vscode: VSCode, projects: string[]) {
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
   for (const project of projects)
     await expect(webView.getByTestId('projects').getByLabel(project)).toBeVisible();
-  for (const project of await webView.getByTestId('projects').locator('label').all()) {
-    // ensure change, so that settings get saved
-    await project.locator('input').uncheck();
-    if (projects.includes(await project.textContent() ?? ''))
-      await project.locator('input').check();
+  for (const checkbox of await webView.getByTestId('projects').locator('label').all()) {
+    await checkbox.uncheck(); // ensure change, so that settings get saved
+    if (projects.includes(await checkbox.textContent() ?? ''))
+      await checkbox.check();
   }
 }
 
