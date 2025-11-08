@@ -8,6 +8,7 @@ on:
 
 env:
   FORCE_COLOR: 1
+  VALIDATE_L10N: 1
 
 jobs:
   test:

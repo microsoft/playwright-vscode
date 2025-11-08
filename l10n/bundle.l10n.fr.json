@@ -34,5 +34,10 @@
   "one worker": "un worker",
   "Project is disabled in the Playwright sidebar" : "Le projet est désactivé dans la barre latérale Playwright",
   "Enable project": "Activer le projet",
-  "Cancel": "Annuler"
+  "Cancel": "Annuler",
+  "SETTINGS": "PARAMÈTRES",
+  "TOOLS": "OUTILS",
+  "SETUP": "CONFIGURATION",
+  "PROJECTS": "PROJETS",
+  "CONFIGS": "CONFIGURATIONS"
 }
