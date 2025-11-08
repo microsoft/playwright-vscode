@@ -1072,6 +1072,34 @@ test('should force workers=1 when reusing the browser', async ({ activate, showB
   expect(testRun.renderLog({ output: true })).toContain('Running 3 tests using 1 worker');
 });
 
+test('Run global setup should be disabled if there is no global setup or webserver', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/38132' } }, async ({ activate }) => {
+  const { testController, vscode, workspaceFolder } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+    'global-setup.js': `
+      export default () => {}
+    `,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', () => {});
+    `,
+  });
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   test.spec.ts
+  `);
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await expect(webView.getByRole('button', { name: 'Run global setup' })).toBeDisabled();
+
+  await workspaceFolder.changeFile('playwright.config.js', `module.exports = { globalSetup: './global-setup.js' }`);
+  await expect(webView.getByRole('button', { name: 'Run global setup' })).toBeEnabled();
+
+  await workspaceFolder.changeFile('playwright.config.js', `module.exports = {}`);
+  await expect(webView.getByRole('button', { name: 'Run global setup' })).toBeDisabled();
+
+  await workspaceFolder.changeFile('playwright.config.js', `module.exports = { webServer: { command: 'npm start', url: 'http://localhost:3000' } }`);
+  await expect(webView.getByRole('button', { name: 'Run global setup' })).toBeEnabled();
+});
+
 test.describe('runGlobalSetupOnEachRun', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/32121' } }, () => {
   function expectOrdering(log: string, items: string[]) {
     items.forEach(item => expect(log).toContain(item));

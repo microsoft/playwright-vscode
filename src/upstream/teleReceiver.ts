@@ -30,7 +30,7 @@ export type JsonStackFrame = { file: string, line: number, column: number };
 
 export type JsonStdIOType = 'stdout' | 'stderr';
 
-export type JsonConfig = Pick<reporterTypes.FullConfig, 'configFile' | 'globalTimeout' | 'maxFailures' | 'metadata' | 'rootDir' | 'version' | 'workers' | 'globalSetup' | 'globalTeardown'>;
+export type JsonConfig = Pick<reporterTypes.FullConfig, 'configFile' | 'globalTimeout' | 'maxFailures' | 'metadata' | 'rootDir' | 'version' | 'workers' | 'globalSetup' | 'globalTeardown' | 'webServer'>;
 
 export type JsonPattern = {
   s?: string;

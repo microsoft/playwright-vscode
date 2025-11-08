@@ -35,5 +35,10 @@
   "Project is disabled in the Playwright sidebar" : "Le projet est désactivé dans la barre latérale Playwright",
   "Enable project": "Activer le projet",
   "Cancel": "Annuler",
-  "By default, all projects are enabled. Uncheck projects you don't want to run.": "Par défaut, tous les projets sont activés. Décochez les projets que vous ne souhaitez pas exécuter."
+  "By default, all projects are enabled. Uncheck projects you don't want to run.": "Par défaut, tous les projets sont activés. Décochez les projets que vous ne souhaitez pas exécuter.",
+  "SETTINGS": "PARAMÈTRES",
+  "TOOLS": "OUTILS",
+  "SETUP": "CONFIGURATION",
+  "PROJECTS": "PROJETS",
+  "CONFIGS": "CONFIGURATIONS"
 }
