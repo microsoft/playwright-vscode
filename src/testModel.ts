@@ -118,8 +118,8 @@ export class TestModel extends DisposableBase {
         firstProject = false;
       }
     } else {
-      if (this.projects().length)
-        this.projects()[0][kIsEnabled] = true;
+      for (const project of this.projects())
+        project[kIsEnabled] = true;
     }
   }
 
@@ -880,6 +880,10 @@ export class TestModelCollection extends DisposableBase {
       });
     }
     void this.embedder.context.workspaceState.update(workspaceStateKey, workspaceSettings);
+  }
+
+  async clearSettingsForTesting() {
+    await this.embedder.context.workspaceState.update(workspaceStateKey, undefined);
   }
 }
 

@@ -39,5 +39,6 @@
   "one worker": "ein worker",
   "Project is disabled in the Playwright sidebar": "Projekt ist im Playwright-Sidebar deaktiviert",
   "Enable project": "Projekt aktivieren",
-  "Cancel": "Abbrechen"
+  "Cancel": "Abbrechen",
+  "By default, all projects are enabled. Uncheck projects you don't want to run.": "Standardmäßig sind alle Projekte aktiviert. Deaktivieren Sie Projekte, die Sie nicht ausführen möchten."
 }
