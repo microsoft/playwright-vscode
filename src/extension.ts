@@ -33,6 +33,7 @@ import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
 import { pathToFileURL } from 'url';
 import { TestConfig } from './playwrightTestServer';
+import { findTestEndPosition } from './babelHighlightUtil';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -59,14 +60,19 @@ export class Extension implements RunHooks {
 
   private _testController: vscodeTypes.TestController;
   private _workspaceObserver: WorkspaceObserver;
-  private _testItemUnderDebug: vscodeTypes.TestItem | undefined;
-
+  private _testUnderDebug: {
+    testItem: vscodeTypes.TestItem | undefined;
+    testCase: reporterTypes.TestCase;
+    disposables: vscodeTypes.Disposable[];
+  } | undefined;
   private _activeSteps = new Map<reporterTypes.TestStep, StepInfo>();
   private _completedSteps = new Map<reporterTypes.TestStep, StepInfo>();
   private _testRun: vscodeTypes.TestRun | undefined;
   private _models: TestModelCollection;
   private _activeStepDecorationType: vscodeTypes.TextEditorDecorationType;
   private _completedStepDecorationType: vscodeTypes.TextEditorDecorationType;
+  private _pausedOnErrorDecorationType: vscodeTypes.TextEditorDecorationType;
+  private _pausedAtEndDecorationType: vscodeTypes.TextEditorDecorationType;
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
   private _reusedBrowser: ReusedBrowser;
@@ -106,6 +112,21 @@ export class Extension implements RunHooks {
       },
     });
 
+    this._pausedAtEndDecorationType = this._vscode.window.createTextEditorDecorationType({
+      isWholeLine: true,
+      backgroundColor: { id: 'editor.wordHighlightStrongBackground' },
+      borderColor: { id: 'editor.wordHighlightStrongBorder' },
+      after: {
+        color: { id: 'editorCodeLens.foreground' },
+        contentText: ' \u2014 paused\u2026',
+      },
+    });
+    this._pausedOnErrorDecorationType = this._vscode.window.createTextEditorDecorationType({
+      isWholeLine: true,
+      backgroundColor: { id: 'editor.wordHighlightStrongBackground' },
+      borderColor: { id: 'editor.wordHighlightStrongBorder' },
+    });
+
     this._settingsModel = new SettingsModel(vscode, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
@@ -117,6 +138,7 @@ export class Extension implements RunHooks {
       envProvider: this._envProvider.bind(this),
       onStdOut: this._debugHighlight.onStdOut.bind(this._debugHighlight),
       requestWatchRun: this._runWatchedTests.bind(this),
+      testPausedHandler: this._onTestPaused.bind(this),
     });
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
@@ -445,9 +467,8 @@ export class Extension implements RunHooks {
       if (error) {
         if (error.location) {
           const document = await this._vscode.workspace.openTextDocument(error.location.file);
-          const position = new this._vscode.Position(Math.max(0, error.location.line - 1), error.location.column - 1);
           await this._vscode.window.showTextDocument(document, {
-            selection: new this._vscode.Range(position, position)
+            selection: this._asRange(error.location),
           });
         }
         return;
@@ -617,7 +638,12 @@ export class Extension implements RunHooks {
           this._showTraceOnTestProgress(testItem);
         if (mode === 'debug') {
           // Debugging is always single-workers.
-          this._testItemUnderDebug = testItem;
+          this._cleanupItemUnderDebug();
+          this._testUnderDebug = {
+            testItem,
+            testCase: test,
+            disposables: [],
+          };
         }
       },
 
@@ -625,7 +651,7 @@ export class Extension implements RunHooks {
         if (result.errors.find(e => e.message?.includes(`Error: browserType.launch: Executable doesn't exist`)))
           browserDoesNotExist = true;
 
-        this._testItemUnderDebug = undefined;
+        this._cleanupItemUnderDebug();
         this._activeSteps.clear();
         this._executionLinesChanged();
 
@@ -661,9 +687,7 @@ export class Extension implements RunHooks {
         let step = this._activeSteps.get(testStep);
         if (!step) {
           step = {
-            location: new this._vscode.Location(
-                this._vscode.Uri.file(testStep.location.file),
-                new this._vscode.Position(Math.max(testStep.location.line - 1, 0), testStep.location?.column - 1)),
+            location: this._asLocation(testStep.location),
             activeCount: 0,
             duration: 0,
           };
@@ -690,6 +714,7 @@ export class Extension implements RunHooks {
 
     if (mode === 'debug') {
       await model.debugTests(request, testListener, testRun.token);
+      this._cleanupItemUnderDebug();
     } else {
       // Force trace viewer update to surface check version errors.
       await this._models.selectedModel()?.updateTraceViewer(mode === 'run')?.willRunTests();
@@ -718,7 +743,7 @@ export class Extension implements RunHooks {
           testRun.started(testItemForGlobalErrors);
           testRun.failed(testItemForGlobalErrors, this._testMessageForTestError(error), 0);
         } else if (error.location) {
-          testRun.appendOutput(error.message || error.value || '', new this._vscode.Location(this._vscode.Uri.file(error.location.file), new this._vscode.Position(error.location.line - 1, error.location.column - 1)));
+          testRun.appendOutput(error.message || error.value || '', this._asLocation(error.location));
         } else {
           testRun.appendOutput(error.message || error.value || '');
         }
@@ -831,10 +856,11 @@ test('test', async ({ page }) => {
       }
       const key = `${error.location?.line}:${error.location?.column}:${error.message}`;
       if (!diagnostics.has(key)) {
+        const nextLineLocation = { line: error.location.line + 1, column: 0 };
         diagnostics.set(key, {
           severity: this._vscode.DiagnosticSeverity.Error,
           source: 'playwright',
-          range: new this._vscode.Range(Math.max(error.location!.line - 1, 0), Math.max(error.location!.column - 1, 0), error.location!.line, 0),
+          range: new this._vscode.Range(this._asPosition(error.location), this._asPosition(nextLineLocation)),
           message: this._abbreviateStack(stripBabelFrame(stripAnsi(error.message!))),
         });
       }
@@ -849,13 +875,44 @@ test('test', async ({ page }) => {
   }
 
   private _errorInDebugger(errorStack: string, location: reporterTypes.Location) {
-    if (!this._testRun || !this._testItemUnderDebug)
+    if (!this._testRun || !this._testUnderDebug?.testItem)
       return;
     const testMessage = this._testMessageFromText(errorStack);
-    const position = new this._vscode.Position(Math.max(location.line - 1, 0), location.column - 1);
-    testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.file), position);
-    this._testRun.failed(this._testItemUnderDebug, testMessage);
-    this._testItemUnderDebug = undefined;
+    testMessage.location = this._asLocation(location);
+    this._testRun.failed(this._testUnderDebug.testItem, testMessage);
+    this._cleanupItemUnderDebug();
+  }
+
+  private _cleanupItemUnderDebug() {
+    for (const disposable of this._testUnderDebug?.disposables || [])
+      disposable.dispose();
+    this._testUnderDebug = undefined;
+  }
+
+  private async _onTestPaused(params: { errors: reporterTypes.TestError[] }) {
+    if (!this._testUnderDebug)
+      return;
+    const errors = params.errors.filter(e => !!e.message);
+    if (!errors.length) {
+      const location = this._testUnderDebug.testCase.location;
+      const document = await this._vscode.workspace.openTextDocument(location.file);
+      const testEndPosition = findTestEndPosition(document.getText(), uriToPath(document.uri), location) ?? location;
+      const range = this._asRange(testEndPosition);
+      const editor = await this._vscode.window.showTextDocument(document, { selection: range });
+      editor.setDecorations(this._pausedAtEndDecorationType, [{ range }]);
+      this._testUnderDebug.disposables.push({ dispose: () => editor.setDecorations(this._pausedAtEndDecorationType, []) });
+    } else {
+      if (this._testRun && this._testUnderDebug.testItem)
+        this._testRun.failed(this._testUnderDebug.testItem, errors.map(error => this._testMessageForTestError(error)));
+      const error = errors.find(e => e.location);
+      if (error?.location) {
+        const range = this._asRange(error.location);
+        const document = await this._vscode.workspace.openTextDocument(error.location.file);
+        const editor = await this._vscode.window.showTextDocument(document, { selection: range });
+        editor.setDecorations(this._pausedOnErrorDecorationType, [{ range }]);
+        this._testUnderDebug.disposables.push({ dispose: () => editor.setDecorations(this._pausedOnErrorDecorationType, []) });
+      }
+    }
   }
 
   private _executionLinesChanged() {
@@ -949,10 +1006,23 @@ test('test', async ({ page }) => {
       testMessage = this._testMessageFromText(text, aiContext);
     }
     const stackTrace = error.stack ? parseStack(this._vscode, error.stack) : [];
-    const location = error.location ? parseLocation(this._vscode, error.location) : topStackFrame(this._vscode, stackTrace);
+    const location = error.location ? this._asLocation(error.location) : topStackFrame(this._vscode, stackTrace);
     if (location)
       testMessage.location = location;
     return testMessage;
+  }
+
+  private _asPosition(location: { line: number, column: number }): vscodeTypes.Position {
+    return new this._vscode.Position(Math.max(location.line - 1, 0), location.column - 1);
+  }
+
+  private _asLocation(location: reporterTypes.Location): vscodeTypes.Location {
+    return new this._vscode.Location(this._vscode.Uri.file(location.file), this._asPosition(location));
+  }
+
+  private _asRange(location: { line: number, column: number }): vscodeTypes.Range {
+    const position = this._asPosition(location);
+    return new this._vscode.Range(position, position);
   }
 
   private _formatError(error: reporterTypes.TestError): string {
@@ -995,12 +1065,6 @@ test('test', async ({ page }) => {
     this._commandQueue = result.then(() => {});
     return result;
   }
-}
-
-function parseLocation(vscode: vscodeTypes.VSCode, location: reporterTypes.Location): vscodeTypes.Location {
-  return new vscode.Location(
-      vscode.Uri.file(location.file),
-      new vscode.Position(Math.max(location.line - 1, 0), location.column - 1));
 }
 
 function topStackFrame(vscode: vscodeTypes.VSCode, stackTrace: vscodeTypes.TestMessageStackFrame[]): vscodeTypes.Location | undefined {
