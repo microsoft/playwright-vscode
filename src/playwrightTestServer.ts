@@ -51,10 +51,7 @@ export type PlaywrightTestOptions = {
   isUnderTest: boolean;
   envProvider: (configFile: string) => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
-};
-
-export type ErrorContext = {
-  pageSnapshot?: string;
+  testPausedHandler: (params: { errors: reporterTypes.TestError[] }) => void;
 };
 
 
@@ -218,7 +215,6 @@ export class PlaywrightTestServer {
       projects: this._model.enabledProjectsFilter(),
       locations: locationPatterns,
       testIds,
-      errorContext: { format: 'json' },
       ...runOptions,
     };
     const disposables = [
@@ -276,12 +272,12 @@ export class PlaywrightTestServer {
     const testDirs = this._model.enabledProjects().map(project => project.project.testDir);
 
     let debugTestServer: TestServerConnection | undefined;
+    let mainDebugRun: vscodeTypes.DebugSession | undefined;
     const disposables: vscodeTypes.Disposable[] = [];
     try {
       const debugEnd = new this._vscode.CancellationTokenSource();
       token.onCancellationRequested(() => debugEnd.cancel());
 
-      let mainDebugRun: vscodeTypes.DebugSession | undefined;
       this._vscode.debug.onDidStartDebugSession(session => {
         if (session.name === debugSessionName)
           mainDebugRun ??= session;
@@ -296,6 +292,7 @@ export class PlaywrightTestServer {
       token = debugEnd.token;
 
       const paths = this._normalizePaths();
+      const kMinTestPausedVersion = 1.57;
 
       await this._vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
@@ -310,8 +307,8 @@ export class PlaywrightTestServer {
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,
           FORCE_COLOR: '1',
-          PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
-          PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
+          PW_TEST_SOURCE_TRANSFORM: this._model.config.version < kMinTestPausedVersion ? require.resolve('./debugTransform') : undefined,
+          PW_TEST_SOURCE_TRANSFORM_SCOPE: this._model.config.version < kMinTestPausedVersion ? testDirs.join(pathSeparator) : undefined,
           PWDEBUG: 'console',
         },
         program: paths.cli,
@@ -329,7 +326,7 @@ export class PlaywrightTestServer {
       if (token?.isCancellationRequested)
         return;
 
-      const { locations, testIds } = this._model.narrowDownLocations(request);
+      const { locations, testIds, isSingleTest } = this._model.narrowDownLocations(request);
       if (!locations && !testIds)
         return;
 
@@ -343,14 +340,16 @@ export class PlaywrightTestServer {
         projects: this._model.enabledProjectsFilter(),
         locations: locationPatterns,
         testIds,
-        errorContext: { format: 'json' },
         timeout: 0,
+        pauseAtEnd: isSingleTest,
+        pauseOnError: true,
         ...runOptions,
       };
 
       disposables.push(token.onCancellationRequested(() => {
         debugTestServer!.stopTestsNoReply({});
       }));
+      disposables.push(debugTestServer.onTestPaused(params => this._options.testPausedHandler(params)));
       this._wireTestServer(debugTestServer, reporter, token, disposables);
       try {
         await debugTestServer.runTests(options);
@@ -363,7 +362,13 @@ export class PlaywrightTestServer {
       disposables.forEach(disposable => disposable.dispose());
       if (!token.isCancellationRequested && debugTestServer && !debugTestServer.isClosed())
         await this._runGlobalHooksInServer(debugTestServer, 'teardown', reporter, token);
-      debugTestServer?.close();
+      if (debugTestServer) {
+        // Should exit upon close automatically.
+        debugTestServer.close();
+      } else if (mainDebugRun) {
+        // When canceled before connecting to the test server, stop the debug session manually.
+        void this._vscode.debug.stopDebugging(mainDebugRun);
+      }
     }
   }
 

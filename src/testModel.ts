@@ -55,6 +55,7 @@ export type TestModelEmbedder = {
   envProvider: (configFile: string) => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
   requestWatchRun: (files: string[], testItems: vscodeTypes.TestItem[]) => void;
+  testPausedHandler: (params: { errors: reporterTypes.TestError[] }) => any;
 };
 
 type Watch = {
@@ -666,9 +667,11 @@ export class TestModel extends DisposableBase {
     await this._playwrightTest.watchFiles([...filesToWatch]);
   }
 
-  narrowDownLocations(request: vscodeTypes.TestRunRequest): { locations: string[] | null, testIds?: string[] } {
+  narrowDownLocations(request: vscodeTypes.TestRunRequest): { locations: string[] | null, testIds?: string[], isSingleTest: boolean } {
     if (!request.include?.length)
-      return { locations: [] };
+      return { locations: [], isSingleTest: false };
+
+    let hasPathItem = false;
     const locations = new Set<string>();
     const testIds: string[] = [];
     const enabledFiles = [...this.enabledFiles()];
@@ -686,14 +689,16 @@ export class TestModel extends DisposableBase {
 
       locations.add(fileItemPath);
       const representsPath = treeItem.kind === 'group' && (treeItem.subKind === 'folder' || treeItem.subKind === 'file');
-      if (!representsPath)
+      if (representsPath)
+        hasPathItem = true;
+      else
         testIds.push(...collectTestIds(treeItem));
     }
 
     // known bug: for a combination of location items, and test IDs outside those locations, those test IDs will never be run.
     // See the "should run both file and specific test from another file" test for an example.
 
-    return { locations: locations.size ? [...locations] : null, testIds: testIds.length ? testIds : undefined };
+    return { locations: locations.size ? [...locations] : null, testIds: testIds.length ? testIds : undefined, isSingleTest: !hasPathItem && testIds.length === 1 };
   }
 
   traceViewer(): TraceViewer | null {
