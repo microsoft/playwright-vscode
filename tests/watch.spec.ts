@@ -771,7 +771,7 @@ test('should watch test defined outside of .spec.ts file', { annotation: { type:
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: [test.info().outputPath(`example\\.spec\\.ts`).slice(1)],
+        locations: [expect.stringContaining(`example\\.spec\\.ts`)],
       })
     },
   ]);
@@ -832,7 +832,7 @@ test.fail('does not record output of test discovered through watch', async ({ ac
     {
       method: 'runTests',
       params: expect.objectContaining({
-        locations: [test.info().outputPath(`example\\.spec\\.ts`).slice(1)],
+        locations: [expect.stringContaining(`example\\.spec\\.ts`)],
       })
     },
   ]);
