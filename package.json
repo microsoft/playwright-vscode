@@ -104,11 +104,6 @@
         "category": "Test",
         "command": "pw.extension.command.clearCache",
         "title": "%contributes.command.pw.extension.command.clearCache%"
-      },
-      {
-        "category": "Test",
-        "command": "pw.extension.command.clearSettingsForTesting",
-        "title": "%contributes.command.pw.extension.command.clearSettingsForTesting%"
       }
     ],
     "configuration": {

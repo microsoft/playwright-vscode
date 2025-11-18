@@ -35,7 +35,6 @@
   "Project is disabled in the Playwright sidebar": "在 Playwright 侧边栏中禁用项目",
   "Enable project": "启用项目",
   "Cancel": "取消",
-  "By default, all projects are enabled. Uncheck projects you don't want to run.": "默认情况下，所有项目都已启用。取消选中您不想运行的项目。",
   "SETTINGS": "设置",
   "TOOLS": "工具",
   "SETUP": "设置",

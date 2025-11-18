@@ -252,6 +252,7 @@ test('should support multiple projects', async ({ activate }) => {
     -   tests
       -   test1.spec.ts
       -   test2.spec.ts
+    -    [playwright.config.js [project 2] — disabled]
   `);
 
   await expect(vscode).toHaveConnectionLog([
@@ -281,9 +282,6 @@ test('should switch between multiple projects with filter', async ({ activate })
       test('three', async () => {});
     `,
   });
-
-  await enableProjects(vscode, ['project 1']);
-
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test1.spec.ts
