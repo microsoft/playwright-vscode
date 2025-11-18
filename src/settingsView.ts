@@ -166,11 +166,6 @@ export class SettingsView extends DisposableBase implements vscodeTypes.WebviewV
     });
   }
 
-  async highlightProjects() {
-    await this._vscode.commands.executeCommand('pw.extension.settingsView.focus');
-    await this._view?.webview.postMessage({ method: 'highlightProjects' });
-  }
-
   toggleModels() {
     const options: vscodeTypes.QuickPickItem[] = [];
     const itemMap = new Map<string, vscodeTypes.QuickPickItem>();
@@ -248,12 +243,6 @@ function htmlForWebview(vscode: vscodeTypes.VSCode, extensionUri: vscodeTypes.Ur
           </div>
         </h2>
         <div data-testid="projects" id="projects" class="vbox"></div>
-        <div id="project-notification" class="project-notification" role="region">
-          <button class="project-notification-close" type="button" title="Close Hint">
-            ${closeIcon}
-          </button>
-          <span class="project-notification-text">${vscode.l10n.t('By default, all projects are enabled. Uncheck projects you don\'t want to run.')}</span>
-        </div>
       </div>
       <h2 class="section-header">${vscode.l10n.t('SETUP')}</h2>
       <div id="rareActions" class="vbox"></div>
@@ -341,12 +330,10 @@ export const revealTestOutputAction = (vscode: vscodeTypes.VSCode) => {
   };
 };
 
-const closeIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path xmlns="http://www.w3.org/2000/svg" d="m12.45 37.65-2.1-2.1L21.9 24 10.35 12.45l2.1-2.1L24 21.9l11.55-11.55 2.1 2.1L26.1 24l11.55 11.55-2.1 2.1L24 26.1Z"/></svg>`;
-
 export const closeBrowsersAction = (vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser) => {
   return {
     command: 'pw.extension.command.closeBrowsers',
-    svg: closeIcon,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path xmlns="http://www.w3.org/2000/svg" d="m12.45 37.65-2.1-2.1L21.9 24 10.35 12.45l2.1-2.1L24 21.9l11.55-11.55 2.1 2.1L26.1 24l11.55 11.55-2.1 2.1L24 26.1Z"/></svg>`,
     text: vscode.l10n.t('Close all browsers'),
     disabled: !reusedBrowser.canClose(),
   };

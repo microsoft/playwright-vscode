@@ -112,58 +112,6 @@ textarea {
   background: none !important;
 }
 
-.project-notification {
-  margin: 8px 18px 0px 12px;
-  border: 1px solid var(--vscode-editorWidget-border);
-  border-radius: 4px;
-  padding: 8px 8px 8px 12px;
-  display: none;
-}
-
-.project-notification.show {
-  display: unset;
-  animation: notification-sequence 2.3s ease-out;
-}
-
-@keyframes notification-sequence {
-  0%, 13% {
-    box-shadow: 0 0 0 0 var(--vscode-focusBorder);
-  }
-  56.5% {
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--vscode-focusBorder) 20%, transparent);
-  }
-  100% {
-    box-shadow: 0 0 0 0 var(--vscode-focusBorder);
-  }
-}
-
-.project-notification-text {
-  color: var(--vscode-foreground);
-  font-size: 12px;
-}
-
-.project-notification-close {
-  float: right;
-  background: none;
-  border: none;
-  cursor: pointer;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 2px;
-  padding: 2px;
-}
-
-.project-notification-close svg {
-  fill: var(--vscode-foreground);
-}
-
-.project-notification-close:hover {
-  background-color: var(--vscode-toolbar-hoverBackground);
-}
-
 input[type=checkbox] {
   margin: 0;
   width: 16px;

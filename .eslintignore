@@ -2,5 +2,3 @@ vscode.d.ts
 vscode.proposed.d.ts
 /out/
 /test-results/
-/playwright-report/
-/.vscode-test/
