@@ -19,7 +19,7 @@ import { ConfigFindRelatedTestFilesReport, ConfigListFilesReport } from './listT
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
 import { TeleReporterReceiver, JsonConfig } from './upstream/teleReceiver';
-import { WebSocketTestServerTransport, TestServerConnection } from './upstream/testServerConnection';
+import { WebSocketTestServerTransport, TestServerConnection, TestServerConnectionClosedError } from './upstream/testServerConnection';
 import { startBackend } from './backend';
 import { escapeRegex, pathSeparator } from './utils';
 import { debugSessionName } from './debugSessionName';
@@ -352,7 +352,13 @@ export class PlaywrightTestServer {
         debugTestServer!.stopTestsNoReply({});
       }));
       this._wireTestServer(debugTestServer, reporter, token, disposables);
-      await debugTestServer.runTests(options);
+      try {
+        await debugTestServer.runTests(options);
+      } catch (e) {
+        if (e instanceof TestServerConnectionClosedError)
+          return; // User stopped debugging.
+        throw e;
+      }
     } finally {
       disposables.forEach(disposable => disposable.dispose());
       if (!token.isCancellationRequested && debugTestServer && !debugTestServer.isClosed())
