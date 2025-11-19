@@ -160,7 +160,7 @@ export class Extension implements RunHooks {
       this._debugHighlight,
       this._settingsModel,
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
-        this._rebuildModels();
+        this._scheduleRebuildModels();
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         void this._updateVisibleEditorItems();
@@ -245,7 +245,7 @@ export class Extension implements RunHooks {
       }),
       vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('playwright.env'))
-          this._rebuildModels();
+          this._scheduleRebuildModels();
       }),
       this._testTree,
       this._models,
@@ -275,7 +275,7 @@ export class Extension implements RunHooks {
 
     this._context.globalState.setKeysForSync([kHasSeenProjectNotification]);
 
-    const configObserver = new WorkspaceObserver(this._vscode, () => this._rebuildModels(), this._isUnderTest);
+    const configObserver = new WorkspaceObserver(this._vscode, () => this._scheduleRebuildModels(), this._isUnderTest);
     configObserver.setPatterns(new Set([
       '**/*playwright*.config.{ts,js,mts,mjs}',
       '**/*.env*',
@@ -286,7 +286,7 @@ export class Extension implements RunHooks {
     this._context.subscriptions.push(this);
   }
 
-  private _rebuildModels() {
+  private _scheduleRebuildModels() {
     if (this._modelRebuild) {
       this._modelRebuild.needsAnother = true;
       return;
