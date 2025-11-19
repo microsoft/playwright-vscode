@@ -29,10 +29,12 @@ export class WorkspaceObserver {
   private _pendingChange: WorkspaceChange | undefined;
   private _timeout: NodeJS.Timeout | undefined;
   private _watchers = new Map<string, vscodeTypes.Disposable[]>();
+  private _isUnderTest: boolean;
 
-  constructor(vscode: vscodeTypes.VSCode, handler: (change: WorkspaceChange) => void) {
+  constructor(vscode: vscodeTypes.VSCode, handler: (change: WorkspaceChange) => void, isUnderTest: boolean) {
     this._vscode = vscode;
     this._handler = handler;
+    this._isUnderTest = isUnderTest;
   }
 
   setPatterns(patterns: Set<string>) {
@@ -43,15 +45,15 @@ export class WorkspaceObserver {
       const watcher = this._vscode.workspace.createFileSystemWatcher(pattern);
       const disposables: vscodeTypes.Disposable[] = [
         watcher.onDidCreate(uri => {
-          if (uri.scheme === 'file')
+          if (uri.scheme === 'file' && this._isRelevant(uri))
             this._change().created.add(uriToPath(uri));
         }),
         watcher.onDidChange(uri => {
-          if (uri.scheme === 'file')
+          if (uri.scheme === 'file' && this._isRelevant(uri))
             this._change().changed.add(uriToPath(uri));
         }),
         watcher.onDidDelete(uri => {
-          if (uri.scheme === 'file')
+          if (uri.scheme === 'file' && this._isRelevant(uri))
             this._change().deleted.add(uriToPath(uri));
         }),
         watcher,
@@ -65,6 +67,16 @@ export class WorkspaceObserver {
         this._watchers.delete(pattern);
       }
     }
+  }
+
+  private _isRelevant(uri: vscodeTypes.Uri): boolean {
+    const path = uriToPath(uri);
+    // TODO: parse .gitignore
+    if (path.includes('node_modules'))
+      return false;
+    if (!this._isUnderTest && path.includes('test-results'))
+      return false;
+    return true;
   }
 
   private _change(): WorkspaceChange {

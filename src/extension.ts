@@ -126,7 +126,7 @@ export class Extension implements RunHooks {
     this._debugProfile = this._testController.createRunProfile('playwright-debug', this._vscode.TestRunProfileKind.Debug, this._handleTestRun.bind(this, true), true, undefined, supportsContinuousRun);
     this._testTree = new TestTree(vscode, this._models, this._testController);
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
-    this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
+    this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes) , this._isUnderTest);
     this._diagnostics = this._vscode.languages.createDiagnosticCollection('pw.testErrors.diagnostic');
     this._treeItemObserver = new TreeItemObserver(this._vscode);
   }
@@ -275,18 +275,7 @@ export class Extension implements RunHooks {
 
     this._context.globalState.setKeysForSync([kHasSeenProjectNotification]);
 
-    const configObserver = new WorkspaceObserver(this._vscode, async change => {
-      const hasRelevantFile = [...change.created, ...change.changed, ...change.deleted].some(path => {
-        // TODO: parse .gitignore
-        if (path.includes('node_modules'))
-          return false;
-        if (!this._isUnderTest && path.includes('test-results'))
-          return false;
-        return true;
-      });
-      if (hasRelevantFile)
-        this._rebuildModels();
-    });
+    const configObserver = new WorkspaceObserver(this._vscode, () => this._rebuildModels(), this._isUnderTest);
     configObserver.setPatterns(new Set([
       '**/*playwright*.config.{ts,js,mts,mjs}',
       '**/*.env*',
