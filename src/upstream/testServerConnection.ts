@@ -21,6 +21,12 @@ import WebSocket from 'ws';
 
 // -- Reuse boundary -- Everything below this line is taken from playwright core.
 
+export class TestServerConnectionClosedError extends Error {
+  constructor() {
+    super('Test server connection closed');
+  }
+}
+
 export interface TestServerTransport {
   onmessage(listener: (message: string) => void): void;
   onopen(listener: () => void): void;
@@ -116,7 +122,7 @@ export class TestServerConnection implements TestServerInterface, TestServerInte
       this._onCloseEmitter.fire();
       clearInterval(pingInterval);
       for (const callback of this._callbacks.values())
-        callback.reject(new Error('test server connection closed'));
+        callback.reject(new TestServerConnectionClosedError());
       this._callbacks.clear();
     });
   }
