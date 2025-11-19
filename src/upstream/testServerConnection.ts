@@ -22,9 +22,6 @@ import WebSocket from 'ws';
 // -- Reuse boundary -- Everything below this line is taken from playwright core.
 
 export class TestServerConnectionClosedError extends Error {
-  constructor() {
-    super('Test server connection closed');
-  }
 }
 
 export interface TestServerTransport {
@@ -84,7 +81,7 @@ export class TestServerConnection implements TestServerInterface, TestServerInte
 
   private _lastId = 0;
   private _transport: TestServerTransport;
-  private _callbacks = new Map<number, { resolve: (arg: any) => void, reject: (arg: Error) => void }>();
+  private _callbacks = new Map<number, { resolve: (arg: any) => void, reject: (arg: Error) => void, error: TestServerConnectionClosedError }>();
   private _connectedPromise: Promise<void>;
   private _isClosed = false;
 
@@ -122,7 +119,7 @@ export class TestServerConnection implements TestServerInterface, TestServerInte
       this._onCloseEmitter.fire();
       clearInterval(pingInterval);
       for (const callback of this._callbacks.values())
-        callback.reject(new TestServerConnectionClosedError());
+        callback.reject(callback.error);
       this._callbacks.clear();
     });
   }
@@ -138,9 +135,11 @@ export class TestServerConnection implements TestServerInterface, TestServerInte
     await this._connectedPromise;
     const id = ++this._lastId;
     const message = { id, method, params };
+    // Capture proper stack trace in the error here.
+    const error = new TestServerConnectionClosedError(`${method}: test server connection closed`);
     this._transport.send(JSON.stringify(message));
     return new Promise((resolve, reject) => {
-      this._callbacks.set(id, { resolve, reject });
+      this._callbacks.set(id, { resolve, reject, error });
     });
   }
 

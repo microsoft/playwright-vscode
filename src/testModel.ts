@@ -30,6 +30,7 @@ import { upstreamTreeItem } from './testTree';
 import { collectTestIds } from './upstream/testTree';
 import { TraceViewer } from './traceViewer';
 import { SpawnTraceViewer } from './spawnTraceViewer';
+import { TestServerConnectionClosedError } from './upstream/testServerConnection';
 
 export type TestEntry = reporterTypes.TestCase | reporterTypes.Suite;
 
@@ -362,7 +363,10 @@ export class TestModel extends DisposableBase {
 
       const timer = setTimeout(async () => {
         delete this._filesPendingListTests;
-        await this._listTests([...files]).catch(e => console.log(e));
+        await this._listTests([...files]).catch(e => {
+          if (!(e instanceof TestServerConnectionClosedError))
+            console.log(e);
+        });
         finishedCallback();
       }, 100);
 
