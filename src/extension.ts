@@ -126,7 +126,7 @@ export class Extension implements RunHooks {
     this._debugProfile = this._testController.createRunProfile('playwright-debug', this._vscode.TestRunProfileKind.Debug, this._handleTestRun.bind(this, true), true, undefined, supportsContinuousRun);
     this._testTree = new TestTree(vscode, this._models, this._testController);
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
-    this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes));
+    this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes) , this._isUnderTest);
     this._diagnostics = this._vscode.languages.createDiagnosticCollection('pw.testErrors.diagnostic');
     this._treeItemObserver = new TreeItemObserver(this._vscode);
   }
@@ -160,7 +160,7 @@ export class Extension implements RunHooks {
       this._debugHighlight,
       this._settingsModel,
       vscode.workspace.onDidChangeWorkspaceFolders(_ => {
-        this._rebuildModels();
+        this._scheduleRebuildModels();
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         void this._updateVisibleEditorItems();
@@ -245,7 +245,7 @@ export class Extension implements RunHooks {
       }),
       vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('playwright.env'))
-          this._rebuildModels();
+          this._scheduleRebuildModels();
       }),
       this._testTree,
       this._models,
@@ -265,18 +265,7 @@ export class Extension implements RunHooks {
       registerTerminalLinkProvider(this._vscode),
     ];
 
-    const configObserver = new WorkspaceObserver(this._vscode, async change => {
-      const hasRelevantFile = [...change.created, ...change.changed, ...change.deleted].some(path => {
-        // TODO: parse .gitignore
-        if (path.includes('node_modules'))
-          return false;
-        if (!this._isUnderTest && path.includes('test-results'))
-          return false;
-        return true;
-      });
-      if (hasRelevantFile)
-        this._rebuildModels();
-    });
+    const configObserver = new WorkspaceObserver(this._vscode, () => this._scheduleRebuildModels(), this._isUnderTest);
     configObserver.setPatterns(new Set([
       '**/*playwright*.config.{ts,js,mts,mjs}',
       '**/*.env*',
@@ -287,7 +276,7 @@ export class Extension implements RunHooks {
     this._context.subscriptions.push(this);
   }
 
-  private _rebuildModels() {
+  private _scheduleRebuildModels() {
     if (this._modelRebuild) {
       this._modelRebuild.needsAnother = true;
       return;
