@@ -720,3 +720,120 @@ test('expanding watch from spec to file should work', async ({ activate }) => {
         - ✅ bar [3:0]
   `);
 });
+
+test('should watch test defined outside of .spec.ts file', { annotation: { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/37930' } }, async ({ activate }) => {
+  const { vscode, testController, workspaceFolder } = await activate({
+    'playwright.config.js': `module.exports = { testDir: '.' }`,
+    'example.spec.ts': `
+      import './impl';
+    `,
+    'impl.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  await testController.watch();
+
+  const [testRun] = await Promise.all([
+    new Promise<TestRun>(f => testController.onDidCreateTestRun(testRun => {
+      testRun.onDidEnd(() => f(testRun));
+    })),
+    workspaceFolder.changeFile('impl.ts', `
+      import { test } from '@playwright/test';
+      test('one', async () => { /* modified */ });
+    `),
+  ]);
+
+  expect.soft(testRun.renderLog()).toBe(`
+    example.spec.ts > one [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+
+  await expect.soft(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [],
+      })
+    },
+    {
+      method: 'watch',
+      params: expect.objectContaining({
+        fileNames: [test.info().outputDir + path.sep],
+      })
+    },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`example\\.spec\\.ts`)],
+      })
+    },
+  ]);
+});
+
+test.fail('does not record output of test discovered through watch', async ({ activate }) => {
+  const { vscode, testController, workspaceFolder } = await activate({
+    'playwright.config.js': `module.exports = { testDir: '.' }`,
+    'example.spec.ts': `
+      import './impl';
+    `,
+    'impl.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  await testController.watch();
+
+  const [testRun] = await Promise.all([
+    new Promise<TestRun>(f => testController.onDidCreateTestRun(testRun => {
+      testRun.onDidEnd(() => f(testRun));
+    })),
+    workspaceFolder.changeFile('impl.ts', `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+      test('two', async () => {});
+    `),
+  ]);
+
+  expect.soft(testRun.renderLog(), 'second test was discovered through watch, tree doesnt yet have an item for it').toBe(`
+    example.spec.ts > one [2:0]
+      enqueued
+      enqueued
+      started
+      passed
+    example.spec.ts > two [3:0]
+      enqueued
+      enqueued
+      started
+      passed
+  `);
+  await expect.soft(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [],
+      })
+    },
+    {
+      method: 'watch',
+      params: expect.objectContaining({
+        fileNames: [test.info().outputDir + path.sep],
+      })
+    },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`example\\.spec\\.ts`)],
+      })
+    },
+  ]);
+});
