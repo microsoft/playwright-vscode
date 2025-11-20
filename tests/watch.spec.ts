@@ -845,8 +845,3 @@ test.fail('does not record output of test discovered through watch', async ({ ac
     },
   ]);
 });
-
-// some of our functionality depends on FS events being processed in separate batches
-async function ensureFSWatcherDispatched() {
-  await new Promise(f => setTimeout(f, 500));
-}
