@@ -109,7 +109,7 @@ test('should unwatch all tests', async ({ activate }) => {
     test('should pass', async () => {});
   `);
 
-  await new Promise(f => setTimeout(f, 500));
+  await ensureFSWatcherDispatched();
 
   expect(testRuns).toHaveLength(0);
 
@@ -607,6 +607,8 @@ test('watching all tests should also execute newly added files', async ({ activa
   `);
   await vscode.openEditors('**/tests/bar.spec.ts');
 
+  await ensureFSWatcherDispatched();
+
   const [testRun] = await Promise.all([
     new Promise<TestRun>(f => testController.onDidCreateTestRun(f)),
     workspaceFolder.changeFile('tests/bar.spec.ts', `
@@ -837,3 +839,8 @@ test.fail('does not record output of test discovered through watch', async ({ ac
     },
   ]);
 });
+
+// some of our functionality depends on FS events being processed in separate batches
+async function ensureFSWatcherDispatched() {
+  await new Promise(f => setTimeout(f, 500));
+}
