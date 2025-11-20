@@ -109,7 +109,7 @@ test('should unwatch all tests', async ({ activate }) => {
     test('should pass', async () => {});
   `);
 
-  await ensureFSWatcherDispatched();
+  await new Promise(f => setTimeout(f, 500));
 
   expect(testRuns).toHaveLength(0);
 
@@ -607,7 +607,13 @@ test('watching all tests should also execute newly added files', async ({ activa
   `);
   await vscode.openEditors('**/tests/bar.spec.ts');
 
-  await ensureFSWatcherDispatched();
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   bar.spec.ts
+        -   scaffolding [2:0]
+      -   foo.spec.ts
+        - ✅ should pass [2:0]
+  `);
 
   const [testRun] = await Promise.all([
     new Promise<TestRun>(f => testController.onDidCreateTestRun(f)),
