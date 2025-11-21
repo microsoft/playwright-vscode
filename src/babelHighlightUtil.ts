@@ -33,7 +33,7 @@ export type SourcePosition = {
   column: number;  // 1-based
 };
 
-export function locatorForSourcePosition(text: string, vars: { pages: string[], locators: string[] }, fsPath: string, position: SourcePosition): string | undefined {
+function getAst(text: string, fsPath: string) {
   const cached = astCache.get(fsPath);
   let ast = cached?.ast;
   if (!cached || cached.text !== text) {
@@ -53,7 +53,11 @@ export function locatorForSourcePosition(text: string, vars: { pages: string[], 
       astCache.set(fsPath, { text, ast: undefined });
     }
   }
+  return ast;
+}
 
+export function locatorForSourcePosition(text: string, vars: { pages: string[], locators: string[] }, fsPath: string, position: SourcePosition): string | undefined {
+  const ast = getAst(text, fsPath);
   if (!ast)
     return;
 
@@ -134,4 +138,22 @@ function containsPosition(location: SourceLocation, position: SourcePosition): b
   if (position.line === location.end.line && position.column > location.end.column)
     return false;
   return true;
+}
+
+export function findTestEndPosition(text: string, fsPath: string, startPosition: SourcePosition): SourcePosition | undefined {
+  const ast = getAst(text, fsPath);
+  if (!ast)
+    return;
+  let result: SourcePosition | undefined;
+  traverse(ast, {
+    enter(path) {
+      if (t.isCallExpression(path.node) && path.node.loc && containsPosition(path.node.loc, startPosition)) {
+        const callNode = path.node;
+        const funcNode = callNode.arguments[callNode.arguments.length - 1];
+        if (callNode.arguments.length >= 2 && t.isFunction(funcNode) && funcNode.body.loc)
+          result = funcNode.body.loc.end;
+      }
+    }
+  });
+  return result;
 }
