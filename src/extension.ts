@@ -445,9 +445,8 @@ export class Extension implements RunHooks {
       if (error) {
         if (error.location) {
           const document = await this._vscode.workspace.openTextDocument(error.location.file);
-          const position = new this._vscode.Position(Math.max(0, error.location.line - 1), error.location.column - 1);
           await this._vscode.window.showTextDocument(document, {
-            selection: new this._vscode.Range(position, position)
+            selection: this._asRange(error.location),
           });
         }
         return;
@@ -661,9 +660,7 @@ export class Extension implements RunHooks {
         let step = this._activeSteps.get(testStep);
         if (!step) {
           step = {
-            location: new this._vscode.Location(
-                this._vscode.Uri.file(testStep.location.file),
-                new this._vscode.Position(Math.max(testStep.location.line - 1, 0), testStep.location?.column - 1)),
+            location: this._asLocation(testStep.location),
             activeCount: 0,
             duration: 0,
           };
@@ -718,7 +715,7 @@ export class Extension implements RunHooks {
           testRun.started(testItemForGlobalErrors);
           testRun.failed(testItemForGlobalErrors, this._testMessageForTestError(error), 0);
         } else if (error.location) {
-          testRun.appendOutput(error.message || error.value || '', new this._vscode.Location(this._vscode.Uri.file(error.location.file), new this._vscode.Position(error.location.line - 1, error.location.column - 1)));
+          testRun.appendOutput(error.message || error.value || '', this._asLocation(error.location));
         } else {
           testRun.appendOutput(error.message || error.value || '');
         }
@@ -831,10 +828,11 @@ test('test', async ({ page }) => {
       }
       const key = `${error.location?.line}:${error.location?.column}:${error.message}`;
       if (!diagnostics.has(key)) {
+        const nextLineStart = { line: error.location.line + 1, column: 1 };
         diagnostics.set(key, {
           severity: this._vscode.DiagnosticSeverity.Error,
           source: 'playwright',
-          range: new this._vscode.Range(Math.max(error.location!.line - 1, 0), Math.max(error.location!.column - 1, 0), error.location!.line, 0),
+          range: new this._vscode.Range(this._asPosition(error.location), this._asPosition(nextLineStart)),
           message: this._abbreviateStack(stripBabelFrame(stripAnsi(error.message!))),
         });
       }
@@ -852,8 +850,7 @@ test('test', async ({ page }) => {
     if (!this._testRun || !this._testItemUnderDebug)
       return;
     const testMessage = this._testMessageFromText(errorStack);
-    const position = new this._vscode.Position(Math.max(location.line - 1, 0), location.column - 1);
-    testMessage.location = new this._vscode.Location(this._vscode.Uri.file(location.file), position);
+    testMessage.location = this._asLocation(location);
     this._testRun.failed(this._testItemUnderDebug, testMessage);
     this._testItemUnderDebug = undefined;
   }
@@ -949,10 +946,23 @@ test('test', async ({ page }) => {
       testMessage = this._testMessageFromText(text, aiContext);
     }
     const stackTrace = error.stack ? parseStack(this._vscode, error.stack) : [];
-    const location = error.location ? parseLocation(this._vscode, error.location) : topStackFrame(this._vscode, stackTrace);
+    const location = error.location ? this._asLocation(error.location) : topStackFrame(this._vscode, stackTrace);
     if (location)
       testMessage.location = location;
     return testMessage;
+  }
+
+  private _asPosition(location: { line: number, column: number }): vscodeTypes.Position {
+    return new this._vscode.Position(Math.max(location.line - 1, 0), location.column - 1);
+  }
+
+  private _asLocation(location: reporterTypes.Location): vscodeTypes.Location {
+    return new this._vscode.Location(this._vscode.Uri.file(location.file), this._asPosition(location));
+  }
+
+  private _asRange(location: { line: number, column: number }): vscodeTypes.Range {
+    const position = this._asPosition(location);
+    return new this._vscode.Range(position, position);
   }
 
   private _formatError(error: reporterTypes.TestError): string {
@@ -995,12 +1005,6 @@ test('test', async ({ page }) => {
     this._commandQueue = result.then(() => {});
     return result;
   }
-}
-
-function parseLocation(vscode: vscodeTypes.VSCode, location: reporterTypes.Location): vscodeTypes.Location {
-  return new vscode.Location(
-      vscode.Uri.file(location.file),
-      new vscode.Position(Math.max(location.line - 1, 0), location.column - 1));
 }
 
 function topStackFrame(vscode: vscodeTypes.VSCode, stackTrace: vscodeTypes.TestMessageStackFrame[]): vscodeTypes.Location | undefined {
