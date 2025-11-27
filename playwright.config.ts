@@ -28,6 +28,7 @@ export default defineConfig<WorkerOptions>({
   ] : [
     ['line']
   ],
+  tag: process.env.PW_TAG,  // Set when running vscode extension tests in playwright repo CI.
   projects: [
     {
       name: 'default',
