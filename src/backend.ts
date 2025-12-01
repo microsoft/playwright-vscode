@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import { spawn } from 'child_process';
-import { addNpmRunPath, findNode } from './utils';
+import { addNpmRunPath, findNode, spawnWithShell } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import EventEmitter from 'events';
 import { WebSocketTransport } from './transport';
@@ -119,7 +118,7 @@ export class BackendClient extends EventEmitter {
 
 export async function startBackend(vscode: vscodeTypes.VSCode, options: BackendServerOptions & { onError: (error: Error) => void, onClose: () => void }): Promise<string | null> {
   const node = await findNode(vscode, options.cwd);
-  const serverProcess = spawn(node, options.args, {
+  const serverProcess = spawnWithShell(node, options.args, {
     cwd: options.cwd,
     stdio: 'pipe',
     env: {

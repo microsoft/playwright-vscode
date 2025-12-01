@@ -14,13 +14,26 @@
  * limitations under the License.
  */
 
-import { spawn } from 'child_process';
+import { spawn, SpawnOptionsWithoutStdio } from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
 import which from 'which';
 import * as vscodeTypes from './vscodeTypes';
+
+/**
+ * Spawns a process, handling Windows .cmd/.bat files that require shell execution.
+ * Node.js 20.12.2+ doesn't allow spawning .cmd/.bat files without shell: true
+ * (see https://github.com/nodejs/node/issues/52554).
+ * Tools like mise use .cmd shims on Windows, so we need shell: true for those.
+ */
+export function spawnWithShell(executable: string, args: string[], options: SpawnOptionsWithoutStdio) {
+  const ext = path.extname(executable).toLowerCase();
+  if (process.platform === 'win32' && (ext === '.cmd' || ext === '.bat'))
+    return spawn(executable, args, { ...options, shell: true });
+  return spawn(executable, args, options);
+}
 
 export function createGuid(): string {
   return crypto.randomBytes(16).toString('hex');
@@ -41,7 +54,7 @@ export function stripBabelFrame(text: string) {
 }
 
 export async function spawnAsync(executable: string, args: string[], cwd?: string, settingsEnv?: NodeJS.ProcessEnv): Promise<string> {
-  const childProcess = spawn(executable, args, {
+  const childProcess = spawnWithShell(executable, args, {
     stdio: 'pipe',
     cwd,
     env: { ...process.env, ...settingsEnv }

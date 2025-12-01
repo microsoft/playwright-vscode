@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { ChildProcess, spawn } from 'child_process';
+import { ChildProcess } from 'child_process';
 import type { TestConfig } from './playwrightTestServer';
-import { findNode } from './utils';
+import { findNode, spawnWithShell } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { TraceViewer } from './traceViewer';
 
@@ -59,7 +59,7 @@ export class SpawnTraceViewer implements TraceViewer {
       allArgs.push('--host', '0.0.0.0');
       allArgs.push('--port', '0');
     }
-    const traceViewerProcess = spawn(node, allArgs, {
+    const traceViewerProcess = spawnWithShell(node, allArgs, {
       cwd: this._config.workspaceFolder,
       stdio: 'pipe',
       detached: true,
