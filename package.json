@@ -45,14 +45,8 @@
       {
         "category": "Test",
         "icon": "$(record)",
-        "command": "pw.extension.command.recordNew",
-        "title": "%contributes.command.pw.extension.command.recordNew%"
-      },
-      {
-        "category": "Test",
-        "icon": "$(record)",
-        "command": "pw.extension.command.recordAtCursor",
-        "title": "%contributes.command.pw.extension.command.recordAtCursor%"
+        "command": "pw.extension.command.record",
+        "title": "%contributes.command.pw.extension.command.record%"
       },
       {
         "category": "Test",

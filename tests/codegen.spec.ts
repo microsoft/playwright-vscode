@@ -17,7 +17,7 @@
 import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 import fs from 'node:fs';
 
-test('should generate code', async ({ activate }) => {
+test('when cursor is outside test, record into new test', async ({ activate }) => {
   test.slow();
 
   const globalSetupFile = test.info().outputPath('globalSetup.txt');
@@ -47,7 +47,7 @@ test('should generate code', async ({ activate }) => {
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
   await webView.getByRole('checkbox', { name: 'default' }).setChecked(false);
   await webView.getByRole('checkbox', { name: 'germany' }).setChecked(true);
-  await webView.getByText('Record new').click();
+  await webView.getByText('Record').click();
   await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
 
   expect(fs.readFileSync(globalSetupFile, 'utf-8')).toBe('global setup was called');
@@ -114,11 +114,100 @@ test('running test should stop the recording', async ({ activate, showBrowser })
   });
 
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  await webView.getByText('Record new').click();
+  await webView.getByText('Record').click();
   await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
 
   const testRun = await testController.run();
   await expect(testRun).toHaveOutput('passed');
 
   await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual('finished');
+});
+
+test('when cursor is in test, record at cursor', async ({ activate }) => {
+  test.slow();
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+    'impl.ts': `
+      import { test } from '@playwright/test';
+      test('one', ({ page }) => {
+
+      });
+    `,
+    'tests/test.spec.ts': `
+      import '../impl';
+    `,
+  });
+
+  await testController.expandTestItems(/.*/);
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
+  `);
+
+
+  await vscode.openEditors('**/impl.ts');
+  const editor = vscode.window.activeTextEditor;
+  expect(editor.document.uri.path).toContain('impl.ts');
+  const cursor = new vscode.Selection(3, 0, 3, 0); // beginning of empty line
+  editor.selection = cursor;
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await webView.getByText('Record').click();
+  await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+
+  const browser = await connectToSharedBrowser(vscode);
+  const page = await waitForPage(browser);
+  await page.locator('body').click();
+  await expect.poll(() => editor.edits).toEqual([
+    {
+      from: `
+      import { test } from '@playwright/test';
+      test('one', ({ page }) => {
+<selection></selection>
+      });
+    `,
+      range: '[3:0 - 3:0]',
+      to: `
+      import { test } from '@playwright/test';
+      test('one', ({ page }) => {
+<selection>await page.goto('about:blank');</selection>
+      });
+    `,
+    },
+    {
+      from: `
+      import { test } from '@playwright/test';
+      test('one', ({ page }) => {
+<selection>await page.goto('about:blank');</selection>
+      });
+    `,
+      range: '[3:31 - 3:31]',
+      to: `
+      import { test } from '@playwright/test';
+      test('one', ({ page }) => {
+await page.goto('about:blank');<selection>
+</selection>
+      });
+    `,
+    },
+    {
+      from: `
+      import { test } from '@playwright/test';
+      test('one', ({ page }) => {
+await page.goto('about:blank');
+<selection></selection>
+      });
+    `,
+      range: '[4:0 - 4:0]',
+      to: `
+      import { test } from '@playwright/test';
+      test('one', ({ page }) => {
+await page.goto('about:blank');
+<selection>await page.locator('body').click();</selection>
+      });
+    `,
+    },
+  ]);
 });

@@ -78,15 +78,35 @@ export class TestTree extends DisposableBase {
   collectTestsInside(rootItem: vscodeTypes.TestItem): vscodeTypes.TestItem[] {
     const result: vscodeTypes.TestItem[] = [];
     const visitItem = (testItem: vscodeTypes.TestItem) => {
-      const treeItem = (testItem as any)[testTreeItemSymbol] as upstream.TreeItem | undefined;
       if (!testItem)
         return;
+
+      const treeItem = (testItem as any)[testTreeItemSymbol] as upstream.TreeItem | undefined;
       if ((treeItem?.kind === 'case' || treeItem?.kind === 'test') && treeItem.test)
         result.push(testItem);
       else
         testItem.children.forEach(visitItem);
     };
     visitItem(rootItem);
+    return result;
+  }
+
+  collectTestsInFile(uri: vscodeTypes.Uri): reporterTypes.TestCase[] {
+    const result: reporterTypes.TestCase[] = [];
+    const visitItem = (testItem: vscodeTypes.TestItem) => {
+      if (!testItem)
+        return;
+
+      const treeItem = (testItem as any)[testTreeItemSymbol] as upstream.TreeItem | undefined;
+      if ((treeItem?.kind === 'case' || treeItem?.kind === 'test') && treeItem.test) {
+        if (treeItem.location.file === uriToPath(uri))
+          result.push(treeItem.test);
+      } else {
+        testItem.children.forEach(visitItem);
+      }
+    };
+    for (const rootItem of this._rootItems.values())
+      visitItem(rootItem);
     return result;
   }
 

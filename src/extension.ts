@@ -209,33 +209,35 @@ export class Extension implements RunHooks {
       vscode.commands.registerCommand('pw.extension.command.closeBrowsers', () => {
         this._reusedBrowser.closeAllBrowsers();
       }),
-      vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
-        const model = this._models.selectedModel();
-        if (!model)
-          return vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
+      vscode.commands.registerCommand('pw.extension.command.record', async () => {
+        const testAtCursor = await this._testItemAtCursor();
+        if (!testAtCursor) {
+          const model = this._models.selectedModel();
+          if (!model)
+            return vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
 
-        const project = model.enabledProjects()[0];
-        if (!project)
-          return vscode.window.showWarningMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`));
+          const project = model.enabledProjects()[0];
+          if (!project)
+            return vscode.window.showWarningMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`));
 
-        const file = await this._createFileForNewTest(model, project);
-        if (!file)
-          return;
+          const file = await this._createFileForNewTest(model, project);
+          if (!file)
+            return;
 
-        const showBrowser = this._settingsModel.showBrowser.get() ?? false;
-        try {
-          await this._settingsModel.showBrowser.set(true);
-          await this._showBrowserForRecording(file, project);
-          await this._reusedBrowser.record(model, project);
-        } finally {
-          await this._settingsModel.showBrowser.set(showBrowser);
+          const showBrowser = this._settingsModel.showBrowser.get() ?? false;
+          try {
+            await this._settingsModel.showBrowser.set(true);
+            await this._showBrowserForRecording(file, project);
+            await this._reusedBrowser.record(model, project);
+          } finally {
+            await this._settingsModel.showBrowser.set(showBrowser);
+          }
+        } else {
+          const model = this._models.selectedModel();
+          if (!model)
+            return vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
+          await this._reusedBrowser.record(model);
         }
-      }),
-      vscode.commands.registerCommand('pw.extension.command.recordAtCursor', async () => {
-        const model = this._models.selectedModel();
-        if (!model)
-          return vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
-        await this._reusedBrowser.record(model);
       }),
       vscode.commands.registerCommand('pw.extension.command.toggleModels', async () => {
         this._settingsView.toggleModels();
@@ -1065,6 +1067,27 @@ test('test', async ({ page }) => {
     this._commandQueue = result.then(() => {});
     return result;
   }
+
+  private async _testItemAtCursor() {
+    const editor = this._vscode.window.activeTextEditor;
+    if (!editor)
+      return;
+    const cursor = editor.selection.active;
+    const path = uriToPath(editor.document.uri);
+
+    const tests = this._testTree.collectTestsInFile(editor.document.uri);
+    tests.sort((a, b) => a.location.line - b.location.line || a.location.column - b.location.column);
+    const test = tests.findLast(test => isBeforeOrEqual(this._asPosition(test.location), cursor));
+    if (!test)
+      return;
+
+    const testEndPosition = findTestEndPosition(editor.document.getText(), path, test.location);
+    if (!testEndPosition)
+      return;
+
+    if (isAfterOrEqual(this._asPosition(testEndPosition), cursor))
+      return test;
+  }
 }
 
 function topStackFrame(vscode: vscodeTypes.VSCode, stackTrace: vscodeTypes.TestMessageStackFrame[]): vscodeTypes.Location | undefined {
@@ -1145,4 +1168,20 @@ export function sortPaths(a: string, b: string): number {
     return length;
 
   return a.localeCompare(b);
+}
+
+function isBeforeOrEqual(a: vscodeTypes.Position, b: vscodeTypes.Position): boolean {
+  if (a.line < b.line)
+    return true;
+  if (a.line === b.line && a.character <= b.character)
+    return true;
+  return false;
+}
+
+function isAfterOrEqual(a: vscodeTypes.Position, b: vscodeTypes.Position): boolean {
+  if (a.line > b.line)
+    return true;
+  if (a.line === b.line && a.character >= b.character)
+    return true;
+  return false;
 }

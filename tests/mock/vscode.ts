@@ -128,6 +128,11 @@ class Range {
 }
 
 class Selection extends Range {
+  active: Position;
+  constructor(startLine: number | Position, startCharacter: number | Position, endLine?: number, endCharacter?: number) {
+    super(startLine, startCharacter, endLine, endCharacter);
+    this.active = this.start;
+  }
 }
 
 class CancellationTokenSource implements Disposable {
@@ -705,7 +710,7 @@ class TextEditor {
         newLines.push(...lines.slice(range.end.line + 1));
         this.document.lines = newLines;
 
-        this.selection = range.clone();
+        this.selection = new Selection(range.start, range.end);
         const lastLine = editLines[editLines.length - 1];
         const endOfLastLine = new Position(range.start.line + (editLines.length - 1), editLines.length > 1 ? lastLine.length : range.start.character + lastLine.length);
         this.selection.end = endOfLastLine;
