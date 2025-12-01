@@ -138,13 +138,16 @@ async function locatorToHighlight(debugSessions: Map<string, vscodeTypes.DebugSe
   if (!debugSessions.size) {
     // When not debugging, discover all the locator-alike expressions.
     const text = document.getText();
-    const line = document.lineAt(position.line);
-    if (!line.text.match(locatorMethodRegex))
+    if (!text.match(locatorMethodRegex))
       return;
     let locatorExpression = locatorForSourcePosition(text, { pages: [], locators: [] }, fsPath, {
       line: position.line + 1,
       column: position.character + 1
     });
+
+    // Remove comments from multi-line locators.
+    if (locatorExpression?.includes('\n'))
+      locatorExpression = locatorExpression.replace(/\/\*.*?\*\//g, '').replace(/\/\/.*$/gm, '');
     // Translate locator expressions starting with "component." to be starting with "page.".
     locatorExpression = locatorExpression?.replace(/^component\s*\./, `page.locator('#root').locator('internal:control=component').`);
     // Translate 'this.page', or 'this._page' to 'page' to have best-effort support for POMs.
