@@ -43,17 +43,18 @@ test('should work', async ({ activate }) => {
         await page.getByRole('button', { name: 'one' }).click(); // line 8
         await page.getByRole('button', { name: 'two' }).click(); // line 9
         page.getByRole('button', { name: 'not there!' });        // line 10
-        await page.getByRole(                                    // line 11
-          'button',                                              // line 12
-          { name: 'one' }                                        // line 13
-        ).click();                                               // line 14
+        await page
+          .getByRole(
+            'button',
+            { name: 'one' }
+          ).click();
       });
 
       class MyPom {
         constructor(page) {
-          this.myElementOne1 = page.getByRole('button', { name: 'one' });       // line 19
-          this.myElementTwo1 = this._page.getByRole('button', { name: 'two' }); // line 20
-          this.myElementOne2 = this.page.getByRole('button', { name: 'one' });  // line 21
+          this.myElementOne1 = page.getByRole('button', { name: 'one' });       // line 20
+          this.myElementTwo1 = this._page.getByRole('button', { name: 'two' }); // line 21
+          this.myElementOne2 = this.page.getByRole('button', { name: 'one' });  // line 22
         }
 
         @step // decorators require a babel plugin
@@ -89,10 +90,10 @@ test('should work', async ({ activate }) => {
       [[9, 26], boxTwo],
       [[8, 26], boxOne],
       [[10, 26], null],
-      [[12, 15], boxOne],
-      [[19, 30], boxOne],
-      [[20, 30], boxTwo],
-      [[21, 30], boxOne],
+      [[13, 15], boxOne],
+      [[20, 30], boxOne],
+      [[21, 30], boxTwo],
+      [[22, 30], boxOne],
     ] as const) {
       await test.step(`should highlight ${language} ${line}:${column}`, async () => {
         // Clear highlight.
