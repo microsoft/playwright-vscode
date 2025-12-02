@@ -189,8 +189,9 @@ export const test = baseTest.extend<TestFixtures, WorkerOptions>({
 
 export async function connectToSharedBrowser(vscode: VSCode) {
   await expect.poll(() => vscode.extensions[0].browserServerWSForTest()).toBeTruthy();
-  const wsEndpoint = vscode.extensions[0].browserServerWSForTest();
-  return await chromium.connect(wsEndpoint);
+  const wsEndpoint = new URL(vscode.extensions[0].browserServerWSForTest());
+  wsEndpoint.searchParams.set('connect', 'first');
+  return await chromium.connect(wsEndpoint.toString());
 }
 
 export async function waitForRecorderMode(vscode: VSCode, mode: string) {
@@ -200,7 +201,7 @@ export async function waitForRecorderMode(vscode: VSCode, mode: string) {
 export async function waitForPage(browser: Browser, params?: BrowserContextOptions) {
   let pages: Page[] = [];
   await expect.poll(async () => {
-    const context = await (browser as any)._newContextForReuse(params);
+    const context = browser.contexts()[0] ?? await (browser as any)._newContextForReuse(params);
     pages = context.pages();
     return pages.length;
   }).toBeTruthy();

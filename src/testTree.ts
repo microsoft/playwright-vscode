@@ -90,6 +90,15 @@ export class TestTree extends DisposableBase {
     return result;
   }
 
+  collectTestsInFile(uri: vscodeTypes.Uri): vscodeTypes.TestItem[] {
+    const result: vscodeTypes.TestItem[] = [];
+    for (const testItem of this._testItemByTestId.values()) {
+      if (testItem.uri && uriToPath(testItem.uri) === uriToPath(uri))
+        result.push(testItem);
+    }
+    return result;
+  }
+
   private _update() {
     for (const workspaceFolder of this._vscode.workspace.workspaceFolders ?? []) {
       const disabledProjects: TestProject[] = [];

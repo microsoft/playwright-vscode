@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { TestRun } from './mock/vscode';
 import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 import fs from 'node:fs';
 
@@ -121,4 +122,166 @@ test('running test should stop the recording', async ({ activate, showBrowser })
   await expect(testRun).toHaveOutput('passed');
 
   await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual('finished');
+});
+
+test('record at cursor', async ({ activate, showBrowser }) => {
+  test.skip(!showBrowser);
+  test.slow();
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+    'impl.ts': `
+import { test } from '@playwright/test';
+test('one', async ({ page }) => {
+  await page.setContent('<button>one</button>');
+
+});
+test('two', async ({ page }) => {});
+
+    `,
+    'tests/test.spec.ts': `
+import '../impl';
+    `,
+    'pom.ts': `
+export class ButtonPage {
+  constructor(private page) {}
+  one() {
+
+  }
+}
+    `,
+  });
+
+  await testController.expandTestItems(/.*/);
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
+        -   two [6:0]
+  `);
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+
+  await test.step('cursor inside of test', async () => {
+    await vscode.openEditors('**/impl.ts');
+    const editor = vscode.window.activeTextEditor;
+    expect(editor.document.uri.path).toContain('impl.ts');
+    editor.selection = new vscode.Selection(4, 0, 4, 0);
+
+    const testRunPromise = new Promise<TestRun>(resolve => testController.onDidCreateTestRun(run => run.onDidEnd(() => resolve(run))));
+    await webView.getByText('Record at cursor').click();
+    await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+    const testRun = await testRunPromise;
+    await expect(testRun).toHaveOutput('1 passed');
+
+    const browser = await connectToSharedBrowser(vscode);
+    const page = await waitForPage(browser);
+    await page.getByRole('button', { name: 'one' }).click();
+    await expect.poll(() => editor.edits).toEqual([
+      {
+        from: `
+import { test } from '@playwright/test';
+test('one', async ({ page }) => {
+  await page.setContent('<button>one</button>');
+<selection></selection>
+});
+test('two', async ({ page }) => {});
+
+    `,
+        range: '[4:0 - 4:0]',
+        to: `
+import { test } from '@playwright/test';
+test('one', async ({ page }) => {
+  await page.setContent('<button>one</button>');
+<selection>await page.getByRole('button', { name: 'one' }).click();</selection>
+});
+test('two', async ({ page }) => {});
+
+    `,
+      },
+    ]);
+
+    vscode.lastWithProgressToken!.cancel();
+  });
+
+  await test.step('cursor outside of test', async () => {
+    const editor = vscode.window.activeTextEditor;
+    editor.selection = new vscode.Selection(7, 0, 7, 0);
+
+    const testRuns: TestRun[] = [];
+    testController.onDidCreateTestRun(run => testRuns.push(run));
+
+    await webView.getByText('Record at cursor').click();
+    await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+
+    const browser = await connectToSharedBrowser(vscode);
+    const page = await waitForPage(browser);
+    await expect(page.getByRole('button', { name: 'one' })).toBeVisible();
+    expect(testRuns).toHaveLength(0);
+    vscode.lastWithProgressToken!.cancel();
+  });
+
+  await test.step('cursor in POM file', async () => {
+    await vscode.openEditors('**/pom.ts');
+    const editor = vscode.window.activeTextEditor;
+    expect(editor.document.uri.path).toContain('pom.ts');
+    editor.selection = new vscode.Selection(4, 0, 4, 0);
+
+    const testRuns: TestRun[] = [];
+    testController.onDidCreateTestRun(run => testRuns.push(run));
+
+    await webView.getByText('Record at cursor').click();
+    await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+
+    const browser = await connectToSharedBrowser(vscode);
+    const page = await waitForPage(browser);
+    await page.getByRole('button', { name: 'one' }).click();
+    await expect.poll(() => editor.edits).toEqual([
+      {
+        from: `
+export class ButtonPage {
+  constructor(private page) {}
+  one() {
+<selection></selection>
+  }
+}
+    `,
+        range: '[4:0 - 4:0]',
+        to: `
+export class ButtonPage {
+  constructor(private page) {}
+  one() {
+<selection>
+  </selection>
+  }
+}
+    `,
+      },
+      {
+        from: `
+export class ButtonPage {
+  constructor(private page) {}
+  one() {
+
+  <selection></selection>
+  }
+}
+    `,
+        range: '[5:2 - 5:2]',
+        to: `
+export class ButtonPage {
+  constructor(private page) {}
+  one() {
+
+  <selection>await page.getByRole('button', { name: 'one' }).click();</selection>
+  }
+}
+    `,
+      },
+    ]);
+    expect(testRuns).toHaveLength(0);
+
+    vscode.lastWithProgressToken!.cancel();
+  });
+
 });

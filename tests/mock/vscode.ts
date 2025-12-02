@@ -128,6 +128,11 @@ class Range {
 }
 
 class Selection extends Range {
+  active: Position;
+  constructor(startLine: number | Position, startCharacter: number | Position, endLine?: number, endCharacter?: number) {
+    super(startLine, startCharacter, endLine, endCharacter);
+    this.active = this.start;
+  }
 }
 
 class CancellationTokenSource implements Disposable {
@@ -705,7 +710,7 @@ class TextEditor {
         newLines.push(...lines.slice(range.end.line + 1));
         this.document.lines = newLines;
 
-        this.selection = range.clone();
+        this.selection = new Selection(range.start, range.end);
         const lastLine = editLines[editLines.length - 1];
         const endOfLastLine = new Position(range.start.line + (editLines.length - 1), editLines.length > 1 ? lastLine.length : range.start.character + lastLine.length);
         this.selection.end = endOfLastLine;
@@ -975,6 +980,7 @@ export class VSCode {
   readonly commandLog: string[] = [];
   readonly l10n = new L10n();
   lastWithProgressData: any;
+  lastWithProgressToken?: CancellationTokenSource;
   private _hoverProviders: Map<string, HoverProvider> = new Map();
   readonly version: string;
   readonly connectionLog: any[] = [];
@@ -1116,7 +1122,9 @@ export class VSCode {
       const progress = {
         report: (data: any) => this.lastWithProgressData = data,
       };
-      await callback(progress, new CancellationTokenSource().token);
+      this.lastWithProgressToken = new CancellationTokenSource();
+      this.lastWithProgressToken.didCancel.event(() => this.lastWithProgressData = undefined);
+      await callback(progress, this.lastWithProgressToken.token);
       this.lastWithProgressData = 'finished';
     };
     this.window.showTextDocument = (document: TextDocument) => {

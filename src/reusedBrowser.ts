@@ -258,7 +258,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return !this._isRunningTests && !!this._pageCount;
   }
 
-  async record(model: TestModel, project?: TestProject) {
+  async record(model: TestModel, project: TestProject) {
     if (!this._checkVersion(model.config))
       return;
     if (!this.canRecord()) {
@@ -355,8 +355,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     });
   }
 
-  async onWillRunTests(config: TestConfig, debug: boolean) {
-    if (!this._settingsModel.showBrowser.get() && !debug)
+  async onWillRunTests(config: TestConfig, overrideShowBrowser: boolean) {
+    if (!this._settingsModel.showBrowser.get() && !overrideShowBrowser)
       return;
     if (!this._checkVersion(config, 'Show & reuse browser'))
       return;

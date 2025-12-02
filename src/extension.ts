@@ -24,7 +24,7 @@ import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
 import { RunHooks, TestModel, TestModelCollection, TestProject } from './testModel';
-import { configError, disabledProjectName as disabledProject, TestTree } from './testTree';
+import { configError, disabledProjectName as disabledProject, TestTree, upstreamTreeItem } from './testTree';
 import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
@@ -153,8 +153,8 @@ export class Extension implements RunHooks {
     this._treeItemObserver = new TreeItemObserver(this._vscode);
   }
 
-  async onWillRunTests(config: TestConfig, debug: boolean) {
-    await this._reusedBrowser.onWillRunTests(config, debug);
+  async onWillRunTests(config: TestConfig, overrideShowBrowser: boolean) {
+    await this._reusedBrowser.onWillRunTests(config, overrideShowBrowser);
     return {
       connectWsEndpoint: this._reusedBrowser.browserServerWSEndpoint(),
     };
@@ -218,24 +218,24 @@ export class Extension implements RunHooks {
         if (!project)
           return vscode.window.showWarningMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`));
 
-        const file = await this._createFileForNewTest(model, project);
-        if (!file)
+        const testItem = await this._createFileForNewTest(model, project);
+        if (!testItem)
           return;
-
-        const showBrowser = this._settingsModel.showBrowser.get() ?? false;
-        try {
-          await this._settingsModel.showBrowser.set(true);
-          await this._showBrowserForRecording(file, project);
-          await this._reusedBrowser.record(model, project);
-        } finally {
-          await this._settingsModel.showBrowser.set(showBrowser);
-        }
+        await this._recordAtCursor(model, project, testItem);
       }),
       vscode.commands.registerCommand('pw.extension.command.recordAtCursor', async () => {
-        const model = this._models.selectedModel();
-        if (!model)
-          return vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
-        await this._reusedBrowser.record(model);
+        const testAtCursor = await this._testAtCursor();
+        if (testAtCursor){
+          await this._recordAtCursor(testAtCursor.model, testAtCursor.project, testAtCursor.testItem);
+        } else {
+          const model = this._models.selectedModel();
+          if (!model)
+            return vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
+          const project = model.enabledProjects()[0];
+          if (!project)
+            return vscode.window.showWarningMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`));
+          await this._recordAtCursor(model, project, undefined);
+        }
       }),
       vscode.commands.registerCommand('pw.extension.command.toggleModels', async () => {
         this._settingsView.toggleModels();
@@ -483,7 +483,7 @@ export class Extension implements RunHooks {
     }
   }
 
-  private async _queueTestRun(request: vscodeTypes.TestRunRequest, mode: 'run' | 'debug') {
+  private async _queueTestRun(request: vscodeTypes.TestRunRequest, mode: 'run' | 'debug' | 'preRecord') {
     await this._queueCommand(() => this._runTests(request, mode), undefined);
   }
 
@@ -532,7 +532,7 @@ export class Extension implements RunHooks {
     }
   }
 
-  private async _runTests(request: vscodeTypes.TestRunRequest, mode: 'run' | 'debug' | 'watch') {
+  private async _runTests(request: vscodeTypes.TestRunRequest, mode: 'run' | 'debug' | 'watch' | 'preRecord') {
     this._completedSteps.clear();
     this._executionLinesChanged();
     const include = request.include;
@@ -608,7 +608,7 @@ export class Extension implements RunHooks {
     testItemForGlobalErrors: vscodeTypes.TestItem | undefined,
     testFailures: Set<vscodeTypes.TestItem>,
     model: TestModel,
-    mode: 'run' | 'debug' | 'watch',
+    mode: 'run' | 'debug' | 'watch' | 'preRecord',
     enqueuedSingleTest: boolean) {
 
     let browserDoesNotExist = false;
@@ -718,7 +718,7 @@ export class Extension implements RunHooks {
     } else {
       // Force trace viewer update to surface check version errors.
       await this._models.selectedModel()?.updateTraceViewer(mode === 'run')?.willRunTests();
-      await model.runTests(request, testListener, testRun.token);
+      await model.runTests(request, testListener, mode === 'preRecord', testRun.token);
     }
 
     if (browserDoesNotExist)
@@ -807,11 +807,19 @@ test('test', async ({ page }) => {
     await model.handleWorkspaceChange({ created: new Set([file]), changed: new Set(), deleted: new Set() });
     await model.ensureTests([file]);
 
-    const document = await this._vscode.workspace.openTextDocument(file);
+    const uri = this._vscode.Uri.file(file);
+    const document = await this._vscode.workspace.openTextDocument(uri);
     const editor = await this._vscode.window.showTextDocument(document);
     editor.selection = new this._vscode.Selection(new this._vscode.Position(3, 2), new this._vscode.Position(3, 2 + '// Recording...'.length));
 
-    return file;
+    const fileItem = this._testTree.testItemForFile(file);
+    if (!fileItem)
+      return;
+    if (fileItem.children.size !== 1)
+      return;
+
+    const testItems = this._testTree.collectTestsInside(fileItem);
+    return testItems.length === 1 ? testItems[0] : testItems.find(t => t.label === project.name);
   }
 
   private async _showBrowserForRecording(file: string, project: TestProject) {
@@ -827,7 +835,7 @@ test('test', async ({ page }) => {
       return;
 
     const request = new this._vscode.TestRunRequest([testForProject], undefined, undefined, false, true);
-    await this._queueTestRun(request, 'run');
+    await this._queueTestRun(request, 'preRecord');
   }
 
   private async _updateVisibleEditorItems() {
@@ -1065,6 +1073,52 @@ test('test', async ({ page }) => {
     this._commandQueue = result.then(() => {});
     return result;
   }
+
+  private async _testAtCursor(): Promise<{ model: TestModel, project: TestProject, testItem: vscodeTypes.TestItem } | undefined> {
+    const editor = this._vscode.window.activeTextEditor;
+    if (!editor)
+      return;
+    const cursor = editor.selection.active;
+
+    const tests = this._testTree.collectTestsInFile(editor.document.uri);
+    tests.sort((a, b) => isBeforeOrEqual(a.range!.start, b.range!.start) ? -1 : 1);
+    const testItem = tests.findLast(test => isBeforeOrEqual(test.range!.start, cursor));
+    if (!testItem)
+      return;
+
+    const testEndPosition = findTestEndPosition(editor.document.getText(), uriToPath(editor.document.uri), { line: testItem.range!.start.line + 1, column: testItem.range!.start.character + 1 });
+    if (!testEndPosition)
+      return;
+
+    if (isBeforeOrEqual(this._asPosition(testEndPosition), cursor))
+      return;
+
+    const modelAndProject = this._modelAndProjectForTestItem(testItem);
+    if (!modelAndProject)
+      return;
+    return { ...modelAndProject, testItem };
+  }
+
+  async _recordAtCursor(model: TestModel, project: TestProject, testItem: vscodeTypes.TestItem | undefined) {
+    if (testItem)
+      await this._queueTestRun(new this._vscode.TestRunRequest([testItem], undefined, undefined, false, true), 'preRecord');
+    await this._reusedBrowser.record(model, project);
+  }
+
+  private _modelAndProjectForTestItem(testItem: vscodeTypes.TestItem) {
+    // THIS IS TERRIBLE, any ideas for how to make it better? I somehow need to resolve from a test item to model+project, so I can properly configure recording.
+    const treeItem = upstreamTreeItem(testItem);
+    const test = treeItem.kind !== 'group' ? treeItem.test : undefined;
+    const project = test?.parent.project();
+    if (!project)
+      return;
+    for (const m of this._models.enabledModels()) {
+      for (const p of m.projects()) {
+        if (p.name === project.name && p.project.testDir === project.testDir)
+          return { model: m, project: p };
+      }
+    }
+  }
 }
 
 function topStackFrame(vscode: vscodeTypes.VSCode, stackTrace: vscodeTypes.TestMessageStackFrame[]): vscodeTypes.Location | undefined {
@@ -1146,3 +1200,12 @@ export function sortPaths(a: string, b: string): number {
 
   return a.localeCompare(b);
 }
+
+function isBeforeOrEqual(a: vscodeTypes.Position, b: vscodeTypes.Position): boolean {
+  if (a.line < b.line)
+    return true;
+  if (a.line === b.line && a.character <= b.character)
+    return true;
+  return false;
+}
+

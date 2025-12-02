@@ -43,7 +43,7 @@ export type TestProject = {
 };
 
 export interface RunHooks {
-  onWillRunTests(config: TestConfig, debug: boolean): Promise<{ connectWsEndpoint?: string }>;
+  onWillRunTests(config: TestConfig, forceHeaded: boolean): Promise<{ connectWsEndpoint?: string }>;
   onDidRunTests(): Promise<void>;
 }
 
@@ -518,7 +518,7 @@ export class TestModel extends DisposableBase {
     await this._playwrightTest.clearCache();
   }
 
-  async runTests(request: vscodeTypes.TestRunRequest, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
+  async runTests(request: vscodeTypes.TestRunRequest, reporter: reporterTypes.ReporterV2, overrideShowBrowser: boolean, token: vscodeTypes.CancellationToken) {
     if (token?.isCancellationRequested)
       return;
 
@@ -528,8 +528,8 @@ export class TestModel extends DisposableBase {
     if (globalSetupResult !== 'passed')
       return;
 
-    const externalOptions = await this._embedder.runHooks.onWillRunTests(this.config, false);
-    const showBrowser = this._embedder.settingsModel.showBrowser.get() && !!externalOptions.connectWsEndpoint;
+    const externalOptions = await this._embedder.runHooks.onWillRunTests(this.config, overrideShowBrowser);
+    const showBrowser = (this._embedder.settingsModel.showBrowser.get() || overrideShowBrowser) && !!externalOptions.connectWsEndpoint;
 
     let trace: 'on' | 'off' | undefined;
     let video: 'on' | 'off' | undefined;
@@ -540,7 +540,7 @@ export class TestModel extends DisposableBase {
     // Playwright Test sets up `tracesDir` inside the `test-results` folder, so it will be removed between runs.
     // When context is reused, its ongoing tracing will fail with ENOENT because trace files
     // were suddenly removed. So we disable tracing in this case.
-    if (this._embedder.settingsModel.showBrowser.get()) {
+    if (showBrowser) {
       trace = 'off';
       video = 'off';
     }
