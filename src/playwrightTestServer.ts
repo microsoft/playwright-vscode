@@ -51,7 +51,6 @@ export type PlaywrightTestOptions = {
   isUnderTest: boolean;
   envProvider: (configFile: string) => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
-  testPausedHandler: (params: { errors: reporterTypes.TestError[] }) => void;
 };
 
 
@@ -349,7 +348,6 @@ export class PlaywrightTestServer {
       disposables.push(token.onCancellationRequested(() => {
         debugTestServer!.stopTestsNoReply({});
       }));
-      disposables.push(debugTestServer.onTestPaused(params => this._options.testPausedHandler(params)));
       this._wireTestServer(debugTestServer, reporter, token, disposables);
       try {
         await debugTestServer.runTests(options);

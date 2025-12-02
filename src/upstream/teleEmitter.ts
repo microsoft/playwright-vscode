@@ -67,6 +67,17 @@ export class TeleReporterEmitter implements ReporterV2 {
     });
   }
 
+  onTestError(test: reporterTypes.TestCase, result: reporterTypes.TestResult, error: reporterTypes.TestError): void {
+    this._messageSink({
+      method: 'onTestError',
+      params: {
+        testId: test.id,
+        resultId: (result as any)[idSymbol],
+        error,
+      }
+    });
+  }
+
   onTestEnd(test: reporterTypes.TestCase, result: reporterTypes.TestResult): void {
     const testEnd: teleReceiver.JsonTestEnd = {
       testId: test.id,

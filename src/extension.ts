@@ -33,7 +33,6 @@ import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
 import { pathToFileURL } from 'url';
 import { TestConfig } from './playwrightTestServer';
-import { findTestEndPosition } from './babelHighlightUtil';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -138,7 +137,6 @@ export class Extension implements RunHooks {
       envProvider: this._envProvider.bind(this),
       onStdOut: this._debugHighlight.onStdOut.bind(this._debugHighlight),
       requestWatchRun: this._runWatchedTests.bind(this),
-      testPausedHandler: this._onTestPaused.bind(this),
     });
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
@@ -682,6 +680,9 @@ export class Extension implements RunHooks {
       },
 
       onStepBegin: (test: reporterTypes.TestCase, result: reporterTypes.TestResult, testStep: reporterTypes.TestStep) => {
+        if (testStep.title.startsWith('Paused'))
+          return this._onTestPaused(testRun, test, result, testStep);
+
         if (!testStep.location)
           return;
         let step = this._activeSteps.get(testStep);
@@ -889,21 +890,20 @@ test('test', async ({ page }) => {
     this._testUnderDebug = undefined;
   }
 
-  private async _onTestPaused(params: { errors: reporterTypes.TestError[] }) {
+  private async _onTestPaused(testRun: vscodeTypes.TestRun, test: reporterTypes.TestCase, result: reporterTypes.TestResult, step: reporterTypes.TestStep) {
     if (!this._testUnderDebug)
       return;
-    const errors = params.errors.filter(e => !!e.message);
+    const errors = result.errors.filter(e => !!e.message);
     if (!errors.length) {
-      const location = this._testUnderDebug.testCase.location;
+      const location = step.location ?? test.location;
       const document = await this._vscode.workspace.openTextDocument(location.file);
-      const testEndPosition = findTestEndPosition(document.getText(), uriToPath(document.uri), location) ?? location;
-      const range = this._asRange(testEndPosition);
+      const range = this._asRange(location);
       const editor = await this._vscode.window.showTextDocument(document, { selection: range });
       editor.setDecorations(this._pausedAtEndDecorationType, [{ range }]);
       this._testUnderDebug.disposables.push({ dispose: () => editor.setDecorations(this._pausedAtEndDecorationType, []) });
     } else {
-      if (this._testRun && this._testUnderDebug.testItem)
-        this._testRun.failed(this._testUnderDebug.testItem, errors.map(error => this._testMessageForTestError(error)));
+      if (this._testUnderDebug.testItem)
+        testRun.failed(this._testUnderDebug.testItem, errors.map(error => this._testMessageForTestError(error)));
       const error = errors.find(e => e.location);
       if (error?.location) {
         const range = this._asRange(error.location);

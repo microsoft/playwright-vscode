@@ -92,11 +92,20 @@ export type JsonTestResultStart = {
 
 export type JsonAttachment = Omit<reporterTypes.TestResult['attachments'][0], 'body'> & { base64?: string };
 
+export type JsonOnTestErrorEvent = {
+  method: 'onTestError';
+  params: {
+    testId: string;
+    resultId: string;
+    error: reporterTypes.TestError;
+  }
+};
+
 export type JsonTestResultEnd = {
   id: string;
   duration: number;
   status: reporterTypes.TestStatus;
-  errors: reporterTypes.TestError[];
+  errors: reporterTypes.TestError[]; // needed to support <1.58
   attachments: JsonAttachment[];
 };
 
@@ -172,6 +181,10 @@ export class TeleReporterReceiver {
       this._onTestBegin(params.testId, params.result);
       return;
     }
+    if (method === 'onTestError') {
+      this._onTestError(params.testId, params.resultId, params.error);
+      return;
+    }
     if (method === 'onTestEnd') {
       this._onTestEnd(params.test, params.result);
       return;
@@ -230,6 +243,13 @@ export class TeleReporterReceiver {
     testResult.parallelIndex = payload.parallelIndex;
     testResult.setStartTimeNumber(payload.startTime);
     this._reporter.onTestBegin?.(test, testResult);
+  }
+
+  private _onTestError(testId: string, resultId: string, error: reporterTypes.TestError) {
+    const test = this._tests.get(testId)!;
+    const result = test._resultsMap.get(resultId)!;
+    result.errors.push(error);
+    result.error = result.errors[0];
   }
 
   private _onTestEnd(testEndPayload: JsonTestEnd, payload: JsonTestResultEnd) {
