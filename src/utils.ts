@@ -34,7 +34,7 @@ export function spawnWithShell(executable: string, args: string[], options: Spaw
     if (ext === '.cmd' || ext === '.bat') {
       const escape = (s: string) => `"${s.replace(/"/g, '\\"')}"`;
       const command = [executable, ...args].map(escape).join(' ');
-      return spawn(command, [], { ...options, shell: true });
+      return spawn(command, { ...options, shell: true });
     }
   }
   return spawn(executable, args, options);
