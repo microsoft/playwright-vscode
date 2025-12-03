@@ -29,9 +29,14 @@ import * as vscodeTypes from './vscodeTypes';
  * Tools like mise use .cmd shims on Windows, so we need shell: true for those.
  */
 export function spawnWithShell(executable: string, args: string[], options: SpawnOptionsWithoutStdio) {
-  const ext = path.extname(executable).toLowerCase();
-  if (process.platform === 'win32' && (ext === '.cmd' || ext === '.bat'))
-    return spawn(executable, args, { ...options, shell: true });
+  if (process.platform === 'win32') {
+    const ext = path.extname(executable).toLowerCase();
+    if (ext === '.cmd' || ext === '.bat') {
+      const escape = (s: string) => `"${s.replace(/"/g, '\\"')}"`;
+      const command = [executable, ...args].map(escape).join(' ');
+      return spawn(command, [], { ...options, shell: true });
+    }
+  }
   return spawn(executable, args, options);
 }
 
