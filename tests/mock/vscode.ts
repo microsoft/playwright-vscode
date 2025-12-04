@@ -663,7 +663,13 @@ class TextEditor {
       for (const decoration of decorations) {
         let options = decoration.renderOptions ? ' ' + JSON.stringify(decoration.renderOptions) : '';
         options = options.replace(/\d+ms/g, 'Xms');
-        lines.push(`${decoration.range.toString()}: decorator #${type}${options}`);
+        const name = [
+          'activeStep',
+          'completedStep',
+          'pausedAtEnd',
+          'pausedOnError'
+        ][type - 1];
+        lines.push(`${decoration.range.toString()}: decorator ${name}${options}`);
       }
     }
     const state = lines.sort().join('\n');
@@ -975,6 +981,7 @@ export class VSCode {
   readonly commandLog: string[] = [];
   readonly l10n = new L10n();
   lastWithProgressData: any;
+  lastWithProgressToken?: CancellationTokenSource;
   private _hoverProviders: Map<string, HoverProvider> = new Map();
   readonly version: string;
   readonly connectionLog: any[] = [];
@@ -1116,7 +1123,8 @@ export class VSCode {
       const progress = {
         report: (data: any) => this.lastWithProgressData = data,
       };
-      await callback(progress, new CancellationTokenSource().token);
+      this.lastWithProgressToken = new CancellationTokenSource();
+      await callback(progress, this.lastWithProgressToken.token);
       this.lastWithProgressData = 'finished';
     };
     this.window.showTextDocument = (document: TextDocument) => {

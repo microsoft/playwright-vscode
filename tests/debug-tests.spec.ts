@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { expect, test, escapedPathSep, enableProjects } from './utils';
+import { expect, test, escapedPathSep, enableProjects, connectToSharedBrowser, waitForPage } from './utils';
 import { TestRun, DebugSession, stripAnsi } from './mock/vscode';
 
 test('should debug multiple passing tests', async ({ activate }) => {
@@ -57,11 +57,18 @@ test('should debug multiple passing tests', async ({ activate }) => {
 
 test('should debug one test and pause at end', async ({ activate }) => {
   const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'playwright.config.js': `module.exports = {
+      projects: [
+        { name: 'main', use: { testIdAttribute: 'data-testerid', testDir: 'tests' } },
+        { name: 'unused', use: { testIdAttribute: 'unused', testDir: 'nonExistant' } },
+      ]
+    };`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
-      test('should pass', async () => {
+      test('should pass', async ({ page }) => {
+        await page.setContent('<button data-testerid="foo">click me</button>');
         setInterval(() => console.log('time passed'), 500);
+
       });
     `,
   });
@@ -73,11 +80,9 @@ test('should debug one test and pause at end', async ({ activate }) => {
   const runPromise = profile.run(testItems);
   const testRun = await testRunPromise;
 
-  // Decorator #3 is "paused at end".
-  await expect.poll(() => vscode.window.activeTextEditor?.renderDecorations('  '), { timeout: 10000 }).toBe(`
-    --------------------------------------------------------------
-    [4:6 - 4:6]: decorator #3
-  `);
+  await expect.poll(() => vscode.window.activeTextEditor?.renderDecorations('  '), { timeout: 10000 }).toContain(
+      `[6:6 - 6:6]: decorator pausedAtEnd`
+  );
 
   // The test should keep running.
   vscode.debug.output = '';
@@ -110,6 +115,42 @@ test('should debug one test and pause at end', async ({ activate }) => {
     },
   ]);
   vscode.connectionLog.length = 0;
+
+  await vscode.openEditors('**/test.spec.ts');
+  const editor = vscode.window.activeTextEditor;
+  expect(editor.document.uri.path).toContain('test.spec.ts');
+  editor.selection = new vscode.Selection(5, 0, 5, 0);
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await webView.getByText('Record at cursor').click();
+  await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+
+  const browser = await connectToSharedBrowser(vscode);
+  const page = await waitForPage(browser);
+  await page.getByRole('button', { name: 'click me' }).click();
+  await expect.poll(() => editor.edits).toEqual([
+    {
+      range: '[5:0 - 5:0]',
+      from: `
+      import { test } from '@playwright/test';
+      test('should pass', async ({ page }) => {
+        await page.setContent('<button data-testerid="foo">click me</button>');
+        setInterval(() => console.log('time passed'), 500);
+<selection></selection>
+      });
+    `,
+      to: `
+      import { test } from '@playwright/test';
+      test('should pass', async ({ page }) => {
+        await page.setContent('<button data-testerid="foo">click me</button>');
+        setInterval(() => console.log('time passed'), 500);
+<selection>await page.getByTestId('foo').click();</selection>
+      });
+    `,
+    }
+  ]);
+
+  vscode.lastWithProgressToken!.cancel();
 
   testRun.token.source.cancel();
   await runPromise;
@@ -145,10 +186,9 @@ test('should debug one test and pause on error', async ({ activate }) => {
   const runPromise = profile.run(testItems);
   const testRun = await testRunPromise;
 
-  // Decorator #4 is "paused on error".
   await expect.poll(() => vscode.window.activeTextEditor?.renderDecorations('  '), { timeout: 10000 }).toBe(`
     --------------------------------------------------------------
-    [4:18 - 4:18]: decorator #4
+    [4:18 - 4:18]: decorator pausedOnError
   `);
 
   // The test should keep running.
@@ -438,10 +478,9 @@ test('should debug multiple tests and stop on first failure', async ({ activate 
   const runPromise = profile.run();
   const testRun = await testRunPromise;
 
-  // Decorator #4 is "paused on error".
   await expect.poll(() => vscode.window.activeTextEditor?.renderDecorations('  '), { timeout: 10000 }).toBe(`
     --------------------------------------------------------------
-    [2:50 - 2:50]: decorator #4
+    [2:50 - 2:50]: decorator pausedOnError
   `);
 
   expect(testRun.renderLog()).toBe(`
