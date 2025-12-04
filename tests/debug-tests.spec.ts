@@ -57,11 +57,16 @@ test('should debug multiple passing tests', async ({ activate }) => {
 
 test('should debug one test and pause at end', async ({ activate }) => {
   const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'playwright.config.js': `module.exports = {
+      projects: [
+        { name: 'main', use: { testIdAttribute: 'data-testerid', testDir: 'tests' } },
+        { name: 'unused', use: { testIdAttribute: 'unused', testDir: 'nonExistant' } },
+      ]
+    };`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
       test('should pass', async ({ page }) => {
-        await page.setContent('<button>click me</button>');
+        await page.setContent('<button data-testerid="foo">click me</button>');
         setInterval(() => console.log('time passed'), 500);
 
       });
@@ -129,7 +134,7 @@ test('should debug one test and pause at end', async ({ activate }) => {
       from: `
       import { test } from '@playwright/test';
       test('should pass', async ({ page }) => {
-        await page.setContent('<button>click me</button>');
+        await page.setContent('<button data-testerid="foo">click me</button>');
         setInterval(() => console.log('time passed'), 500);
 <selection></selection>
       });
@@ -137,9 +142,9 @@ test('should debug one test and pause at end', async ({ activate }) => {
       to: `
       import { test } from '@playwright/test';
       test('should pass', async ({ page }) => {
-        await page.setContent('<button>click me</button>');
+        await page.setContent('<button data-testerid="foo">click me</button>');
         setInterval(() => console.log('time passed'), 500);
-<selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
+<selection>await page.getByTestId('foo').click();</selection>
       });
     `,
     }

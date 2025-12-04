@@ -15,7 +15,8 @@
  */
 
 import type { TestConfig } from './playwrightTestServer';
-import type { TestModel, TestModelCollection, TestProject } from './testModel';
+import type { TestModel, TestModelCollection } from './testModel';
+import type * as reporterTypes from './upstream/reporter';
 import { createGuid } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { installBrowsers } from './installer';
@@ -226,8 +227,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return this._recorderModeForTest;
   }
 
-  private _getTestIdAttribute(model: TestModel, project?: TestProject): string | undefined {
-    return project?.project?.use?.testIdAttribute ?? model.config.testIdAttributeName;
+  private _getTestIdAttribute(model: TestModel, project?: reporterTypes.FullProject): string | undefined {
+    return project?.use?.testIdAttribute ?? model.config.testIdAttributeName;
   }
 
   async inspect(models: TestModelCollection) {
@@ -236,7 +237,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
 
     await this._startBackendIfNeeded(selectedModel.config);
-    const testIdAttributeName = this._getTestIdAttribute(selectedModel, selectedModel.enabledProjects()[0]);
+    const testIdAttributeName = this._getTestIdAttribute(selectedModel, selectedModel.enabledProjects()[0]?.project);
     // Keep running, errors could be non-fatal.
     try {
       await this._backend?.setRecorderMode({
@@ -262,7 +263,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return !this._isRunningTests && !!this._pageCount;
   }
 
-  async record(model: TestModel, project?: TestProject) {
+  async record(model: TestModel, project?: reporterTypes.FullProject) {
     if (!this._checkVersion(model.config))
       return;
     if (this._isRunningTests === 'run') {
