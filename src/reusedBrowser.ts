@@ -46,6 +46,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _pausedOnPagePause = false;
   private _settingsModel: SettingsModel;
   private _recorderModeForTest: RecorderMode = 'none';
+  private _openTestCase?: reporterTypes.TestCase;
 
   constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: (configFile: string) => NodeJS.ProcessEnv) {
     this._vscode = vscode;
@@ -263,7 +264,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return !this._isRunningTests && !!this._pageCount;
   }
 
-  async record(model: TestModel, project?: reporterTypes.FullProject) {
+  async record(model: TestModel, project: reporterTypes.FullProject) {
     if (!this._checkVersion(model.config))
       return;
     if (this._isRunningTests === 'run') {
@@ -382,6 +383,16 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._onRunningTestsChangedEvent.fire(false);
   }
 
+  onTestBegin(testCase: reporterTypes.TestCase) {
+    this._openTestCase = testCase;
+  }
+
+  // heuristic for the test case that's currently visible in the browser.
+  // might be wrong if there's non-UI tests in the mix.
+  currentTestCase() {
+    return this._openTestCase;
+  }
+
   closeAllBrowsers() {
     if (this._isRunningTests) {
       void this._vscode.window.showWarningMessage(
@@ -409,6 +420,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     this._backend?.requestGracefulTermination();
     this._backend = undefined;
     this._pageCount = 0;
+    this._openTestCase = undefined;
   }
 }
 
