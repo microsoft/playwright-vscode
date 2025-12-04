@@ -263,7 +263,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     return !this._isRunningTests && !!this._pageCount;
   }
 
-  async record(model: TestModel, project?: reporterTypes.FullProject) {
+  async record(model: TestModel, project: reporterTypes.FullProject) {
     if (!this._checkVersion(model.config))
       return;
     if (this._isRunningTests === 'run') {
