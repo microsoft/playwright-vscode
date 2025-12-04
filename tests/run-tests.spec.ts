@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { enableConfigs, enableProjects, escapedPathSep, expect, selectConfig, test } from './utils';
+import { enableConfigs, enableProjects, escapedPathSep, expect, test } from './utils';
 import { TestRun } from './mock/vscode';
 import fs from 'fs';
 import path from 'path';
