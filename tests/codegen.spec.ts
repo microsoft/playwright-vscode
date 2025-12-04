@@ -93,3 +93,60 @@ test('running test should stop the recording', async ({ activate, showBrowser })
 
   await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual('finished');
 });
+
+test('Record at Cursor should respect custom testId', async ({ activate, showBrowser }) => {
+  test.skip(!showBrowser);
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {
+      projects: [
+        { name: 'main', use: { testIdAttribute: 'data-testerid', testDir: 'tests' } },
+        { name: 'unused', use: { testIdAttribute: 'unused', testDir: 'nonExistant' } },
+      ]
+    };`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async ({ page }) => {
+        await page.setContent('<button data-testerid="foo">click me</button>');
+
+      });
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  await expect(await testController.run()).toHaveOutput('1 passed');
+
+  await vscode.openEditors('**/test.spec.ts');
+  const editor = vscode.window.activeTextEditor;
+  expect(editor.document.uri.path).toContain('test.spec.ts');
+  editor.selection = new vscode.Selection(4, 0, 4, 0);
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await webView.getByText('Record at cursor').click();
+  await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+
+  const browser = await connectToSharedBrowser(vscode);
+  const page = await waitForPage(browser);
+  await page.getByRole('button', { name: 'click me' }).click();
+  await expect.poll(() => editor.edits).toEqual([
+    {
+      range: '[4:0 - 4:0]',
+      from: `
+      import { test } from '@playwright/test';
+      test('should pass', async ({ page }) => {
+        await page.setContent('<button data-testerid="foo">click me</button>');
+<selection></selection>
+      });
+    `,
+      to: `
+      import { test } from '@playwright/test';
+      test('should pass', async ({ page }) => {
+        await page.setContent('<button data-testerid="foo">click me</button>');
+<selection>await page.getByTestId('foo').click();</selection>
+      });
+    `,
+    }
+  ]);
+
+  vscode.lastWithProgressToken!.cancel();
+});

@@ -65,6 +65,7 @@ export class Extension implements RunHooks {
     testCase: reporterTypes.TestCase;
     disposables: vscodeTypes.Disposable[];
   } | undefined;
+  private _lastBeganTest?: reporterTypes.TestCase;
   private _activeSteps = new Map<reporterTypes.TestStep, StepInfo>();
   private _completedSteps = new Map<reporterTypes.TestStep, StepInfo>();
   private _testRun: vscodeTypes.TestRun | undefined;
@@ -235,7 +236,8 @@ export class Extension implements RunHooks {
         const model = this._models.selectedModel();
         if (!model)
           return vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
-        const project = this._testUnderDebug ? ancestorProject(this._testUnderDebug.testCase) : undefined;
+        const openTestCase = this._testUnderDebug?.testCase ?? (this._settingsModel.showBrowser.get() ? this._lastBeganTest : undefined);
+        const project = openTestCase ? ancestorProject(openTestCase) : model.enabledProjects()[0]?.project;
         await this._reusedBrowser.record(model, project);
       }),
       vscode.commands.registerCommand('pw.extension.command.toggleModels', async () => {
@@ -627,6 +629,8 @@ export class Extension implements RunHooks {
       },
 
       onTestBegin: (test: reporterTypes.TestCase, result: reporterTypes.TestResult) => {
+        this._lastBeganTest = test;
+
         const testItem = this._testTree.testItemForTest(test);
         if (testItem) {
           testRun.started(testItem);
