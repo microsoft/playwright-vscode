@@ -642,6 +642,14 @@ class TextDocument {
       firstNonWhitespaceCharacterIndex: line.match(/^\s*/g)![0].length
     };
   }
+
+  get lineCount() {
+    return this.lines.length;
+  }
+
+  async save() {
+    await fs.promises.writeFile(this.uri.fsPath, this.text, 'utf-8');
+  }
 }
 
 class TextEditor {
@@ -699,6 +707,8 @@ class TextEditor {
       replace: (range: Range, text: string) => {
         const from = this.renderWithSelection();
         const lines = this.document.text.split('\n');
+        while (range.end.line >= lines.length)
+          lines.push('');
         const editLines = text.split('\n');
         const newLines = lines.slice(0, range.start.line);
         if (editLines.length === 1) {
@@ -717,8 +727,12 @@ class TextEditor {
         this.selection.end = endOfLastLine;
 
         this.edits.push({ range: range.toString(), from, to: this.renderWithSelection() });
+      },
+      insert(position: Position, text: string) {
+        this.replace(new Range(position, position), text);
       }
     });
+    return true;
   }
 }
 

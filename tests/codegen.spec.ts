@@ -59,19 +59,77 @@ test('should generate code', async ({ activate }) => {
   await expect.poll(() => {
     return vscode.window.visibleTextEditors[0]?.edits;
   }).toEqual([{
+    from: `<selection></selection>import { test, expect } from '@playwright/test';`,
+    range: '[1:0 - 1:0]',
+    to: `import { test, expect } from '@playwright/test';
+<selection>
+test('test', async ({ page }) => {
+  // Recording...
+});
+</selection>`
+  }, {
     from: `import { test, expect } from '@playwright/test';
 
 test('test', async ({ page }) => {
   <selection>// Recording...</selection>
-});`,
+});
+`,
     range: '[3:2 - 3:17]',
     to: `import { test, expect } from '@playwright/test';
 
 test('test', async ({ page }) => {
   <selection>await page.locator('body').click();</selection>
-});`
+});
+`
   }]);
 });
+
+test('should generate new test at end of open file', async ({ activate }) => {
+  test.slow();
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {
+      projects: [
+        { name: 'chromium' },
+        { name: 'firefox' }
+      ],
+    }`,
+    'test.spec.ts': `
+import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+test('test', async ({ page }) => {});
+`,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  await vscode.openEditors('test.spec.ts');
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await webView.getByText('Record new').click();
+  await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+
+  const browser = await connectToSharedBrowser(vscode);
+  const page = await waitForPage(browser);
+  await page.getByRole('button', { name: 'click me' }).click();
+  await expect.poll(() => {
+    const edits = vscode.window.activeTextEditor.edits;
+    return edits?.[edits.length - 1].to;
+  }).toEqual(`
+import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+test('test', async ({ page }) => {});
+
+test('test 1', async ({ page }) => {
+  <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
+});
+`);
+  vscode.lastWithProgressToken!.cancel();
+});
+
 
 test('running test should stop the recording', async ({ activate, showBrowser }) => {
   test.skip(!showBrowser);

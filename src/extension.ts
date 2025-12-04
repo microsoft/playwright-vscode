@@ -23,8 +23,8 @@ import * as reporterTypes from './upstream/reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
-import { RunHooks, TestModel, TestModelCollection, TestProject } from './testModel';
-import { configError, disabledProjectName as disabledProject, TestTree } from './testTree';
+import { RunHooks, TestModel, TestModelCollection } from './testModel';
+import { configError, disabledProjectName as disabledProject, TestTree, upstreamTreeItem } from './testTree';
 import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
@@ -219,15 +219,17 @@ export class Extension implements RunHooks {
         if (!project)
           return vscode.window.showWarningMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`));
 
-        const file = await this._createFileForNewTest(model, project);
-        if (!file)
+        const skeleton = await this._createNewTestSkeleton();
+        if (!skeleton)
           return;
 
         const showBrowser = this._settingsModel.showBrowser.get() ?? false;
         try {
           await this._settingsModel.showBrowser.set(true);
-          await this._showBrowserForRecording(file, project);
-          await this._reusedBrowser.record(model, project.project);
+          const request = new this._vscode.TestRunRequest([skeleton], undefined, undefined, false, true);
+          await this._queueTestRun(request, 'run');
+          const skeletonProject = this._lastBeganTest ? ancestorProject(this._lastBeganTest) : project.project;
+          await this._reusedBrowser.record(model, skeletonProject);
         } finally {
           await this._settingsModel.showBrowser.set(showBrowser);
         }
@@ -792,47 +794,83 @@ export class Extension implements RunHooks {
       await this._queueWatchRun(new this._vscode.TestRunRequest(testItems), 'items');
   }
 
-  private async _createFileForNewTest(model: TestModel, project: TestProject) {
-    let file;
-    for (let i = 1; i < 100; ++i) {
-      file = path.join(project.project.testDir, `test-${i}.spec.ts`);
-      if (fs.existsSync(file))
-        continue;
-      break;
+  private async _createNewTestSkeleton() {
+    let uri = this._vscode.window.activeTextEditor?.document.uri;
+    if (uri && !this._testTree.testItemForFile(uriToPath(uri))) {
+      await this._ensureTestsInAllModels([uriToPath(uri)]);
+      if (!this._testTree.testItemForFile(uriToPath(uri)))
+        uri = undefined;
     }
-    if (!file)
+    if (!uri) {
+      const file = this._findUnusedFile();
+      if (!file)
+        return;
+      await fs.promises.writeFile(file, `import { test, expect } from '@playwright/test';`);
+      await this._workspaceChanged({ created: new Set([file]), changed: new Set(), deleted: new Set() });
+      await this._ensureTestsInAllModels([file]);
+      uri = this._vscode.Uri.file(file);
+    }
+
+    // this doesn't support test files that import test implementations.
+    const testItem = this._testTree.testItemForFile(uriToPath(uri));
+    if (!testItem)
       return;
 
-    await fs.promises.writeFile(file, `import { test, expect } from '@playwright/test';
-
-test('test', async ({ page }) => {
-  // Recording...
-});`);
-
-    await model.handleWorkspaceChange({ created: new Set([file]), changed: new Set(), deleted: new Set() });
-    await model.ensureTests([file]);
-
-    const document = await this._vscode.workspace.openTextDocument(file);
+    const document = await this._vscode.workspace.openTextDocument(uriToPath(uri));
     const editor = await this._vscode.window.showTextDocument(document);
-    editor.selection = new this._vscode.Selection(new this._vscode.Position(3, 2), new this._vscode.Position(3, 2 + '// Recording...'.length));
 
-    return file;
+    const existingTestNames = this._testTree.collectTestsInside(testItem).map(t => t.label);
+    let testName = 'test';
+    for (let i = 1; existingTestNames.includes(testName); i++)
+      testName = `test ${i}`;
+
+    // follow-up with proper babel
+    const text = document.getText();
+    const testType = text.includes('it(') || text.includes('it.') ? 'it' : 'test';
+
+    let lastLine = document.lineCount - 1;
+    if (!document.lineAt(lastLine).isEmptyOrWhitespace)
+      lastLine++;
+    const insertPosition = new this._vscode.Position(lastLine, 0);
+
+    const success = await editor.edit(editBuilder => {
+      editBuilder.insert(insertPosition, `
+${testType}('${testName}', async ({ page }) => {
+  // Recording...
+});
+`);
+    });
+    if (!success)
+      return;
+    await document.save();
+
+    await this._workspaceChanged({ created: new Set(), changed: new Set([uriToPath(document.uri)]), deleted: new Set() });
+    await this._ensureTestsInAllModels([uriToPath(document.uri)]);
+
+    const skeleton = this._testTree.collectTestsInside(testItem).find(t => upstreamTreeItem(t).title === testName);
+    if (!skeleton)
+      return;
+
+    // move cursor as late as possible to avoid disturbing the user
+    editor.selection = new this._vscode.Selection(insertPosition.line + 2, 2, insertPosition.line + 2, '  // Recording...'.length);
+
+    return skeleton;
   }
 
-  private async _showBrowserForRecording(file: string, project: TestProject) {
-    const fileItem = this._testTree.testItemForFile(file);
-    if (!fileItem)
+  private _findUnusedFile(): string | undefined {
+    const model = this._models.selectedModel();
+    if (!model)
       return;
-    if (fileItem.children.size !== 1)
+    const project = model.enabledProjects()[0];
+    if (!project)
       return;
-
-    const testItems = this._testTree.collectTestsInside(fileItem);
-    const testForProject = testItems.length === 1 ? testItems[0] : testItems.find(t => t.label === project.name);
-    if (!testForProject)
-      return;
-
-    const request = new this._vscode.TestRunRequest([testForProject], undefined, undefined, false, true);
-    await this._queueTestRun(request, 'run');
+    for (let i = 1; i < 100; ++i) {
+      // is testDir enough? do we need to consider project root?
+      const file = path.join(project.project.testDir, `test-${i}.spec.ts`);
+      if (fs.existsSync(file))
+        continue;
+      return file;
+    }
   }
 
   private async _updateVisibleEditorItems() {
