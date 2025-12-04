@@ -252,7 +252,6 @@ test('should support multiple projects', async ({ activate }) => {
     -   tests
       -   test1.spec.ts
       -   test2.spec.ts
-    -    [playwright.config.js [project 2] — disabled]
   `);
 
   await expect(vscode).toHaveConnectionLog([

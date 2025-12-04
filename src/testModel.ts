@@ -109,7 +109,7 @@ export class TestModel extends DisposableBase {
     if (!this.isEnabled)
       return;
     await this._listFiles();
-    if (configSettings) {
+    if (configSettings && configSettings.projects.length) { // there's a race where we save config settings before projects are loaded, ignore them
       let firstProject = true;
       for (const project of this.projects()) {
         const projectSettings = configSettings.projects.find(p => p.name === project.name);
@@ -120,8 +120,22 @@ export class TestModel extends DisposableBase {
         firstProject = false;
       }
     } else {
-      if (this.projects().length)
-        this.projects()[0][kIsEnabled] = true;
+      if (this.projects().length === 0)
+        return;
+
+      let foundFirstBrowserProject = false;
+      for (const p of this.projects()) {
+        if (isBogStandardBrowserProject(p.name)) {
+          if (foundFirstBrowserProject) {
+            p[kIsEnabled] = false;
+          } else {
+            p[kIsEnabled] = true;
+            foundFirstBrowserProject = true;
+          }
+        } else {
+          p[kIsEnabled] = true;
+        }
+      }
     }
   }
 
@@ -915,4 +929,12 @@ function isAncestorOf(root: vscodeTypes.TestItem, descendent: vscodeTypes.TestIt
 
 function noOverrideToUndefined<T>(value: T | 'no-override'): T | undefined {
   return value === 'no-override' ? undefined : value;
+}
+
+function isBogStandardBrowserProject(name: string) {
+  name = name.toLowerCase();
+
+  return ['chromium', 'firefox', 'webkit', 'google chrome', 'chrome', 'microsoft edge', 'edge', ].some(prefix => {
+    return name.startsWith(prefix) || name.startsWith(`mobile ${prefix}`) || name.startsWith(`desktop ${prefix}`);
+  });
 }
