@@ -59,6 +59,8 @@ test('should select-all/unselect-all', async ({ activate }) => {
     `,
   });
 
+  await enableProjects(vscode, ['foo']);
+
   const webView = vscode.webViews.get('pw.extension.settingsView')!;
 
   await expect(webView.locator('body')).toMatchAriaSnapshot(`
