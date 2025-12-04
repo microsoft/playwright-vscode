@@ -37,30 +37,30 @@ test('should highlight steps while running', async ({ activate }) => {
     --------------------------------------------------------------
 
     --------------------------------------------------------------
-    [3:18 - 3:18]: decorator #1
+    [3:18 - 3:18]: decorator activeStep
     --------------------------------------------------------------
 
     --------------------------------------------------------------
-    [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    [3:18 - 3:18]: decorator completedStep {"after":{"contentText":" — Xms"}}
     --------------------------------------------------------------
-    [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
-    [4:18 - 4:18]: decorator #1
+    [3:18 - 3:18]: decorator completedStep {"after":{"contentText":" — Xms"}}
+    [4:18 - 4:18]: decorator activeStep
     --------------------------------------------------------------
-    [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    [3:18 - 3:18]: decorator completedStep {"after":{"contentText":" — Xms"}}
     --------------------------------------------------------------
-    [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
-    [4:18 - 4:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    [3:18 - 3:18]: decorator completedStep {"after":{"contentText":" — Xms"}}
+    [4:18 - 4:18]: decorator completedStep {"after":{"contentText":" — Xms"}}
     --------------------------------------------------------------
-    [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
-    [4:18 - 4:18]: decorator #2 {"after":{"contentText":" — Xms"}}
-    [5:18 - 5:18]: decorator #1
+    [3:18 - 3:18]: decorator completedStep {"after":{"contentText":" — Xms"}}
+    [4:18 - 4:18]: decorator completedStep {"after":{"contentText":" — Xms"}}
+    [5:18 - 5:18]: decorator activeStep
     --------------------------------------------------------------
-    [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
-    [4:18 - 4:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    [3:18 - 3:18]: decorator completedStep {"after":{"contentText":" — Xms"}}
+    [4:18 - 4:18]: decorator completedStep {"after":{"contentText":" — Xms"}}
     --------------------------------------------------------------
-    [3:18 - 3:18]: decorator #2 {"after":{"contentText":" — Xms"}}
-    [4:18 - 4:18]: decorator #2 {"after":{"contentText":" — Xms"}}
-    [5:18 - 5:18]: decorator #2 {"after":{"contentText":" — Xms"}}
+    [3:18 - 3:18]: decorator completedStep {"after":{"contentText":" — Xms"}}
+    [4:18 - 4:18]: decorator completedStep {"after":{"contentText":" — Xms"}}
+    [5:18 - 5:18]: decorator completedStep {"after":{"contentText":" — Xms"}}
   `);
 
   await expect(vscode).toHaveConnectionLog([
@@ -102,5 +102,5 @@ test('should limit highlights', async ({ activate }) => {
 
   const decorationsLog = vscode.window.activeTextEditor.renderDecorations('  ');
   const lastState = decorationsLog.substring(decorationsLog.lastIndexOf('------'));
-  expect(lastState).toContain(`[4:20 - 4:20]: decorator #2 {"after":{"contentText":" — Xms (ran 2000×)"}}`);
+  expect(lastState).toContain(`[4:20 - 4:20]: decorator completedStep {"after":{"contentText":" — Xms (ran 2000×)"}}`);
 });

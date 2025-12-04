@@ -663,7 +663,13 @@ class TextEditor {
       for (const decoration of decorations) {
         let options = decoration.renderOptions ? ' ' + JSON.stringify(decoration.renderOptions) : '';
         options = options.replace(/\d+ms/g, 'Xms');
-        lines.push(`${decoration.range.toString()}: decorator #${type}${options}`);
+        const name = [
+          'activeStep',
+          'completedStep',
+          'pausedAtEnd',
+          'pausedOnError'
+        ][type - 1];
+        lines.push(`${decoration.range.toString()}: decorator ${name}${options}`);
       }
     }
     const state = lines.sort().join('\n');

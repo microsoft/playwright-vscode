@@ -73,10 +73,9 @@ test('should debug one test and pause at end', async ({ activate }) => {
   const runPromise = profile.run(testItems);
   const testRun = await testRunPromise;
 
-  // Decorator #3 is "paused at end".
   await expect.poll(() => vscode.window.activeTextEditor?.renderDecorations('  '), { timeout: 10000 }).toBe(`
     --------------------------------------------------------------
-    [4:6 - 4:6]: decorator #3
+    [4:6 - 4:6]: decorator pausedAtEnd
   `);
 
   // The test should keep running.
@@ -145,10 +144,9 @@ test('should debug one test and pause on error', async ({ activate }) => {
   const runPromise = profile.run(testItems);
   const testRun = await testRunPromise;
 
-  // Decorator #4 is "paused on error".
   await expect.poll(() => vscode.window.activeTextEditor?.renderDecorations('  '), { timeout: 10000 }).toBe(`
     --------------------------------------------------------------
-    [4:18 - 4:18]: decorator #4
+    [4:18 - 4:18]: decorator pausedOnError
   `);
 
   // The test should keep running.
@@ -438,10 +436,9 @@ test('should debug multiple tests and stop on first failure', async ({ activate 
   const runPromise = profile.run();
   const testRun = await testRunPromise;
 
-  // Decorator #4 is "paused on error".
   await expect.poll(() => vscode.window.activeTextEditor?.renderDecorations('  '), { timeout: 10000 }).toBe(`
     --------------------------------------------------------------
-    [2:50 - 2:50]: decorator #4
+    [2:50 - 2:50]: decorator pausedOnError
   `);
 
   expect(testRun.renderLog()).toBe(`
