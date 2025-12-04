@@ -243,7 +243,9 @@ export class TestItem {
   }
 
   private _innerDelete(id: string) {
+    const item = this.map.get(id);
     this.map.delete(id);
+    item?.forEach(child => this.testController.allTestItems.delete(child.id));
     this.testController.allTestItems.delete(id);
   }
 

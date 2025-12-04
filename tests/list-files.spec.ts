@@ -281,6 +281,7 @@ test('should switch between multiple projects with filter', async ({ activate })
       test('three', async () => {});
     `,
   });
+  await enableProjects(vscode, ['project 1']);
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test1.spec.ts
