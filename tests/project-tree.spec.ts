@@ -33,12 +33,11 @@ test('should switch between configs', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests1
       -   test.spec.ts
-    -    [tests1${path.sep}playwright.config.js [projectTwo] — disabled]
   `);
   await expect(vscode).toHaveProjectTree(`
     config: tests1/playwright.config.js
     [x] projectOne
-    [ ] projectTwo
+    [x] projectTwo
   `);
 
   await expect(vscode).toHaveConnectionLog([
@@ -50,13 +49,12 @@ test('should switch between configs', async ({ activate }) => {
   await expect(vscode).toHaveProjectTree(`
     config: tests2/playwright.config.js
     [x] projectThree
-    [ ] projectFour
+    [x] projectFour
   `);
 
   await expect(testController).toHaveTestTree(`
     -   tests2
       -   test.spec.ts
-    -    [tests2${path.sep}playwright.config.js [projectFour] — disabled]
   `);
   await expect(vscode).toHaveConnectionLog([
     { method: 'listFiles', params: {} },
@@ -81,6 +79,8 @@ test('should switch between projects', async ({ activate }) => {
       test('two', async () => {});
     `,
   });
+
+  await enableProjects(vscode, ['projectOne']);
 
   await expect(testController).toHaveTestTree(`
     -   tests1
@@ -135,6 +135,8 @@ test('should hide unchecked projects', async ({ activate }) => {
       test('two', async () => {});
     `,
   });
+
+  await enableProjects(vscode, ['projectOne']);
 
   await expect(testController).toHaveTestTree(`
     -   tests1

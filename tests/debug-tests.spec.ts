@@ -73,6 +73,8 @@ test('should debug one test and pause at end', async ({ activate }) => {
     `,
   });
 
+  await enableProjects(vscode, ['main']);
+
   await testController.expandTestItems(/test.spec/);
   const testItems = testController.findTestItems(/pass/);
   const profile = testController.debugProfile();

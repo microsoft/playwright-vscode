@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
+import { connectToSharedBrowser, enableProjects, expect, test, waitForPage } from './utils';
 import fs from 'node:fs';
 
 test('should generate code', async ({ activate }) => {
@@ -112,6 +112,8 @@ test('Record at Cursor should respect custom testId', async ({ activate, showBro
       });
     `,
   });
+
+  await enableProjects(vscode, ['main']);
 
   await testController.expandTestItems(/test.spec/);
   await expect(await testController.run()).toHaveOutput('1 passed');
