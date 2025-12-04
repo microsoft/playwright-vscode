@@ -981,6 +981,7 @@ export class VSCode {
   readonly commandLog: string[] = [];
   readonly l10n = new L10n();
   lastWithProgressData: any;
+  lastWithProgressToken?: CancellationTokenSource;
   private _hoverProviders: Map<string, HoverProvider> = new Map();
   readonly version: string;
   readonly connectionLog: any[] = [];
@@ -1122,7 +1123,8 @@ export class VSCode {
       const progress = {
         report: (data: any) => this.lastWithProgressData = data,
       };
-      await callback(progress, new CancellationTokenSource().token);
+      this.lastWithProgressToken = new CancellationTokenSource();
+      await callback(progress, this.lastWithProgressToken.token);
       this.lastWithProgressData = 'finished';
     };
     this.window.showTextDocument = (document: TextDocument) => {

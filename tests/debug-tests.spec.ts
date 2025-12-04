@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { expect, test, escapedPathSep, enableProjects } from './utils';
+import { expect, test, escapedPathSep, enableProjects, connectToSharedBrowser, waitForPage } from './utils';
 import { TestRun, DebugSession, stripAnsi } from './mock/vscode';
 
 test('should debug multiple passing tests', async ({ activate }) => {
@@ -60,8 +60,10 @@ test('should debug one test and pause at end', async ({ activate }) => {
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
-      test('should pass', async () => {
+      test('should pass', async ({ page }) => {
+        await page.setContent('<button>click me</button>');
         setInterval(() => console.log('time passed'), 500);
+
       });
     `,
   });
@@ -73,10 +75,9 @@ test('should debug one test and pause at end', async ({ activate }) => {
   const runPromise = profile.run(testItems);
   const testRun = await testRunPromise;
 
-  await expect.poll(() => vscode.window.activeTextEditor?.renderDecorations('  '), { timeout: 10000 }).toBe(`
-    --------------------------------------------------------------
-    [4:6 - 4:6]: decorator pausedAtEnd
-  `);
+  await expect.poll(() => vscode.window.activeTextEditor?.renderDecorations('  '), { timeout: 10000 }).toContain(
+      `[6:6 - 6:6]: decorator pausedAtEnd`
+  );
 
   // The test should keep running.
   vscode.debug.output = '';
@@ -109,6 +110,42 @@ test('should debug one test and pause at end', async ({ activate }) => {
     },
   ]);
   vscode.connectionLog.length = 0;
+
+  await vscode.openEditors('**/test.spec.ts');
+  const editor = vscode.window.activeTextEditor;
+  expect(editor.document.uri.path).toContain('test.spec.ts');
+  editor.selection = new vscode.Selection(5, 0, 5, 0);
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await webView.getByText('Record at cursor').click();
+  await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+
+  const browser = await connectToSharedBrowser(vscode);
+  const page = await waitForPage(browser);
+  await page.getByRole('button', { name: 'click me' }).click();
+  await expect.poll(() => editor.edits).toEqual([
+    {
+      range: '[5:0 - 5:0]',
+      from: `
+      import { test } from '@playwright/test';
+      test('should pass', async ({ page }) => {
+        await page.setContent('<button>click me</button>');
+        setInterval(() => console.log('time passed'), 500);
+<selection></selection>
+      });
+    `,
+      to: `
+      import { test } from '@playwright/test';
+      test('should pass', async ({ page }) => {
+        await page.setContent('<button>click me</button>');
+        setInterval(() => console.log('time passed'), 500);
+<selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
+      });
+    `,
+    }
+  ]);
+
+  vscode.lastWithProgressToken!.cancel();
 
   testRun.token.source.cancel();
   await runPromise;

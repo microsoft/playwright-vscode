@@ -28,7 +28,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
   private _backend: Backend | undefined;
   private _cancelRecording: (() => void) | undefined;
-  private _isRunningTests = false;
+  private _isRunningTests?: 'run' | 'debug';
   private _insertedEditActionCount = 0;
   private _envProvider: (configFile: string) => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
@@ -250,8 +250,12 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     }
   }
 
-  canRecord() {
+  canRecordNew() {
     return !this._isRunningTests;
+  }
+
+  canRecordAtCursor() {
+    return !this._isRunningTests || this._isRunningTests === 'debug';
   }
 
   canClose() {
@@ -261,7 +265,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   async record(model: TestModel, project?: TestProject) {
     if (!this._checkVersion(model.config))
       return;
-    if (!this.canRecord()) {
+    if (this._isRunningTests === 'run') {
       void this._vscode.window.showWarningMessage(
           this._vscode.l10n.t('Can\'t record while running tests')
       );
@@ -361,7 +365,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     if (!this._checkVersion(config, 'Show & reuse browser'))
       return;
     this._pausedOnPagePause = false;
-    this._isRunningTests = true;
+    this._isRunningTests = debug ? 'debug' : 'run';
     this._onRunningTestsChangedEvent.fire(true);
     await this._startBackendIfNeeded(config);
   }
@@ -373,7 +377,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       if (!this._pageCount)
         this._stop();
     }
-    this._isRunningTests = false;
+    this._isRunningTests = undefined;
     this._onRunningTestsChangedEvent.fire(false);
   }
 
