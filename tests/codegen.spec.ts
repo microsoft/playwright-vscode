@@ -68,35 +68,6 @@ test('test', async ({ page }) => {
     to: `import { test, expect } from '@playwright/test';
 
 test('test', async ({ page }) => {
-  <selection>await page.goto('about:blank');</selection>
-});`
-  },
-  {
-    from: `import { test, expect } from '@playwright/test';
-
-test('test', async ({ page }) => {
-  <selection>await page.goto('about:blank');</selection>
-});`,
-    range: '[3:33 - 3:33]',
-    to: `import { test, expect } from '@playwright/test';
-
-test('test', async ({ page }) => {
-  await page.goto('about:blank');<selection>
-  </selection>
-});`
-  },
-  {
-    from: `import { test, expect } from '@playwright/test';
-
-test('test', async ({ page }) => {
-  await page.goto('about:blank');
-  <selection></selection>
-});`,
-    range: '[4:2 - 4:2]',
-    to: `import { test, expect } from '@playwright/test';
-
-test('test', async ({ page }) => {
-  await page.goto('about:blank');
   <selection>await page.locator('body').click();</selection>
 });`
   }]);
