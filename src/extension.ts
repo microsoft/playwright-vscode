@@ -33,7 +33,7 @@ import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
 import { pathToFileURL } from 'url';
 import { TestConfig } from './playwrightTestServer';
-import { findTestEndPosition, SourcePosition } from './babelHighlightUtil';
+import { findTestCall, findTestEndPosition, SourcePosition } from './babelHighlightUtil';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -844,11 +844,7 @@ export class Extension implements RunHooks {
     if (existingTestNames.includes(testName))
       return;
 
-    // follow-up with proper babel
-    const text = editor.document.getText();
-    const testType = text.includes('it(') || text.includes('it.') ? 'it' : 'test';
-
-    const { position, indent } = this._findLastLine(fileItem, editor);
+    const { position, indent, testType } = this._findLastLine(fileItem, editor);
     const prefix = ' '.repeat(indent);
     const success = await editor.edit(editBuilder => {
       editBuilder.insert(position, `
@@ -865,22 +861,25 @@ ${prefix}});`);
     return { testName, placeholder };
   }
 
-  private _findLastLine(fileItem: vscodeTypes.TestItem, editor: vscodeTypes.TextEditor): { position: vscodeTypes.Position, indent: number } {
+  private _findLastLine(fileItem: vscodeTypes.TestItem, editor: vscodeTypes.TextEditor): { position: vscodeTypes.Position, indent: number, testType: string } {
     const allTests = this._testTree.collectTestsInside(fileItem);
     const lastTest = allTests[allTests.length - 1];
 
+    const text = editor.document.getText();
+    const testType = (text.includes('it(') || text.includes('it.')) ? 'it' : 'test';
+
     if (lastTest && lastTest.range) {
-      const testEnd = findTestEndPosition(editor.document.getText(), uriToPath(editor.document.uri), this._asSourcePosition(lastTest.range.start));
-      if (testEnd) {
-        const line = editor.document.lineAt(testEnd.line - 1);
-        return { position: line.range.end, indent: line.firstNonWhitespaceCharacterIndex };
+      const testCall = findTestCall(text, uriToPath(editor.document.uri), this._asSourcePosition(lastTest.range.start));
+      if (testCall) {
+        const line = editor.document.lineAt(testCall.endPosition.line - 1);
+        return { position: line.range.end, indent: line.firstNonWhitespaceCharacterIndex, testType: testCall.testType ?? testType };
       }
     }
 
     let lastLine = editor.document.lineCount - 1;
     if (!editor.document.lineAt(lastLine).isEmptyOrWhitespace)
       lastLine++;
-    return { position: new this._vscode.Position(lastLine, 0), indent: 0 };
+    return { position: new this._vscode.Position(lastLine, 0), indent: 0, testType };
   }
 
   private _findUnusedFile(project: reporterTypes.FullProject): string | undefined {

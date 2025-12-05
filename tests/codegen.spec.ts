@@ -197,6 +197,31 @@ test.describe('my suite', () => {
 test('test', async ({ page }) => {
   <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
 });`
+    },
+    'custom test name': {
+      input: `
+import { test as baseTest, expect } from '@playwright/test';
+const customTest = baseTest.extend({});
+customTest.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+customTest('foo', () => {});
+`,
+      async record(page: Page) {
+        await page.getByRole('button', { name: 'click me' }).click();
+      },
+      output: `
+import { test as baseTest, expect } from '@playwright/test';
+const customTest = baseTest.extend({});
+customTest.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+customTest('foo', () => {});
+
+customTest('test', async ({ page }) => {
+  <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
+});
+`
     }
   };
 
