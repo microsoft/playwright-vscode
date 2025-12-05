@@ -23,8 +23,8 @@ import * as reporterTypes from './upstream/reporter';
 import { ReusedBrowser } from './reusedBrowser';
 import { SettingsModel } from './settingsModel';
 import { SettingsView } from './settingsView';
-import { RunHooks, TestModel, TestModelCollection, TestProject } from './testModel';
-import { configError, disabledProjectName as disabledProject, TestTree } from './testTree';
+import { RunHooks, TestModel, TestModelCollection } from './testModel';
+import { configError, disabledProjectName as disabledProject, TestTree, upstreamTreeItem } from './testTree';
 import { NodeJSNotFoundError, getPlaywrightInfo, stripAnsi, stripBabelFrame, uriToPath } from './utils';
 import * as vscodeTypes from './vscodeTypes';
 import { WorkspaceChange, WorkspaceObserver } from './workspaceObserver';
@@ -33,7 +33,7 @@ import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
 import { pathToFileURL } from 'url';
 import { TestConfig } from './playwrightTestServer';
-import { findTestEndPosition } from './babelHighlightUtil';
+import { findTestCall, findTestEndPosition, SourcePosition } from './babelHighlightUtil';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -219,15 +219,17 @@ export class Extension implements RunHooks {
         if (!project)
           return vscode.window.showWarningMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`));
 
-        const file = await this._createFileForNewTest(model, project);
-        if (!file)
+        const skeleton = await this._createNewTestSkeleton(project.project);
+        if (!skeleton)
           return;
 
         const showBrowser = this._settingsModel.showBrowser.get() ?? false;
         try {
           await this._settingsModel.showBrowser.set(true);
-          await this._showBrowserForRecording(file, project);
-          await this._reusedBrowser.record(model, project.project);
+          const request = new this._vscode.TestRunRequest([skeleton], undefined, undefined, false, true);
+          await this._queueTestRun(request, 'run');
+          const skeletonProject = this._lastBeganTest ? ancestorProject(this._lastBeganTest) : project.project;
+          await this._reusedBrowser.record(model, skeletonProject);
         } finally {
           await this._settingsModel.showBrowser.set(showBrowser);
         }
@@ -792,47 +794,104 @@ export class Extension implements RunHooks {
       await this._queueWatchRun(new this._vscode.TestRunRequest(testItems), 'items');
   }
 
-  private async _createFileForNewTest(model: TestModel, project: TestProject) {
-    let file;
-    for (let i = 1; i < 100; ++i) {
-      file = path.join(project.project.testDir, `test-${i}.spec.ts`);
-      if (fs.existsSync(file))
-        continue;
-      break;
+  private async _createNewTestSkeleton(project: reporterTypes.FullProject) {
+    let uri = this._vscode.window.activeTextEditor?.document.uri;
+    if (uri && !this._testTree.testItemForFile(uriToPath(uri))) {
+      await this._ensureTestsInAllModels([uriToPath(uri)]);
+      if (!this._testTree.testItemForFile(uriToPath(uri)))
+        uri = undefined;
     }
-    if (!file)
+    if (!uri) {
+      const file = this._findUnusedFile(project);
+      if (!file)
+        return;
+      await fs.promises.writeFile(file, `import { test, expect } from '@playwright/test';`);
+      await this._workspaceChanged({ created: new Set([file]), changed: new Set(), deleted: new Set() });
+      await this._ensureTestsInAllModels([file]);
+      uri = this._vscode.Uri.file(file);
+    }
+
+    // this doesn't support test files that import test implementations.
+    const testItem = this._testTree.testItemForFile(uriToPath(uri));
+    if (!testItem)
       return;
 
-    await fs.promises.writeFile(file, `import { test, expect } from '@playwright/test';
-
-test('test', async ({ page }) => {
-  // Recording...
-});`);
-
-    await model.handleWorkspaceChange({ created: new Set([file]), changed: new Set(), deleted: new Set() });
-    await model.ensureTests([file]);
-
-    const document = await this._vscode.workspace.openTextDocument(file);
+    const document = await this._vscode.workspace.openTextDocument(uri);
     const editor = await this._vscode.window.showTextDocument(document);
-    editor.selection = new this._vscode.Selection(new this._vscode.Position(3, 2), new this._vscode.Position(3, 2 + '// Recording...'.length));
 
-    return file;
+    const skeleton = await this._appendTestSkeleton(testItem, editor);
+    if (!skeleton)
+      return;
+
+    await this._workspaceChanged({ created: new Set(), changed: new Set([uriToPath(uri)]), deleted: new Set() });
+    await this._ensureTestsInAllModels([uriToPath(uri)]);
+
+    const skeletonTestItem = this._testTree.collectTestsInside(testItem).find(t => upstreamTreeItem(t).title === skeleton.testName);
+    if (!skeletonTestItem)
+      return;
+
+    // move cursor as late as possible to avoid disturbing the user if something fails
+    editor.selection = skeleton.placeholder;
+
+    return skeletonTestItem;
   }
 
-  private async _showBrowserForRecording(file: string, project: TestProject) {
-    const fileItem = this._testTree.testItemForFile(file);
-    if (!fileItem)
-      return;
-    if (fileItem.children.size !== 1)
-      return;
-
-    const testItems = this._testTree.collectTestsInside(fileItem);
-    const testForProject = testItems.length === 1 ? testItems[0] : testItems.find(t => t.label === project.name);
-    if (!testForProject)
+  private async _appendTestSkeleton(fileItem: vscodeTypes.TestItem, editor: vscodeTypes.TextEditor): Promise<{ testName: string, placeholder: vscodeTypes.Selection } | undefined> {
+    const existingTestNames = this._testTree.collectTestsInside(fileItem).map(t => t.label);
+    let testName = 'test';
+    for (let i = 1; existingTestNames.includes(testName); i++)
+      testName = `test ${i}`;
+    if (existingTestNames.includes(testName))
       return;
 
-    const request = new this._vscode.TestRunRequest([testForProject], undefined, undefined, false, true);
-    await this._queueTestRun(request, 'run');
+    const { position, indent, testType } = this._findInsertionLine(fileItem, editor);
+    const prefix = ' '.repeat(indent);
+    const success = await editor.edit(editBuilder => {
+      editBuilder.insert(position, `
+${prefix}${testType}('${testName}', async ({ page }) => {
+${prefix}  // Recording...
+${prefix}});
+`);
+    });
+    if (!success)
+      return;
+    await editor.document.save();
+
+    const placeholder = new this._vscode.Selection(position.line + 2, indent + 2, position.line + 2, indent + 2 + `// Recording...`.length);
+    return { testName, placeholder };
+  }
+
+  private _findInsertionLine(fileItem: vscodeTypes.TestItem, editor: vscodeTypes.TextEditor): { position: vscodeTypes.Position, indent: number, testType: string } {
+    const allTests = this._testTree.collectTestsInside(fileItem);
+    const lastTest = allTests[allTests.length - 1];
+
+    const text = editor.document.getText();
+    const testType = (text.includes('it(') || text.includes('it.')) ? 'it' : 'test';
+
+    if (lastTest && lastTest.range) {
+      const testCall = findTestCall(text, uriToPath(editor.document.uri), this._asSourcePosition(lastTest.range.start));
+      if (testCall) {
+        return {
+          position: this._asPosition({ line: testCall.endPosition.line + 1, column: 1 }),
+          indent: editor.document.lineAt(testCall.endPosition.line - 1).firstNonWhitespaceCharacterIndex,
+          testType: testCall.testType ?? testType
+        };
+      }
+    }
+
+    let lastLine = editor.document.lineCount - 1;
+    if (!editor.document.lineAt(lastLine).isEmptyOrWhitespace)
+      lastLine++;
+    return { position: new this._vscode.Position(lastLine, 0), indent: 0, testType };
+  }
+
+  private _findUnusedFile(project: reporterTypes.FullProject): string | undefined {
+    for (let i = 1; i < 100; ++i) {
+      const file = path.join(project.testDir, `test-${i}.spec.ts`);
+      if (fs.existsSync(file))
+        continue;
+      return file;
+    }
   }
 
   private async _updateVisibleEditorItems() {
@@ -1015,6 +1074,10 @@ test('test', async ({ page }) => {
     if (location)
       testMessage.location = location;
     return testMessage;
+  }
+
+  private _asSourcePosition(position: vscodeTypes.Position): SourcePosition {
+    return { line: position.line + 1, column: position.character + 1 };
   }
 
   private _asPosition(location: { line: number, column: number }): vscodeTypes.Position {

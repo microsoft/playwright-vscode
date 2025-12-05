@@ -75,10 +75,17 @@ export enum ColorThemeKind {
 }
 
 class Position {
-  constructor(readonly line: number, readonly character: number) {}
+  constructor(readonly line: number, readonly character: number) {
+    if (line < 0 || character < 0)
+      throw new Error('Illegal argument: line and character must be non-negative');
+  }
 
   toString() {
     return `${this.line}:${this.character}`;
+  }
+
+  translate(lineDelta = 0, characterDelta = 0): Position {
+    return new Position(this.line + lineDelta, this.character + characterDelta);
   }
 }
 
@@ -638,11 +645,22 @@ class TextDocument {
 
   lineAt(i: number) {
     const line = this.lines[i];
+    if (line === undefined)
+      return;
     return {
       text: line,
       isEmptyOrWhitespace: !line.replace(/\s/g, '').trim(),
-      firstNonWhitespaceCharacterIndex: line.match(/^\s*/g)![0].length
+      firstNonWhitespaceCharacterIndex: line.match(/^\s*/g)![0].length,
+      range: new Range(i, 0, i, line.length)
     };
+  }
+
+  get lineCount() {
+    return this.lines.length;
+  }
+
+  async save() {
+    await fs.promises.writeFile(this.uri.fsPath, this.text, 'utf-8');
   }
 }
 
@@ -698,9 +716,11 @@ class TextEditor {
 
   edit(editCallback: any) {
     editCallback({
-      replace: (range: Range, text: string) => {
+      replace: (range: Range, text: string, _insert = false) => {
         const from = this.renderWithSelection();
         const lines = this.document.text.split('\n');
+        while (range.end.line >= lines.length)
+          lines.push('');
         const editLines = text.split('\n');
         const newLines = lines.slice(0, range.start.line);
         if (editLines.length === 1) {
@@ -717,10 +737,16 @@ class TextEditor {
         const lastLine = editLines[editLines.length - 1];
         const endOfLastLine = new Position(range.start.line + (editLines.length - 1), editLines.length > 1 ? lastLine.length : range.start.character + lastLine.length);
         this.selection.end = endOfLastLine;
+        if (_insert)
+          this.selection.start = endOfLastLine;
 
         this.edits.push({ range: range.toString(), from, to: this.renderWithSelection() });
+      },
+      insert(position: Position, text: string) {
+        this.replace(new Range(position, position), text, true);
       }
     });
+    return true;
   }
 }
 
@@ -1158,8 +1184,8 @@ export class VSCode {
       return watcher;
     };
     this.workspace.workspaceFolders = [];
-    this.workspace.openTextDocument = async (file: string) => {
-      const document = new TextDocument(Uri.file(file));
+    this.workspace.openTextDocument = async (file: string | Uri) => {
+      const document = new TextDocument(typeof file === 'string' ? Uri.file(file) : file);
       await document._load();
       return document;
     };
