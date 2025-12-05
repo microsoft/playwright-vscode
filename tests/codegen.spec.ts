@@ -129,7 +129,8 @@ test('test', async ({ page }) => {});
 
 test('test 1', async ({ page }) => {
   <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
-});`
+});
+`
     },
     'at end of empty file': {
       input: `
@@ -141,10 +142,10 @@ import { test, expect } from '@playwright/test';
       output: `
 import { test, expect } from '@playwright/test';
 
-
 test('test', async ({ page }) => {
   <selection>await page.locator('body').click();</selection>
-});`
+});
+`
     },
     'at end of describe': {
       input: `
@@ -193,10 +194,10 @@ test.beforeEach(async ({ page }) => {
 test.describe('my suite', () => {
 });
 
-
 test('test', async ({ page }) => {
   <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
-});`
+});
+`
     },
     'custom test name': {
       input: `

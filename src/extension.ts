@@ -844,24 +844,24 @@ export class Extension implements RunHooks {
     if (existingTestNames.includes(testName))
       return;
 
-    const { position, indent, testType } = this._findLastLine(fileItem, editor);
+    const { position, indent, testType } = this._findInsertionLine(fileItem, editor);
     const prefix = ' '.repeat(indent);
     const success = await editor.edit(editBuilder => {
       editBuilder.insert(position, `
-
 ${prefix}${testType}('${testName}', async ({ page }) => {
 ${prefix}  // Recording...
-${prefix}});`);
+${prefix}});
+`);
     });
     if (!success)
       return;
     await editor.document.save();
 
-    const placeholder = new this._vscode.Selection(position.line + 3, indent + 2, position.line + 3, indent + 2 + `// Recording...`.length);
+    const placeholder = new this._vscode.Selection(position.line + 2, indent + 2, position.line + 2, indent + 2 + `// Recording...`.length);
     return { testName, placeholder };
   }
 
-  private _findLastLine(fileItem: vscodeTypes.TestItem, editor: vscodeTypes.TextEditor): { position: vscodeTypes.Position, indent: number, testType: string } {
+  private _findInsertionLine(fileItem: vscodeTypes.TestItem, editor: vscodeTypes.TextEditor): { position: vscodeTypes.Position, indent: number, testType: string } {
     const allTests = this._testTree.collectTestsInside(fileItem);
     const lastTest = allTests[allTests.length - 1];
 
@@ -871,8 +871,11 @@ ${prefix}});`);
     if (lastTest && lastTest.range) {
       const testCall = findTestCall(text, uriToPath(editor.document.uri), this._asSourcePosition(lastTest.range.start));
       if (testCall) {
-        const line = editor.document.lineAt(testCall.endPosition.line - 1);
-        return { position: line.range.end, indent: line.firstNonWhitespaceCharacterIndex, testType: testCall.testType ?? testType };
+        return {
+          position: this._asPosition({ line: testCall.endPosition.line + 1, column: 0 }),
+          indent: editor.document.lineAt(testCall.endPosition.line - 1).firstNonWhitespaceCharacterIndex,
+          testType: testCall.testType ?? testType
+        };
       }
     }
 

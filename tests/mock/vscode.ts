@@ -640,6 +640,8 @@ class TextDocument {
 
   lineAt(i: number) {
     const line = this.lines[i];
+    if (line === undefined)
+      return;
     return {
       text: line,
       isEmptyOrWhitespace: !line.replace(/\s/g, '').trim(),
