@@ -712,35 +712,37 @@ class TextEditor {
   }
 
   edit(editCallback: any) {
-    const replace = (range: Range, text: string) => {
-      const from = this.renderWithSelection();
-      const lines = this.document.text.split('\n');
-      while (range.end.line >= lines.length)
-        lines.push('');
-      const editLines = text.split('\n');
-      const newLines = lines.slice(0, range.start.line);
-      if (editLines.length === 1) {
-        newLines.push(lines[range.start.line].substring(0, range.start.character) + text + lines[range.end.line].substring(range.end.character));
-      } else {
-        newLines.push(lines[range.start.line].substring(0, range.start.character) + editLines[0]);
-        newLines.push(...editLines.slice(1, -1));
-        newLines.push(editLines[editLines.length - 1] + lines[range.end.line].substring(range.end.character));
+    editCallback({
+      replace: (range: Range, text: string, _insert = false) => {
+        const from = this.renderWithSelection();
+        const lines = this.document.text.split('\n');
+        while (range.end.line >= lines.length)
+          lines.push('');
+        const editLines = text.split('\n');
+        const newLines = lines.slice(0, range.start.line);
+        if (editLines.length === 1) {
+          newLines.push(lines[range.start.line].substring(0, range.start.character) + text + lines[range.end.line].substring(range.end.character));
+        } else {
+          newLines.push(lines[range.start.line].substring(0, range.start.character) + editLines[0]);
+          newLines.push(...editLines.slice(1, -1));
+          newLines.push(editLines[editLines.length - 1] + lines[range.end.line].substring(range.end.character));
+        }
+        newLines.push(...lines.slice(range.end.line + 1));
+        this.document.lines = newLines;
+
+        this.selection = range.clone();
+        const lastLine = editLines[editLines.length - 1];
+        const endOfLastLine = new Position(range.start.line + (editLines.length - 1), editLines.length > 1 ? lastLine.length : range.start.character + lastLine.length);
+        this.selection.end = endOfLastLine;
+        if (_insert)
+          this.selection.start = endOfLastLine;
+
+        this.edits.push({ range: range.toString(), from, to: this.renderWithSelection() });
+      },
+      insert(position: Position, text: string) {
+        this.replace(new Range(position, position), text, true);
       }
-      newLines.push(...lines.slice(range.end.line + 1));
-      this.document.lines = newLines;
-
-      this.selection = range.clone();
-      const lastLine = editLines[editLines.length - 1];
-      const endOfLastLine = new Position(range.start.line + (editLines.length - 1), editLines.length > 1 ? lastLine.length : range.start.character + lastLine.length);
-      this.selection.end = endOfLastLine;
-
-      this.edits.push({ range: range.toString(), from, to: this.renderWithSelection() });
-    };
-    const insert = (position: Position, text: string) => {
-      replace(new Range(position, position), text);
-      this.selection.start = this.selection.end;
-    };
-    editCallback({ replace, insert });
+    });
     return true;
   }
 }

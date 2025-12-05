@@ -63,11 +63,11 @@ test('Record new outside of test file', async ({ activate }) => {
     from: `<selection></selection>import { test, expect } from '@playwright/test';`,
     range: '[1:0 - 1:0]',
     to: `import { test, expect } from '@playwright/test';
-<selection>
+
 test('test', async ({ page }) => {
   // Recording...
 });
-</selection>`
+<selection></selection>`
   }, {
     from: `import { test, expect } from '@playwright/test';
 
