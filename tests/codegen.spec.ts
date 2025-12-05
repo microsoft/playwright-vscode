@@ -110,6 +110,42 @@ test('test 1', async ({ page }) => {
 });
 `
     },
+    'at end of file without trailing newline': {
+      input: `
+import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+test('test', async ({ page }) => {});`,
+      async record(page: Page) {
+        await page.getByRole('button', { name: 'click me' }).click();
+      },
+      output: `
+import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+test('test', async ({ page }) => {});
+
+test('test 1', async ({ page }) => {
+  <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
+});`
+    },
+    'at end of empty file': {
+      input: `
+import { test, expect } from '@playwright/test';
+`,
+      async record(page: Page) {
+        await page.locator('body').click();
+      },
+      output: `
+import { test, expect } from '@playwright/test';
+
+
+test('test', async ({ page }) => {
+  <selection>await page.locator('body').click();</selection>
+});`
+    },
     'at end of describe': {
       input: `
 import { test, expect } from '@playwright/test';
@@ -136,6 +172,31 @@ test.describe('my suite', () => {
   });
 });
 `
+    },
+    'at end of empty describe': {
+      input: `
+import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+test.describe('my suite', () => {
+});
+`,
+      async record(page: Page) {
+        await page.getByRole('button', { name: 'click me' }).click();
+      },
+      output: `
+import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+test.describe('my suite', () => {
+});
+
+
+test('test', async ({ page }) => {
+  <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
+});`
     }
   };
 
