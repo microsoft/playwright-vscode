@@ -172,9 +172,9 @@ test.beforeEach(async ({ page }) => {
 test.describe('my suite', () => {
   test('test', async ({ page }) => {});
 
-test('test 1', async ({ page }) => {
-  <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
-});
+  test('test 1', async ({ page }) => {
+    <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
+  });
 });
 `);
   vscode.lastWithProgressToken!.cancel();

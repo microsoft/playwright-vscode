@@ -848,36 +848,39 @@ export class Extension implements RunHooks {
     const text = editor.document.getText();
     const testType = text.includes('it(') || text.includes('it.') ? 'it' : 'test';
 
-    const insertPosition = this._findLastLine(fileItem, editor);
+    const { position, indent } = this._findLastLine(fileItem, editor);
+    const prefix = ' '.repeat(indent);
     const success = await editor.edit(editBuilder => {
-      editBuilder.insert(insertPosition, `
+      editBuilder.insert(position, `
 
-${testType}('${testName}', async ({ page }) => {
-  // Recording...
-});`);
+${prefix}${testType}('${testName}', async ({ page }) => {
+${prefix}  // Recording...
+${prefix}});`);
     });
     if (!success)
       return;
     await editor.document.save();
 
-    const placeholder = new this._vscode.Selection(insertPosition.line + 3, 2, insertPosition.line + 3, '  // Recording...'.length + 2);
+    const placeholder = new this._vscode.Selection(position.line + 3, indent + 2, position.line + 3, indent + 2 + `// Recording...`.length);
     return { testName, placeholder };
   }
 
-  private _findLastLine(fileItem: vscodeTypes.TestItem, editor: vscodeTypes.TextEditor): vscodeTypes.Position {
+  private _findLastLine(fileItem: vscodeTypes.TestItem, editor: vscodeTypes.TextEditor): { position: vscodeTypes.Position, indent: number } {
     const allTests = this._testTree.collectTestsInside(fileItem);
     const lastTest = allTests[allTests.length - 1];
 
     if (lastTest && lastTest.range) {
       const testEnd = findTestEndPosition(editor.document.getText(), uriToPath(editor.document.uri), this._asSourcePosition(lastTest.range.start));
-      if (testEnd)
-        return editor.document.lineAt(testEnd.line - 1).range.end;
+      if (testEnd) {
+        const line = editor.document.lineAt(testEnd.line - 1);
+        return { position: line.range.end, indent: line.firstNonWhitespaceCharacterIndex };
+      }
     }
 
     let lastLine = editor.document.lineCount - 1;
     if (!editor.document.lineAt(lastLine).isEmptyOrWhitespace)
       lastLine++;
-    return new this._vscode.Position(lastLine, 0);
+    return { position: new this._vscode.Position(lastLine, 0), indent: 0 };
   }
 
   private _findUnusedFile(project: reporterTypes.FullProject): string | undefined {
