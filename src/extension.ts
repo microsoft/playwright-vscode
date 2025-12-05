@@ -872,7 +872,7 @@ ${prefix}});
       const testCall = findTestCall(text, uriToPath(editor.document.uri), this._asSourcePosition(lastTest.range.start));
       if (testCall) {
         return {
-          position: this._asPosition({ line: testCall.endPosition.line + 1, column: 0 }),
+          position: this._asPosition({ line: testCall.endPosition.line + 1, column: 1 }),
           indent: editor.document.lineAt(testCall.endPosition.line - 1).firstNonWhitespaceCharacterIndex,
           testType: testCall.testType ?? testType
         };
