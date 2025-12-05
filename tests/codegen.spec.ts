@@ -15,7 +15,7 @@
  */
 
 import type { Page } from '@playwright/test';
-import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
+import { connectToSharedBrowser, enableProjects, expect, test, waitForPage } from './utils';
 import fs from 'node:fs';
 
 test('Record new outside of test file', async ({ activate }) => {
@@ -298,6 +298,8 @@ test('Record at Cursor should respect custom testId', async ({ activate, showBro
       });
     `,
   });
+
+  await enableProjects(vscode, ['main']);
 
   await testController.expandTestItems(/test.spec/);
   await expect(await testController.run()).toHaveOutput('1 passed');

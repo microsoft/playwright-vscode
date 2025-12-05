@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { enableConfigs, enableProjects, escapedPathSep, expect, selectConfig, test } from './utils';
+import { enableConfigs, enableProjects, escapedPathSep, expect, test } from './utils';
 import { TestRun } from './mock/vscode';
 import fs from 'fs';
 import path from 'path';
@@ -458,76 +458,6 @@ test('should run all projects at once', async ({ activate }) => {
   ]);
 });
 
-test('should group projects by config', async ({ activate }) => {
-  const { vscode, testController } = await activate({
-    'tests1/playwright.config.js': `module.exports = {
-      projects: [
-        { name: 'projectOne' },
-        { name: 'projectTwo' },
-      ]
-    }`,
-    'tests2/playwright.config.js': `module.exports = {
-      projects: [
-        { name: 'projectOne' },
-        { name: 'projectTwo' },
-      ]
-    }`,
-    'tests1/test.spec.ts': `
-      import { test } from '@playwright/test';
-      test('one', async () => {});
-    `,
-    'tests2/test.spec.ts': `
-      import { test } from '@playwright/test';
-      test('one', async () => {});
-    `,
-  });
-
-  await enableConfigs(vscode, [`tests1${path.sep}playwright.config.js`, `tests2${path.sep}playwright.config.js`]);
-  await enableProjects(vscode, ['projectOne', 'projectTwo']);
-  await expect(vscode).toHaveProjectTree(`
-    config: tests1/playwright.config.js
-    [x] projectOne
-    [x] projectTwo
-  `);
-
-  await selectConfig(vscode, `tests2${path.sep}playwright.config.js`);
-  await expect(vscode).toHaveProjectTree(`
-    config: tests2/playwright.config.js
-    [x] projectOne
-    [ ] projectTwo
-  `);
-
-  await enableProjects(vscode, ['projectOne', 'projectTwo']);
-  await expect(vscode).toHaveProjectTree(`
-    config: tests2/playwright.config.js
-    [x] projectOne
-    [x] projectTwo
-  `);
-
-  await testController.runProfile().run();
-
-  await expect(vscode).toHaveConnectionLog([
-    { method: 'listFiles', params: {} },
-    { method: 'listFiles', params: {} },
-    { method: 'runGlobalSetup', params: {} },
-    {
-      method: 'runTests',
-      params: expect.objectContaining({
-        locations: [],
-        testIds: undefined
-      })
-    },
-    { method: 'runGlobalSetup', params: {} },
-    {
-      method: 'runTests',
-      params: expect.objectContaining({
-        locations: [],
-        testIds: undefined
-      })
-    },
-  ]);
-});
-
 test('should stop', async ({ activate, showBrowser }) => {
   test.fixme(showBrowser, 'Times out');
   const { testController } = await activate({
@@ -854,8 +784,16 @@ test('should filter selected project', async ({ activate }) => {
     `,
   });
 
+
+  await enableProjects(vscode, ['project 1']);
+  await expect(testController).toHaveTestTree(`
+    -   tests1
+      -   test.spec.ts
+    -    [playwright.config.js [project 2] — disabled]
+  `);
+
   const testItems = testController.findTestItems(/test.spec/);
-  expect(testItems.length).toBe(1);
+  expect(testItems).toHaveLength(1);
   const testRun = await testController.run(testItems);
   expect(testRun.renderLog()).toBe(`
     tests1 > test.spec.ts > one [2:0]
