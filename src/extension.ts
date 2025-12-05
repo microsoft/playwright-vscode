@@ -219,7 +219,7 @@ export class Extension implements RunHooks {
         if (!project)
           return vscode.window.showWarningMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`));
 
-        const skeleton = await this._createNewTestSkeleton();
+        const skeleton = await this._createNewTestSkeleton(project.project);
         if (!skeleton)
           return;
 
@@ -794,7 +794,7 @@ export class Extension implements RunHooks {
       await this._queueWatchRun(new this._vscode.TestRunRequest(testItems), 'items');
   }
 
-  private async _createNewTestSkeleton() {
+  private async _createNewTestSkeleton(project: reporterTypes.FullProject) {
     let uri = this._vscode.window.activeTextEditor?.document.uri;
     if (uri && !this._testTree.testItemForFile(uriToPath(uri))) {
       await this._ensureTestsInAllModels([uriToPath(uri)]);
@@ -802,7 +802,7 @@ export class Extension implements RunHooks {
         uri = undefined;
     }
     if (!uri) {
-      const file = this._findUnusedFile();
+      const file = this._findUnusedFile(project);
       if (!file)
         return;
       await fs.promises.writeFile(file, `import { test, expect } from '@playwright/test';`);
@@ -816,20 +816,39 @@ export class Extension implements RunHooks {
     if (!testItem)
       return;
 
-    const document = await this._vscode.workspace.openTextDocument(uriToPath(uri));
-    const editor = await this._vscode.window.showTextDocument(document);
+    const editor = await this._vscode.window.showTextDocument(uri);
 
-    const existingTestNames = this._testTree.collectTestsInside(testItem).map(t => t.label);
+    const skeleton = await this._appendTestSkeleton(testItem, editor);
+    if (!skeleton)
+      return;
+
+    await this._workspaceChanged({ created: new Set(), changed: new Set([uriToPath(editor.document.uri)]), deleted: new Set() });
+    await this._ensureTestsInAllModels([uriToPath(editor.document.uri)]);
+
+    const skeletonTestItem = this._testTree.collectTestsInside(testItem).find(t => upstreamTreeItem(t).title === skeleton.testName);
+    if (!skeleton)
+      return;
+
+    // move cursor as late as possible to avoid disturbing the user if something fails
+    editor.selection = skeleton.placeholder;
+
+    return skeletonTestItem;
+  }
+
+  private async _appendTestSkeleton(fileItem: vscodeTypes.TestItem, editor: vscodeTypes.TextEditor): Promise<{ testName: string, placeholder: vscodeTypes.Selection } | undefined> {
+    const existingTestNames = this._testTree.collectTestsInside(fileItem).map(t => t.label);
     let testName = 'test';
     for (let i = 1; existingTestNames.includes(testName); i++)
       testName = `test ${i}`;
+    if (existingTestNames.includes(testName))
+      return;
 
     // follow-up with proper babel
-    const text = document.getText();
+    const text = editor.document.getText();
     const testType = text.includes('it(') || text.includes('it.') ? 'it' : 'test';
 
-    let lastLine = document.lineCount - 1;
-    if (!document.lineAt(lastLine).isEmptyOrWhitespace)
+    let lastLine = editor.document.lineCount - 1;
+    if (!editor.document.lineAt(lastLine).isEmptyOrWhitespace)
       lastLine++;
     const insertPosition = new this._vscode.Position(lastLine, 0);
 
@@ -842,31 +861,15 @@ ${testType}('${testName}', async ({ page }) => {
     });
     if (!success)
       return;
-    await document.save();
+    await editor.document.save();
 
-    await this._workspaceChanged({ created: new Set(), changed: new Set([uriToPath(document.uri)]), deleted: new Set() });
-    await this._ensureTestsInAllModels([uriToPath(document.uri)]);
-
-    const skeleton = this._testTree.collectTestsInside(testItem).find(t => upstreamTreeItem(t).title === testName);
-    if (!skeleton)
-      return;
-
-    // move cursor as late as possible to avoid disturbing the user
-    editor.selection = new this._vscode.Selection(insertPosition.line + 2, 2, insertPosition.line + 2, '  // Recording...'.length);
-
-    return skeleton;
+    const placeholder = new this._vscode.Selection(insertPosition.line + 2, insertPosition.character + 2, insertPosition.line + 2, insertPosition.character + 2 + '// Recording...'.length);
+    return { testName, placeholder };
   }
 
-  private _findUnusedFile(): string | undefined {
-    const model = this._models.selectedModel();
-    if (!model)
-      return;
-    const project = model.enabledProjects()[0];
-    if (!project)
-      return;
+  private _findUnusedFile(project: reporterTypes.FullProject): string | undefined {
     for (let i = 1; i < 100; ++i) {
-      // is testDir enough? do we need to consider project root?
-      const file = path.join(project.project.testDir, `test-${i}.spec.ts`);
+      const file = path.join(project.testDir, `test-${i}.spec.ts`);
       if (fs.existsSync(file))
         continue;
       return file;

@@ -33,6 +33,7 @@ export type {
   Progress,
   QuickPickItem,
   Range,
+  Selection,
   TestItem,
   TestItemCollection,
   TestMessage,
