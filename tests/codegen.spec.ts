@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import type { Page } from '@playwright/test';
 import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 import fs from 'node:fs';
 
@@ -84,39 +85,20 @@ test('test', async ({ page }) => {
   }]);
 });
 
-test('should generate new test at end of open file', async ({ activate }) => {
-  test.slow();
-
-  const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = {
-      projects: [
-        { name: 'chromium' },
-        { name: 'firefox' }
-      ],
-    }`,
-    'test.spec.ts': `
+test.describe('Record New', () => {
+  const cases: Record<string, { input: string, record(page: Page): Promise<void>, output: string }> = {
+    'at end of file': {
+      input: `
 import { test, expect } from '@playwright/test';
 test.beforeEach(async ({ page }) => {
   await page.setContent('<button>click me</button>');
 });
 test('test', async ({ page }) => {});
 `,
-  });
-
-  await testController.expandTestItems(/test.spec/);
-  await vscode.openEditors('test.spec.ts');
-
-  const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  await webView.getByText('Record new').click();
-  await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
-
-  const browser = await connectToSharedBrowser(vscode);
-  const page = await waitForPage(browser);
-  await page.getByRole('button', { name: 'click me' }).click();
-  await expect.poll(() => {
-    const edits = vscode.window.activeTextEditor.edits;
-    return edits?.[edits.length - 1].to;
-  }).toEqual(`
+      async record(page: Page) {
+        await page.getByRole('button', { name: 'click me' }).click();
+      },
+      output: `
 import { test, expect } from '@playwright/test';
 test.beforeEach(async ({ page }) => {
   await page.setContent('<button>click me</button>');
@@ -126,21 +108,10 @@ test('test', async ({ page }) => {});
 test('test 1', async ({ page }) => {
   <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
 });
-`);
-  vscode.lastWithProgressToken!.cancel();
-});
-
-test('should generate new test at end of open file with describe', async ({ activate }) => {
-  test.slow();
-
-  const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = {
-      projects: [
-        { name: 'chromium' },
-        { name: 'firefox' }
-      ],
-    }`,
-    'test.spec.ts': `
+`
+    },
+    'at end of describe': {
+      input: `
 import { test, expect } from '@playwright/test';
 test.beforeEach(async ({ page }) => {
   await page.setContent('<button>click me</button>');
@@ -149,22 +120,10 @@ test.describe('my suite', () => {
   test('test', async ({ page }) => {});
 });
 `,
-  });
-
-  await testController.expandTestItems(/test.spec/);
-  await vscode.openEditors('test.spec.ts');
-
-  const webView = vscode.webViews.get('pw.extension.settingsView')!;
-  await webView.getByText('Record new').click();
-  await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
-
-  const browser = await connectToSharedBrowser(vscode);
-  const page = await waitForPage(browser);
-  await page.getByRole('button', { name: 'click me' }).click();
-  await expect.poll(() => {
-    const edits = vscode.window.activeTextEditor.edits;
-    return edits?.[edits.length - 1].to;
-  }).toEqual(`
+      async record(page: Page) {
+        await page.getByRole('button', { name: 'click me' }).click();
+      },
+      output: `
 import { test, expect } from '@playwright/test';
 test.beforeEach(async ({ page }) => {
   await page.setContent('<button>click me</button>');
@@ -176,10 +135,42 @@ test.describe('my suite', () => {
     <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
   });
 });
-`);
-  vscode.lastWithProgressToken!.cancel();
-});
+`
+    }
+  };
 
+  for (const [name, { input, record, output }] of Object.entries(cases)) {
+    test(name, async ({ activate }) => {
+      test.slow();
+
+      const { vscode, testController } = await activate({
+        'playwright.config.js': `module.exports = {
+          projects: [
+            { name: 'chromium' },
+            { name: 'firefox' }
+          ],
+        };`,
+        'test.spec.ts': input,
+      });
+
+      await testController.expandTestItems(/test.spec/);
+      await vscode.openEditors('test.spec.ts');
+
+      const webView = vscode.webViews.get('pw.extension.settingsView')!;
+      await webView.getByText('Record new').click();
+      await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+
+      const browser = await connectToSharedBrowser(vscode);
+      const page = await waitForPage(browser);
+      await record(page);
+      await expect.poll(() => {
+        const edits = vscode.window.activeTextEditor.edits;
+        return edits?.[edits.length - 1].to;
+      }).toEqual(output);
+  vscode.lastWithProgressToken!.cancel();
+    });
+  }
+});
 
 test('running test should stop the recording', async ({ activate, showBrowser }) => {
   test.skip(!showBrowser);
