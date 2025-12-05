@@ -33,7 +33,7 @@ import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
 import { pathToFileURL } from 'url';
 import { TestConfig } from './playwrightTestServer';
-import { findTestEndPosition } from './babelHighlightUtil';
+import { findTestEndPosition, SourcePosition } from './babelHighlightUtil';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -816,17 +816,18 @@ export class Extension implements RunHooks {
     if (!testItem)
       return;
 
-    const editor = await this._vscode.window.showTextDocument(uri);
+    const document = await this._vscode.workspace.openTextDocument(uri);
+    const editor = await this._vscode.window.showTextDocument(document);
 
     const skeleton = await this._appendTestSkeleton(testItem, editor);
     if (!skeleton)
       return;
 
-    await this._workspaceChanged({ created: new Set(), changed: new Set([uriToPath(editor.document.uri)]), deleted: new Set() });
-    await this._ensureTestsInAllModels([uriToPath(editor.document.uri)]);
+    await this._workspaceChanged({ created: new Set(), changed: new Set([uriToPath(uri)]), deleted: new Set() });
+    await this._ensureTestsInAllModels([uriToPath(uri)]);
 
     const skeletonTestItem = this._testTree.collectTestsInside(testItem).find(t => upstreamTreeItem(t).title === skeleton.testName);
-    if (!skeleton)
+    if (!skeletonTestItem)
       return;
 
     // move cursor as late as possible to avoid disturbing the user if something fails
@@ -847,24 +848,36 @@ export class Extension implements RunHooks {
     const text = editor.document.getText();
     const testType = text.includes('it(') || text.includes('it.') ? 'it' : 'test';
 
-    let lastLine = editor.document.lineCount - 1;
-    if (!editor.document.lineAt(lastLine).isEmptyOrWhitespace)
-      lastLine++;
-    const insertPosition = new this._vscode.Position(lastLine, 0);
-
+    const insertPosition = this._findLastLine(fileItem, editor);
     const success = await editor.edit(editBuilder => {
       editBuilder.insert(insertPosition, `
+
 ${testType}('${testName}', async ({ page }) => {
   // Recording...
-});
-`);
+});`);
     });
     if (!success)
       return;
     await editor.document.save();
 
-    const placeholder = new this._vscode.Selection(insertPosition.line + 2, insertPosition.character + 2, insertPosition.line + 2, insertPosition.character + 2 + '// Recording...'.length);
+    const placeholder = new this._vscode.Selection(insertPosition.line + 3, 2, insertPosition.line + 3, '  // Recording...'.length + 2);
     return { testName, placeholder };
+  }
+
+  private _findLastLine(fileItem: vscodeTypes.TestItem, editor: vscodeTypes.TextEditor): vscodeTypes.Position {
+    const allTests = this._testTree.collectTestsInside(fileItem);
+    const lastTest = allTests[allTests.length - 1];
+
+    if (lastTest && lastTest.range) {
+      const testEnd = findTestEndPosition(editor.document.getText(), uriToPath(editor.document.uri), this._asSourcePosition(lastTest.range.start));
+      if (testEnd)
+        return editor.document.lineAt(testEnd.line - 1).range.end;
+    }
+
+    let lastLine = editor.document.lineCount - 1;
+    if (!editor.document.lineAt(lastLine).isEmptyOrWhitespace)
+      lastLine++;
+    return new this._vscode.Position(lastLine, 0);
   }
 
   private _findUnusedFile(project: reporterTypes.FullProject): string | undefined {
@@ -1056,6 +1069,10 @@ ${testType}('${testName}', async ({ page }) => {
     if (location)
       testMessage.location = location;
     return testMessage;
+  }
+
+  private _asSourcePosition(position: vscodeTypes.Position): SourcePosition {
+    return { line: position.line + 1, column: position.character + 1 };
   }
 
   private _asPosition(location: { line: number, column: number }): vscodeTypes.Position {

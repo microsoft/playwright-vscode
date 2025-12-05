@@ -166,8 +166,9 @@ export class TestTree extends DisposableBase {
         vsChild.tags = uChild.tags.map(tag => new this._vscode.TestTag(tag));
       const hasLocation = uChild.location.line || uChild.location.column;
       if (hasLocation && (!vsChild.range || vsChild.range.start.line + 1 !== uChild.location.line)) {
-        const line = uChild.location.line;
-        vsChild.range = new this._vscode.Range(Math.max(line - 1, 0), 0, line, 0);
+        const { line, column } = uChild.location;
+        const start = new this._vscode.Position(Math.max(line - 1, 0), Math.max(column - 1, 0));
+        vsChild.range = new this._vscode.Range(start, start);
       } else if (hasLocation && !vsChild.range) {
         vsChild.range = undefined;
       }
