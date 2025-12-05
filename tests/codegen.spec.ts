@@ -18,7 +18,7 @@ import type { Page } from '@playwright/test';
 import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 import fs from 'node:fs';
 
-test('should generate code', async ({ activate }) => {
+test('Record new outside of test file', async ({ activate }) => {
   test.slow();
 
   const globalSetupFile = test.info().outputPath('globalSetup.txt');
@@ -85,7 +85,7 @@ test('test', async ({ page }) => {
   }]);
 });
 
-test.describe('Record New', () => {
+test.describe('Record New inside test file', () => {
   const cases: Record<string, { input: string, record(page: Page): Promise<void>, output: string }> = {
     'at end of file': {
       input: `
