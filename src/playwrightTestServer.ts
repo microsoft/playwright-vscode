@@ -61,7 +61,7 @@ export class PlaywrightTestServer {
   private _model: TestModel;
   private _testServerPromise: Promise<TestServerConnectionWrapper> | undefined;
   private _config?: JsonConfig;
-  private _globalSetupEnv: { [key: string]: string | undefined } = {};
+  private _globalSetupEnv: { [key: string]: string | undefined } | undefined;
 
   constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
@@ -155,7 +155,7 @@ export class PlaywrightTestServer {
     return await this._runGlobalHooksInServer(connection, type, testListener, token, true);
   }
 
-  private async _runGlobalHooksInServer(testServer: TestServerConnection, type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken, saveEnv: boolean): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
+  private async _runGlobalHooksInServer(testServer: TestServerConnection, type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken, isMainServer: boolean): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
     const teleReceiver = new TeleReporterReceiver(testListener, {
       mergeProjects: true,
       mergeTestCases: true,
@@ -172,14 +172,20 @@ export class PlaywrightTestServer {
       ]);
       for (const message of result.report)
         void teleReceiver.dispatch(message);
-      if (type === 'setup' && saveEnv && 'env' in result)
-        this._globalSetupEnv = Object.fromEntries(result.env.map(([key, value]) => [key, value ?? undefined]));
-      if (type === 'teardown' && saveEnv)
-        this._globalSetupEnv = {};
+      if (isMainServer && type === 'setup' && result.status === 'passed') {
+        const env = 'env' in result ? result.env : [];
+        this._globalSetupEnv = Object.fromEntries(env.map(([key, value]) => [key, value ?? undefined]));
+      }
+      if (isMainServer && type === 'teardown')
+        this._globalSetupEnv = undefined;
       return result.status;
     } finally {
       disposable.dispose();
     }
+  }
+
+  ranGlobalSetup() {
+    return !!this._globalSetupEnv;
   }
 
   async startDevServer(): Promise<reporterTypes.FullResult['status']> {

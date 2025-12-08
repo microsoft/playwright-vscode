@@ -1146,11 +1146,10 @@ test.describe('runGlobalSetupOnEachRun', { annotation: { type: 'issue', descript
     const { testController } = await activate(files, { runGlobalSetupOnEachRun: true });
 
     const firstRun = (await testController.run()).renderOutput();
-    expectOrdering(firstRun, ['RUNNING SETUP', 'RUNNING TEST']);
-    expect(firstRun).not.toContain('RUNNING TEARDOWN');
+    expectOrdering(firstRun, ['RUNNING SETUP', 'RUNNING TEST', 'RUNNING TEARDOWN']);
 
     const secondRun = (await testController.run()).renderOutput();
-    expectOrdering(secondRun, ['RUNNING TEARDOWN', 'RUNNING SETUP', 'RUNNING TEST']);
+    expectOrdering(secondRun, ['RUNNING SETUP', 'RUNNING TEST', 'RUNNING TEARDOWN']);
   });
 });
 
@@ -1159,7 +1158,7 @@ test('should provide page snapshot to copilot', async ({ activate }) => {
     'playwright.config.js': `module.exports = { testDir: 'tests', workers: 2 }`,
     'tests/test1.spec.ts': `
         import { test, expect } from '@playwright/test';
-  
+
         test('one', async ({ page }) => {
           await page.setContent('<button>click me</button>');
           expect(1).toBe(2);

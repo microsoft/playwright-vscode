@@ -83,7 +83,6 @@ export class TestModel extends DisposableBase {
     promise: Promise<void>,
     finishedCallback: () => void
   } | undefined;
-  private _ranGlobalSetup = false;
   private _startedDevServer = false;
   private _collection: TestModelCollection;
   private _traceViewer: TraceViewer | null = null;
@@ -154,7 +153,6 @@ export class TestModel extends DisposableBase {
     this._errorByFile.clear();
     this._playwrightTest.reset();
     this._watches.clear();
-    this._ranGlobalSetup = false;
     this._traceViewer?.close();
     this._traceViewer = null;
   }
@@ -470,30 +468,25 @@ export class TestModel extends DisposableBase {
 
   canRunGlobalHooks(type: 'setup' | 'teardown'): boolean {
     if (type === 'teardown')
-      return this._ranGlobalSetup;
+      return this._playwrightTest.ranGlobalSetup();
 
     const config = this._playwrightTest.config();
     if (config && !config.globalSetup && !config.globalTeardown && !config.webServer)
       return false;
 
-    return !this._ranGlobalSetup;
+    return !this._playwrightTest.ranGlobalSetup();
   }
 
-  async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<reporterTypes.FullResult['status']> {
+  async runGlobalHooksIfNeeded(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<reporterTypes.FullResult['status']> {
     if (type === 'setup') {
-      if (this._ranGlobalSetup && !this._embedder.settingsModel.runGlobalSetupOnEachRun.get())
+      if (this._playwrightTest.ranGlobalSetup())
         return 'passed';
-      const status = await this._playwrightTest.runGlobalHooks('setup', testListener, token);
-      if (status === 'passed')
-        this._ranGlobalSetup = true;
-      return status;
+      return await this._playwrightTest.runGlobalHooks('setup', testListener, token);
+    } else {
+      if (!this._playwrightTest.ranGlobalSetup())
+        return 'passed';
+      return await this._playwrightTest.runGlobalHooks('teardown', testListener, token);
     }
-
-    if (!this._ranGlobalSetup)
-      return 'passed';
-    const status = await this._playwrightTest.runGlobalHooks('teardown', testListener, token);
-    this._ranGlobalSetup = false;
-    return status;
   }
 
   canStartDevServer(): boolean {
@@ -530,7 +523,16 @@ export class TestModel extends DisposableBase {
 
     this._collection._saveSettings();
 
-    const globalSetupResult = await this.runGlobalHooks('setup', reporter, token);
+    // Cleanup from any previous run, just in case we interrupted before running teardown.
+    if (this._embedder.settingsModel.runGlobalSetupOnEachRun.get() && this._playwrightTest.ranGlobalSetup()) {
+      const globalTeardownResult = await this.runGlobalHooksIfNeeded('teardown', reporter, token);
+      if (globalTeardownResult !== 'passed')
+        return;
+      if (token?.isCancellationRequested)
+        return;
+    }
+
+    const globalSetupResult = await this.runGlobalHooksIfNeeded('setup', reporter, token);
     if (globalSetupResult !== 'passed')
       return;
     if (token?.isCancellationRequested)
@@ -568,6 +570,10 @@ export class TestModel extends DisposableBase {
       if (token?.isCancellationRequested)
         return;
       await this._playwrightTest.runTests(request, options, reporter, token);
+      if (token?.isCancellationRequested)
+        return;
+      if (this._embedder.settingsModel.runGlobalSetupOnEachRun.get())
+        await this.runGlobalHooksIfNeeded('teardown', reporter, token);
     } finally {
       await this._embedder.runHooks.onDidRunTests();
     }
@@ -582,11 +588,12 @@ export class TestModel extends DisposableBase {
     // Toggling "run global setup on each run" allows user to debug global setup/teardown code.
     const debugShouldRunGlobalSetup = !!this._embedder.settingsModel.runGlobalSetupOnEachRun.get();
     if (debugShouldRunGlobalSetup) {
-      const globalTeardownResult = await this.runGlobalHooks('teardown', reporter, token);
+      // Cleanup from any previous run, to not have two active global setups.
+      const globalTeardownResult = await this.runGlobalHooksIfNeeded('teardown', reporter, token);
       if (globalTeardownResult !== 'passed')
         return;
     } else {
-      const globalSetupResult = await this.runGlobalHooks('setup', reporter, token);
+      const globalSetupResult = await this.runGlobalHooksIfNeeded('setup', reporter, token);
       if (globalSetupResult !== 'passed')
         return;
     }
