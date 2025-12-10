@@ -37,17 +37,17 @@ test('should run all tests', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test-1.spec.ts
-        - ✅ should pass [2:0]
+        - ✅ should pass [2:10]
       -   test-2.spec.ts
-        - ❌ should fail [2:0]
+        - ❌ should fail [2:10]
   `);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test-2.spec.ts > should fail [2:0]
+    tests > test-2.spec.ts > should fail [2:10]
       enqueued
       started
       failed
-    tests > test-1.spec.ts > should pass [2:0]
+    tests > test-1.spec.ts > should pass [2:10]
       enqueued
       started
       passed
@@ -79,11 +79,11 @@ test('should run one test', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        - ✅ should pass [2:0]
+        - ✅ should pass [2:10]
   `);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > should pass [2:0]
+    tests > test.spec.ts > should pass [2:10]
       enqueued
       enqueued
       started
@@ -127,12 +127,12 @@ test('should run describe', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > describe > one [3:0]
+    tests > test.spec.ts > describe > one [3:12]
       enqueued
       enqueued
       started
       passed
-    tests > test.spec.ts > describe > two [4:0]
+    tests > test.spec.ts > describe > two [4:12]
       enqueued
       enqueued
       started
@@ -155,11 +155,11 @@ test('should run file', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > one [2:0]
+    tests > test.spec.ts > one [2:10]
       enqueued
       started
       passed
-    tests > test.spec.ts > two [3:0]
+    tests > test.spec.ts > two [3:10]
       enqueued
       started
       passed
@@ -200,11 +200,11 @@ test('should run folder', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    tests > folder > test1.spec.ts > one [2:0]
+    tests > folder > test1.spec.ts > one [2:10]
       enqueued
       started
       passed
-    tests > folder > test2.spec.ts > two [2:0]
+    tests > folder > test2.spec.ts > two [2:10]
       enqueued
       started
       passed
@@ -239,7 +239,7 @@ test('should show error message', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog({ messages: true })).toBe(`
-    tests > test.spec.ts > should fail [2:0]
+    tests > test.spec.ts > should fail [2:10]
       enqueued
       enqueued
       started
@@ -292,7 +292,7 @@ test('should show soft error messages', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog({ messages: true })).toBe(`
-    tests > test.spec.ts > should fail [2:0]
+    tests > test.spec.ts > should fail [2:10]
       enqueued
       enqueued
       started
@@ -502,9 +502,9 @@ test('should not remove other tests when running focused test', async ({ activat
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        -   one [2:0]
-        - ✅ two [3:0]
-        -   three [4:0]
+        -   one [2:10]
+        - ✅ two [3:10]
+        -   three [4:12]
   `);
 });
 
@@ -524,17 +524,17 @@ test('should run all parametrized tests', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > test-one [3:0]
+    tests > test.spec.ts > test-one [3:12]
       enqueued
       enqueued
       started
       passed
-    tests > test.spec.ts > test-three [3:0]
+    tests > test.spec.ts > test-three [3:12]
       enqueued
       enqueued
       started
       passed
-    tests > test.spec.ts > test-two [3:0]
+    tests > test.spec.ts > test-two [3:12]
       enqueued
       enqueued
       started
@@ -582,7 +582,7 @@ test('should run one parametrized test', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > test two [3:0]
+    tests > test.spec.ts > test two [3:12]
       enqueued
       enqueued
       started
@@ -626,12 +626,12 @@ test('should run one parametrized groups', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > group three > test one in group three [4:0]
+    tests > test.spec.ts > group three > test one in group three [4:12]
       enqueued
       enqueued
       started
       passed
-    tests > test.spec.ts > group three > test two in group three [5:0]
+    tests > test.spec.ts > group three > test two in group three [5:12]
       enqueued
       enqueued
       started
@@ -682,7 +682,7 @@ test('should run tests in parametrized groups', async ({ activate }) => {
   expect(testItems1.length).toBe(1);
   const testRun = await testController.run(testItems1);
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > level 1 > should work [4:0]
+    tests > test.spec.ts > level 1 > should work [4:12]
       enqueued
       enqueued
       started
@@ -716,7 +716,7 @@ test('should run tests in parametrized groups', async ({ activate }) => {
   expect(testItems2.length).toBe(1);
   const testRun2 = await testController.run(testItems2);
   expect(testRun2.renderLog()).toBe(`
-    tests > test.spec.ts > level 2 > should work [4:0]
+    tests > test.spec.ts > level 2 > should work [4:12]
       enqueued
       enqueued
       started
@@ -762,7 +762,7 @@ test('should list tests in relative folder', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        -   one [2:0]
+        -   one [2:10]
   `);
 });
 
@@ -796,7 +796,7 @@ test('should filter selected project', async ({ activate }) => {
   expect(testItems).toHaveLength(1);
   const testRun = await testController.run(testItems);
   expect(testRun.renderLog()).toBe(`
-    tests1 > test.spec.ts > one [2:0]
+    tests1 > test.spec.ts > one [2:10]
       enqueued
       started
       passed
@@ -841,7 +841,7 @@ test('should report project-specific failures', async ({ activate }) => {
   await profile.run();
 
   expect(testRuns[0].renderLog({ messages: true })).toBe(`
-    tests > test.spec.ts > should pass > projectA [2:0]
+    tests > test.spec.ts > should pass > projectA [2:10]
       enqueued
       started
       failed
@@ -849,7 +849,7 @@ test('should report project-specific failures', async ({ activate }) => {
         Error: projectA
         <br>
             at tests/test.spec.ts:4:15
-    tests > test.spec.ts > should pass > projectB [2:0]
+    tests > test.spec.ts > should pass > projectB [2:10]
       enqueued
       started
       failed
@@ -857,7 +857,7 @@ test('should report project-specific failures', async ({ activate }) => {
         Error: projectB
         <br>
             at tests/test.spec.ts:4:15
-    tests > test.spec.ts > should pass > projectC [2:0]
+    tests > test.spec.ts > should pass > projectC [2:10]
       enqueued
       started
       failed
@@ -886,7 +886,7 @@ test('should discover tests after running one test', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test1.spec.ts > one [2:0]
+    tests > test1.spec.ts > one [2:10]
       enqueued
       enqueued
       started
@@ -898,9 +898,9 @@ test('should discover tests after running one test', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test1.spec.ts
-        - ✅ one [2:0]
+        - ✅ one [2:10]
       -   test2.spec.ts
-        -   two [2:0]
+        -   two [2:10]
   `);
 });
 
@@ -925,30 +925,30 @@ test('should provisionally enqueue nested tests', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        - ✅ 1 [2:0]
-        - ✅ 2 [3:0]
-        -   group [4:0]
-          - ✅ 3 [5:0]
-          - ✅ 4 [6:0]
+        - ✅ 1 [2:10]
+        - ✅ 2 [3:10]
+        -   group [4:12]
+          - ✅ 3 [5:12]
+          - ✅ 4 [6:12]
   `);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > 1 [2:0]
+    tests > test.spec.ts > 1 [2:10]
       enqueued
       enqueued
       started
       passed
-    tests > test.spec.ts > 2 [3:0]
+    tests > test.spec.ts > 2 [3:10]
       enqueued
       enqueued
       started
       passed
-    tests > test.spec.ts > group > 3 [5:0]
+    tests > test.spec.ts > group > 3 [5:12]
       enqueued
       enqueued
       started
       passed
-    tests > test.spec.ts > group > 4 [6:0]
+    tests > test.spec.ts > group > 4 [6:12]
       enqueued
       enqueued
       started
@@ -969,7 +969,7 @@ test('should run tests for folders above root', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    builder > playwright > tests > test.spec.ts > one [2:0]
+    builder > playwright > tests > test.spec.ts > one [2:10]
       enqueued
       started
       passed
@@ -995,7 +995,7 @@ test('should produce output twice', async ({ activate }) => {
 
   const testRun1 = await testController.run(testItems);
   expect(testRun1.renderLog({ output: true })).toBe(`
-    tests > test.spec.ts > one [2:0]
+    tests > test.spec.ts > one [2:10]
       enqueued
       started
       passed
@@ -1014,7 +1014,7 @@ test('should produce output twice', async ({ activate }) => {
 
   const testRun2 = await testController.run(testItems);
   expect(testRun2.renderLog({ output: true })).toBe(`
-    tests > test.spec.ts > one [2:0]
+    tests > test.spec.ts > one [2:10]
       enqueued
       enqueued
       started
@@ -1195,7 +1195,7 @@ test('should not run global setup for other project', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests2
       -   example.spec.ts
-        -   two [2:0]
+        -   two [2:10]
   `);
   const items = testController.findTestItems(/two/);
   const testRun = await testController.run(items);
@@ -1219,12 +1219,12 @@ test('should run single test defined outside of .spec.ts file', { annotation: { 
   await testController.expandTestItems(/.*/);
   await expect(testController).toHaveTestTree(`
     -   example.spec.ts
-      -   one [2:0]
+      -   one [2:10]
   `);
   const items = testController.findTestItems(/one/);
   const testRun = await testController.run(items);
   expect(testRun.renderLog()).toEqual(`
-    example.spec.ts > one [2:0]
+    example.spec.ts > one [2:10]
       enqueued
       enqueued
       started
@@ -1374,12 +1374,12 @@ test('should run both file and specific test from another file', async ({ activa
     })
   }]));
   expect(testRun.renderLog()).toBe(`
-    tests > foo.spec.ts > bar-test [2:0]
+    tests > foo.spec.ts > bar-test [2:10]
       enqueued
       enqueued
       started
       passed
-    tests > bar.spec.ts > foo-test [2:0]
+    tests > bar.spec.ts > foo-test [2:10]
       enqueued
       enqueued
       started
