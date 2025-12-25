@@ -34,6 +34,7 @@ import { LocatorsView } from './locatorsView';
 import { pathToFileURL } from 'url';
 import { TestConfig } from './playwrightTestServer';
 import { findTestEndPosition } from './babelHighlightUtil';
+import { TestwiseProvider } from './testwiseView';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -46,6 +47,10 @@ type StepInfo = {
 };
 
 export async function activate(context: vscodeTypes.ExtensionContext) {
+  const vscode = require('vscode');
+  console.log('TESTWISE: Extension is activating...');
+  vscode.window.registerTreeDataProvider('pw.extension.testwiseView', new TestwiseProvider());
+
   // Do not await, quickly run the extension, schedule work.
   void new Extension(require('vscode'), context).activate();
 }

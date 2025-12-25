@@ -172,6 +172,12 @@
           "type": "webview",
           "id": "pw.extension.settingsView",
           "name": "%views.test.pw.extension.settingsView%"
+        },
+        {
+          "type": "tree",
+          "id": "pw.extension.testwiseView",
+          "name": "TESTWISE",
+          "when": "true" 
         }
       ],
       "playwrightContainer": [
