@@ -48,9 +48,45 @@ type StepInfo = {
 
 export async function activate(context: vscodeTypes.ExtensionContext) {
   const vscode = require('vscode');
-  console.log('TESTWISE: Extension is activating...');
-  vscode.window.registerTreeDataProvider('pw.extension.testwiseView', new TestwiseProvider());
+  const rootPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
+  const provider = new TestwiseProvider(rootPath);
+
+  const treeView = vscode.window.createTreeView('pw.extension.testwiseView', { treeDataProvider: provider });
+
+  // Event listener for Checkbox changes
+  treeView.onDidChangeCheckboxState(async (e: { items: [any, any][] }) => {
+    const filePath = path.join(rootPath, 'seed-data', 'registeredSubjects.json');
+    
+    // Load existing data
+    let registered: any[] = [];
+    if (fs.existsSync(filePath)) {
+      registered = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    }
+
+    e.items.forEach(([item, state]: [any, any]) => {
+      const entry = {
+        subject: item.parentSubject,
+        variant: item.variant || null,
+        screen_type: item.label
+      };
+
+      if (state === vscode.TreeItemCheckboxState.Checked) {
+        // Add if not exists
+        if (!registered.some(r => JSON.stringify(r) === JSON.stringify(entry))) {
+          registered.push(entry);
+        }
+      } else {
+        // Remove if unchecked
+        registered = registered.filter(r => JSON.stringify(r) !== JSON.stringify(entry));
+      }
+    });
+
+    fs.writeFileSync(filePath, JSON.stringify(registered, null, 2));
+  });
+
+  provider.refresh();
+  
   // Do not await, quickly run the extension, schedule work.
   void new Extension(require('vscode'), context).activate();
 }
