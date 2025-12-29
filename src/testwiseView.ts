@@ -23,7 +23,7 @@ export class TestwiseProvider implements vscode.TreeDataProvider<vscode.TreeItem
   private _onDidChangeTreeData = new vscode.EventEmitter<TestwiseItem | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  constructor(private workspaceRoot: string | undefined) {}
+  constructor(private workspaceRoot: string | undefined) { }
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
@@ -34,101 +34,122 @@ export class TestwiseProvider implements vscode.TreeDataProvider<vscode.TreeItem
   }
 
   async getChildren(element?: TestwiseItem): Promise<TestwiseItem[]> {
-    console.log('TESTWISE: getChildren called for element:', element?.label || 'root');
     if (!this.workspaceRoot) {
-        console.log('TESTWISE: No workspace root found!');
-        return [new TestwiseItem('Open a folder to see seed data', vscode.TreeItemCollapsibleState.None, 'info_node')];
+      return [new TestwiseItem('Open a folder to see seed data', vscode.TreeItemCollapsibleState.None, 'info_node')];
     }
 
     const dataPath = path.join(this.workspaceRoot, 'seed-data', 'subjects.json');
+    if (!fs.existsSync(dataPath)) return [];
 
-    // 1. Check if the file exists
-    if (!fs.existsSync(dataPath)) {
-      if (!element) {
-        return [new TestwiseItem(
-          'No seed data found', 
-          vscode.TreeItemCollapsibleState.None, 
-          'info_node'
-        )];
-      }
-      return [];
-    }
-
-    // 2. Try to read and parse the data safely
     let rawData: any[] = [];
     try {
-      const content = fs.readFileSync(dataPath, 'utf-8');
-      rawData = JSON.parse(content);
-    } catch (err) {
-      if (!element) {
-        return [new TestwiseItem('Error parsing subjects.json', vscode.TreeItemCollapsibleState.None, 'info_node')];
-      }
-      return [];
-    }
+      rawData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+    } catch (err) { return []; }
 
-    // 3. Root Level: Show "Subjects" folder
+    // 3. Root
     if (!element) {
-      return [new TestwiseItem('Subjects', vscode.TreeItemCollapsibleState.Expanded, 'root')];
+      return [new TestwiseItem('Subjects', vscode.TreeItemCollapsibleState.Collapsed, 'root')];
     }
 
-    // 4. Level 1: List unique subjects
+    // 4. Level 1: Unique subjects
     if (element.contextValue === 'root') {
       const uniqueSubjects = [...new Set(rawData.map((item: any) => item.subject))];
       return uniqueSubjects.map(s => new TestwiseItem(s as string, vscode.TreeItemCollapsibleState.Collapsed, 'subject'));
     }
 
     // --- 5. Level 2: Subject Expanded ---
-    if (element.contextValue === 'subject' || element.contextValue === 'variant_item') {
-      const subjectName = element.contextValue === 'subject' ? element.label : (element.parentSubject || '');
-      const variantName = element.contextValue === 'variant_item' ? element.label : (element.variant || null);
+    if (element.contextValue === 'subject') {
+      const subjectName = typeof element.label === 'string' ? element.label : (element.label?.label || '');
+      const hasVariants = rawData.some(item => item.subject === subjectName && item.variant && item.variant.trim() !== "");
 
-      // READ THE REGISTERED FILE
-      const registeredPath = path.join(this.workspaceRoot!, 'seed-data', 'registeredSubjects.json');
-      let registered: any[] = [];
-      if (fs.existsSync(registeredPath)) {
-          try { registered = JSON.parse(fs.readFileSync(registeredPath, 'utf-8')); } catch(e) {}
+      if (hasVariants) {
+        return [
+          new TestwiseItem('Default', vscode.TreeItemCollapsibleState.Collapsed, 'screens_container', subjectName, null),
+          new TestwiseItem('Variants', vscode.TreeItemCollapsibleState.Collapsed, 'variants_container', subjectName)
+        ];
+      } else {
+        return this.getScreenCheckboxes(subjectName, null);
       }
-
-      const items = ['popup', 'main', 'detail', 'zoom'].map(type => {
-          const item = new TestwiseItem(type, vscode.TreeItemCollapsibleState.None, 'checkbox', subjectName, variantName);
-          
-          // CHECK IF THIS ROW SHOULD BE TICKED
-          const isRegistered = registered.some(r => 
-              r.subject === subjectName && 
-              r.variant === variantName && 
-              r.screen_type === type
-          );
-
-          item.checkboxState = isRegistered 
-              ? vscode.TreeItemCheckboxState.Checked 
-              : vscode.TreeItemCheckboxState.Unchecked;
-              
-          return item;
-      });
-
-      if (element.contextValue === 'subject') {
-          items.push(new TestwiseItem('variants', vscode.TreeItemCollapsibleState.Collapsed, 'variants_container', subjectName));
-      }
-      return items;
     }
+
+    // --- 5b. Inside "Default" OR a specific "Variant Item" ---
+    if (element.contextValue === 'screens_container' || element.contextValue === 'variant_item') {
+      const subjectName = element.parentSubject || '';
+      const variantName = element.contextValue === 'variant_item' 
+        ? (typeof element.label === 'string' ? element.label : element.label?.label || '')
+        : null;
+      return this.getScreenCheckboxes(subjectName, variantName);
+    }
+
+    // --- 5c. Inside the "Variants" list folder ---
+    if (element.contextValue === 'variants_container') {
+      const subjectName = element.parentSubject || '';
+      const uniqueVariants = [...new Set(rawData
+        .filter((item: any) => item.subject === subjectName && item.variant && item.variant.trim() !== "")
+        .map((item: any) => item.variant))];
+
+      return uniqueVariants.map(v => 
+        new TestwiseItem(v as string, vscode.TreeItemCollapsibleState.Collapsed, 'variant_item', subjectName, v as string)
+      );
+    }
+
+    return [];
+  }
+
+  private getScreenCheckboxes(subjectName: string, variantName: string | null): TestwiseItem[] {
+    const registeredPath = path.join(this.workspaceRoot!, 'seed-data', 'registeredSubjects.json');
+    let registered: any[] = [];
+    if (fs.existsSync(registeredPath)) {
+      try { registered = JSON.parse(fs.readFileSync(registeredPath, 'utf-8')); } catch (e) { }
+    }
+
+    return ['popup', 'main', 'detail', 'zoom'].map(type => {
+      const item = new TestwiseItem(type, vscode.TreeItemCollapsibleState.None, 'checkbox', subjectName, variantName);
+
+      const isRegistered = registered.some(r =>
+        r.subject === subjectName &&
+        r.variant === variantName &&
+        r.screen_type === type
+      );
+
+      item.checkboxState = isRegistered
+        ? vscode.TreeItemCheckboxState.Checked
+        : vscode.TreeItemCheckboxState.Unchecked;
+
+      return item;
+    });
   }
 }
 
-class TestwiseItem extends vscode.TreeItem {
+export class TestwiseItem extends vscode.TreeItem {
+  public parentSubject: string | undefined;
+  public variant: string | null | undefined;
+
   constructor(
-    public readonly label: string,
+    label: string,
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
     public readonly contextValue: string,
-    public readonly parentSubject?: string,
-    public readonly variant?: string | null
+    parentSubject?: string,
+    variant?: string | null
   ) {
     super(label, collapsibleState);
-    
+    this.parentSubject = parentSubject;
+    this.variant = variant;
+
     if (contextValue === 'checkbox') {
+      this.iconPath = undefined;
       this.checkboxState = vscode.TreeItemCheckboxState.Unchecked;
-      this.iconPath = new vscode.ThemeIcon('primitive-dot');
-    } else if (contextValue === 'subject' || contextValue === 'variant_item') {
+
+      this.command = {
+        command: 'testwise.toggleCheckbox',
+        title: 'Toggle Checkbox',
+        arguments: [this]
+      };
+    } else if (contextValue === 'variants_container') {
+      this.iconPath = new vscode.ThemeIcon('folder');
+    } else if (contextValue === 'subject' || contextValue === 'variant_item' || contextValue === 'screens_container') {
       this.iconPath = new vscode.ThemeIcon('repo');
     }
   }
 }
+
