@@ -3,14 +3,14 @@
 /**
  * Copyright (c) Microsoft Corporation.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the 'License');
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an 'AS IS' BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -34,9 +34,8 @@ export class TestwiseProvider implements vscode.TreeDataProvider<vscode.TreeItem
   }
 
   async getChildren(element?: TestwiseItem): Promise<TestwiseItem[]> {
-    if (!this.workspaceRoot) {
+    if (!this.workspaceRoot)
       return [new TestwiseItem('Open a folder to see seed data', vscode.TreeItemCollapsibleState.None, 'info_node')];
-    }
 
     const dataPath = path.join(this.workspaceRoot, 'seed-data', 'subjects.json');
     if (!fs.existsSync(dataPath)) return [];
@@ -47,20 +46,26 @@ export class TestwiseProvider implements vscode.TreeDataProvider<vscode.TreeItem
     } catch (err) { return []; }
 
     // 3. Root
-    if (!element) {
+    if (!element)
       return [new TestwiseItem('Subjects', vscode.TreeItemCollapsibleState.Collapsed, 'root')];
-    }
 
     // 4. Level 1: Unique subjects
     if (element.contextValue === 'root') {
-      const uniqueSubjects = [...new Set(rawData.map((item: any) => item.subject))];
-      return uniqueSubjects.map(s => new TestwiseItem(s as string, vscode.TreeItemCollapsibleState.Collapsed, 'subject'));
+      const uniqueSubjects = [...new Set(rawData
+          .map((item: any) => item.subject)
+          .filter(s => typeof s === 'string') // Ensure it's a string
+          .map(s => s.trim())                 // Remove accidental spaces
+      )].sort();                             // Sort alphabetically for sanity
+
+      console.log('Found subjects:', uniqueSubjects); // Check your Debug Console!
+
+      return uniqueSubjects.map(s => new TestwiseItem(s, vscode.TreeItemCollapsibleState.Collapsed, 'subject'));
     }
 
     // --- 5. Level 2: Subject Expanded ---
     if (element.contextValue === 'subject') {
       const subjectName = typeof element.label === 'string' ? element.label : (element.label?.label || '');
-      const hasVariants = rawData.some(item => item.subject === subjectName && item.variant && item.variant.trim() !== "");
+      const hasVariants = rawData.some(item => item.subject === subjectName && item.variant && item.variant.trim() !== '');
 
       if (hasVariants) {
         return [
@@ -72,23 +77,23 @@ export class TestwiseProvider implements vscode.TreeDataProvider<vscode.TreeItem
       }
     }
 
-    // --- 5b. Inside "Default" OR a specific "Variant Item" ---
+    // --- 5b. Inside 'Default' OR a specific 'Variant Item' ---
     if (element.contextValue === 'screens_container' || element.contextValue === 'variant_item') {
       const subjectName = element.parentSubject || '';
-      const variantName = element.contextValue === 'variant_item' 
+      const variantName = element.contextValue === 'variant_item'
         ? (typeof element.label === 'string' ? element.label : element.label?.label || '')
         : null;
       return this.getScreenCheckboxes(subjectName, variantName);
     }
 
-    // --- 5c. Inside the "Variants" list folder ---
+    // --- 5c. Inside the 'Variants' list folder ---
     if (element.contextValue === 'variants_container') {
       const subjectName = element.parentSubject || '';
       const uniqueVariants = [...new Set(rawData
-        .filter((item: any) => item.subject === subjectName && item.variant && item.variant.trim() !== "")
-        .map((item: any) => item.variant))];
+          .filter((item: any) => item.subject === subjectName && item.variant && item.variant.trim() !== '')
+          .map((item: any) => item.variant))];
 
-      return uniqueVariants.map(v => 
+      return uniqueVariants.map(v =>
         new TestwiseItem(v as string, vscode.TreeItemCollapsibleState.Collapsed, 'variant_item', subjectName, v as string)
       );
     }
@@ -99,9 +104,8 @@ export class TestwiseProvider implements vscode.TreeDataProvider<vscode.TreeItem
   private getScreenCheckboxes(subjectName: string, variantName: string | null): TestwiseItem[] {
     const registeredPath = path.join(this.workspaceRoot!, 'seed-data', 'registeredSubjects.json');
     let registered: any[] = [];
-    if (fs.existsSync(registeredPath)) {
+    if (fs.existsSync(registeredPath))
       try { registered = JSON.parse(fs.readFileSync(registeredPath, 'utf-8')); } catch (e) { }
-    }
 
     return ['popup', 'main', 'detail', 'zoom'].map(type => {
       const item = new TestwiseItem(type, vscode.TreeItemCollapsibleState.None, 'checkbox', subjectName, variantName);
