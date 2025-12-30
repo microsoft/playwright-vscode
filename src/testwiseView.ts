@@ -1,5 +1,3 @@
-
-
 /**
  * Copyright (c) Microsoft Corporation.
  *
@@ -45,24 +43,21 @@ export class TestwiseProvider implements vscode.TreeDataProvider<vscode.TreeItem
       rawData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
     } catch (err) { return []; }
 
-    // 3. Root
     if (!element)
       return [new TestwiseItem('Subjects', vscode.TreeItemCollapsibleState.Collapsed, 'root')];
 
-    // 4. Level 1: Unique subjects
     if (element.contextValue === 'root') {
       const uniqueSubjects = [...new Set(rawData
           .map((item: any) => item.subject)
-          .filter(s => typeof s === 'string') // Ensure it's a string
-          .map(s => s.trim())                 // Remove accidental spaces
-      )].sort();                             // Sort alphabetically for sanity
+          .filter(s => typeof s === 'string')
+          .map(s => s.trim())
+      )].sort();
 
-      console.log('Found subjects:', uniqueSubjects); // Check your Debug Console!
+      console.log('Found subjects:', uniqueSubjects);
 
       return uniqueSubjects.map(s => new TestwiseItem(s, vscode.TreeItemCollapsibleState.Collapsed, 'subject'));
     }
 
-    // --- 5. Level 2: Subject Expanded ---
     if (element.contextValue === 'subject') {
       const subjectName = typeof element.label === 'string' ? element.label : (element.label?.label || '');
       const hasVariants = rawData.some(item => item.subject === subjectName && item.variant && item.variant.trim() !== '');
@@ -77,7 +72,6 @@ export class TestwiseProvider implements vscode.TreeDataProvider<vscode.TreeItem
       }
     }
 
-    // --- 5b. Inside 'Default' OR a specific 'Variant Item' ---
     if (element.contextValue === 'screens_container' || element.contextValue === 'variant_item') {
       const subjectName = element.parentSubject || '';
       const variantName = element.contextValue === 'variant_item'
@@ -86,7 +80,6 @@ export class TestwiseProvider implements vscode.TreeDataProvider<vscode.TreeItem
       return this.getScreenCheckboxes(subjectName, variantName);
     }
 
-    // --- 5c. Inside the 'Variants' list folder ---
     if (element.contextValue === 'variants_container') {
       const subjectName = element.parentSubject || '';
       const uniqueVariants = [...new Set(rawData
