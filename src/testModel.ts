@@ -56,6 +56,7 @@ export type TestModelEmbedder = {
   onStdOut: vscodeTypes.Event<string>;
   requestWatchRun: (files: string[], testItems: vscodeTypes.TestItem[]) => void;
   testPausedHandler: (params: { errors: reporterTypes.TestError[] }) => any;
+  debugLogger: vscodeTypes.LogOutputChannel;
 };
 
 type Watch = {

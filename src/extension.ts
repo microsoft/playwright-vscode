@@ -92,6 +92,8 @@ export class Extension implements RunHooks {
 
   private _pnpFiles = new Map<string, { pnpCJS?: string, pnpLoader?: string }>();
 
+  private _debugLogger: vscodeTypes.LogOutputChannel;
+
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     this._vscode = vscode;
     this._context = context;
@@ -128,6 +130,7 @@ export class Extension implements RunHooks {
       borderColor: { id: 'editor.wordHighlightStrongBorder' },
     });
 
+    this._debugLogger = this._vscode.window.createOutputChannel('Playwright', { log: true });
     this._settingsModel = new SettingsModel(vscode, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
@@ -140,6 +143,7 @@ export class Extension implements RunHooks {
       onStdOut: this._debugHighlight.onStdOut.bind(this._debugHighlight),
       requestWatchRun: this._runWatchedTests.bind(this),
       testPausedHandler: this._onTestPaused.bind(this),
+      debugLogger: this._debugLogger,
     });
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);

@@ -919,6 +919,14 @@ type HoverProvider = {
   provideHover?(document: TextDocument, position: Position, token: CancellationToken): void
 };
 
+class LogOutputChannel {
+  debug() {}
+  info() {}
+  warn() {}
+  error() {}
+  trace() {}
+}
+
 export class VSCode {
   isUnderTest = true;
   CancellationTokenSource = CancellationTokenSource;
@@ -1148,6 +1156,7 @@ export class VSCode {
         return { kind };
       },
     });
+    this.window.createOutputChannel = () => new LogOutputChannel();
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
     this.workspace.onDidChangeTextDocument = this.onDidChangeTextDocument;

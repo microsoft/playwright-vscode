@@ -19,7 +19,7 @@ import { ConfigFindRelatedTestFilesReport, ConfigListFilesReport } from './listT
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
 import { TeleReporterReceiver, JsonConfig } from './upstream/teleReceiver';
-import { WebSocketTestServerTransport, TestServerConnection, TestServerConnectionClosedError } from './upstream/testServerConnection';
+import { WebSocketTestServerTransport, TestServerConnection, TestServerConnectionClosedError, TestServerTransport } from './upstream/testServerConnection';
 import { startBackend } from './backend';
 import { escapeRegex, pathSeparator } from './utils';
 import { debugSessionName } from './debugSessionName';
@@ -52,6 +52,7 @@ export type PlaywrightTestOptions = {
   envProvider: (configFile: string) => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
   testPausedHandler: (params: { errors: reporterTypes.TestError[] }) => void;
+  debugLogger: vscodeTypes.LogOutputChannel;
 };
 
 
@@ -324,7 +325,7 @@ export class PlaywrightTestServer {
       if (token?.isCancellationRequested)
         return;
       const address = await addressPromise;
-      debugTestServer = new TestServerConnection(new WebSocketTestServerTransport(address));
+      debugTestServer = new TestServerConnection(new TestServerTransportDebugger(new WebSocketTestServerTransport(address), this._options.debugLogger));
       await debugTestServer.initialize({
         serializer: require.resolve('./oopReporter'),
         closeOnDisconnect: true,
@@ -428,7 +429,7 @@ export class PlaywrightTestServer {
     });
     if (!wsEndpoint)
       return { connection: null, errors };
-    const connection = new TestServerConnection(new WebSocketTestServerTransport(wsEndpoint));
+    const connection = new TestServerConnection(new TestServerTransportDebugger(new WebSocketTestServerTransport(wsEndpoint), this._options.debugLogger));
     connection.onTestFilesChanged(params => this._testFilesChanged(params.testFiles));
     await connection.initialize({
       serializer: require.resolve('./oopReporter'),
@@ -478,3 +479,45 @@ type TestServerConnectionWrapper = {
   connection: TestServerConnection | null;
   errors: string[];
 };
+
+class TestServerTransportDebugger implements TestServerTransport {
+  constructor(private _inner: TestServerTransport, private _logger: vscodeTypes.LogOutputChannel) {}
+
+  send(message: string): void {
+    this._logger.debug('-->', message);
+    this._inner.send(message);
+  }
+
+  onmessage(callback: (message: string) => void) {
+    this._inner.onmessage((message: string) => {
+      this._logger.debug('<--', message);
+      callback(message);
+    });
+  }
+
+  onerror(listener: () => void): void {
+    this._inner.onerror(() => {
+      this._logger.debug('<-- transport error');
+      listener();
+    });
+  }
+
+  onclose(listener: () => void): void {
+    this._inner.onclose(() => {
+      this._logger.debug('<-- transport close');
+      listener();
+    });
+  }
+
+  onopen(listener: () => void): void {
+    this._inner.onopen(() => {
+      this._logger.debug('<-- transport open');
+      listener();
+    });
+  }
+
+  close(): void {
+    this._logger.debug('<-- transport close');
+    this._inner.close();
+  }
+}
