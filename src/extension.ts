@@ -92,6 +92,8 @@ export class Extension implements RunHooks {
 
   private _pnpFiles = new Map<string, { pnpCJS?: string, pnpLoader?: string }>();
 
+  private _logger: vscodeTypes.LogOutputChannel;
+
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     this._vscode = vscode;
     this._context = context;
@@ -128,9 +130,10 @@ export class Extension implements RunHooks {
       borderColor: { id: 'editor.wordHighlightStrongBorder' },
     });
 
+    this._logger = this._vscode.window.createOutputChannel('Playwright', { log: true });
     this._settingsModel = new SettingsModel(vscode, context);
-    this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
-    this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
+    this._reusedBrowser = new ReusedBrowser(this._vscode, this._logger, this._settingsModel, this._envProvider.bind(this));
+    this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser, this._logger);
     this._models = new TestModelCollection(vscode, {
       context,
       settingsModel: this._settingsModel,
@@ -140,6 +143,7 @@ export class Extension implements RunHooks {
       onStdOut: this._debugHighlight.onStdOut.bind(this._debugHighlight),
       requestWatchRun: this._runWatchedTests.bind(this),
       testPausedHandler: this._onTestPaused.bind(this),
+      logger: this._logger,
     });
     this._testController = vscode.tests.createTestController('playwright', 'Playwright');
     this._testController.resolveHandler = item => this._resolveChildren(item);
@@ -151,7 +155,7 @@ export class Extension implements RunHooks {
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes) , this._isUnderTest);
     this._diagnostics = this._vscode.languages.createDiagnosticCollection('pw.testErrors.diagnostic');
-    this._treeItemObserver = new TreeItemObserver(this._vscode);
+    this._treeItemObserver = new TreeItemObserver(this._vscode, this._logger);
   }
 
   async onWillRunTests(config: TestConfig, debug: boolean) {
@@ -325,6 +329,7 @@ export class Extension implements RunHooks {
   }
 
   private async _innerRebuildModels(userGesture: boolean, token: vscodeTypes.CancellationToken): Promise<void> {
+    this._logger.info(`Starting to rebuild models (userGesture: ${userGesture})`);
     this._models.clear();
     this._testTree.startedLoading();
 
@@ -352,7 +357,7 @@ export class Extension implements RunHooks {
 
       let playwrightInfo = null;
       try {
-        playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider(configFilePath));
+        playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider(configFilePath), this._logger);
       } catch (error) {
         if (userGesture) {
           void this._vscode.window.showWarningMessage(
@@ -382,6 +387,7 @@ export class Extension implements RunHooks {
 
     this._models.ensureHasEnabledModels();
     this._testTree.finishedLoading();
+    this._logger.info('Finished rebuilding models');
   }
 
   private async _modelsUpdated() {
@@ -768,7 +774,9 @@ export class Extension implements RunHooks {
         const errorContext: { pageSnapshot?: string } = JSON.parse(attachment.body.toString());
         if (errorContext.pageSnapshot)
           return `### Page Snapshot at Failure\n\n${errorContext.pageSnapshot}`; // cannot use ``` codeblocks, vscode markdown does not support it
-      } catch {}
+      } catch (e) {
+        this._logger.warn('Failed to parse error context attachment as JSON', e);
+      }
     }
 
     // 1.53+
@@ -778,7 +786,9 @@ export class Extension implements RunHooks {
           return fs.readFileSync(attachment.path, 'utf-8');
 
         return attachment.body?.toString();
-      } catch {}
+      } catch (e) {
+        this._logger.warn('Failed to read error context attachment as markdown', e);
+      }
     }
   }
 
@@ -1093,16 +1103,18 @@ function parseStack(vscode: vscodeTypes.VSCode, stack: string): vscodeTypes.Test
 
 class TreeItemObserver implements vscodeTypes.Disposable{
   private _vscode: vscodeTypes.VSCode;
+  private _logger: vscodeTypes.LogOutputChannel;
   private _treeItemSelected: vscodeTypes.EventEmitter<vscodeTypes.TreeItem | null>;
   readonly onTreeItemSelected: vscodeTypes.Event<vscodeTypes.TreeItem | null>;
   private _selectedTreeItem: vscodeTypes.TreeItem | null = null;
   private _timeout: NodeJS.Timeout | undefined;
 
-  constructor(vscode: vscodeTypes.VSCode) {
+  constructor(vscode: vscodeTypes.VSCode, logger: vscodeTypes.LogOutputChannel) {
     this._vscode = vscode;
+    this._logger = logger;
     this._treeItemSelected = new vscode.EventEmitter();
     this.onTreeItemSelected = this._treeItemSelected.event;
-    this._poll().catch(() => {});
+    this._poll().catch(e => logger.error('Tree item polling failed:', e));
   }
 
   dispose() {
@@ -1122,7 +1134,7 @@ class TreeItemObserver implements vscodeTypes.Disposable{
       this._selectedTreeItem = item;
       this._treeItemSelected.fire(item);
     }
-    this._timeout = setTimeout(() => this._poll().catch(() => {}), 250);
+    this._timeout = setTimeout(() => this._poll().catch(e => this._logger.error('Tree item polling failed:', e)), 250);
   }
 }
 

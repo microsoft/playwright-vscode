@@ -92,23 +92,28 @@ export class NodeJSNotFoundError extends Error {}
 
 let pathToNodeJS: string | undefined;
 
-export async function findNode(vscode: vscodeTypes.VSCode, cwd: string): Promise<string> {
+export async function findNode(vscode: vscodeTypes.VSCode, cwd: string, logger: vscodeTypes.LogOutputChannel): Promise<string> {
   if (pathToNodeJS)
     return pathToNodeJS;
 
+  logger.info('Resolving node binary via process.env.PATH');
   // Stage 1: Try to find Node.js via process.env.PATH
   let node = await which('node').catch(e => undefined);
   // Stage 2: When extension host boots, it does not have the right env set, so we might need to wait.
   for (let i = 0; i < 5 && !node; ++i) {
     await new Promise(f => setTimeout(f, 200));
     node = await which('node').catch(e => undefined);
+    logger.info('Resolving node binary via process.env.PATH, attempt #' + (i + 2));
   }
   // Stage 3: If we still haven't found Node.js, try to find it via a subprocess.
   // This evaluates shell rc/profile files and makes nvm work.
   node ??= await findNodeViaShell(vscode, cwd);
-  if (!node)
+  if (!node) {
+    logger.error('Failed to resolve node binary');
     throw new NodeJSNotFoundError(`Unable to find 'node' executable.\nMake sure to have Node.js installed and available in your PATH.\nCurrent PATH: '${process.env.PATH}'.`);
+  }
   pathToNodeJS = node;
+  logger.info(`Resolved node binary: ${node}`);
   return node;
 }
 
@@ -173,14 +178,14 @@ export function escapeRegex(text: string) {
 
 export const pathSeparator = process.platform === 'win32' ? ';' : ':';
 
-export async function runNode(vscode: vscodeTypes.VSCode, args: string[], cwd: string, env: NodeJS.ProcessEnv): Promise<string> {
-  return await spawnAsync(await findNode(vscode, cwd), args, cwd, env);
+export async function runNode(vscode: vscodeTypes.VSCode, args: string[], cwd: string, env: NodeJS.ProcessEnv, logger: vscodeTypes.LogOutputChannel): Promise<string> {
+  return await spawnAsync(await findNode(vscode, cwd, logger), args, cwd, env);
 }
 
-export async function getPlaywrightInfo(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFilePath: string, env: NodeJS.ProcessEnv): Promise<{ version: number, cli: string }> {
+export async function getPlaywrightInfo(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFilePath: string, env: NodeJS.ProcessEnv, logger: vscodeTypes.LogOutputChannel): Promise<{ version: number, cli: string }> {
   const pwtInfo = await runNode(vscode, [
     require.resolve('./playwrightFinder'),
-  ], path.dirname(configFilePath), env);
+  ], path.dirname(configFilePath), env, logger);
   const { version, cli, error } = JSON.parse(pwtInfo) as { version: number, cli: string, error?: string };
   if (error)
     throw new Error(error);

@@ -56,6 +56,7 @@ export type TestModelEmbedder = {
   onStdOut: vscodeTypes.Event<string>;
   requestWatchRun: (files: string[], testItems: vscodeTypes.TestItem[]) => void;
   testPausedHandler: (params: { errors: reporterTypes.TestError[] }) => any;
+  logger: vscodeTypes.LogOutputChannel;
 };
 
 type Watch = {
@@ -734,7 +735,7 @@ export class TestModel extends DisposableBase {
     }
 
     if (!this._traceViewer && this._checkVersion(1.35, this._vscode.l10n.t('this feature'), userGesture))
-      this._traceViewer = new SpawnTraceViewer(this._vscode, this._embedder.envProvider, this.config);
+      this._traceViewer = new SpawnTraceViewer(this._vscode, this._embedder.logger, this._embedder.envProvider, this.config);
 
     return this._traceViewer;
   }

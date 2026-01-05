@@ -33,9 +33,11 @@ export class DebugHighlight {
   readonly onStdOut: vscodeTypes.Event<string>;
   private _disposables: vscodeTypes.Disposable[] = [];
   private _reusedBrowser: ReusedBrowser;
+  private _logger: vscodeTypes.LogOutputChannel;
 
-  constructor(vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser) {
+  constructor(vscode: vscodeTypes.VSCode, reusedBrowser: ReusedBrowser, logger: vscodeTypes.LogOutputChannel) {
     this._reusedBrowser = reusedBrowser;
+    this._logger = logger;
     this._onErrorInDebuggerEmitter = new vscode.EventEmitter();
     this.onErrorInDebugger = this._onErrorInDebuggerEmitter.event;
     this._onStdOutEmitter = new vscode.EventEmitter();
@@ -55,18 +57,18 @@ export class DebugHighlight {
       }),
       vscode.languages.registerHoverProvider('typescript', {
         provideHover(document, position, token) {
-          void self._highlightLocator(document, position, token).catch();
+          void self._highlightLocator(document, position, token).catch(e => self._logger.error('Failed to highlight locator:', e));
           return null;
         }
       }),
       vscode.languages.registerHoverProvider('javascript', {
         provideHover(document, position, token) {
-          void self._highlightLocator(document, position, token).catch();
+          void self._highlightLocator(document, position, token).catch(e => self._logger.error('Failed to highlight locator:', e));
           return null;
         }
       }),
       vscode.window.onDidChangeTextEditorSelection(event => {
-        void self._highlightLocator(event.textEditor.document, event.selections[0].start).catch();
+        void self._highlightLocator(event.textEditor.document, event.selections[0].start).catch(e => self._logger.error('Failed to highlight locator for selection:', e));
       }),
       vscode.window.onDidChangeVisibleTextEditors(event => {
         pruneHighlightCaches(vscode.window.visibleTextEditors.map(e => e.document.fileName));
@@ -107,7 +109,7 @@ export class DebugHighlight {
       return;
     const result = await locatorToHighlight(this._debugSessions, document, position, token);
     if (result)
-      this._reusedBrowser.highlight(result).catch(() => {});
+      this._reusedBrowser.highlight(result).catch(e => this._logger.error('Failed to highlight locator:', e));
     else
       this._hideHighlight();
   }
