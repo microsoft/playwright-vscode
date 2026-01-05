@@ -27,6 +27,7 @@ type RecorderMode = 'none' | 'standby' | 'inspecting' | 'recording';
 
 export class ReusedBrowser implements vscodeTypes.Disposable {
   private _vscode: vscodeTypes.VSCode;
+  private _logger: vscodeTypes.LogOutputChannel;
   private _backend: Backend | undefined;
   private _cancelRecording: (() => void) | undefined;
   private _isRunningTests?: 'run' | 'debug';
@@ -47,8 +48,9 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _settingsModel: SettingsModel;
   private _recorderModeForTest: RecorderMode = 'none';
 
-  constructor(vscode: vscodeTypes.VSCode, settingsModel: SettingsModel, envProvider: (configFile: string) => NodeJS.ProcessEnv) {
+  constructor(vscode: vscodeTypes.VSCode, logger: vscodeTypes.LogOutputChannel, settingsModel: SettingsModel, envProvider: (configFile: string) => NodeJS.ProcessEnv) {
     this._vscode = vscode;
+    this._logger = logger;
     this._envProvider = envProvider;
     this._onPageCountChangedEvent = new vscode.EventEmitter();
     this.onPageCountChanged = this._onPageCountChangedEvent.event;
@@ -105,6 +107,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       envProvider,
       errors,
       dumpIO: false,
+      logger: this._logger,
     });
     const backend = await backendServer.startAndConnect();
     if (!backend) {
@@ -290,7 +293,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   hideHighlight() {
-    this._backend?.hideHighlight().catch(() => {});
+    this._backend?.hideHighlight().catch(e => this._logger.error('Failed to hide highlight:', e));
     this._onHighlightRequestedForTestEvent.fire('');
   }
 

@@ -52,7 +52,7 @@ export type PlaywrightTestOptions = {
   envProvider: (configFile: string) => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
   testPausedHandler: (params: { errors: reporterTypes.TestError[] }) => void;
-  debugLogger: vscodeTypes.LogOutputChannel;
+  logger: vscodeTypes.LogOutputChannel;
 };
 
 
@@ -325,7 +325,7 @@ export class PlaywrightTestServer {
       if (token?.isCancellationRequested)
         return;
       const address = await addressPromise;
-      debugTestServer = new TestServerConnection(new TestServerTransportDebugger(new WebSocketTestServerTransport(address), this._options.debugLogger));
+      debugTestServer = new TestServerConnection(new TestServerTransportDebugger(new WebSocketTestServerTransport(address), this._options.logger));
       await debugTestServer.initialize({
         serializer: require.resolve('./oopReporter'),
         closeOnDisconnect: true,
@@ -420,6 +420,7 @@ export class PlaywrightTestServer {
       },
       dumpIO: false,
       errors,
+      logger: this._options.logger,
       onClose: () => {
         this._testServerPromise = undefined;
       },
@@ -429,7 +430,7 @@ export class PlaywrightTestServer {
     });
     if (!wsEndpoint)
       return { connection: null, errors };
-    const connection = new TestServerConnection(new TestServerTransportDebugger(new WebSocketTestServerTransport(wsEndpoint), this._options.debugLogger));
+    const connection = new TestServerConnection(new TestServerTransportDebugger(new WebSocketTestServerTransport(wsEndpoint), this._options.logger));
     connection.onTestFilesChanged(params => this._testFilesChanged(params.testFiles));
     await connection.initialize({
       serializer: require.resolve('./oopReporter'),
