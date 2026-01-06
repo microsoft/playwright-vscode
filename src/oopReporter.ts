@@ -15,7 +15,7 @@
  */
 
 import { TeleReporterEmitter } from './upstream/teleEmitter';
-import { FullResult } from './upstream/reporter';
+import { FullResult, TestCase, TestResult } from './upstream/reporter';
 
 class TeleReporter extends TeleReporterEmitter {
   private _hasSender: boolean;
@@ -31,6 +31,11 @@ class TeleReporter extends TeleReporterEmitter {
     }
     super(messageSink, { omitBuffers: false, omitOutput: true });
     this._hasSender = !!options?._send;
+  }
+
+  async onTestPaused(test: TestCase, result: TestResult): Promise<void> {
+    // block indefinitely, we are handling pause via test server events
+    await new Promise(() => {});
   }
 
   async onEnd(result: FullResult) {
