@@ -66,10 +66,8 @@ extends:
             scriptType: "pscore"
             scriptLocation: 'inlineScript'
             inlineScript: |
-              $aadToken = az account get-access-token --query accessToken --resource 499b84ac-1321-427f-aa17-267ca6975798 -o tsv
-              npx vsce verify-pat --pat $aadToken ms-playwright
               if ("$(Build.Reason)" -eq "Manual") {
-                npx vsce publish --pre-release --pat $aadToken --packagePath extension.vsix --manifestPath extension.manifest --signaturePath extension.signature.p7s
+                npx vsce publish --pre-release --azure-credential --packagePath extension.vsix --manifestPath extension.manifest --signaturePath extension.signature.p7s
               } else {
-                npx vsce publish --pat $aadToken --packagePath extension.vsix --manifestPath extension.manifest --signaturePath extension.signature.p7s
+                npx vsce publish --azure-credential --packagePath extension.vsix --manifestPath extension.manifest --signaturePath extension.signature.p7s
               }
