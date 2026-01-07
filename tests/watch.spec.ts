@@ -45,7 +45,7 @@ test('should watch all tests', async ({ activate }) => {
   ]);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test-1.spec.ts > should pass [2:0]
+    tests > test-1.spec.ts > should pass [2:10]
       enqueued
       enqueued
       started
@@ -168,7 +168,7 @@ test('should watch test file', async ({ activate }) => {
   ]);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test-2.spec.ts > should fail [2:0]
+    tests > test-2.spec.ts > should fail [2:10]
       enqueued
       started
       failed
@@ -189,7 +189,7 @@ test('should watch test file', async ({ activate }) => {
   ]);
 
   expect(watchRun.renderLog()).toBe(`
-    tests > test-2.spec.ts > should pass [2:0]
+    tests > test-2.spec.ts > should pass [2:10]
       enqueued
       enqueued
       started
@@ -224,7 +224,7 @@ test('should watch tests via helper', async ({ activate }) => {
   ]);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > should pass [3:0]
+    tests > test.spec.ts > should pass [3:10]
       enqueued
       enqueued
       started
@@ -284,7 +284,7 @@ test('should watch one test in a file', async ({ activate }) => {
   ]);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > pass 1 [2:0]
+    tests > test.spec.ts > pass 1 [2:10]
       enqueued
       enqueued
       started
@@ -362,12 +362,12 @@ test('should watch two tests in a file', async ({ activate }) => {
   ]);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > pass 1 [2:0]
+    tests > test.spec.ts > pass 1 [2:10]
       enqueued
       enqueued
       started
       passed
-    tests > test.spec.ts > pass 2 [3:0]
+    tests > test.spec.ts > pass 2 [3:10]
       enqueued
       enqueued
       started
@@ -532,7 +532,7 @@ test('should only watch a test from the enabled project when multiple projects s
   ]);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > pass 1 [2:0]
+    tests > test.spec.ts > pass 1 [2:10]
       enqueued
       enqueued
       started
@@ -610,9 +610,9 @@ test('watching all tests should also execute newly added files', async ({ activa
   await expect(testController).toHaveTestTree(`
     -   tests
       -   bar.spec.ts
-        -   scaffolding [2:0]
+        -   scaffolding [2:10]
       -   foo.spec.ts
-        - ✅ should pass [2:0]
+        - ✅ should pass [2:10]
   `);
 
   const [testRun] = await Promise.all([
@@ -671,7 +671,7 @@ test('expanding watch from spec to file should work', async ({ activate }) => {
     testController.watch(testController.findTestItems(/bar/)),
   ]);
   expect(testRun.renderLog()).toBe(`
-    tests > foo.spec.ts > bar [3:0]
+    tests > foo.spec.ts > bar [3:10]
       enqueued
       enqueued
       started
@@ -685,12 +685,12 @@ test('expanding watch from spec to file should work', async ({ activate }) => {
     testController.watch(testController.findTestItems(/foo\.spec/))
   ]);
   expect(testRun.renderLog()).toBe(`
-    tests > foo.spec.ts > foo [2:0]
+    tests > foo.spec.ts > foo [2:10]
       enqueued
       enqueued
       started
       passed
-    tests > foo.spec.ts > bar [3:0]
+    tests > foo.spec.ts > bar [3:10]
       enqueued
       enqueued
       started
@@ -709,12 +709,12 @@ test('expanding watch from spec to file should work', async ({ activate }) => {
   ]);
 
   expect.soft(testRun.renderLog()).toBe(`
-    tests > foo.spec.ts > foo [2:0]
+    tests > foo.spec.ts > foo [2:10]
       enqueued
       enqueued
       started
       failed
-    tests > foo.spec.ts > bar [3:0]
+    tests > foo.spec.ts > bar [3:10]
       enqueued
       enqueued
       started
@@ -724,8 +724,8 @@ test('expanding watch from spec to file should work', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   foo.spec.ts
-        - ❌ foo [2:0]
-        - ✅ bar [3:0]
+        - ❌ foo [2:10]
+        - ✅ bar [3:10]
   `);
 });
 
@@ -754,7 +754,7 @@ test('should watch test defined outside of .spec.ts file', { annotation: { type:
   ]);
 
   expect.soft(testRun.renderLog()).toBe(`
-    example.spec.ts > one [2:0]
+    example.spec.ts > one [2:10]
       enqueued
       enqueued
       started
@@ -811,12 +811,12 @@ test.fail('does not record output of test discovered through watch', async ({ ac
   ]);
 
   expect.soft(testRun.renderLog(), 'second test was discovered through watch, tree doesnt yet have an item for it').toBe(`
-    example.spec.ts > one [2:0]
+    example.spec.ts > one [2:10]
       enqueued
       enqueued
       started
       passed
-    example.spec.ts > two [3:0]
+    example.spec.ts > two [3:10]
       enqueued
       enqueued
       started

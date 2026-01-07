@@ -54,11 +54,11 @@ test('should run setup and teardown projects (1)', async ({ activate }) => {
 
   await expect(testController).toHaveTestTree(`
     -   setup.ts
-      - ✅ setup [2:0]
+      - ✅ setup [2:8]
     -   teardown.ts
-      - ✅ teardown [2:0]
+      - ✅ teardown [2:8]
     -   test.ts
-      - ✅ test [2:0]
+      - ✅ test [2:8]
   `);
 
   const output = testRun.renderLog({ output: true });
@@ -82,9 +82,9 @@ test('should run setup and teardown projects (2)', async ({ activate }) => {
 
   await expect(testController).toHaveTestTree(`
     -   teardown.ts
-      - ✅ teardown [2:0]
+      - ✅ teardown [2:8]
     -   test.ts
-      - ✅ test [2:0]
+      - ✅ test [2:8]
     -    [playwright.config.ts [setup] — disabled]
   `);
 
@@ -101,7 +101,7 @@ test('should run setup and teardown projects (3)', async ({ activate }) => {
 
   await expect(testController).toHaveTestTree(`
     -   test.ts
-      - ✅ test [2:0]
+      - ✅ test [2:8]
     -    [playwright.config.ts [setup] — disabled]
     -    [playwright.config.ts [teardown] — disabled]
   `);
@@ -122,9 +122,9 @@ test('should run part of the setup only', async ({ activate }) => {
 
   await expect(testController).toHaveTestTree(`
     -   setup.ts
-      - ✅ setup [2:0]
+      - ✅ setup [2:8]
     -   teardown.ts
-      - ✅ teardown [2:0]
+      - ✅ teardown [2:8]
     -   test.ts
   `);
 });
@@ -139,10 +139,10 @@ test('should run setup and teardown for test', async ({ activate }) => {
 
   await expect(testController).toHaveTestTree(`
     -   setup.ts
-      - ✅ setup [2:0]
+      - ✅ setup [2:8]
     -   teardown.ts
-      - ✅ teardown [2:0]
+      - ✅ teardown [2:8]
     -   test.ts
-      - ✅ test [2:0]
+      - ✅ test [2:8]
   `);
 });

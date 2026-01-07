@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+import type { Page } from '@playwright/test';
 import { connectToSharedBrowser, enableProjects, expect, test, waitForPage } from './utils';
 import fs from 'node:fs';
 
-test('should generate code', async ({ activate }) => {
+test('Record new outside of test file', async ({ activate }) => {
   test.slow();
 
   const globalSetupFile = test.info().outputPath('globalSetup.txt');
@@ -59,18 +60,203 @@ test('should generate code', async ({ activate }) => {
   await expect.poll(() => {
     return vscode.window.visibleTextEditors[0]?.edits;
   }).toEqual([{
+    from: `<selection></selection>import { test, expect } from '@playwright/test';`,
+    range: '[1:0 - 1:0]',
+    to: `import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  // Recording...
+});
+<selection></selection>`
+  }, {
     from: `import { test, expect } from '@playwright/test';
 
 test('test', async ({ page }) => {
   <selection>// Recording...</selection>
-});`,
+});
+`,
     range: '[3:2 - 3:17]',
     to: `import { test, expect } from '@playwright/test';
 
 test('test', async ({ page }) => {
   <selection>await page.locator('body').click();</selection>
-});`
+});
+`
   }]);
+});
+
+test.describe('Record New inside test file', () => {
+  const cases: Record<string, { input: string, record(page: Page): Promise<void>, output: string }> = {
+    'at end of file': {
+      input: `
+import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+test('test', async ({ page }) => {});
+`,
+      async record(page: Page) {
+        await page.getByRole('button', { name: 'click me' }).click();
+      },
+      output: `
+import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+test('test', async ({ page }) => {});
+
+test('test 1', async ({ page }) => {
+  <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
+});
+`
+    },
+    'at end of file without trailing newline': {
+      input: `
+import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+test('test', async ({ page }) => {});`,
+      async record(page: Page) {
+        await page.getByRole('button', { name: 'click me' }).click();
+      },
+      output: `
+import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+test('test', async ({ page }) => {});
+
+test('test 1', async ({ page }) => {
+  <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
+});
+`
+    },
+    'at end of empty file': {
+      input: `
+import { test, expect } from '@playwright/test';
+`,
+      async record(page: Page) {
+        await page.locator('body').click();
+      },
+      output: `
+import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  <selection>await page.locator('body').click();</selection>
+});
+`
+    },
+    'at end of describe': {
+      input: `
+import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+test.describe('my suite', () => {
+  test('test', async ({ page }) => {});
+});
+`,
+      async record(page: Page) {
+        await page.getByRole('button', { name: 'click me' }).click();
+      },
+      output: `
+import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+test.describe('my suite', () => {
+  test('test', async ({ page }) => {});
+
+  test('test 1', async ({ page }) => {
+    <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
+  });
+});
+`
+    },
+    'at end of empty describe': {
+      input: `
+import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+test.describe('my suite', () => {
+});
+`,
+      async record(page: Page) {
+        await page.getByRole('button', { name: 'click me' }).click();
+      },
+      output: `
+import { test, expect } from '@playwright/test';
+test.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+test.describe('my suite', () => {
+});
+
+test('test', async ({ page }) => {
+  <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
+});
+`
+    },
+    'custom test name': {
+      input: `
+import { test as baseTest, expect } from '@playwright/test';
+const customTest = baseTest.extend({});
+customTest.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+customTest('foo', () => {});
+`,
+      async record(page: Page) {
+        await page.getByRole('button', { name: 'click me' }).click();
+      },
+      output: `
+import { test as baseTest, expect } from '@playwright/test';
+const customTest = baseTest.extend({});
+customTest.beforeEach(async ({ page }) => {
+  await page.setContent('<button>click me</button>');
+});
+customTest('foo', () => {});
+
+customTest('test', async ({ page }) => {
+  <selection>await page.getByRole('button', { name: 'click me' }).click();</selection>
+});
+`
+    }
+  };
+
+  for (const [name, { input, record, output }] of Object.entries(cases)) {
+    test(name, async ({ activate }) => {
+      test.slow();
+
+      const { vscode, testController } = await activate({
+        'playwright.config.js': `module.exports = {
+          projects: [
+            { name: 'chromium' },
+            { name: 'firefox' }
+          ],
+        };`,
+        'test.spec.ts': input,
+      });
+
+      await testController.expandTestItems(/test.spec/);
+      await vscode.openEditors('test.spec.ts');
+
+      const webView = vscode.webViews.get('pw.extension.settingsView')!;
+      await webView.getByText('Record new').click();
+      await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+
+      const browser = await connectToSharedBrowser(vscode);
+      const page = await waitForPage(browser);
+      await record(page);
+      await expect.poll(() => {
+        const edits = vscode.window.activeTextEditor.edits;
+        return edits?.[edits.length - 1].to;
+      }).toEqual(output);
+  vscode.lastWithProgressToken!.cancel();
+    });
+  }
 });
 
 test('running test should stop the recording', async ({ activate, showBrowser }) => {

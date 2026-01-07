@@ -31,7 +31,7 @@ test('should list tests on expand', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        -   one [2:0]
+        -   one [2:10]
   `);
 
   await expect(vscode).toHaveConnectionLog([
@@ -64,9 +64,9 @@ test('should list tests for visible editors', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test1.spec.ts
-        -   one [2:0]
+        -   one [2:10]
       -   test2.spec.ts
-        -   two [2:0]
+        -   two [2:10]
   `);
 
   await expect(vscode).toHaveConnectionLog([
@@ -109,17 +109,17 @@ test('should list suits', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        -   one [2:0]
-        -   two [3:0]
-        -   group 1 [4:0]
-          -   one [5:0]
-          -   two [6:0]
-        -   group 2 [8:0]
-          -   group 2.1 [9:0]
-            -   one [10:0]
-            -   two [11:0]
-          -   one [13:0]
-          -   two [14:0]
+        -   one [2:10]
+        -   two [3:10]
+        -   group 1 [4:11]
+          -   one [5:12]
+          -   two [6:12]
+        -   group 2 [8:11]
+          -   group 2.1 [9:13]
+            -   one [10:14]
+            -   two [11:14]
+          -   one [13:12]
+          -   two [14:12]
   `);
 });
 
@@ -156,8 +156,8 @@ test('should discover new tests', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        -   one [2:0]
-        -   two [3:0]
+        -   one [2:10]
+        -   two [3:10]
   `);
 
   await expect(vscode).toHaveConnectionLog([
@@ -214,7 +214,7 @@ test('should discover new tests with active editor', async ({ activate }) => {
     -   tests
       -   test1.spec.ts
       -   test2.spec.ts
-        -   two [2:0]
+        -   two [2:8]
   `);
 
 
@@ -256,7 +256,7 @@ test('should discover tests on add + change', async ({ activate }) => {
 
   await expect(testController).toHaveTestTree(`
     -   test.spec.ts
-      -   one [2:0]
+      -   one [2:10]
   `);
 
 
@@ -310,7 +310,7 @@ test('should discover new test at existing location', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        -   two [2:0]
+        -   two [2:10]
   `);
 
   await expect(vscode).toHaveConnectionLog([
@@ -355,8 +355,8 @@ test('should remove deleted tests', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        -   one [2:0]
-        -   two [3:0]
+        -   one [2:10]
+        -   two [3:10]
   `);
 
   await Promise.all([
@@ -370,7 +370,7 @@ test('should remove deleted tests', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        -   one [2:0]
+        -   one [2:10]
   `);
 
   await expect(vscode).toHaveConnectionLog([
@@ -405,8 +405,8 @@ test('should forget tests after error before first test', async ({ activate }) =
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        -   one [2:0]
-        -   two [3:0]
+        -   one [2:10]
+        -   two [3:10]
   `);
 
   await Promise.all([
@@ -465,8 +465,8 @@ test('should regain tests after error is fixed', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        -   one [2:0]
-        -   two [3:0]
+        -   one [2:10]
+        -   two [3:10]
   `);
 
   await expect(vscode).toHaveConnectionLog([
@@ -514,10 +514,10 @@ test('should support multiple configs', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests1
       -   test.spec.ts
-        -   one [2:0]
+        -   one [2:10]
     -   tests2
       -   test.spec.ts
-        -   two [2:0]
+        -   two [2:10]
   `);
 
   await expect(vscode).toHaveConnectionLog([
@@ -570,7 +570,7 @@ test('should support multiple projects', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test1.spec.ts
-        -   one [2:0]
+        -   one [2:10]
       -   test2.spec.ts
   `);
 
@@ -599,9 +599,9 @@ test('should list parametrized tests', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        -   one [3:0]
-        -   three [3:0]
-        -   two [3:0]
+        -   one [3:12]
+        -   three [3:12]
+        -   two [3:12]
   `);
 });
 
@@ -622,10 +622,10 @@ test('should list tests in parametrized groups', async ({ activate }) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        -   level 1 [3:0]
-          -   should work [4:0]
-        -   level 2 [3:0]
-          -   should work [4:0]
+        -   level 1 [3:13]
+          -   should work [4:14]
+        -   level 2 [3:13]
+          -   should work [4:14]
   `);
 });
 
@@ -645,7 +645,7 @@ test('should not run config reporters', async ({ activate }, testInfo) => {
   await expect(testController).toHaveTestTree(`
     -   tests
       -   test.spec.ts
-        -   one [2:0]
+        -   one [2:10]
   `);
 
   expect(fs.existsSync(testInfo.outputPath('playwright-report'))).toBeFalsy();
@@ -684,10 +684,10 @@ test('should list tests in multi-folder workspace', async ({ activate }, testInf
   await expect(testController).toHaveTestTree(`
     -   folder1
       -   test.spec.ts
-        -   one [2:0]
+        -   one [2:14]
     -   folder2
       -   test.spec.ts
-        -   two [2:0]
+        -   two [2:14]
   `);
 });
 
@@ -716,7 +716,7 @@ test('should not keep empty workspace-folders in a workspace', async ({ activate
   await expect(testController).toHaveTestTree(`
     -   folder2
       -   test.spec.ts
-        -   two [2:0]
+        -   two [2:14]
   `);
 });
 
@@ -745,11 +745,11 @@ test('should merge items from different projects', async ({ activate }, testInfo
   await testController.expandTestItems(/group/);
   await expect(testController).toHaveTestTree(`
     -   test.spec.ts
-      -   group [2:0]
-        -   test 1 [3:0]
-        -   test 2 [@mobile] [4:0]
-        -   test 3 [@mobile] [5:0]
-        -   test 4 [6:0]
+      -   group [2:11]
+        -   test 1 [3:12]
+        -   test 2 [@mobile] [4:12]
+        -   test 3 [@mobile] [5:12]
+        -   test 4 [6:12]
   `);
 });
 
@@ -777,7 +777,7 @@ test('should show project-specific tests', async ({ activate }, testInfo) => {
   await testController.expandTestItems(/test.spec.ts/);
   await expect(testController).toHaveTestTree(`
     -   test.spec.ts
-      -   test [2:0]
+      -   test [2:10]
     -    [playwright.config.ts [firefox] — disabled]
     -    [playwright.config.ts [webkit] — disabled]
   `);
@@ -785,16 +785,16 @@ test('should show project-specific tests', async ({ activate }, testInfo) => {
   await enableProjects(vscode, ['chromium', 'firefox', 'webkit']);
   await expect(testController).toHaveTestTree(`
     -   test.spec.ts
-      -   test [2:0]
-        -   chromium [2:0]
-        -   firefox [2:0]
-        -   webkit [2:0]
+      -   test [2:10]
+        -   chromium [2:10]
+        -   firefox [2:10]
+        -   webkit [2:10]
   `);
 
   await enableProjects(vscode, ['webkit']);
   await expect(testController).toHaveTestTree(`
     -   test.spec.ts
-      -   test [2:0]
+      -   test [2:10]
     -    [playwright.config.ts [chromium] — disabled]
     -    [playwright.config.ts [firefox] — disabled]
   `);

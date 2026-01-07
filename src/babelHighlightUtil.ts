@@ -140,20 +140,29 @@ function containsPosition(location: SourceLocation, position: SourcePosition): b
   return true;
 }
 
-export function findTestEndPosition(text: string, fsPath: string, startPosition: SourcePosition): SourcePosition | undefined {
+export function findTestCall(text: string, fsPath: string, startPosition: SourcePosition) {
   const ast = getAst(text, fsPath);
   if (!ast)
     return;
-  let result: SourcePosition | undefined;
+  let testType: string | undefined;
+  let endPosition: SourcePosition | undefined;
   traverse(ast, {
     enter(path) {
       if (t.isCallExpression(path.node) && path.node.loc && containsPosition(path.node.loc, startPosition)) {
         const callNode = path.node;
         const funcNode = callNode.arguments[callNode.arguments.length - 1];
-        if (callNode.arguments.length >= 2 && t.isFunction(funcNode) && funcNode.body.loc)
-          result = funcNode.body.loc.end;
+        if (callNode.arguments.length >= 2 && t.isFunction(funcNode) && funcNode.body.loc) {
+          endPosition = funcNode.body.loc.end;
+          if (t.isIdentifier(callNode.callee))
+            testType = callNode.callee.name;
+        }
       }
     }
   });
-  return result;
+  if (endPosition)
+    return { testType, endPosition };
+}
+
+export function findTestEndPosition(text: string, fsPath: string, startPosition: SourcePosition): SourcePosition | undefined {
+  return findTestCall(text, fsPath, startPosition)?.endPosition;
 }

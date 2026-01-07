@@ -32,11 +32,11 @@ test('should debug multiple passing tests', async ({ activate }) => {
 
   const testRun = await vscode.testControllers[0].debug();
   expect(testRun.renderLog()).toBe(`
-    tests > test-1.spec.ts > should pass [2:0]
+    tests > test-1.spec.ts > should pass [2:10]
       enqueued
       started
       passed
-    tests > test-2.spec.ts > should pass [2:0]
+    tests > test-2.spec.ts > should pass [2:10]
       enqueued
       started
       passed
@@ -91,7 +91,7 @@ test('should debug one test and pause at end', async ({ activate }) => {
   await expect.poll(() => vscode.debug.output, { timeout: 10000 }).toContain('time passed');
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > should pass [2:0]
+    tests > test.spec.ts > should pass [2:10]
       enqueued
       enqueued
       started
@@ -162,7 +162,7 @@ test('should debug one test and pause at end', async ({ activate }) => {
   ]);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > should pass [2:0]
+    tests > test.spec.ts > should pass [2:10]
       enqueued
       enqueued
       started
@@ -198,7 +198,7 @@ test('should debug one test and pause on error', async ({ activate }) => {
   await expect.poll(() => vscode.debug.output, { timeout: 10000 }).toContain('time passed');
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > should fail [2:0]
+    tests > test.spec.ts > should fail [2:10]
       enqueued
       enqueued
       started
@@ -260,7 +260,7 @@ test('should debug error', async ({ activate }, testInfo) => {
   vscode.debug.simulateStoppedOnError('Error on line 10', { file: testInfo.outputPath('tests/test.spec.ts'), line: 10 });
 
   expect(testRun.renderLog({ messages: true }).replace(/\\/g, '/')).toBe(`
-    tests > test.spec.ts > should fail [2:0]
+    tests > test.spec.ts > should fail [2:10]
       enqueued
       enqueued
       started
@@ -301,7 +301,7 @@ test('should end test run when stopping the debugging', async ({ activate }, tes
   await endPromise;
 
   expect(testRun.renderLog({ messages: true })).toBe(`
-    tests > test.spec.ts > should stall [2:0]
+    tests > test.spec.ts > should stall [2:10]
       enqueued
       enqueued
       started
@@ -345,7 +345,7 @@ test('should end test run when stopping the debugging during config parsing', as
   await endPromise;
 
   expect(testRun.renderLog({ messages: true })).toBe(`
-    tests > test.spec.ts > should fail [2:0]
+    tests > test.spec.ts > should fail [2:6]
       enqueued
   `);
 
@@ -408,7 +408,7 @@ test('should run global setup before debugging', async ({ activate }, testInfo) 
   await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`TEST UNDER DEBUG: true`);
   await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`MAGIC NUMBER: 42`);
   expect(testRun1.renderLog()).toBe(`
-    tests > test.spec.ts > should pass [2:0]
+    tests > test.spec.ts > should pass [2:10]
       enqueued
       enqueued
       started
@@ -486,11 +486,11 @@ test('should debug multiple tests and stop on first failure', async ({ activate 
   `);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test-2.spec.ts > should fail [2:0]
+    tests > test-2.spec.ts > should fail [2:10]
       enqueued
       started
       failed
-    tests > test-1.spec.ts > should pass [2:0]
+    tests > test-1.spec.ts > should pass [2:10]
       enqueued
       started
       passed
@@ -545,7 +545,7 @@ test('should not pause at the end of a setup test', async ({ activate }) => {
 
   // The "setup" project should not run when running a single test from "main" project.
   await expect.poll(() => testRun.renderLog()).toBe(`
-    tests > test.spec.ts > should pass [2:0]
+    tests > test.spec.ts > should pass [2:10]
       enqueued
       enqueued
       started
@@ -555,7 +555,7 @@ test('should not pause at the end of a setup test', async ({ activate }) => {
   await runPromise;
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > should pass [2:0]
+    tests > test.spec.ts > should pass [2:10]
       enqueued
       enqueued
       started
