@@ -17,6 +17,10 @@
 import { expect, test, escapedPathSep, enableProjects, connectToSharedBrowser, waitForPage } from './utils';
 import { TestRun, DebugSession, stripAnsi } from './mock/vscode';
 
+// there's seems to be some shared resource in this file that we haven't found.
+// reducing parallelism to 'default' hides them.
+test.describe.configure({ mode: 'default' });
+
 test('should debug multiple passing tests', async ({ activate }) => {
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
