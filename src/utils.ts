@@ -50,10 +50,16 @@ export async function spawnAsync(executable: string, args: string[], cwd?: strin
   let stderr = '';
   childProcess.stdout.on('data', data => stdout += data.toString());
   childProcess.stderr.on('data', data => stderr += data.toString());
-  return new Promise((f, r) => {
-    childProcess.on('error', error => r(error));
-    childProcess.on('close', code => f({ stdout, stderr, code: code }));
-  });
+
+  const [, , code] = await Promise.all([
+    new Promise<void>(f => childProcess.stdout.on('end', f)),
+    new Promise<void>(f => childProcess.stderr.on('end', f)),
+    new Promise<number | null>((f, r) => {
+      childProcess.on('error', r);
+      childProcess.on('exit', f);
+    }),
+  ]);
+  return { stdout, stderr, code };
 }
 
 export async function resolveSourceMap(file: string, fileToSources: Map<string, string[]>, sourceToFile: Map<string, string>): Promise<string[]> {
