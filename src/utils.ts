@@ -40,17 +40,19 @@ export function stripBabelFrame(text: string) {
   return result.join('\n').trim();
 }
 
-export async function spawnAsync(executable: string, args: string[], cwd?: string, settingsEnv?: NodeJS.ProcessEnv): Promise<string> {
+export async function spawnAsync(executable: string, args: string[], cwd?: string, settingsEnv?: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: string }> {
   const childProcess = spawn(executable, args, {
     stdio: 'pipe',
     cwd,
     env: { ...process.env, ...settingsEnv }
   });
-  let output = '';
-  childProcess.stdout.on('data', data => output += data.toString());
-  return new Promise<string>((f, r) => {
+  let stdout = '';
+  let stderr = '';
+  childProcess.stdout.on('data', data => stdout += data.toString());
+  childProcess.stderr.on('data', data => stderr += data.toString());
+  return new Promise((f, r) => {
     childProcess.on('error', error => r(error));
-    childProcess.on('exit', () => f(output));
+    childProcess.on('exit', () => f({ stdout, stderr }));
   });
 }
 
@@ -178,19 +180,19 @@ export function escapeRegex(text: string) {
 
 export const pathSeparator = process.platform === 'win32' ? ';' : ':';
 
-export async function runNode(vscode: vscodeTypes.VSCode, args: string[], cwd: string, env: NodeJS.ProcessEnv, logger: vscodeTypes.LogOutputChannel): Promise<string> {
+export async function runNode(vscode: vscodeTypes.VSCode, args: string[], cwd: string, env: NodeJS.ProcessEnv, logger: vscodeTypes.LogOutputChannel) {
   return await spawnAsync(await findNode(vscode, cwd, logger), args, cwd, env);
 }
 
 export async function getPlaywrightInfo(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFilePath: string, env: NodeJS.ProcessEnv, logger: vscodeTypes.LogOutputChannel): Promise<{ version: number, cli: string }> {
-  const pwtInfo = await runNode(vscode, [
+  const { stdout: pwtInfo, stderr } = await runNode(vscode, [
     require.resolve('./playwrightFinder'),
   ], path.dirname(configFilePath), env, logger);
   let output: { version: number, cli: string, error?: string };
   try {
     output = JSON.parse(pwtInfo);
   } catch (error) {
-    throw new Error(`Failed to parse Playwright Test info: ${pwtInfo}`);
+    throw new Error(`Failed to parse Playwright Test info.\nstdout: ${pwtInfo}\nstderr: ${stderr}`);
   }
   const { version, cli, error } = output;
   if (error)
