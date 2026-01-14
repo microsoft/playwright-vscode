@@ -920,7 +920,7 @@ test('test', async ({ page }) => {
       } else {
         if (this._testRun && this._testUnderDebug.testItem)
           this._testRun.failed(this._testUnderDebug.testItem, errors.map(error => this._testMessageForTestError(error)));
-        const error = errors.find(e => e.location && path.isAbsolute(e.location.file));
+        const error = errors.find(e => e.location);
         if (error?.location) {
           const range = this._asRange(error.location);
           const document = await this._vscode.workspace.openTextDocument(error.location.file);
