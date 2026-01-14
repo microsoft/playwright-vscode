@@ -333,7 +333,7 @@ test('should end test run when stopping the debugging during config parsing', as
   const testItems = testController.findTestItems(/fail/);
 
   const configuration = vscode.workspace.getConfiguration('playwright');
-  configuration.update('env', { STALL_CONFIG: '1' });
+  configuration.update('env', { STALL_CONFIG: '1' }, true);
 
   const profile = testController.debugProfile();
   const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
