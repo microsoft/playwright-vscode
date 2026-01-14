@@ -840,6 +840,7 @@ class Debug {
   }
 
   dispose() {
+    this._debuggerProcess?.kill();
     this._didStartDebugSession.dispose();
     this._didTerminateDebugSession.dispose();
   }
@@ -1015,6 +1016,9 @@ export class VSCode {
     this.context = { subscriptions: [], extensionUri: Uri.file(baseDir), workspaceState };
     this._browser = browser;
     (globalThis as any).__logForTest = (message: any) => this.connectionLog.push(message);
+    this.context.subscriptions.push({ dispose: () => {
+      (globalThis as any).__logForTest = undefined;
+    } });
     const commands = new Map<string, () => Promise<void>>();
     this.commands.registerCommand = (name: string, callback: () => Promise<void>) => {
       commands.set(name, callback);
@@ -1377,7 +1381,8 @@ function trimLog(log: string) {
   return log.split('\n').map(line => line.trimEnd()).join('\n');
 }
 
-const ansiRegex = new RegExp('[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))', 'g');
+// Note: Do not use 'g' flag here - it causes stateful regex that persists between calls
+const ansiRegex = new RegExp('[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))');
 export function stripAnsi(str: string): string {
-  return str.replace(ansiRegex, '');
+  return str.replaceAll(ansiRegex, '');
 }
