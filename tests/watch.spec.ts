@@ -610,7 +610,7 @@ test('watching all tests should also execute newly added files', async ({ activa
   await expect(testController).toHaveTestTree(`
     -   tests
       -   bar.spec.ts
-        -   scaffolding [2:10]
+        -   scaffolding [2:8]
       -   foo.spec.ts
         - ✅ should pass [2:10]
   `);

@@ -504,7 +504,7 @@ test('should not remove other tests when running focused test', async ({ activat
       -   test.spec.ts
         -   one [2:10]
         - ✅ two [3:10]
-        -   three [4:12]
+        -   three [4:10]
   `);
 });
 
@@ -626,12 +626,12 @@ test('should run one parametrized groups', async ({ activate }) => {
   const testRun = await testController.run(testItems);
 
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > group three > test one in group three [4:12]
+    tests > test.spec.ts > group three > test one in group three [4:14]
       enqueued
       enqueued
       started
       passed
-    tests > test.spec.ts > group three > test two in group three [5:12]
+    tests > test.spec.ts > group three > test two in group three [5:14]
       enqueued
       enqueued
       started
@@ -682,7 +682,7 @@ test('should run tests in parametrized groups', async ({ activate }) => {
   expect(testItems1.length).toBe(1);
   const testRun = await testController.run(testItems1);
   expect(testRun.renderLog()).toBe(`
-    tests > test.spec.ts > level 1 > should work [4:12]
+    tests > test.spec.ts > level 1 > should work [4:14]
       enqueued
       enqueued
       started
@@ -716,7 +716,7 @@ test('should run tests in parametrized groups', async ({ activate }) => {
   expect(testItems2.length).toBe(1);
   const testRun2 = await testController.run(testItems2);
   expect(testRun2.renderLog()).toBe(`
-    tests > test.spec.ts > level 2 > should work [4:12]
+    tests > test.spec.ts > level 2 > should work [4:14]
       enqueued
       enqueued
       started
@@ -927,7 +927,7 @@ test('should provisionally enqueue nested tests', async ({ activate }) => {
       -   test.spec.ts
         - ✅ 1 [2:10]
         - ✅ 2 [3:10]
-        -   group [4:12]
+        -   group [4:11]
           - ✅ 3 [5:12]
           - ✅ 4 [6:12]
   `);
