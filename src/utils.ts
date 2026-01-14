@@ -40,7 +40,7 @@ export function stripBabelFrame(text: string) {
   return result.join('\n').trim();
 }
 
-export async function spawnAsync(executable: string, args: string[], cwd?: string, settingsEnv?: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: string }> {
+export async function spawnAsync(executable: string, args: string[], cwd?: string, settingsEnv?: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: string, code: number | null }> {
   const childProcess = spawn(executable, args, {
     stdio: 'pipe',
     cwd,
@@ -52,7 +52,7 @@ export async function spawnAsync(executable: string, args: string[], cwd?: strin
   childProcess.stderr.on('data', data => stderr += data.toString());
   return new Promise((f, r) => {
     childProcess.on('error', error => r(error));
-    childProcess.on('close', () => f({ stdout, stderr }));
+    childProcess.on('close', code => f({ stdout, stderr, code: code }));
   });
 }
 
@@ -185,14 +185,14 @@ export async function runNode(vscode: vscodeTypes.VSCode, args: string[], cwd: s
 }
 
 export async function getPlaywrightInfo(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFilePath: string, env: NodeJS.ProcessEnv, logger: vscodeTypes.LogOutputChannel): Promise<{ version: number, cli: string }> {
-  const { stdout: pwtInfo, stderr } = await runNode(vscode, [
+  const { stdout: pwtInfo, stderr, code } = await runNode(vscode, [
     require.resolve('./playwrightFinder'),
   ], path.dirname(configFilePath), env, logger);
   let output: { version: number, cli: string, error?: string };
   try {
     output = JSON.parse(pwtInfo);
   } catch (error) {
-    throw new Error(`Failed to parse Playwright Test info.\nstdout: ${pwtInfo}\nstderr: ${stderr}`);
+    throw new Error(`Failed to parse Playwright Test info.\ncode: ${code}\nstdout: ${pwtInfo}\nstderr: ${stderr}`);
   }
   const { version, cli, error } = output;
   if (error)
