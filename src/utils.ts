@@ -52,7 +52,7 @@ export async function spawnAsync(executable: string, args: string[], cwd?: strin
   childProcess.stderr.on('data', data => stderr += data.toString());
   return new Promise((f, r) => {
     childProcess.on('error', error => r(error));
-    childProcess.on('exit', () => f({ stdout, stderr }));
+    childProcess.on('close', () => f({ stdout, stderr }));
   });
 }
 
