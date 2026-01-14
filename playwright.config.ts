@@ -21,7 +21,7 @@ export default defineConfig<WorkerOptions>({
   outputDir: './test-results/inner',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  workers: process.env.CI ? 4 : undefined,
+  workers: process.env.CI ? 2 : undefined,
   reporter: process.env.CI ? [
     ['line'],
     ['blob'],
