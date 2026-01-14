@@ -186,7 +186,13 @@ export async function getPlaywrightInfo(vscode: vscodeTypes.VSCode, workspaceFol
   const pwtInfo = await runNode(vscode, [
     require.resolve('./playwrightFinder'),
   ], path.dirname(configFilePath), env, logger);
-  const { version, cli, error } = JSON.parse(pwtInfo) as { version: number, cli: string, error?: string };
+  let output: { version: number, cli: string, error?: string };
+  try {
+    output = JSON.parse(pwtInfo);
+  } catch (error) {
+    throw new Error(`Failed to parse Playwright Test info: ${pwtInfo}`);
+  }
+  const { version, cli, error } = output;
   if (error)
     throw new Error(error);
   let cliOverride = cli;
