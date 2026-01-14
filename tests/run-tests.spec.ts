@@ -1232,26 +1232,27 @@ test('should run single test defined outside of .spec.ts file', { annotation: { 
   `);
 });
 
-test('should start webServer', async ({ activate }, testInfo) => {
-  const port = testInfo.parallelIndex * 4 + 42130;
+test('should start webServer', async ({ activate }) => {
   const { testController } = await activate({
     'server.mjs': `
       import http from "node:http";
-      http.createServer((req, res) => {
+      const server = http.createServer((req, res) => {
         res.end('<h1>Hello world</h1>');
-      }).listen(${port})
+      }).listen(0, () => {
+        console.log('Listening on port ' + server.address().port);
+      });
     `,
     'playwright.config.js': `module.exports = {
-      use: {
-        baseURL: 'http://localhost:${port}'
-      },
       webServer: {
         command: 'node server.mjs',
-        url: 'http://localhost:${port}',
+        wait: {
+          stdout: /Listening on port (?<server_port>\\d+)/,
+        },
       },
     }`,
     'tests/test.spec.ts': `
       import { test, expect } from '@playwright/test';
+      test.use({ baseURL: 'http://localhost:' + process.env.SERVER_PORT });
       test('one', async ({ page }) => {
         await page.goto("/");
         await expect(page.getByRole('heading')).toHaveText('Hello world');
