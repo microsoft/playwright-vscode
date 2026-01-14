@@ -203,7 +203,7 @@
     "@types/babel__helper-plugin-utils": "^7.10.2",
     "@types/babel__traverse": "^7.20.3",
     "@types/glob": "^8.0.0",
-    "@types/node": "^18.11.9",
+    "@types/node": "25.0.8",
     "@types/stack-utils": "^2.0.1",
     "@types/vscode": "1.93.0",
     "@types/which": "^3.0.3",
