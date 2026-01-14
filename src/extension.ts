@@ -907,26 +907,31 @@ test('test', async ({ page }) => {
   private async _onTestPaused(params: { errors: reporterTypes.TestError[] }) {
     if (!this._testUnderDebug)
       return;
-    const errors = params.errors.filter(e => !!e.message);
-    if (!errors.length) {
-      const location = this._testUnderDebug.testCase.location;
-      const document = await this._vscode.workspace.openTextDocument(location.file);
-      const testEndPosition = findTestEndPosition(document.getText(), uriToPath(document.uri), location) ?? location;
-      const range = this._asRange(testEndPosition);
-      const editor = await this._vscode.window.showTextDocument(document, { selection: range });
-      editor.setDecorations(this._pausedAtEndDecorationType, [{ range }]);
-      this._testUnderDebug.disposables.push({ dispose: () => editor.setDecorations(this._pausedAtEndDecorationType, []) });
-    } else {
-      if (this._testRun && this._testUnderDebug.testItem)
-        this._testRun.failed(this._testUnderDebug.testItem, errors.map(error => this._testMessageForTestError(error)));
-      const error = errors.find(e => e.location);
-      if (error?.location) {
-        const range = this._asRange(error.location);
-        const document = await this._vscode.workspace.openTextDocument(error.location.file);
+    try {
+      const errors = params.errors.filter(e => !!e.message);
+      if (!errors.length) {
+        const location = this._testUnderDebug.testCase.location;
+        const document = await this._vscode.workspace.openTextDocument(location.file);
+        const testEndPosition = findTestEndPosition(document.getText(), uriToPath(document.uri), location) ?? location;
+        const range = this._asRange(testEndPosition);
         const editor = await this._vscode.window.showTextDocument(document, { selection: range });
-        editor.setDecorations(this._pausedOnErrorDecorationType, [{ range }]);
-        this._testUnderDebug.disposables.push({ dispose: () => editor.setDecorations(this._pausedOnErrorDecorationType, []) });
+        editor.setDecorations(this._pausedAtEndDecorationType, [{ range }]);
+        this._testUnderDebug.disposables.push({ dispose: () => editor.setDecorations(this._pausedAtEndDecorationType, []) });
+      } else {
+        if (this._testRun && this._testUnderDebug.testItem)
+          this._testRun.failed(this._testUnderDebug.testItem, errors.map(error => this._testMessageForTestError(error)));
+        const error = errors.find(e => e.location && path.isAbsolute(e.location.file));
+        if (error?.location) {
+          const range = this._asRange(error.location);
+          const document = await this._vscode.workspace.openTextDocument(error.location.file);
+          const editor = await this._vscode.window.showTextDocument(document, { selection: range });
+          editor.setDecorations(this._pausedOnErrorDecorationType, [{ range }]);
+          this._testUnderDebug.disposables.push({ dispose: () => editor.setDecorations(this._pausedOnErrorDecorationType, []) });
+        }
       }
+    } catch (e) {
+      console.error('Error in _onTestPaused', e);
+      console.error('testPaused params.errors:', JSON.stringify(params.errors, null, 2));
     }
   }
 
