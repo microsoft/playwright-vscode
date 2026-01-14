@@ -777,6 +777,9 @@ class Debug {
       env: { ...configuration.env, VSCODE_MOCK_DEBUGGING: '1' },
     });
 
+    const stdoutClosed = new Promise<void>(resolve => this._debuggerProcess?.stdout.on('close', resolve));
+    const stderrClosed = new Promise<void>(resolve => this._debuggerProcess?.stderr.on('close', resolve));
+
     this._debuggerProcess.stdout.on('data', data => {
       this.output += data.toString();
       this._dapSniffer.onDidSendMessage({
@@ -789,7 +792,10 @@ class Debug {
       });
     });
     this._debuggerProcess.stderr.on('data', data => this.output += data.toString());
-    this._debuggerProcess.on('exit', () => this._didTerminateDebugSession.fire(session));
+    this._debuggerProcess.on('close', async () => {
+      await Promise.all([stdoutClosed, stderrClosed]);
+      this._didTerminateDebugSession.fire(session);
+    });
     return true;
   }
 
