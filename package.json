@@ -104,8 +104,32 @@
         "category": "Test",
         "command": "pw.extension.command.clearCache",
         "title": "%contributes.command.pw.extension.command.clearCache%"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.command.runAndUpdateAgents",
+        "icon": "$(copilot)",
+        "title": "%contributes.command.pw.extension.command.runAndUpdateAgents%"
       }
     ],
+    "menus": {
+      "testing/item/gutter": [
+        {
+          "command": "pw.extension.command.runAndUpdateAgents",
+          "group": "1_playwright"
+        }
+      ],
+      "testing/item/context": [
+        {
+          "command": "pw.extension.command.runAndUpdateAgents",
+          "group": "1_playwright"
+        },
+        {
+          "command": "pw.extension.command.runAndUpdateAgents",
+          "group": "inline@100"
+        }
+      ]
+    },
     "configuration": {
       "title": "Playwright",
       "properties": {

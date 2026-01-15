@@ -216,6 +216,10 @@ export class Extension implements RunHooks {
       vscode.commands.registerCommand('pw.extension.command.closeBrowsers', () => {
         this._reusedBrowser.closeAllBrowsers();
       }),
+      vscode.commands.registerCommand('pw.extension.command.runAndUpdateAgents', async (testItem: vscodeTypes.TestItem) => {
+        const request = new vscode.TestRunRequest([testItem], undefined, this._updateAgentsProfile);
+        await this._handleTestRun(false, request);
+      }),
       vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
         const model = this._models.selectedModel();
         if (!model)
