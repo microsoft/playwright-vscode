@@ -40,18 +40,26 @@ export function stripBabelFrame(text: string) {
   return result.join('\n').trim();
 }
 
-export async function spawnAsync(executable: string, args: string[], cwd?: string, settingsEnv?: NodeJS.ProcessEnv): Promise<string> {
+export async function spawnAsync(executable: string, args: string[], cwd?: string, settingsEnv?: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: string, code: number | null }> {
   const childProcess = spawn(executable, args, {
     stdio: 'pipe',
     cwd,
     env: { ...process.env, ...settingsEnv }
   });
-  let output = '';
-  childProcess.stdout.on('data', data => output += data.toString());
-  return new Promise<string>((f, r) => {
-    childProcess.on('error', error => r(error));
-    childProcess.on('exit', () => f(output));
-  });
+  let stdout = '';
+  let stderr = '';
+  childProcess.stdout.on('data', data => stdout += data.toString());
+  childProcess.stderr.on('data', data => stderr += data.toString());
+
+  const [, , code] = await Promise.all([
+    new Promise<void>(f => childProcess.stdout.on('end', f)),
+    new Promise<void>(f => childProcess.stderr.on('end', f)),
+    new Promise<number | null>((f, r) => {
+      childProcess.on('error', r);
+      childProcess.on('exit', f);
+    }),
+  ]);
+  return { stdout, stderr, code };
 }
 
 export async function resolveSourceMap(file: string, fileToSources: Map<string, string[]>, sourceToFile: Map<string, string>): Promise<string[]> {
@@ -178,15 +186,21 @@ export function escapeRegex(text: string) {
 
 export const pathSeparator = process.platform === 'win32' ? ';' : ':';
 
-export async function runNode(vscode: vscodeTypes.VSCode, args: string[], cwd: string, env: NodeJS.ProcessEnv, logger: vscodeTypes.LogOutputChannel): Promise<string> {
+export async function runNode(vscode: vscodeTypes.VSCode, args: string[], cwd: string, env: NodeJS.ProcessEnv, logger: vscodeTypes.LogOutputChannel) {
   return await spawnAsync(await findNode(vscode, cwd, logger), args, cwd, env);
 }
 
 export async function getPlaywrightInfo(vscode: vscodeTypes.VSCode, workspaceFolder: string, configFilePath: string, env: NodeJS.ProcessEnv, logger: vscodeTypes.LogOutputChannel): Promise<{ version: number, cli: string }> {
-  const pwtInfo = await runNode(vscode, [
+  const { stdout: pwtInfo, stderr, code } = await runNode(vscode, [
     require.resolve('./playwrightFinder'),
   ], path.dirname(configFilePath), env, logger);
-  const { version, cli, error } = JSON.parse(pwtInfo) as { version: number, cli: string, error?: string };
+  let output: { version: number, cli: string, error?: string };
+  try {
+    output = JSON.parse(pwtInfo);
+  } catch (error) {
+    throw new Error(`Failed to parse Playwright Test info.\ncode: ${code}\nstdout: ${pwtInfo}\nstderr: ${stderr}`);
+  }
+  const { version, cli, error } = output;
   if (error)
     throw new Error(error);
   let cliOverride = cli;

@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import { chromium } from '@playwright/test';
-import { expect, test } from './utils';
+import { expect, test, connectToSharedBrowser, waitForPage } from './utils';
 
 test.beforeEach(({ showBrowser }) => {
   // Locator highlighting is only relevant when the browser stays open.
@@ -23,15 +22,8 @@ test.beforeEach(({ showBrowser }) => {
 });
 
 test('should work', async ({ activate }) => {
-  const cdpPort = 9234 + test.info().workerIndex * 2;
   const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = {
-      use: {
-        launchOptions: {
-          args: ['--remote-debugging-port=${cdpPort}']
-        }
-      }
-    }`,
+    'playwright.config.js': `module.exports = {}`,
     'test.spec.ts': `
       import { test } from '@playwright/test';
       test('one', async ({ page }) => {
@@ -76,12 +68,8 @@ test('should work', async ({ activate }) => {
   expect(testItems.length).toBe(1);
   await vscode.openEditors('test.spec.ts');
   await testController.run(testItems);
-  const browser = await chromium.connectOverCDP(`http://localhost:${cdpPort}`);
-  {
-    expect(browser.contexts()).toHaveLength(1);
-    expect(browser.contexts()[0].pages()).toHaveLength(1);
-  }
-  const page = browser.contexts()[0].pages()[0];
+  const browser = await connectToSharedBrowser(vscode);
+  const page = await waitForPage(browser);
   const boxOne = await page.getByRole('button', { name: 'one' }).boundingBox();
   const boxTwo = await page.getByRole('button', { name: 'two' }).boundingBox();
 

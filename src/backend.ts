@@ -138,7 +138,7 @@ export async function startBackend(vscode: vscodeTypes.VSCode, options: BackendS
     options.logger.error('Test server error', error);
     options.onError(error);
   });
-  serverProcess.on('close', () => {
+  serverProcess.on('exit', () => {
     options.logger.info('Test server stopped');
     options.onClose();
   });

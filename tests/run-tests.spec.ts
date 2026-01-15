@@ -1232,26 +1232,27 @@ test('should run single test defined outside of .spec.ts file', { annotation: { 
   `);
 });
 
-test('should start webServer', async ({ activate }, testInfo) => {
-  const port = testInfo.parallelIndex * 4 + 42130;
+test('should start webServer', async ({ activate }) => {
   const { testController } = await activate({
     'server.mjs': `
       import http from "node:http";
-      http.createServer((req, res) => {
+      const server = http.createServer((req, res) => {
         res.end('<h1>Hello world</h1>');
-      }).listen(${port})
+      }).listen(0, () => {
+        console.log('Listening on port ' + server.address().port);
+      });
     `,
     'playwright.config.js': `module.exports = {
-      use: {
-        baseURL: 'http://localhost:${port}'
-      },
       webServer: {
         command: 'node server.mjs',
-        url: 'http://localhost:${port}',
+        wait: {
+          stdout: /Listening on port (?<server_port>\\d+)/,
+        },
       },
     }`,
     'tests/test.spec.ts': `
       import { test, expect } from '@playwright/test';
+      test.use({ baseURL: 'http://localhost:' + process.env.SERVER_PORT });
       test('one', async ({ page }) => {
         await page.goto("/");
         await expect(page.getByRole('heading')).toHaveText('Hello world');
@@ -1265,28 +1266,29 @@ test('should start webServer', async ({ activate }, testInfo) => {
 
 test('should start webServer with npx command', async ({ activate }, testInfo) => {
   test.skip(process.platform === 'win32', 'npx on windows is weird');
-  const port = testInfo.parallelIndex * 4 + 42130;
   const { testController } = await activate({
     'node_modules/.bin/server': `
 #!/usr/bin/env node
 
 const http = require("node:http");
 
-http.createServer((req, res) => {
+const server = http.createServer((req, res) => {
   res.end('<h1>Hello world</h1>');
-}).listen(${port})
+}).listen(0, () => {
+  console.log('Listening on port ' + server.address().port);
+});
     `.trim(),
     'playwright.config.js': `module.exports = {
-      use: {
-        baseURL: 'http://localhost:${port}'
-      },
       webServer: {
         command: 'server',
-        url: 'http://localhost:${port}',
+        wait: {
+          stdout: /Listening on port (?<server_port>\\d+)/,
+        },
       },
     }`,
     'tests/test.spec.ts': `
       import { test, expect } from '@playwright/test';
+      test.use({ baseURL: 'http://localhost:' + process.env.SERVER_PORT });
       test('one', async ({ page }) => {
         await page.goto("/");
         await expect(page.getByRole('heading')).toHaveText('Hello world');
