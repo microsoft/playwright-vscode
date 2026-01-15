@@ -116,17 +116,20 @@
       "testing/item/gutter": [
         {
           "command": "pw.extension.command.runAndUpdateAgents",
-          "group": "1_playwright"
+          "group": "1_playwright",
+          "when": "controllerId == 'playwright'"
         }
       ],
       "testing/item/context": [
         {
           "command": "pw.extension.command.runAndUpdateAgents",
-          "group": "1_playwright"
+          "group": "1_playwright",
+          "when": "controllerId == 'playwright'"
         },
         {
           "command": "pw.extension.command.runAndUpdateAgents",
-          "group": "inline@100"
+          "group": "inline@100",
+          "when": "controllerId == 'playwright'"
         }
       ]
     },
