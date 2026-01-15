@@ -84,6 +84,7 @@ export class Extension implements RunHooks {
   private _treeItemObserver: TreeItemObserver;
   private _runProfile: vscodeTypes.TestRunProfile;
   private _debugProfile: vscodeTypes.TestRunProfile;
+  private _updateAgentsProfile: vscodeTypes.TestRunProfile;
   private _commandQueue = Promise.resolve();
   private _watchFilesBatch?: vscodeTypes.TestItem[];
   private _watchItemsBatch?: vscodeTypes.TestItem[];
@@ -149,8 +150,9 @@ export class Extension implements RunHooks {
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModelsImmediately(true);
     const supportsContinuousRun = true;
-    this._runProfile = this._testController.createRunProfile('playwright-run', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, false), true, undefined, supportsContinuousRun);
-    this._debugProfile = this._testController.createRunProfile('playwright-debug', this._vscode.TestRunProfileKind.Debug, this._handleTestRun.bind(this, true), true, undefined, supportsContinuousRun);
+    this._runProfile = this._testController.createRunProfile('Run', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, false), true, undefined, supportsContinuousRun);
+    this._debugProfile = this._testController.createRunProfile('Debug', this._vscode.TestRunProfileKind.Debug, this._handleTestRun.bind(this, true), true, undefined, supportsContinuousRun);
+    this._updateAgentsProfile = this._testController.createRunProfile('Update agents', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, false), false, undefined, supportsContinuousRun);
     this._testTree = new TestTree(vscode, this._models, this._testController);
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes) , this._isUnderTest);
@@ -287,6 +289,7 @@ export class Extension implements RunHooks {
       this._testController,
       this._runProfile,
       this._debugProfile,
+      this._updateAgentsProfile,
       this._workspaceObserver,
       this._reusedBrowser,
       this._diagnostics,
