@@ -525,7 +525,7 @@ export class TestModel extends DisposableBase {
     await this._playwrightTest.clearCache();
   }
 
-  async runTests(request: vscodeTypes.TestRunRequest, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken) {
+  async runTests(request: vscodeTypes.TestRunRequest, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken, overrideOptions: PlaywrightTestRunOptions) {
     if (token?.isCancellationRequested)
       return;
 
@@ -563,6 +563,7 @@ export class TestModel extends DisposableBase {
       connectWsEndpoint: showBrowser ? externalOptions.connectWsEndpoint : undefined,
       updateSnapshots: noOverrideToUndefined(this._embedder.settingsModel.updateSnapshots.get()),
       updateSourceMethod: noOverrideToUndefined(this._embedder.settingsModel.updateSourceMethod.get()),
+      ...overrideOptions,
     };
 
     try {

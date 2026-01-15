@@ -45,6 +45,7 @@ export type PlaywrightTestRunOptions = {
   connectWsEndpoint?: string;
   updateSnapshots?: 'all' | 'changed' | 'missing' | 'none' | undefined;
   updateSourceMethod?: 'overwrite' | 'patch' | '3way' | undefined;
+  updateAgents?: 'all' | 'missing' | 'none' | undefined;
 };
 
 export type PlaywrightTestOptions = {
