@@ -150,9 +150,9 @@ export class Extension implements RunHooks {
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModelsImmediately(true);
     const supportsContinuousRun = true;
-    this._runProfile = this._testController.createRunProfile('Run', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, false), true, undefined, supportsContinuousRun);
-    this._debugProfile = this._testController.createRunProfile('Debug', this._vscode.TestRunProfileKind.Debug, this._handleTestRun.bind(this, true), true, undefined, supportsContinuousRun);
-    this._updateAgentsProfile = this._testController.createRunProfile('Update agents', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, false), false, undefined, supportsContinuousRun);
+    this._runProfile = this._testController.createRunProfile('Run', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, 'run'), true, undefined, supportsContinuousRun);
+    this._debugProfile = this._testController.createRunProfile('Debug', this._vscode.TestRunProfileKind.Debug, this._handleTestRun.bind(this, 'debug'), true, undefined, supportsContinuousRun);
+    this._updateAgentsProfile = this._testController.createRunProfile('Update agents', this._vscode.TestRunProfileKind.Run, this._handleTestRun.bind(this, 'update-agents'), false, undefined, supportsContinuousRun);
     this._testTree = new TestTree(vscode, this._models, this._testController);
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes) , this._isUnderTest);
@@ -218,7 +218,7 @@ export class Extension implements RunHooks {
       }),
       vscode.commands.registerCommand('pw.extension.command.runAndUpdateAgents', async (testItem: vscodeTypes.TestItem) => {
         const request = new vscode.TestRunRequest([testItem], undefined, this._updateAgentsProfile);
-        await this._handleTestRun(false, request);
+        await this._handleTestRun('update-agents', request);
       }),
       vscode.commands.registerCommand('pw.extension.command.recordNew', async () => {
         const model = this._models.selectedModel();
@@ -461,7 +461,7 @@ export class Extension implements RunHooks {
     }
   }
 
-  private async _handleTestRun(isDebug: boolean, request: vscodeTypes.TestRunRequest, cancellationToken?: vscodeTypes.CancellationToken) {
+  private async _handleTestRun(mode: 'run' | 'debug' | 'update-agents', request: vscodeTypes.TestRunRequest, cancellationToken?: vscodeTypes.CancellationToken) {
     // Never run tests concurrently.
     if (this._testRun && !request.continuous)
       return;
@@ -491,7 +491,7 @@ export class Extension implements RunHooks {
       }
     }
 
-    await this._queueTestRun(request, isDebug ? 'debug' : 'run');
+    await this._queueTestRun(request, mode);
 
     if (request.continuous) {
       for (const model of this._models.enabledModels())
@@ -499,7 +499,7 @@ export class Extension implements RunHooks {
     }
   }
 
-  private async _queueTestRun(request: vscodeTypes.TestRunRequest, mode: 'run' | 'debug') {
+  private async _queueTestRun(request: vscodeTypes.TestRunRequest, mode: 'run' | 'debug' | 'update-agents') {
     await this._queueCommand(() => this._runTests(request, mode), undefined);
   }
 
@@ -548,7 +548,7 @@ export class Extension implements RunHooks {
     }
   }
 
-  private async _runTests(request: vscodeTypes.TestRunRequest, mode: 'run' | 'debug' | 'watch') {
+  private async _runTests(request: vscodeTypes.TestRunRequest, mode: 'run' | 'debug' | 'watch' | 'update-agents') {
     this._completedSteps.clear();
     this._executionLinesChanged();
     const include = request.include;
@@ -624,7 +624,7 @@ export class Extension implements RunHooks {
     testItemForGlobalErrors: vscodeTypes.TestItem | undefined,
     testFailures: Set<vscodeTypes.TestItem>,
     model: TestModel,
-    mode: 'run' | 'debug' | 'watch',
+    mode: 'run' | 'debug' | 'watch' | 'update-agents',
     enqueuedSingleTest: boolean) {
 
     let browserDoesNotExist = false;
@@ -735,8 +735,15 @@ export class Extension implements RunHooks {
       this._cleanupItemUnderDebug();
     } else {
       // Force trace viewer update to surface check version errors.
-      await this._models.selectedModel()?.updateTraceViewer(mode === 'run')?.willRunTests();
-      await model.runTests(request, testListener, testRun.token);
+      await this._models.selectedModel()?.updateTraceViewer(mode !== 'watch')?.willRunTests();
+      await model.runTests(
+          request,
+          testListener,
+          testRun.token,
+          {
+            updateAgents: mode === 'update-agents' ? 'all' : undefined
+          }
+      );
     }
 
     if (browserDoesNotExist)
