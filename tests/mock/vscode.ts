@@ -755,7 +755,7 @@ class Debug {
   readonly onDidTerminateDebugSession = this._didTerminateDebugSession.event;
   output = '';
   dapFactories: any[] = [];
-  private _dapSniffer: any;
+  private _currentTrackers: any[] = [];
   private _debuggerProcess?: ChildProcessWithoutNullStreams;
 
   constructor() {
@@ -767,8 +767,15 @@ class Debug {
 
   async startDebugging(folder: WorkspaceFolder | undefined, configuration: DebugConfiguration, parentSession?: DebugSession): Promise<boolean> {
     const session = new DebugSession('<extension-id>', configuration.type, configuration.name, folder, configuration, parentSession);
-    for (const factory of this.dapFactories)
-      this._dapSniffer = factory.createDebugAdapterTracker(session);
+    
+    // Collect all debug adapter trackers from factories
+    this._currentTrackers = [];
+    for (const factory of this.dapFactories) {
+      const tracker = factory.createDebugAdapterTracker(session);
+      if (tracker)
+        this._currentTrackers.push(tracker);
+    }
+    
     this._didStartDebugSession.fire(session);
     const node = await which('node');
     this._debuggerProcess = spawn(node, [configuration.program, ...configuration.args], {
@@ -778,15 +785,21 @@ class Debug {
     });
 
     this._debuggerProcess.stdout.on('data', data => {
-      this.output += data.toString();
-      this._dapSniffer.onDidSendMessage({
-        type: 'event',
-        event: 'output',
-        body: {
-          category: 'stdout',
-          output: data.toString(),
+      const dataStr = data.toString();
+      this.output += dataStr;
+      // Send to all trackers that have onDidSendMessage
+      for (const tracker of this._currentTrackers) {
+        if (tracker.onDidSendMessage) {
+          tracker.onDidSendMessage({
+            type: 'event',
+            event: 'output',
+            body: {
+              category: 'stdout',
+              output: dataStr,
+            }
+          });
         }
-      });
+      }
     });
     this._debuggerProcess.stderr.on('data', data => this.output += data.toString());
     this._debuggerProcess.on('exit', () => this._didTerminateDebugSession.fire(session));
@@ -799,38 +812,42 @@ class Debug {
 
   simulateStoppedOnError(error: string, location: { file: string; line: number; }) {
     const errorText = `${error.replace(/\n/g, '\\n')}\n at ${location.file}:${location.line}:1 {matcherResult: ...}`;
-    this._dapSniffer.onDidSendMessage({
-      success: true,
-      type: 'response',
-      command: 'scopes',
-      body: {
-        scopes: [
-          {
-            name: 'Catch Block',
-            source: {
-              path: location.file,
-            },
-            line: location.line,
-            column: 0,
-          },
-        ],
-      }
-    });
+    for (const tracker of this._currentTrackers) {
+      if (tracker.onDidSendMessage) {
+        tracker.onDidSendMessage({
+          success: true,
+          type: 'response',
+          command: 'scopes',
+          body: {
+            scopes: [
+              {
+                name: 'Catch Block',
+                source: {
+                  path: location.file,
+                },
+                line: location.line,
+                column: 0,
+              },
+            ],
+          }
+        });
 
-    this._dapSniffer.onDidSendMessage({
-      success: true,
-      type: 'response',
-      command: 'variables',
-      body: {
-        variables: [
-          {
-            type: 'ExpectError',
-            name: '__playwright_error__',
-            value: errorText,
-          },
-        ],
+        tracker.onDidSendMessage({
+          success: true,
+          type: 'response',
+          command: 'variables',
+          body: {
+            variables: [
+              {
+                type: 'ExpectError',
+                name: '__playwright_error__',
+                value: errorText,
+              },
+            ],
+          }
+        });
       }
-    });
+    }
   }
 
   dispose() {
