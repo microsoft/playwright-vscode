@@ -17,6 +17,10 @@
 import { expect, test, escapedPathSep, enableProjects, connectToSharedBrowser, waitForPage } from './utils';
 import { TestRun, DebugSession, stripAnsi } from './mock/vscode';
 
+// Debug tests can be resource-intensive and may conflict when run in parallel
+// on systems with limited resources. Run them serially to avoid race conditions.
+test.describe.configure({ mode: 'serial' });
+
 test('should debug multiple passing tests', async ({ activate }) => {
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
