@@ -767,7 +767,7 @@ class Debug {
 
   async startDebugging(folder: WorkspaceFolder | undefined, configuration: DebugConfiguration, parentSession?: DebugSession): Promise<boolean> {
     const session = new DebugSession('<extension-id>', configuration.type, configuration.name, folder, configuration, parentSession);
-    
+
     // Collect all debug adapter trackers from factories
     this._currentTrackers = [];
     for (const factory of this.dapFactories) {
@@ -775,7 +775,7 @@ class Debug {
       if (tracker)
         this._currentTrackers.push(tracker);
     }
-    
+
     this._didStartDebugSession.fire(session);
     const node = await which('node');
     this._debuggerProcess = spawn(node, [configuration.program, ...configuration.args], {
