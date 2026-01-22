@@ -769,12 +769,14 @@ class Debug {
     const session = new DebugSession('<extension-id>', configuration.type, configuration.name, folder, configuration, parentSession);
 
     // Collect all debug adapter trackers from factories
-    this._currentTrackers = [];
+    const trackers: any[] = [];
     for (const factory of this.dapFactories) {
       const tracker = factory.createDebugAdapterTracker(session);
       if (tracker)
-        this._currentTrackers.push(tracker);
+        trackers.push(tracker);
     }
+    // Store for simulateStoppedOnError
+    this._currentTrackers = trackers;
 
     this._didStartDebugSession.fire(session);
     const node = await which('node');
@@ -784,11 +786,13 @@ class Debug {
       env: { ...configuration.env, VSCODE_MOCK_DEBUGGING: '1' },
     });
 
+    // Capture trackers in closure to avoid issues if startDebugging is called again
+    const capturedTrackers = trackers;
     this._debuggerProcess.stdout.on('data', data => {
       const dataStr = data.toString();
       this.output += dataStr;
       // Send to all trackers that have onDidSendMessage
-      for (const tracker of this._currentTrackers) {
+      for (const tracker of capturedTrackers) {
         if (tracker.onDidSendMessage) {
           tracker.onDidSendMessage({
             type: 'event',
