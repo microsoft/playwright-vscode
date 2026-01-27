@@ -128,6 +128,8 @@ select {
   padding: 2px 0;
   cursor: pointer;
   min-width: 10px;
+  font-family: system-ui, Ubuntu, "Droid Sans", sans-serif, "Droid Sans Mono", "monospace", monospace;
+  font-size: 13px;
 }
 
 label {
