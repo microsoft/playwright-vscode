@@ -16,12 +16,25 @@
 import { defineConfig } from '@playwright/test';
 import { WorkerOptions } from './tests/utils';
 
+// Determine optimal worker count based on OS
+function getWorkerCount(): number | undefined {
+  if (!process.env.CI)
+    return undefined;
+
+  // macOS has resource constraints with debug tests; use 1 worker
+  if (process.platform === 'darwin')
+    return 1;
+
+  // Windows and Linux can handle more parallelism; use 4 workers
+  return 4;
+}
+
 export default defineConfig<WorkerOptions>({
   testDir: './tests',
   outputDir: './test-results/inner',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  workers: process.env.CI ? 2 : undefined,
+  workers: getWorkerCount(),
   reporter: process.env.CI ? [
     ['line'],
     ['blob'],
