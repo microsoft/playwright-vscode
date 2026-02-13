@@ -73,6 +73,26 @@ test('test', async ({ page }) => {
   }]);
 });
 
+test('should navigate to recordStartUrl when recording', async ({ activate }) => {
+  test.slow();
+
+  const { vscode } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+  });
+
+  const configuration = vscode.workspace.getConfiguration('playwright');
+  configuration.update('recordStartUrl', 'https://example.com');
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await webView.getByText('Record new').click();
+  await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+
+  const browser = await connectToSharedBrowser(vscode);
+  const page = await waitForPage(browser);
+  // The test template includes page.goto() which navigates before recording starts.
+  await expect.poll(() => page.url()).toBe('https://example.com/');
+});
+
 test('running test should stop the recording', async ({ activate, showBrowser }) => {
   test.skip(!showBrowser);
 

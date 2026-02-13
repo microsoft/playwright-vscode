@@ -23,6 +23,8 @@
   "configuration.playwright.pickLocatorCopyToClipboard": "Automatically copy picked locator to clipboard.",
   "configuration.playwright.updateSnapshots": "Update snapshots",
   "configuration.playwright.updateSourceMethod": "Update source method",
+  "configuration.playwright.recordStartUrl": "URL to navigate to when recording a new test.",
+  "configuration.playwright.recordStartUrl.patternErrorMessage": "URL must include a scheme, e.g. https://example.com",
   "views.test.pw.extension.locatorsView": "Locators",
   "views.test.pw.extension.settingsView": "Playwright"
 }

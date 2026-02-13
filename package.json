@@ -154,6 +154,13 @@
           ],
           "default": "3way",
           "description": "%configuration.playwright.updateSourceMethod%"
+        },
+        "playwright.recordStartUrl": {
+          "type": "string",
+          "default": "",
+          "pattern": "^$|^[a-zA-Z]+://",
+          "patternErrorMessage": "%configuration.playwright.recordStartUrl.patternErrorMessage%",
+          "description": "%configuration.playwright.recordStartUrl%"
         }
       }
     },
