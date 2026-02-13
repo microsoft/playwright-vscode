@@ -23,6 +23,8 @@
   "configuration.playwright.pickLocatorCopyToClipboard": "Copia automaticamente il locator selezionato negli appunti.",
   "configuration.playwright.updateSnapshots": "Aggiorna gli snapshot",
   "configuration.playwright.updateSourceMethod": "Aggiorna il metodo sorgente",
+  "configuration.playwright.recordStartUrl": "URL a cui navigare durante la registrazione di un nuovo test.",
+  "configuration.playwright.recordStartUrl.patternErrorMessage": "L'URL deve includere lo schema, ad es. https://example.com",
   "views.test.pw.extension.locatorsView": "Localizzatori",
   "views.test.pw.extension.settingsView": "Playwright"
 }

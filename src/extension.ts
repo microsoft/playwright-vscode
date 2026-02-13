@@ -813,9 +813,14 @@ export class Extension implements RunHooks {
     if (!file)
       return;
 
+    let gotoLine = '';
+    const recordStartUrl = this._vscode.workspace.getConfiguration('playwright').get<string>('recordStartUrl', '').trim() || undefined;
+    if (recordStartUrl)
+      gotoLine = `\n  await page.goto(${JSON.stringify(recordStartUrl)});`;
+
     await fs.promises.writeFile(file, `import { test, expect } from '@playwright/test';
 
-test('test', async ({ page }) => {
+test('test', async ({ page }) => {${gotoLine}
   // Recording...
 });`);
 
@@ -824,7 +829,8 @@ test('test', async ({ page }) => {
 
     const document = await this._vscode.workspace.openTextDocument(file);
     const editor = await this._vscode.window.showTextDocument(document);
-    editor.selection = new this._vscode.Selection(new this._vscode.Position(3, 2), new this._vscode.Position(3, 2 + '// Recording...'.length));
+    const recordingLine = recordStartUrl ? 4 : 3;
+    editor.selection = new this._vscode.Selection(new this._vscode.Position(recordingLine, 2), new this._vscode.Position(recordingLine, 2 + '// Recording...'.length));
 
     return file;
   }

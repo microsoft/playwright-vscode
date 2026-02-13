@@ -23,6 +23,8 @@
   "configuration.playwright.pickLocatorCopyToClipboard": "自动将选中的定位器复制到剪贴板",
   "configuration.playwright.updateSnapshots": "更新快照",
   "configuration.playwright.updateSourceMethod": "更新源方法",
+  "configuration.playwright.recordStartUrl": "录制新测试时要导航到的 URL。",
+  "configuration.playwright.recordStartUrl.patternErrorMessage": "URL 必须包含协议，例如 https://example.com",
   "views.test.pw.extension.locatorsView": "定位器",
   "views.test.pw.extension.settingsView": "Playwright"
 }
