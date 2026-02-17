@@ -166,10 +166,12 @@ export class TestTree extends DisposableBase {
         vsChild.tags = uChild.tags.map(tag => new this._vscode.TestTag(tag));
       const hasLocation = uChild.location.line || uChild.location.column;
       if (hasLocation && (!vsChild.range || vsChild.range.start.line + 1 !== uChild.location.line)) {
-        const line = uChild.location.line;
-        vsChild.range = new this._vscode.Range(Math.max(line - 1, 0), 0, line, 0);
-      } else if (hasLocation && !vsChild.range) {
-        vsChild.range = undefined;
+        // Playwright counts lines starting at 1, but VS Code's Range API uses 0-based lines.
+        // I need to subtract 1 from both start and end - the original code only fixed the
+        // start line, so the range end was still off by one and bled into the next line.
+        // See: https://github.com/microsoft/playwright-vscode/issues/38911
+        const zeroBased = Math.max(uChild.location.line - 1, 0);
+        vsChild.range = new this._vscode.Range(zeroBased, 0, zeroBased, 0);
       }
     }
 
