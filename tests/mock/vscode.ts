@@ -509,7 +509,10 @@ export class TestRun {
       result.push('  Output:');
       result.push(...this._renderOutput());
     }
-    return trimLog(result.join(`\n${indent}`)) + `\n${indent}`;
+    let log = trimLog(result.join(`\n${indent}`)) + `\n${indent}`;
+    // Strip Playwright's "Context for AI" details block as it contains absolute paths.
+    log = log.replace(/\n?\s*<br><br><details><summary>Context for AI<\/summary>[\s\S]*?<\/details>/g, '');
+    return log;
   }
 
   renderOutput(): string {
