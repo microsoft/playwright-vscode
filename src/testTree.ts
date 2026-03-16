@@ -109,7 +109,7 @@ export class TestTree extends DisposableBase {
         }
       }
 
-      const upstreamTree = new upstream.TestTree(workspaceFSPath, rootSuite, [], undefined, path.sep);
+      const upstreamTree = new upstream.TestTree(workspaceFSPath, rootSuite, [], undefined, path.sep, false);
       upstreamTree.sortAndPropagateStatus();
       upstreamTree.flattenForSingleProject();
 

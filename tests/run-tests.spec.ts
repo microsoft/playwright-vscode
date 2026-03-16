@@ -1168,7 +1168,8 @@ test('should provide page snapshot to copilot', async ({ activate }) => {
   });
 
   const testRun = await testController.run();
-  const log = testRun.renderLog({ messages: true });
+  const allMessages = [...testRun.entries.values()].flat().flatMap(e => e.messages ?? []);
+  const log = allMessages.map(m => m.message.render()).join('\n');
   expect(log).toContain(`<details><summary>Context for AI</summary>`);
   expect(log).toContain(`# Page snapshot`);
   expect(log).toContain(`- button "click me"`);

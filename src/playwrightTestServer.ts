@@ -216,7 +216,7 @@ export class PlaywrightTestServer {
       return;
 
     // Locations are regular expressions.
-    const locationPatterns = locations ? locations.map(escapeRegex) : undefined;
+    const locationPatterns = locations ? locations.map(escapeRegex) : [];
     const options: Parameters<TestServerInterface['runTests']>['0'] = {
       projects: this._model.enabledProjectsFilter(),
       locations: locationPatterns,
@@ -344,7 +344,7 @@ export class PlaywrightTestServer {
       }
 
       // Locations are regular expressions.
-      const locationPatterns = locations ? locations.map(escapeRegex) : undefined;
+      const locationPatterns = locations ? locations.map(escapeRegex) : [];
       const options: Parameters<TestServerInterface['runTests']>['0'] = {
         projects: this._model.enabledProjectsFilter(),
         locations: locationPatterns,
