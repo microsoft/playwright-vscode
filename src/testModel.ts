@@ -710,7 +710,7 @@ export class TestModel extends DisposableBase {
       if (representsPath)
         hasPathItem = true;
       else
-        testIds.push(...collectTestIds(treeItem));
+        testIds.push(...collectTestIds(treeItem).testIds);
     }
 
     // known bug: for a combination of location items, and test IDs outside those locations, those test IDs will never be run.
