@@ -83,6 +83,44 @@ test('should list tests for visible editors', async ({ activate }) => {
   ]);
 });
 
+test('should list tests when they import local modules with ESM-only package dependencies', async ({ activate }) => {
+  const { testController } = await activate({
+    'package.json': JSON.stringify({ type: 'module' }),
+    'playwright.config.js': `
+      export default { testDir: 'tests' };
+    `,
+    'node_modules/foo-pkg/package.json': JSON.stringify({
+      name: 'foo-pkg',
+      type: 'module',
+      exports: {
+        '.': './index.js',
+      },
+    }),
+    'node_modules/foo-pkg/index.js': `
+      export const label = 'Button';
+    `,
+    'src/utils.ts': `
+      import { label } from 'foo-pkg';
+      export { label };
+    `,
+    'tests/test.spec.ts': `
+      import { test, expect } from '@playwright/test';
+      import { label } from '../src/utils.js';
+
+      test('one', async () => {
+        expect(label).toBe('Button');
+      });
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec.ts/);
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   test.spec.ts
+        -   one [4:0]
+  `);
+});
+
 test('should list suits', async ({ activate }) => {
   const { testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
