@@ -75,7 +75,12 @@ export enum ColorThemeKind {
 }
 
 class Position {
-  constructor(readonly line: number, readonly character: number) {}
+  constructor(readonly line: number, readonly character: number) {
+    if (line < 0)
+      throw new Error('Illegal argument: line must be non-negative');
+    if (character < 0)
+      throw new Error('Illegal argument: character must be non-negative');
+  }
 
   toString() {
     return `${this.line}:${this.character}`;

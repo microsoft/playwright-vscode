@@ -90,3 +90,21 @@ test('should update diagnostics on file change', async ({ activate }) => {
   `);
   await expect.poll(() => vscode.diagnosticsCollections[0]._entries.size).toBe(0);
 });
+
+test('should not throw on error location with column 0', async ({ activate }) => {
+  const { vscode } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+  });
+
+  // Some Playwright errors reach the extension with column 0 when the
+  // originating stack frame has no column info. VSCode's Position constructor
+  // rejects negative characters, so `column - 1` must be clamped at 0.
+  expect(() => new vscode.Position(0, -1)).toThrow(/character must be non-negative/);
+
+  const extension: any = vscode.extensions[0];
+  const position = extension._asPosition({ line: 5, column: 0 });
+  expect({ line: position.line, character: position.character }).toEqual({ line: 4, character: 0 });
+
+  const topOfFile = extension._asPosition({ line: 0, column: 0 });
+  expect({ line: topOfFile.line, character: topOfFile.character }).toEqual({ line: 0, character: 0 });
+});
