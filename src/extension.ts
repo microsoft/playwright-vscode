@@ -1028,7 +1028,7 @@ test('test', async ({ page }) => {
   }
 
   private _asPosition(location: { line: number, column: number }): vscodeTypes.Position {
-    return new this._vscode.Position(Math.max(location.line - 1, 0), location.column - 1);
+    return new this._vscode.Position(Math.max(location.line - 1, 0), Math.max(location.column - 1, 0));
   }
 
   private _asLocation(location: reporterTypes.Location): vscodeTypes.Location {
@@ -1096,7 +1096,7 @@ function parseStack(vscode: vscodeTypes.VSCode, stack: string): vscodeTypes.Test
     result.push(new vscode.TestMessageStackFrame(
         frame.method || '',
         vscode.Uri.file(frame.file),
-        new vscode.Position(Math.max(frame.line - 1, 0), frame.column - 1)));
+        new vscode.Position(Math.max(frame.line - 1, 0), Math.max(frame.column - 1, 0))));
   }
   return result;
 }
