@@ -45,6 +45,30 @@ test('should list tests on expand', async ({ activate }) => {
   ]);
 });
 
+test('should spawn test-server bound to IPv4 loopback', async ({ activate }) => {
+  // Windows 11 25H2 broke the IPv6 loopback, leaving the extension unable to
+  // connect to its test server (`connect ETIMEDOUT ::1:<port>`). Forcing the
+  // server to bind to 127.0.0.1 avoids the IPv6 path entirely.
+  // See https://github.com/microsoft/playwright/issues/40226.
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('one', async () => {});
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec.ts/);
+
+  const startServerLog = vscode.logOutputChannels
+      .flatMap(c => c.messages)
+      .find(m => m.args[0] === 'Starting test server');
+  expect(startServerLog, 'test server should have been spawned').toBeTruthy();
+  const args: string[] = startServerLog!.args[2];
+  expect(args).toContain('test-server');
+  expect(args).toEqual(expect.arrayContaining(['--host', '127.0.0.1']));
+});
+
 test('should list tests for visible editors', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
