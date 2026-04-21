@@ -928,11 +928,12 @@ type HoverProvider = {
 };
 
 class LogOutputChannel {
-  debug() {}
-  info() {}
-  warn() {}
-  error() {}
-  trace() {}
+  readonly messages: { level: string, args: any[] }[] = [];
+  debug(...args: any[]) { this.messages.push({ level: 'debug', args }); }
+  info(...args: any[]) { this.messages.push({ level: 'info', args }); }
+  warn(...args: any[]) { this.messages.push({ level: 'warn', args }); }
+  error(...args: any[]) { this.messages.push({ level: 'error', args }); }
+  trace(...args: any[]) { this.messages.push({ level: 'trace', args }); }
 }
 
 export class VSCode {
@@ -1005,6 +1006,7 @@ export class VSCode {
   readonly connectionLog: any[] = [];
   readonly openExternalUrls: string[] = [];
   readonly diagnosticsCollections: DiagnosticsCollection[] = [];
+  readonly logOutputChannels: LogOutputChannel[] = [];
   private _clipboardText = '';
 
   constructor(readonly versionNumber: number, baseDir: string, browser: Browser) {
@@ -1164,7 +1166,11 @@ export class VSCode {
         return { kind };
       },
     });
-    this.window.createOutputChannel = () => new LogOutputChannel();
+    this.window.createOutputChannel = () => {
+      const channel = new LogOutputChannel();
+      this.logOutputChannels.push(channel);
+      return channel;
+    };
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
     this.workspace.onDidChangeTextDocument = this.onDidChangeTextDocument;

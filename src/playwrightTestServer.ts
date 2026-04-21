@@ -319,7 +319,7 @@ export class PlaywrightTestServer {
           PWDEBUG: 'console',
         },
         program: paths.cli,
-        args: ['test-server', '-c', paths.config],
+        args: ['test-server', '-c', paths.config, '--host', '127.0.0.1'],
       });
 
       if (token?.isCancellationRequested)
@@ -408,6 +408,7 @@ export class PlaywrightTestServer {
         paths.cli,
         'test-server',
         '-c', paths.config,
+        '--host', '127.0.0.1',
       ],
       cwd: paths.cwd,
       envProvider: () => {

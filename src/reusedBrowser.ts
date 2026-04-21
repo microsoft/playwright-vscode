@@ -91,7 +91,8 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
     const args = [
       config.cli,
       'run-server',
-      `--path=/${createGuid()}`
+      `--path=/${createGuid()}`,
+      '--host', '127.0.0.1',
     ];
     const cwd = config.workspaceFolder;
     const envProvider = () => ({
