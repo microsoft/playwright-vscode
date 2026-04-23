@@ -505,7 +505,7 @@ export class Extension implements RunHooks {
   }
 
   private async _runGlobalHooks(type: 'setup' | 'teardown') {
-    if (!this._models.selectedModel()?.canRunGlobalHooks(type))
+    if (!this._models.selectedModel()?.needsGlobalHooks(type))
       return 'passed';
     const request = new this._vscode.TestRunRequest();
     const testRun = this._testController.createTestRun(request);

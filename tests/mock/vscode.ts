@@ -248,9 +248,7 @@ export class TestItem {
   }
 
   private _innerDelete(id: string) {
-    const item = this.map.get(id);
     this.map.delete(id);
-    item?.forEach(child => this.testController.allTestItems.delete(child.id));
     this.testController.allTestItems.delete(id);
   }
 
@@ -782,7 +780,7 @@ class Debug {
     this._debuggerProcess = spawn(node, [configuration.program, ...configuration.args], {
       cwd: configuration.cwd,
       stdio: 'pipe',
-      env: { ...configuration.env, VSCODE_MOCK_DEBUGGING: '1' },
+      env: configuration.env,
     });
 
     this._debuggerProcess.stdout.on('data', data => {

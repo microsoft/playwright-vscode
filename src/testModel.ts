@@ -109,7 +109,7 @@ export class TestModel extends DisposableBase {
     if (!this.isEnabled)
       return;
     await this._listFiles();
-    if (configSettings && configSettings.projects.length) { // there's a race where we save config settings before projects are loaded, ignore them
+    if (configSettings) {
       let firstProject = true;
       for (const project of this.projects()) {
         const projectSettings = configSettings.projects.find(p => p.name === project.name);
@@ -120,22 +120,8 @@ export class TestModel extends DisposableBase {
         firstProject = false;
       }
     } else {
-      if (this.projects().length === 0)
-        return;
-
-      let foundFirstBrowserProject = false;
-      for (const p of this.projects()) {
-        if (isBogStandardBrowserProject(p.name)) {
-          if (foundFirstBrowserProject) {
-            p[kIsEnabled] = false;
-          } else {
-            p[kIsEnabled] = true;
-            foundFirstBrowserProject = true;
-          }
-        } else {
-          p[kIsEnabled] = true;
-        }
-      }
+      if (this.projects().length)
+        this.projects()[0][kIsEnabled] = true;
     }
   }
 
@@ -479,6 +465,14 @@ export class TestModel extends DisposableBase {
     return !this._ranGlobalSetup;
   }
 
+  needsGlobalHooks(type: 'setup' | 'teardown'): boolean {
+    if (type === 'setup' && !this._ranGlobalSetup)
+      return true;
+    if (type === 'teardown' && this._ranGlobalSetup)
+      return true;
+    return false;
+  }
+
   async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<reporterTypes.FullResult['status']> {
     if (type === 'setup') {
       if (this._ranGlobalSetup && !this._embedder.settingsModel.runGlobalSetupOnEachRun.get())
@@ -533,8 +527,6 @@ export class TestModel extends DisposableBase {
     const globalSetupResult = await this.runGlobalHooks('setup', reporter, token);
     if (globalSetupResult !== 'passed')
       return;
-    if (token?.isCancellationRequested)
-      return;
 
     const externalOptions = await this._embedder.runHooks.onWillRunTests(this.config, false);
     const showBrowser = this._embedder.settingsModel.showBrowser.get() && !!externalOptions.connectWsEndpoint;
@@ -579,17 +571,8 @@ export class TestModel extends DisposableBase {
 
     this._collection._saveSettings();
 
-    // Toggling "run global setup on each run" allows user to debug global setup/teardown code.
-    const debugShouldRunGlobalSetup = !!this._embedder.settingsModel.runGlobalSetupOnEachRun.get();
-    if (debugShouldRunGlobalSetup) {
-      const globalTeardownResult = await this.runGlobalHooks('teardown', reporter, token);
-      if (globalTeardownResult !== 'passed')
-        return;
-    } else {
-      const globalSetupResult = await this.runGlobalHooks('setup', reporter, token);
-      if (globalSetupResult !== 'passed')
-        return;
-    }
+    // Underlying debugTest implementation will run the global setup.
+    await this.runGlobalHooks('teardown', reporter, token);
     if (token?.isCancellationRequested)
       return;
 
@@ -614,7 +597,7 @@ export class TestModel extends DisposableBase {
     try {
       if (token?.isCancellationRequested)
         return;
-      await this._playwrightTest.debugTests(request, options, reporter, token, debugShouldRunGlobalSetup);
+      await this._playwrightTest.debugTests(request, options, reporter, token);
     } finally {
       await this._embedder.runHooks.onDidRunTests();
     }
@@ -929,12 +912,4 @@ function isAncestorOf(root: vscodeTypes.TestItem, descendent: vscodeTypes.TestIt
 
 function noOverrideToUndefined<T>(value: T | 'no-override'): T | undefined {
   return value === 'no-override' ? undefined : value;
-}
-
-function isBogStandardBrowserProject(name: string) {
-  name = name.toLowerCase();
-
-  return ['chromium', 'firefox', 'webkit', 'google chrome', 'chrome', 'microsoft edge', 'edge', ].some(prefix => {
-    return name.startsWith(prefix) || name.startsWith(`mobile ${prefix}`) || name.startsWith(`desktop ${prefix}`);
-  });
 }

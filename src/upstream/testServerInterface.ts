@@ -47,7 +47,6 @@ export interface TestServerInterface {
 
   runGlobalSetup(params: {}): Promise<{
     report: ReportEntry[],
-    env: [string, string | null][],
     status: reporterTypes.FullResult['status']
   }>;
 

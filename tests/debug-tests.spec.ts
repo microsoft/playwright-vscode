@@ -52,6 +52,7 @@ test('should debug all tests', async ({ activate }) => {
         testIds: undefined
       })
     },
+    { method: 'runGlobalTeardown', params: {} },
   ]);
 });
 
@@ -94,6 +95,7 @@ test('should debug one test', async ({ activate }) => {
         testIds: [expect.any(String)]
       })
     },
+    { method: 'runGlobalTeardown', params: {} },
   ]);
 });
 
@@ -245,7 +247,7 @@ test('should run global setup before debugging', async ({ activate }, testInfo) 
     }`,
     'globalSetup.ts': `
       async function globalSetup(config) {
-        console.log('RUN GLOBAL SETUP UNDER DEBUG: ' + !!process.env.VSCODE_MOCK_DEBUGGING);
+        console.log('RUN GLOBAL SETUP');
         process.env.MAGIC_NUMBER = '42';
       }
       export default globalSetup;
@@ -253,67 +255,24 @@ test('should run global setup before debugging', async ({ activate }, testInfo) 
     'tests/test.spec.ts': `
       import { test, expect } from '@playwright/test';
       test('should pass', async () => {
-        console.log('TEST UNDER DEBUG: ' + !!process.env.VSCODE_MOCK_DEBUGGING);
         console.log('MAGIC NUMBER: ' + process.env.MAGIC_NUMBER);
         expect(process.env.MAGIC_NUMBER).toBe('42');
       });
     `
   });
 
-  const testRunPromise1 = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
   await testController.expandTestItems(/test.spec/);
-  const runFinishedPromise1 = testController.debugProfile().run(testController.findTestItems(/pass/));
-  const testRun1 = await testRunPromise1;
-  await expect(testRun1).toHaveOutput(`RUN GLOBAL SETUP UNDER DEBUG: false`);
-  await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`TEST UNDER DEBUG: true`);
-  await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`MAGIC NUMBER: 42`);
-  expect(testRun1.renderLog()).toBe(`
+  const testItems = testController.findTestItems(/pass/);
+  const testRun = await testController.debug(testItems);
+
+  expect(stripAnsi(vscode.debug.output)).toContain(`RUN GLOBAL SETUP`);
+  expect(stripAnsi(vscode.debug.output)).toContain(`MAGIC NUMBER: 42`);
+
+  expect(testRun.renderLog({ messages: true })).toBe(`
     tests > test.spec.ts > should pass [2:0]
       enqueued
       enqueued
       started
       passed
   `);
-  await runFinishedPromise1;
-
-  // Second time it should reuse the global setup and not run it again.
-  const testRunPromise2 = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
-  await testController.expandTestItems(/test.spec/);
-  const runFinishedPromise2 = testController.debugProfile().run(testController.findTestItems(/pass/));
-  const testRun2 = await testRunPromise2;
-  await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`TEST UNDER DEBUG: true`);
-  await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`MAGIC NUMBER: 42`);
-  expect(testRun2.renderOutput()).not.toContain(`RUN GLOBAL SETUP`);
-  await runFinishedPromise2;
-});
-
-test('should debug global setup when toggle is enabled', async ({ activate }, testInfo) => {
-  const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = {
-      testDir: 'tests',
-      globalSetup: 'globalSetup.ts',
-    }`,
-    'globalSetup.ts': `
-      async function globalSetup(config) {
-        console.log('RUN GLOBAL SETUP UNDER DEBUG: ' + !!process.env.VSCODE_MOCK_DEBUGGING);
-        process.env.MAGIC_NUMBER = '42';
-      }
-      export default globalSetup;
-    `,
-    'tests/test.spec.ts': `
-      import { test, expect } from '@playwright/test';
-      test('should pass', async () => {
-        console.log('TEST UNDER DEBUG: ' + !!process.env.VSCODE_MOCK_DEBUGGING);
-        console.log('MAGIC NUMBER: ' + process.env.MAGIC_NUMBER);
-        expect(process.env.MAGIC_NUMBER).toBe('42');
-      });
-    `
-  }, { runGlobalSetupOnEachRun: true });
-
-  await testController.expandTestItems(/test.spec/);
-  const runFinishedPromise = testController.debugProfile().run(testController.findTestItems(/pass/));
-  await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`RUN GLOBAL SETUP UNDER DEBUG: true`);
-  await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`TEST UNDER DEBUG: true`);
-  await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`MAGIC NUMBER: 42`);
-  await runFinishedPromise;
 });
