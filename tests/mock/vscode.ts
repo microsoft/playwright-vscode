@@ -780,7 +780,7 @@ class Debug {
     this._debuggerProcess = spawn(node, [configuration.program, ...configuration.args], {
       cwd: configuration.cwd,
       stdio: 'pipe',
-      env: { ...configuration.env, VSCODE_MOCK_DEBUGGING: '1' },
+      env: configuration.env,
     });
 
     this._debuggerProcess.stdout.on('data', data => {

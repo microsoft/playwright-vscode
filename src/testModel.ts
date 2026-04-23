@@ -465,6 +465,14 @@ export class TestModel extends DisposableBase {
     return !this._ranGlobalSetup;
   }
 
+  needsGlobalHooks(type: 'setup' | 'teardown'): boolean {
+    if (type === 'setup' && !this._ranGlobalSetup)
+      return true;
+    if (type === 'teardown' && this._ranGlobalSetup)
+      return true;
+    return false;
+  }
+
   async runGlobalHooks(type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<reporterTypes.FullResult['status']> {
     if (type === 'setup') {
       if (this._ranGlobalSetup && !this._embedder.settingsModel.runGlobalSetupOnEachRun.get())
@@ -519,8 +527,6 @@ export class TestModel extends DisposableBase {
     const globalSetupResult = await this.runGlobalHooks('setup', reporter, token);
     if (globalSetupResult !== 'passed')
       return;
-    if (token?.isCancellationRequested)
-      return;
 
     const externalOptions = await this._embedder.runHooks.onWillRunTests(this.config, false);
     const showBrowser = this._embedder.settingsModel.showBrowser.get() && !!externalOptions.connectWsEndpoint;
@@ -565,17 +571,8 @@ export class TestModel extends DisposableBase {
 
     this._collection._saveSettings();
 
-    // Toggling "run global setup on each run" allows user to debug global setup/teardown code.
-    const debugShouldRunGlobalSetup = !!this._embedder.settingsModel.runGlobalSetupOnEachRun.get();
-    if (debugShouldRunGlobalSetup) {
-      const globalTeardownResult = await this.runGlobalHooks('teardown', reporter, token);
-      if (globalTeardownResult !== 'passed')
-        return;
-    } else {
-      const globalSetupResult = await this.runGlobalHooks('setup', reporter, token);
-      if (globalSetupResult !== 'passed')
-        return;
-    }
+    // Underlying debugTest implementation will run the global setup.
+    await this.runGlobalHooks('teardown', reporter, token);
     if (token?.isCancellationRequested)
       return;
 
@@ -600,7 +597,7 @@ export class TestModel extends DisposableBase {
     try {
       if (token?.isCancellationRequested)
         return;
-      await this._playwrightTest.debugTests(request, options, reporter, token, debugShouldRunGlobalSetup);
+      await this._playwrightTest.debugTests(request, options, reporter, token);
     } finally {
       await this._embedder.runHooks.onDidRunTests();
     }

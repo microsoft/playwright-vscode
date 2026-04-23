@@ -61,7 +61,6 @@ export class PlaywrightTestServer {
   private _model: TestModel;
   private _testServerPromise: Promise<TestServerConnectionWrapper> | undefined;
   private _config?: JsonConfig;
-  private _globalSetupEnv: { [key: string]: string | undefined } = {};
 
   constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
@@ -152,10 +151,10 @@ export class PlaywrightTestServer {
     const { connection } = await this._testServer();
     if (!connection)
       return 'failed';
-    return await this._runGlobalHooksInServer(connection, type, testListener, token, true);
+    return await this._runGlobalHooksInServer(connection, type, testListener, token);
   }
 
-  private async _runGlobalHooksInServer(testServer: TestServerConnection, type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken, saveEnv: boolean): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
+  private async _runGlobalHooksInServer(testServer: TestServerConnection, type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
     const teleReceiver = new TeleReporterReceiver(testListener, {
       mergeProjects: true,
       mergeTestCases: true,
@@ -166,17 +165,13 @@ export class PlaywrightTestServer {
     try {
       if (type === 'setup' && (!this._config || this._config.globalSetup))
         testListener.onStdOut?.('\x1b[2mRunning global setup if any\u2026\x1b[0m\n');
-      const result = await Promise.race([
-        type === 'setup' ? testServer.runGlobalSetup({}) : testServer.runGlobalTeardown({}).then(result => ({ ...result, env: [] })),
+      const { report, status } = await Promise.race([
+        type === 'setup' ? testServer.runGlobalSetup({}) : testServer.runGlobalTeardown({}),
         new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
       ]);
-      for (const message of result.report)
+      for (const message of report)
         void teleReceiver.dispatch(message);
-      if (type === 'setup' && saveEnv && 'env' in result)
-        this._globalSetupEnv = Object.fromEntries(result.env.map(([key, value]) => [key, value ?? undefined]));
-      if (type === 'teardown' && saveEnv)
-        this._globalSetupEnv = {};
-      return result.status;
+      return status;
     } finally {
       disposable.dispose();
     }
@@ -263,7 +258,7 @@ export class PlaywrightTestServer {
     };
   }
 
-  async debugTests(request: vscodeTypes.TestRunRequest, runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken, debugGlobalSetup: boolean): Promise<void> {
+  async debugTests(request: vscodeTypes.TestRunRequest, runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const addressPromise = new Promise<string>(f => {
       const disposable = this._options.onStdOut(output => {
         const match = output.match(/Listening on (.*)/);
@@ -308,7 +303,6 @@ export class PlaywrightTestServer {
           ...process.env,
           CI: this._options.isUnderTest ? undefined : process.env.CI,
           ...this._options.envProvider(this._model.config.configFile),
-          ...(debugGlobalSetup ? {} : this._globalSetupEnv),
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,
           FORCE_COLOR: '1',
@@ -335,11 +329,9 @@ export class PlaywrightTestServer {
       if (!locations && !testIds)
         return;
 
-      if (debugGlobalSetup) {
-        const result = await this._runGlobalHooksInServer(debugTestServer, 'setup', reporter, token, false);
-        if (result !== 'passed')
-          return;
-      }
+      const result = await this._runGlobalHooksInServer(debugTestServer, 'setup', reporter, token);
+      if (result !== 'passed')
+        return;
 
       // Locations are regular expressions.
       const locationPatterns = locations ? locations.map(escapeRegex) : [];
@@ -364,8 +356,8 @@ export class PlaywrightTestServer {
       }
     } finally {
       disposables.forEach(disposable => disposable.dispose());
-      if (debugGlobalSetup && !token.isCancellationRequested && debugTestServer && !debugTestServer.isClosed())
-        await this._runGlobalHooksInServer(debugTestServer, 'teardown', reporter, token, false);
+      if (!token.isCancellationRequested && debugTestServer && !debugTestServer.isClosed())
+        await this._runGlobalHooksInServer(debugTestServer, 'teardown', reporter, token);
       if (debugTestServer) {
         // Should exit upon close automatically.
         debugTestServer.close();
