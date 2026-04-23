@@ -95,6 +95,7 @@ test('should debug one test', async ({ activate }) => {
         testIds: [expect.any(String)]
       })
     },
+    { method: 'runGlobalTeardown', params: {} },
   ]);
 });
 
@@ -260,15 +261,12 @@ test('should run global setup before debugging', async ({ activate }, testInfo) 
     `
   });
 
-  const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
   await testController.expandTestItems(/test.spec/);
   const testItems = testController.findTestItems(/pass/);
-  const profile = testController.debugProfile();
-  const runPromise = profile.run(testItems);
-  const testRun = await testRunPromise;
+  const testRun = await testController.debug(testItems);
 
-  await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`RUN GLOBAL SETUP`);
-  await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`MAGIC NUMBER: 42`);
+  expect(stripAnsi(vscode.debug.output)).toContain(`RUN GLOBAL SETUP`);
+  expect(stripAnsi(vscode.debug.output)).toContain(`MAGIC NUMBER: 42`);
 
   expect(testRun.renderLog({ messages: true })).toBe(`
     tests > test.spec.ts > should pass [2:0]
@@ -276,15 +274,5 @@ test('should run global setup before debugging', async ({ activate }, testInfo) 
       enqueued
       started
       passed
-  `);
-
-  testRun.token.source.cancel();
-  await runPromise;
-
-  expect(testRun.renderLog({ messages: true })).toBe(`
-    tests > test.spec.ts > should pass [2:0]
-      enqueued
-      enqueued
-      started
   `);
 });
