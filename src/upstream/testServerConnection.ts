@@ -28,7 +28,7 @@ export class TestServerConnectionClosedError extends Error {
 export interface TestServerTransport {
   onmessage(listener: (message: string) => void): void;
   onopen(listener: () => void): void;
-  onerror(listener: () => void): void;
+  onerror(listener: (error: Error) => void): void;
   onclose(listener: () => void): void;
 
   send(data: string): void;
@@ -50,8 +50,8 @@ export class WebSocketTestServerTransport implements TestServerTransport {
     this._ws.addEventListener('open', listener);
   }
 
-  onerror(listener: () => void) {
-    this._ws.addEventListener('error', listener);
+  onerror(listener: (error: Error) => void) {
+    this._ws.addEventListener('error', event => listener(new Error(event.message)));
   }
 
   onclose(listener: () => void) {
