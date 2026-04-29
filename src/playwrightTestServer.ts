@@ -484,10 +484,10 @@ class TestServerTransportDebugger implements TestServerTransport {
     });
   }
 
-  onerror(listener: () => void): void {
-    this._inner.onerror(() => {
-      this._logger.debug('<-- transport error');
-      listener();
+  onerror(listener: (error: Error) => void): void {
+    this._inner.onerror(error => {
+      this._logger.debug('<-- transport error', error);
+      listener(error);
     });
   }
 
