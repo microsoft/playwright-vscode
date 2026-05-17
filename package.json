@@ -3,7 +3,7 @@
   "displayName": "Testwise Test for VSCode",
   "description": "%description%",
   "icon": "images/playwright-logo.png",
-  "version": "1.1.21",
+  "version": "1.1.22",
   "publisher": "Autolexia",
   "repository": "https://github.com/Autolexia/testwise-vscode",
   "bugs": {
@@ -189,7 +189,7 @@
           "icon": "",
           "id": "pw.extension.testwiseView",
           "name": "TESTWISE",
-          "when": "true" 
+          "when": "true"
         }
       ],
       "playwrightContainer": [
