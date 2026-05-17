@@ -4,7 +4,7 @@
   "description": "%description%",
   "icon": "images/playwright-logo.png",
   "version": "1.1.19",
-  "publisher": "ms-playwright",
+  "publisher": "Autolexia",
   "repository": "https://github.com/microsoft/playwright-vscode",
   "bugs": {
     "url": "https://github.com/microsoft/playwright/issues"
