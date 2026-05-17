@@ -33,6 +33,9 @@ import { ansi2html } from './ansi2html';
 import { LocatorsView } from './locatorsView';
 import { pathToFileURL } from 'url';
 import { TestConfig } from './playwrightTestServer';
+import { findTestEndPosition } from './babelHighlightUtil';
+import { TestwiseProvider } from './testwiseView';
+import { TestwiseItem } from './testwiseView';
 
 const stackUtils = new StackUtils({
   cwd: '/ensure_absolute_paths'
@@ -45,7 +48,68 @@ type StepInfo = {
 };
 
 export async function activate(context: vscodeTypes.ExtensionContext) {
-  // Do not await, quickly run the extension, schedule work.
+  const vscode = require('vscode');
+  const rootPath = vscode.workspace.workspaceFolders?.[0] ? uriToPath(vscode.workspace.workspaceFolders[0].uri) : undefined;
+
+  const testwiseProvider = new TestwiseProvider(vscode.workspace.rootPath);
+  const treeView = vscode.window.createTreeView('pw.extension.testwiseView', {
+    treeDataProvider: testwiseProvider,
+    showCollapseAll: true
+  });
+
+  const updateFile = async (items: {item: any, state: any}[]) => {
+    if (!rootPath) return;
+    const filePath = path.join(rootPath, 'seed-data', 'registeredSubjects.json');
+
+    let registered: any[] = [];
+    if (fs.existsSync(filePath)) {
+      try {
+        registered = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      } catch (e) {}
+    }
+
+    items.forEach(({ item, state }) => {
+      const entry = {
+        subject: item.parentSubject,
+        variant: item.variant || null,
+        screen_type: typeof item.label === 'string' ? item.label : item.label?.label
+      };
+
+      if (state === vscode.TreeItemCheckboxState.Checked) {
+        if (!registered.some(r => r.subject === entry.subject && r.variant === entry.variant && r.screen_type === entry.screen_type))
+          registered.push(entry);
+      } else {
+        registered = registered.filter(r => !(r.subject === entry.subject && r.variant === entry.variant && r.screen_type === entry.screen_type));
+      }
+    });
+
+    fs.writeFileSync(filePath, JSON.stringify(registered, null, 2));
+  };
+
+  context.subscriptions.push(
+      vscode.commands.registerCommand('testwise.toggleCheckbox', async (item: TestwiseItem) => {
+        const newState = item.checkboxState === vscode.TreeItemCheckboxState.Checked
+          ? vscode.TreeItemCheckboxState.Unchecked
+          : vscode.TreeItemCheckboxState.Checked;
+
+        item.checkboxState = newState;
+
+        await updateFile([{ item, state: newState }]);
+
+        testwiseProvider.refresh();
+      })
+  );
+
+  treeView.onDidChangeCheckboxState(async (e: any) => {
+    const itemsToUpdate = e.items.map(([item, state]: [TestwiseItem, any]) => ({ item, state }));
+    await updateFile(itemsToUpdate);
+  });
+
+  vscode.commands.registerCommand('testwise.refreshEntry', () => {
+    testwiseProvider.refresh();
+  });
+
+  testwiseProvider.refresh();
   void new Extension(require('vscode'), context).activate();
 }
 

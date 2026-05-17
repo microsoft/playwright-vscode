@@ -104,6 +104,16 @@
         "category": "Test",
         "command": "pw.extension.command.clearCache",
         "title": "%contributes.command.pw.extension.command.clearCache%"
+      },
+      {
+        "category": "Test",
+        "command": "pw.extension.command.clearCache",
+        "title": "%contributes.command.pw.extension.command.clearCache%"
+      },
+      {
+        "command": "testwise.refreshEntry",
+        "title": "Refresh",
+        "icon": "$(refresh)"
       }
     ],
     "configuration": {
@@ -170,21 +180,39 @@
       "test": [
         {
           "type": "webview",
+          "icon": "",
           "id": "pw.extension.settingsView",
           "name": "%views.test.pw.extension.settingsView%"
+        },
+        {
+          "type": "tree",
+          "icon": "",
+          "id": "pw.extension.testwiseView",
+          "name": "TESTWISE",
+          "when": "true" 
         }
       ],
       "playwrightContainer": [
         {
           "type": "webview",
+          "icon": "",
           "id": "pw.extension.locatorsView",
           "name": "%views.test.pw.extension.locatorsView%"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "testwise.refreshEntry",
+          "when": "view == pw.extension.testwiseView",
+          "group": "navigation"
         }
       ]
     }
   },
   "scripts": {
-    "esbuild": "esbuild ./src/babelBundle.ts ./src/extension.ts ./src/oopReporter.ts ./src/debugTransform.ts ./src/playwrightFinder.ts ./src/*.script.ts --bundle --outdir=out --external:vscode --external:./babelBundle --external:./debugTransform --external:./oopReporter --external:./playwrightFinder --external:./*.script.ts --format=cjs --platform=node --target=ES2019",
+    "esbuild": "esbuild ./src/babelBundle.ts ./src/extension.ts ./src/testwiseView.ts ./src/oopReporter.ts ./src/debugTransform.ts ./src/playwrightFinder.ts ./src/*.script.ts --bundle --outdir=out --external:vscode --external:./babelBundle --external:./debugTransform --external:./oopReporter --external:./playwrightFinder --external:./*.script.ts --format=cjs --platform=node --target=ES2019",
     "build": "npm run esbuild -- --minify",
     "watch": "npm run esbuild -- --sourcemap --watch",
     "l10n": "npx @vscode/l10n-dev export -o ./l10n ./src",
