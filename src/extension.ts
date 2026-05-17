@@ -108,7 +108,7 @@ export class Extension implements RunHooks {
       },
     });
 
-    this._logger = this._vscode.window.createOutputChannel('Playwright', { log: true });
+    this._logger = this._vscode.window.createOutputChannel('Testwise', { log: true });
     this._settingsModel = new SettingsModel(vscode, context);
     this._reusedBrowser = new ReusedBrowser(this._vscode, this._logger, this._settingsModel, this._envProvider.bind(this));
     this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser, this._logger);
@@ -122,7 +122,7 @@ export class Extension implements RunHooks {
       requestWatchRun: this._runWatchedTests.bind(this),
       logger: this._logger,
     });
-    this._testController = vscode.tests.createTestController('playwright', 'Playwright');
+    this._testController = vscode.tests.createTestController('testwise', 'Testwise');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModelsImmediately(true);
     const supportsContinuousRun = true;
@@ -159,7 +159,7 @@ export class Extension implements RunHooks {
     const vscode = this._vscode;
     this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, this._context.extensionUri);
     this._locatorsView = new LocatorsView(vscode, this._settingsModel, this._reusedBrowser, this._context.extensionUri);
-    const messageNoPlaywrightTestsFound = this._vscode.l10n.t('No Playwright tests found.');
+    const messageNoPlaywrightTestsFound = this._vscode.l10n.t('No Testwise tests found.');
     this._disposables = [
       this._debugHighlight,
       this._settingsModel,
@@ -198,7 +198,7 @@ export class Extension implements RunHooks {
 
         const project = model.enabledProjects()[0];
         if (!project)
-          return vscode.window.showWarningMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`));
+          return vscode.window.showWarningMessage(this._vscode.l10n.t(`Project is disabled in the Testwise sidebar.`));
 
         const file = await this._createFileForNewTest(model, project);
         if (!file)
@@ -250,7 +250,7 @@ export class Extension implements RunHooks {
         }
       }),
       vscode.workspace.onDidChangeConfiguration(event => {
-        if (event.affectsConfiguration('playwright.env'))
+        if (event.affectsConfiguration('testwise.env'))
           this._scheduleRebuildModels();
       }),
       this._testTree,
@@ -378,7 +378,7 @@ export class Extension implements RunHooks {
   }
 
   private _envProvider(configFile: string) {
-    const config = this._vscode.workspace.getConfiguration('playwright').get('env', {});
+    const config = this._vscode.workspace.getConfiguration('testwise').get('env', {});
     const env = Object.fromEntries(Object.entries(config).map(entry => {
       return typeof entry[1] === 'string' ? entry : [entry[0], JSON.stringify(entry[1])];
     })) as NodeJS.ProcessEnv;
@@ -440,7 +440,7 @@ export class Extension implements RunHooks {
       const project = disabledProject(request.include[0]);
       if (project) {
         const enableProjectTitle = this._vscode.l10n.t('Enable project');
-        void this._vscode.window.showInformationMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`), enableProjectTitle, this._vscode.l10n.t('Cancel')).then(result => {
+        void this._vscode.window.showInformationMessage(this._vscode.l10n.t(`Project is disabled in the Testwise sidebar.`), enableProjectTitle, this._vscode.l10n.t('Cancel')).then(result => {
           if (result === enableProjectTitle) {
             this._models.setModelEnabled(project.model.config.configFile, true, true);
             this._models.setProjectEnabled(project.model.config.configFile, project.name, true);
@@ -948,12 +948,12 @@ test('test', async ({ page }) => {
     let testMessage: vscodeTypes.TestMessage;
     if (text.includes('Looks like Playwright Test or Playwright')) {
       testMessage = this._testMessageFromHtml(`
-        <p>Playwright browser are not installed.</p>
+        <p>Testwise browsers are not installed.</p>
         <p>
           Press
           ${process.platform === 'darwin' ? '<kbd>Shift</kbd>+<kbd>Command</kbd>+<kbd>P</kbd>' : ''}
           ${process.platform !== 'darwin' ? '<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>' : ''}
-          to open the Command Palette in VSCode, type 'Playwright' and select 'Install Playwright Browsers'.
+          to open the Command Palette in VSCode, type 'Testwise' and select 'Install Testwise Browsers'.
         </p>
       `);
     } else {

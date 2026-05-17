@@ -14,4 +14,4 @@
  * limitations under the License.
  */
 
-export const debugSessionName = 'Playwright Test';
+export const debugSessionName = 'Testwise Test';

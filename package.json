@@ -1,6 +1,6 @@
 {
-  "name": "playwright",
-  "displayName": "Playwright Test for VSCode",
+  "name": "testwise",
+  "displayName": "Testwise Test for VSCode",
   "description": "%description%",
   "icon": "images/playwright-logo.png",
   "version": "1.1.19",
@@ -107,34 +107,34 @@
       }
     ],
     "configuration": {
-      "title": "Playwright",
+      "title": "Testwise",
       "properties": {
-        "playwright.env": {
+        "testwise.env": {
           "type": "object",
           "default": {},
-          "description": "%configuration.playwright.env%"
+          "description": "%configuration.testwise.env%"
         },
-        "playwright.reuseBrowser": {
+        "testwise.reuseBrowser": {
           "type": "boolean",
           "default": false,
-          "description": "%configuration.playwright.reuseBrowser%"
+          "description": "%configuration.testwise.reuseBrowser%"
         },
-        "playwright.showTrace": {
+        "testwise.showTrace": {
           "type": "boolean",
           "default": false,
-          "description": "%configuration.playwright.showTrace%"
+          "description": "%configuration.testwise.showTrace%"
         },
-        "playwright.runGlobalSetupOnEachRun": {
+        "testwise.runGlobalSetupOnEachRun": {
           "type": "boolean",
           "default": false,
-          "description": "%configuration.playwright.runGlobalSetupOnEachRun%"
+          "description": "%configuration.testwise.runGlobalSetupOnEachRun%"
         },
-        "playwright.pickLocatorCopyToClipboard": {
+        "testwise.pickLocatorCopyToClipboard": {
           "type": "boolean",
           "default": false,
-          "description": "%configuration.playwright.pickLocatorCopyToClipboard%"
+          "description": "%configuration.testwise.pickLocatorCopyToClipboard%"
         },
-        "playwright.updateSnapshots": {
+        "testwise.updateSnapshots": {
           "type": "string",
           "enum": [
             "all",
@@ -143,9 +143,9 @@
             "none"
           ],
           "default": "missing",
-          "description": "%configuration.playwright.updateSnapshots%"
+          "description": "%configuration.testwise.updateSnapshots%"
         },
-        "playwright.updateSourceMethod": {
+        "testwise.updateSourceMethod": {
           "type": "string",
           "enum": [
             "overwrite",
@@ -153,7 +153,7 @@
             "3way"
           ],
           "default": "3way",
-          "description": "%configuration.playwright.updateSourceMethod%"
+          "description": "%configuration.testwise.updateSourceMethod%"
         }
       }
     },
@@ -161,7 +161,7 @@
       "panel": [
         {
           "id": "playwrightContainer",
-          "title": "Playwright",
+          "title": "Testwise",
           "icon": "images/playwright-logo.png"
         }
       ]
@@ -191,10 +191,10 @@
     "lint": "tsc && eslint . --ext .ts,.tsx,.js",
     "test": "playwright test",
     "package": "npm run build && vsce package",
-    "code": "code --uninstall-extension ms-playwright.playwright && code --install-extension playwright-*.vsix",
-    "uncode": "code --uninstall-extension ms-playwright.playwright",
-    "code-insiders": "code-insiders --uninstall-extension ms-playwright.playwright && code-insiders --install-extension playwright-*.vsix",
-    "uncode-insiders": "code-insiders --uninstall-extension ms-playwright.playwright"
+    "code": "code --uninstall-extension testwise.testwise && code --install-extension testwise-*.vsix",
+    "uncode": "code --uninstall-extension testwise.testwise",
+    "code-insiders": "code-insiders --uninstall-extension testwise.testwise && code-insiders --install-extension testwise-*.vsix",
+    "uncode-insiders": "code-insiders --uninstall-extension testwise.testwise"
   },
   "devDependencies": {
     "@babel/preset-typescript": "^7.23.2",

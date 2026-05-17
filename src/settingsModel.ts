@@ -78,10 +78,10 @@ export class SettingsModel extends DisposableBase {
   }
 
   private _modernize() {
-    const workspaceSettings = this._vscode.workspace.getConfiguration('playwright').get('workspaceSettings') as any;
+    const workspaceSettings = this._vscode.workspace.getConfiguration('testwise').get('workspaceSettings') as any;
     if (workspaceSettings?.configs && !this._context.workspaceState.get(workspaceStateKey)) {
       void this._context.workspaceState.update(workspaceStateKey, { configs: workspaceSettings.configs });
-      void this._vscode.workspace.getConfiguration('playwright').update('workspaceSettings', undefined);
+      void this._vscode.workspace.getConfiguration('testwise').update('workspaceSettings', undefined);
     }
   }
 
@@ -137,7 +137,7 @@ class PersistentSetting<T> extends SettingBase<T> {
   constructor(vscode: vscodeTypes.VSCode, settingName: string) {
     super(vscode, settingName);
 
-    const settingFQN = `playwright.${settingName}`;
+    const settingFQN = `testwise.${settingName}`;
     this._disposables = [
       this._onChange,
       vscode.workspace.onDidChangeConfiguration(event => {
@@ -151,12 +151,12 @@ class PersistentSetting<T> extends SettingBase<T> {
   }
 
   get(): T | undefined {
-    const configuration = this._vscode.workspace.getConfiguration('playwright');
+    const configuration = this._vscode.workspace.getConfiguration('testwise');
     return configuration.get(this.settingName) as T | undefined;
   }
 
   async set(value: T) {
-    const configuration = this._vscode.workspace.getConfiguration('playwright');
+    const configuration = this._vscode.workspace.getConfiguration('testwise');
     const existsInWorkspace = configuration.inspect(this.settingName)?.workspaceValue !== undefined;
     if (existsInWorkspace)
       await configuration.update(this.settingName, value, false);

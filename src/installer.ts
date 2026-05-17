@@ -24,7 +24,7 @@ import { uriToPath } from './utils';
 export async function installPlaywright(vscode: vscodeTypes.VSCode) {
   const [workspaceFolder] = vscode.workspace.workspaceFolders || [];
   if (!workspaceFolder) {
-    await vscode.window.showErrorMessage('Please open a folder in VS Code to initialize Playwright. Either an empty folder or a folder with an existing package.json.');
+    await vscode.window.showErrorMessage('Please open a folder in VS Code to initialize Testwise. Either an empty folder or a folder with an existing package.json.');
     return;
   }
   const options: vscodeTypes.QuickPickItem[] = [];
@@ -38,14 +38,14 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
     options.push(installDepsItem);
   }
   const result = await vscode.window.showQuickPick(options, {
-    title: 'Install Playwright',
+    title: 'Install Testwise',
     canPickMany: true,
   });
   if (result === undefined)
     return;
 
   const terminal = vscode.window.createTerminal({
-    name: 'Install Playwright',
+    name: 'Install Testwise',
     cwd: uriToPath(workspaceFolder.uri),
     env: process.env,
   });
@@ -85,14 +85,14 @@ export async function installBrowsers(vscode: vscodeTypes.VSCode, model: TestMod
     options.push(installDepsItem);
   }
   const result = await vscode.window.showQuickPick(options, {
-    title: `Install browsers for Playwright v${model.config.version}:`,
+    title: `Install browsers for Testwise v${model.config.version}:`,
     canPickMany: true,
   });
   if (!result?.length)
     return;
 
   const terminal = vscode.window.createTerminal({
-    name: 'Install Playwright',
+    name: 'Install Testwise',
     cwd: model.config.workspaceFolder,
     env: process.env,
   });
