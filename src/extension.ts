@@ -123,11 +123,7 @@ export class Extension implements RunHooks {
 
   private _testController: vscodeTypes.TestController;
   private _workspaceObserver: WorkspaceObserver;
-  private _testUnderDebug: {
-    testItem: vscodeTypes.TestItem | undefined;
-    testCase: reporterTypes.TestCase;
-    disposables: vscodeTypes.Disposable[];
-  } | undefined;
+  private _testItemUnderDebug: vscodeTypes.TestItem | undefined;
   private _lastBeganTest?: reporterTypes.TestCase;
   private _activeSteps = new Map<reporterTypes.TestStep, StepInfo>();
   private _completedSteps = new Map<reporterTypes.TestStep, StepInfo>();
@@ -135,8 +131,6 @@ export class Extension implements RunHooks {
   private _models: TestModelCollection;
   private _activeStepDecorationType: vscodeTypes.TextEditorDecorationType;
   private _completedStepDecorationType: vscodeTypes.TextEditorDecorationType;
-  private _pausedOnErrorDecorationType: vscodeTypes.TextEditorDecorationType;
-  private _pausedAtEndDecorationType: vscodeTypes.TextEditorDecorationType;
   private _debugHighlight: DebugHighlight;
   private _isUnderTest: boolean;
   private _reusedBrowser: ReusedBrowser;
@@ -154,6 +148,8 @@ export class Extension implements RunHooks {
   private _modelRebuild?: { result: Promise<void>; token: vscodeTypes.CancellationTokenSource; needsAnother: boolean; };
 
   private _pnpFiles = new Map<string, { pnpCJS?: string, pnpLoader?: string }>();
+
+  private _logger: vscodeTypes.LogOutputChannel;
 
   constructor(vscode: vscodeTypes.VSCode, context: vscodeTypes.ExtensionContext) {
     this._vscode = vscode;
@@ -176,24 +172,10 @@ export class Extension implements RunHooks {
       },
     });
 
-    this._pausedAtEndDecorationType = this._vscode.window.createTextEditorDecorationType({
-      isWholeLine: true,
-      backgroundColor: { id: 'editor.wordHighlightStrongBackground' },
-      borderColor: { id: 'editor.wordHighlightStrongBorder' },
-      after: {
-        color: { id: 'editorCodeLens.foreground' },
-        contentText: ' \u2014 paused\u2026',
-      },
-    });
-    this._pausedOnErrorDecorationType = this._vscode.window.createTextEditorDecorationType({
-      isWholeLine: true,
-      backgroundColor: { id: 'editor.wordHighlightStrongBackground' },
-      borderColor: { id: 'editor.wordHighlightStrongBorder' },
-    });
-
+    this._logger = this._vscode.window.createOutputChannel('Testwise', { log: true });
     this._settingsModel = new SettingsModel(vscode, context);
-    this._reusedBrowser = new ReusedBrowser(this._vscode, this._settingsModel, this._envProvider.bind(this));
-    this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser);
+    this._reusedBrowser = new ReusedBrowser(this._vscode, this._logger, this._settingsModel, this._envProvider.bind(this));
+    this._debugHighlight = new DebugHighlight(vscode, this._reusedBrowser, this._logger);
     this._models = new TestModelCollection(vscode, {
       context,
       settingsModel: this._settingsModel,
@@ -202,9 +184,9 @@ export class Extension implements RunHooks {
       envProvider: this._envProvider.bind(this),
       onStdOut: this._debugHighlight.onStdOut.bind(this._debugHighlight),
       requestWatchRun: this._runWatchedTests.bind(this),
-      testPausedHandler: this._onTestPaused.bind(this),
+      logger: this._logger,
     });
-    this._testController = vscode.tests.createTestController('playwright', 'Playwright');
+    this._testController = vscode.tests.createTestController('testwise', 'Testwise');
     this._testController.resolveHandler = item => this._resolveChildren(item);
     this._testController.refreshHandler = () => this._rebuildModelsImmediately(true);
     const supportsContinuousRun = true;
@@ -214,7 +196,7 @@ export class Extension implements RunHooks {
     this._debugHighlight.onErrorInDebugger(e => this._errorInDebugger(e.error, e.location));
     this._workspaceObserver = new WorkspaceObserver(this._vscode, changes => this._workspaceChanged(changes) , this._isUnderTest);
     this._diagnostics = this._vscode.languages.createDiagnosticCollection('pw.testErrors.diagnostic');
-    this._treeItemObserver = new TreeItemObserver(this._vscode);
+    this._treeItemObserver = new TreeItemObserver(this._vscode, this._logger);
   }
 
   async onWillRunTests(config: TestConfig, debug: boolean) {
@@ -241,7 +223,7 @@ export class Extension implements RunHooks {
     const vscode = this._vscode;
     this._settingsView = new SettingsView(vscode, this._settingsModel, this._models, this._reusedBrowser, this._context.extensionUri);
     this._locatorsView = new LocatorsView(vscode, this._settingsModel, this._reusedBrowser, this._context.extensionUri);
-    const messageNoPlaywrightTestsFound = this._vscode.l10n.t('No Playwright tests found.');
+    const messageNoPlaywrightTestsFound = this._vscode.l10n.t('No Testwise tests found.');
     this._disposables = [
       this._debugHighlight,
       this._settingsModel,
@@ -280,7 +262,7 @@ export class Extension implements RunHooks {
 
         const project = model.enabledProjects()[0];
         if (!project)
-          return vscode.window.showWarningMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`));
+          return vscode.window.showWarningMessage(this._vscode.l10n.t(`Project is disabled in the Testwise sidebar.`));
 
         const file = await this._createFileForNewTest(model, project);
         if (!file)
@@ -299,7 +281,7 @@ export class Extension implements RunHooks {
         const model = this._models.selectedModel();
         if (!model)
           return vscode.window.showWarningMessage(messageNoPlaywrightTestsFound);
-        const openTestCase = this._testUnderDebug?.testCase ?? (this._settingsModel.showBrowser.get() ? this._lastBeganTest : undefined);
+        const openTestCase = this._settingsModel.showBrowser.get() ? this._lastBeganTest : undefined;
         const project = openTestCase ? ancestorProject(openTestCase) : model.enabledProjects()[0]?.project;
         await this._reusedBrowser.record(model, project);
       }),
@@ -332,7 +314,7 @@ export class Extension implements RunHooks {
         }
       }),
       vscode.workspace.onDidChangeConfiguration(event => {
-        if (event.affectsConfiguration('playwright.env'))
+        if (event.affectsConfiguration('testwise.env'))
           this._scheduleRebuildModels();
       }),
       this._testTree,
@@ -388,6 +370,7 @@ export class Extension implements RunHooks {
   }
 
   private async _innerRebuildModels(userGesture: boolean, token: vscodeTypes.CancellationToken): Promise<void> {
+    this._logger.info(`Starting to rebuild models (userGesture: ${userGesture})`);
     this._models.clear();
     this._testTree.startedLoading();
 
@@ -415,7 +398,7 @@ export class Extension implements RunHooks {
 
       let playwrightInfo = null;
       try {
-        playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider(configFilePath));
+        playwrightInfo = await getPlaywrightInfo(this._vscode, workspaceFolderPath, configFilePath, this._envProvider(configFilePath), this._logger);
       } catch (error) {
         if (userGesture) {
           void this._vscode.window.showWarningMessage(
@@ -445,6 +428,7 @@ export class Extension implements RunHooks {
 
     this._models.ensureHasEnabledModels();
     this._testTree.finishedLoading();
+    this._logger.info('Finished rebuilding models');
   }
 
   private async _modelsUpdated() {
@@ -458,7 +442,7 @@ export class Extension implements RunHooks {
   }
 
   private _envProvider(configFile: string) {
-    const config = this._vscode.workspace.getConfiguration('playwright').get('env', {});
+    const config = this._vscode.workspace.getConfiguration('testwise').get('env', {});
     const env = Object.fromEntries(Object.entries(config).map(entry => {
       return typeof entry[1] === 'string' ? entry : [entry[0], JSON.stringify(entry[1])];
     })) as NodeJS.ProcessEnv;
@@ -520,7 +504,7 @@ export class Extension implements RunHooks {
       const project = disabledProject(request.include[0]);
       if (project) {
         const enableProjectTitle = this._vscode.l10n.t('Enable project');
-        void this._vscode.window.showInformationMessage(this._vscode.l10n.t(`Project is disabled in the Playwright sidebar.`), enableProjectTitle, this._vscode.l10n.t('Cancel')).then(result => {
+        void this._vscode.window.showInformationMessage(this._vscode.l10n.t(`Project is disabled in the Testwise sidebar.`), enableProjectTitle, this._vscode.l10n.t('Cancel')).then(result => {
           if (result === enableProjectTitle) {
             this._models.setModelEnabled(project.model.config.configFile, true, true);
             this._models.setProjectEnabled(project.model.config.configFile, project.name, true);
@@ -585,7 +569,7 @@ export class Extension implements RunHooks {
   }
 
   private async _runGlobalHooks(type: 'setup' | 'teardown') {
-    if (!this._models.selectedModel()?.canRunGlobalHooks(type))
+    if (!this._models.selectedModel()?.needsGlobalHooks(type))
       return 'passed';
     const request = new this._vscode.TestRunRequest();
     const testRun = this._testController.createTestRun(request);
@@ -706,12 +690,7 @@ export class Extension implements RunHooks {
           this._showTraceOnTestProgress(testItem);
         if (mode === 'debug') {
           // Debugging is always single-workers.
-          this._cleanupItemUnderDebug();
-          this._testUnderDebug = {
-            testItem,
-            testCase: test,
-            disposables: [],
-          };
+          this._testItemUnderDebug = testItem;
         }
       },
 
@@ -719,7 +698,7 @@ export class Extension implements RunHooks {
         if (result.errors.find(e => e.message?.includes(`Error: browserType.launch: Executable doesn't exist`)))
           browserDoesNotExist = true;
 
-        this._cleanupItemUnderDebug();
+        this._testItemUnderDebug = undefined;
         this._activeSteps.clear();
         this._executionLinesChanged();
 
@@ -782,7 +761,6 @@ export class Extension implements RunHooks {
 
     if (mode === 'debug') {
       await model.debugTests(request, testListener, testRun.token);
-      this._cleanupItemUnderDebug();
     } else {
       // Force trace viewer update to surface check version errors.
       await this._models.selectedModel()?.updateTraceViewer(mode === 'run')?.willRunTests();
@@ -831,7 +809,9 @@ export class Extension implements RunHooks {
         const errorContext: { pageSnapshot?: string } = JSON.parse(attachment.body.toString());
         if (errorContext.pageSnapshot)
           return `### Page Snapshot at Failure\n\n${errorContext.pageSnapshot}`; // cannot use ``` codeblocks, vscode markdown does not support it
-      } catch {}
+      } catch (e) {
+        this._logger.warn('Failed to parse error context attachment as JSON', e);
+      }
     }
 
     // 1.53+
@@ -841,7 +821,9 @@ export class Extension implements RunHooks {
           return fs.readFileSync(attachment.path, 'utf-8');
 
         return attachment.body?.toString();
-      } catch {}
+      } catch (e) {
+        this._logger.warn('Failed to read error context attachment as markdown', e);
+      }
     }
   }
 
@@ -943,44 +925,12 @@ test('test', async ({ page }) => {
   }
 
   private _errorInDebugger(errorStack: string, location: reporterTypes.Location) {
-    if (!this._testRun || !this._testUnderDebug?.testItem)
+    if (!this._testRun || !this._testItemUnderDebug)
       return;
     const testMessage = this._testMessageFromText(errorStack);
     testMessage.location = this._asLocation(location);
-    this._testRun.failed(this._testUnderDebug.testItem, testMessage);
-    this._cleanupItemUnderDebug();
-  }
-
-  private _cleanupItemUnderDebug() {
-    for (const disposable of this._testUnderDebug?.disposables || [])
-      disposable.dispose();
-    this._testUnderDebug = undefined;
-  }
-
-  private async _onTestPaused(params: { errors: reporterTypes.TestError[] }) {
-    if (!this._testUnderDebug)
-      return;
-    const errors = params.errors.filter(e => !!e.message);
-    if (!errors.length) {
-      const location = this._testUnderDebug.testCase.location;
-      const document = await this._vscode.workspace.openTextDocument(location.file);
-      const testEndPosition = findTestEndPosition(document.getText(), uriToPath(document.uri), location) ?? location;
-      const range = this._asRange(testEndPosition);
-      const editor = await this._vscode.window.showTextDocument(document, { selection: range });
-      editor.setDecorations(this._pausedAtEndDecorationType, [{ range }]);
-      this._testUnderDebug.disposables.push({ dispose: () => editor.setDecorations(this._pausedAtEndDecorationType, []) });
-    } else {
-      if (this._testRun && this._testUnderDebug.testItem)
-        this._testRun.failed(this._testUnderDebug.testItem, errors.map(error => this._testMessageForTestError(error)));
-      const error = errors.find(e => e.location);
-      if (error?.location) {
-        const range = this._asRange(error.location);
-        const document = await this._vscode.workspace.openTextDocument(error.location.file);
-        const editor = await this._vscode.window.showTextDocument(document, { selection: range });
-        editor.setDecorations(this._pausedOnErrorDecorationType, [{ range }]);
-        this._testUnderDebug.disposables.push({ dispose: () => editor.setDecorations(this._pausedOnErrorDecorationType, []) });
-      }
-    }
+    this._testRun.failed(this._testItemUnderDebug, testMessage);
+    this._testItemUnderDebug = undefined;
   }
 
   private _executionLinesChanged() {
@@ -1062,12 +1012,12 @@ test('test', async ({ page }) => {
     let testMessage: vscodeTypes.TestMessage;
     if (text.includes('Looks like Playwright Test or Playwright')) {
       testMessage = this._testMessageFromHtml(`
-        <p>Playwright browser are not installed.</p>
+        <p>Testwise browsers are not installed.</p>
         <p>
           Press
           ${process.platform === 'darwin' ? '<kbd>Shift</kbd>+<kbd>Command</kbd>+<kbd>P</kbd>' : ''}
           ${process.platform !== 'darwin' ? '<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>' : ''}
-          to open the Command Palette in VSCode, type 'Playwright' and select 'Install Playwright Browsers'.
+          to open the Command Palette in VSCode, type 'Testwise' and select 'Install Testwise Browsers'.
         </p>
       `);
     } else {
@@ -1081,7 +1031,7 @@ test('test', async ({ page }) => {
   }
 
   private _asPosition(location: { line: number, column: number }): vscodeTypes.Position {
-    return new this._vscode.Position(Math.max(location.line - 1, 0), location.column - 1);
+    return new this._vscode.Position(Math.max(location.line - 1, 0), Math.max(location.column - 1, 0));
   }
 
   private _asLocation(location: reporterTypes.Location): vscodeTypes.Location {
@@ -1149,23 +1099,25 @@ function parseStack(vscode: vscodeTypes.VSCode, stack: string): vscodeTypes.Test
     result.push(new vscode.TestMessageStackFrame(
         frame.method || '',
         vscode.Uri.file(frame.file),
-        new vscode.Position(Math.max(frame.line - 1, 0), frame.column - 1)));
+        new vscode.Position(Math.max(frame.line - 1, 0), Math.max(frame.column - 1, 0))));
   }
   return result;
 }
 
 class TreeItemObserver implements vscodeTypes.Disposable{
   private _vscode: vscodeTypes.VSCode;
+  private _logger: vscodeTypes.LogOutputChannel;
   private _treeItemSelected: vscodeTypes.EventEmitter<vscodeTypes.TreeItem | null>;
   readonly onTreeItemSelected: vscodeTypes.Event<vscodeTypes.TreeItem | null>;
   private _selectedTreeItem: vscodeTypes.TreeItem | null = null;
   private _timeout: NodeJS.Timeout | undefined;
 
-  constructor(vscode: vscodeTypes.VSCode) {
+  constructor(vscode: vscodeTypes.VSCode, logger: vscodeTypes.LogOutputChannel) {
     this._vscode = vscode;
+    this._logger = logger;
     this._treeItemSelected = new vscode.EventEmitter();
     this.onTreeItemSelected = this._treeItemSelected.event;
-    this._poll().catch(() => {});
+    this._poll().catch(e => logger.error('Tree item polling failed:', e));
   }
 
   dispose() {
@@ -1185,7 +1137,7 @@ class TreeItemObserver implements vscodeTypes.Disposable{
       this._selectedTreeItem = item;
       this._treeItemSelected.fire(item);
     }
-    this._timeout = setTimeout(() => this._poll().catch(() => {}), 250);
+    this._timeout = setTimeout(() => this._poll().catch(e => this._logger.error('Tree item polling failed:', e)), 250);
   }
 }
 

@@ -27,9 +27,11 @@ export class SpawnTraceViewer implements TraceViewer {
   private _currentFile?: string;
   private _config: TestConfig;
   private _serverUrlPrefixForTest?: string;
+  private _logger: vscodeTypes.LogOutputChannel;
 
-  constructor(vscode: vscodeTypes.VSCode, envProvider: (configFile: string) => NodeJS.ProcessEnv, config: TestConfig) {
+  constructor(vscode: vscodeTypes.VSCode, logger: vscodeTypes.LogOutputChannel, envProvider: (configFile: string) => NodeJS.ProcessEnv, config: TestConfig) {
     this._vscode = vscode;
+    this._logger = logger;
     this._envProvider = envProvider;
     this._config = config;
   }
@@ -51,7 +53,7 @@ export class SpawnTraceViewer implements TraceViewer {
   }
 
   private async _startIfNeeded() {
-    const node = await findNode(this._vscode, this._config.workspaceFolder);
+    const node = await findNode(this._vscode, this._config.workspaceFolder, this._logger);
     if (this._traceViewerProcess)
       return;
     const allArgs = [this._config.cli, 'show-trace', `--stdin`];

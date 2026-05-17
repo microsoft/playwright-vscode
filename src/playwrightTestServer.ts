@@ -19,7 +19,7 @@ import { ConfigFindRelatedTestFilesReport, ConfigListFilesReport } from './listT
 import * as vscodeTypes from './vscodeTypes';
 import * as reporterTypes from './upstream/reporter';
 import { TeleReporterReceiver, JsonConfig } from './upstream/teleReceiver';
-import { WebSocketTestServerTransport, TestServerConnection, TestServerConnectionClosedError } from './upstream/testServerConnection';
+import { WebSocketTestServerTransport, TestServerConnection, TestServerConnectionClosedError, TestServerTransport } from './upstream/testServerConnection';
 import { startBackend } from './backend';
 import { escapeRegex, pathSeparator } from './utils';
 import { debugSessionName } from './debugSessionName';
@@ -51,7 +51,7 @@ export type PlaywrightTestOptions = {
   isUnderTest: boolean;
   envProvider: (configFile: string) => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
-  testPausedHandler: (params: { errors: reporterTypes.TestError[] }) => void;
+  logger: vscodeTypes.LogOutputChannel;
 };
 
 
@@ -61,7 +61,6 @@ export class PlaywrightTestServer {
   private _model: TestModel;
   private _testServerPromise: Promise<TestServerConnectionWrapper> | undefined;
   private _config?: JsonConfig;
-  private _globalSetupEnv: { [key: string]: string | undefined } = {};
 
   constructor(vscode: vscodeTypes.VSCode, model: TestModel, options: PlaywrightTestOptions) {
     this._vscode = vscode;
@@ -152,10 +151,10 @@ export class PlaywrightTestServer {
     const { connection } = await this._testServer();
     if (!connection)
       return 'failed';
-    return await this._runGlobalHooksInServer(connection, type, testListener, token, true);
+    return await this._runGlobalHooksInServer(connection, type, testListener, token);
   }
 
-  private async _runGlobalHooksInServer(testServer: TestServerConnection, type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken, saveEnv: boolean): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
+  private async _runGlobalHooksInServer(testServer: TestServerConnection, type: 'setup' | 'teardown', testListener: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<'passed' | 'failed' | 'interrupted' | 'timedout'> {
     const teleReceiver = new TeleReporterReceiver(testListener, {
       mergeProjects: true,
       mergeTestCases: true,
@@ -166,17 +165,13 @@ export class PlaywrightTestServer {
     try {
       if (type === 'setup' && (!this._config || this._config.globalSetup))
         testListener.onStdOut?.('\x1b[2mRunning global setup if any\u2026\x1b[0m\n');
-      const result = await Promise.race([
-        type === 'setup' ? testServer.runGlobalSetup({}) : testServer.runGlobalTeardown({}).then(result => ({ ...result, env: [] })),
+      const { report, status } = await Promise.race([
+        type === 'setup' ? testServer.runGlobalSetup({}) : testServer.runGlobalTeardown({}),
         new Promise<{ status: 'interrupted', report: [] }>(f => token.onCancellationRequested(() => f({ status: 'interrupted', report: [] }))),
       ]);
-      for (const message of result.report)
+      for (const message of report)
         void teleReceiver.dispatch(message);
-      if (type === 'setup' && saveEnv && 'env' in result)
-        this._globalSetupEnv = Object.fromEntries(result.env.map(([key, value]) => [key, value ?? undefined]));
-      if (type === 'teardown' && saveEnv)
-        this._globalSetupEnv = {};
-      return result.status;
+      return status;
     } finally {
       disposable.dispose();
     }
@@ -215,7 +210,7 @@ export class PlaywrightTestServer {
       return;
 
     // Locations are regular expressions.
-    const locationPatterns = locations ? locations.map(escapeRegex) : undefined;
+    const locationPatterns = locations ? locations.map(escapeRegex) : [];
     const options: Parameters<TestServerInterface['runTests']>['0'] = {
       projects: this._model.enabledProjectsFilter(),
       locations: locationPatterns,
@@ -263,7 +258,7 @@ export class PlaywrightTestServer {
     };
   }
 
-  async debugTests(request: vscodeTypes.TestRunRequest, runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken, debugGlobalSetup: boolean): Promise<void> {
+  async debugTests(request: vscodeTypes.TestRunRequest, runOptions: PlaywrightTestRunOptions, reporter: reporterTypes.ReporterV2, token: vscodeTypes.CancellationToken): Promise<void> {
     const addressPromise = new Promise<string>(f => {
       const disposable = this._options.onStdOut(output => {
         const match = output.match(/Listening on (.*)/);
@@ -297,7 +292,6 @@ export class PlaywrightTestServer {
       token = debugEnd.token;
 
       const paths = this._normalizePaths();
-      const kMinTestPausedVersion = 1.58;
 
       await this._vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
@@ -309,22 +303,21 @@ export class PlaywrightTestServer {
           ...process.env,
           CI: this._options.isUnderTest ? undefined : process.env.CI,
           ...this._options.envProvider(this._model.config.configFile),
-          ...(debugGlobalSetup ? {} : this._globalSetupEnv),
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,
           FORCE_COLOR: '1',
-          PW_TEST_SOURCE_TRANSFORM: this._model.config.version < kMinTestPausedVersion ? require.resolve('./debugTransform') : undefined,
-          PW_TEST_SOURCE_TRANSFORM_SCOPE: this._model.config.version < kMinTestPausedVersion ? testDirs.join(pathSeparator) : undefined,
+          PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
+          PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
           PWDEBUG: 'console',
         },
         program: paths.cli,
-        args: ['test-server', '-c', paths.config],
+        args: ['test-server', '-c', paths.config, '--host', '127.0.0.1'],
       });
 
       if (token?.isCancellationRequested)
         return;
       const address = await addressPromise;
-      debugTestServer = new TestServerConnection(new WebSocketTestServerTransport(address));
+      debugTestServer = new TestServerConnection(new TestServerTransportDebugger(new WebSocketTestServerTransport(address), this._options.logger));
       await debugTestServer.initialize({
         serializer: require.resolve('./oopReporter'),
         closeOnDisconnect: true,
@@ -332,32 +325,27 @@ export class PlaywrightTestServer {
       if (token?.isCancellationRequested)
         return;
 
-      const { locations, testIds, isSingleTest } = this._model.narrowDownLocations(request);
+      const { locations, testIds } = this._model.narrowDownLocations(request);
       if (!locations && !testIds)
         return;
 
-      if (debugGlobalSetup) {
-        const result = await this._runGlobalHooksInServer(debugTestServer, 'setup', reporter, token, false);
-        if (result !== 'passed')
-          return;
-      }
+      const result = await this._runGlobalHooksInServer(debugTestServer, 'setup', reporter, token);
+      if (result !== 'passed')
+        return;
 
       // Locations are regular expressions.
-      const locationPatterns = locations ? locations.map(escapeRegex) : undefined;
+      const locationPatterns = locations ? locations.map(escapeRegex) : [];
       const options: Parameters<TestServerInterface['runTests']>['0'] = {
         projects: this._model.enabledProjectsFilter(),
         locations: locationPatterns,
         testIds,
         timeout: 0,
-        pauseAtEnd: isSingleTest,
-        pauseOnError: true,
         ...runOptions,
       };
 
       disposables.push(token.onCancellationRequested(() => {
         debugTestServer!.stopTestsNoReply({});
       }));
-      disposables.push(debugTestServer.onTestPaused(params => this._options.testPausedHandler(params)));
       this._wireTestServer(debugTestServer, reporter, token, disposables);
       try {
         await debugTestServer.runTests(options);
@@ -368,8 +356,8 @@ export class PlaywrightTestServer {
       }
     } finally {
       disposables.forEach(disposable => disposable.dispose());
-      if (debugGlobalSetup && !token.isCancellationRequested && debugTestServer && !debugTestServer.isClosed())
-        await this._runGlobalHooksInServer(debugTestServer, 'teardown', reporter, token, false);
+      if (!token.isCancellationRequested && debugTestServer && !debugTestServer.isClosed())
+        await this._runGlobalHooksInServer(debugTestServer, 'teardown', reporter, token);
       if (debugTestServer) {
         // Should exit upon close automatically.
         debugTestServer.close();
@@ -407,6 +395,7 @@ export class PlaywrightTestServer {
         paths.cli,
         'test-server',
         '-c', paths.config,
+        '--host', '127.0.0.1',
       ],
       cwd: paths.cwd,
       envProvider: () => {
@@ -419,6 +408,7 @@ export class PlaywrightTestServer {
       },
       dumpIO: false,
       errors,
+      logger: this._options.logger,
       onClose: () => {
         this._testServerPromise = undefined;
       },
@@ -428,7 +418,7 @@ export class PlaywrightTestServer {
     });
     if (!wsEndpoint)
       return { connection: null, errors };
-    const connection = new TestServerConnection(new WebSocketTestServerTransport(wsEndpoint));
+    const connection = new TestServerConnection(new TestServerTransportDebugger(new WebSocketTestServerTransport(wsEndpoint), this._options.logger));
     connection.onTestFilesChanged(params => this._testFilesChanged(params.testFiles));
     await connection.initialize({
       serializer: require.resolve('./oopReporter'),
@@ -478,3 +468,45 @@ type TestServerConnectionWrapper = {
   connection: TestServerConnection | null;
   errors: string[];
 };
+
+class TestServerTransportDebugger implements TestServerTransport {
+  constructor(private _inner: TestServerTransport, private _logger: vscodeTypes.LogOutputChannel) {}
+
+  send(message: string): void {
+    this._logger.debug('-->', message);
+    this._inner.send(message);
+  }
+
+  onmessage(callback: (message: string) => void) {
+    this._inner.onmessage((message: string) => {
+      this._logger.debug('<--', message);
+      callback(message);
+    });
+  }
+
+  onerror(listener: (error: Error) => void): void {
+    this._inner.onerror(error => {
+      this._logger.debug('<-- transport error', error);
+      listener(error);
+    });
+  }
+
+  onclose(listener: () => void): void {
+    this._inner.onclose(() => {
+      this._logger.debug('<-- transport close');
+      listener();
+    });
+  }
+
+  onopen(listener: () => void): void {
+    this._inner.onopen(() => {
+      this._logger.debug('<-- transport open');
+      listener();
+    });
+  }
+
+  close(): void {
+    this._logger.debug('<-- transport close');
+    this._inner.close();
+  }
+}

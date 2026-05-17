@@ -26,6 +26,7 @@ export type BackendServerOptions = {
   envProvider: () => NodeJS.ProcessEnv;
   dumpIO?: boolean;
   errors: string[];
+  logger: vscodeTypes.LogOutputChannel;
 };
 
 export class BackendServer<T extends BackendClient> {
@@ -118,7 +119,8 @@ export class BackendClient extends EventEmitter {
 }
 
 export async function startBackend(vscode: vscodeTypes.VSCode, options: BackendServerOptions & { onError: (error: Error) => void, onClose: () => void }): Promise<string | null> {
-  const node = await findNode(vscode, options.cwd);
+  const node = await findNode(vscode, options.cwd, options.logger);
+  options.logger.info('Starting test server', node, options.args);
   const serverProcess = spawn(node, options.args, {
     cwd: options.cwd,
     stdio: 'pipe',
@@ -132,8 +134,14 @@ export async function startBackend(vscode: vscodeTypes.VSCode, options: BackendS
       process.stderr.write('[server err] ' + data.toString());
     options.errors.push(data.toString());
   });
-  serverProcess.on('error', options.onError);
-  serverProcess.on('close', options.onClose);
+  serverProcess.on('error', error => {
+    options.logger.error('Test server error', error);
+    options.onError(error);
+  });
+  serverProcess.on('close', () => {
+    options.logger.info('Test server stopped');
+    options.onClose();
+  });
   return new Promise(fulfill => {
     serverProcess.stdout?.on('data', async data => {
       if (options.dumpIO)

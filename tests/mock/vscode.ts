@@ -75,7 +75,12 @@ export enum ColorThemeKind {
 }
 
 class Position {
-  constructor(readonly line: number, readonly character: number) {}
+  constructor(readonly line: number, readonly character: number) {
+    if (line < 0)
+      throw new Error('Illegal argument: line must be non-negative');
+    if (character < 0)
+      throw new Error('Illegal argument: character must be non-negative');
+  }
 
   toString() {
     return `${this.line}:${this.character}`;
@@ -243,9 +248,7 @@ export class TestItem {
   }
 
   private _innerDelete(id: string) {
-    const item = this.map.get(id);
     this.map.delete(id);
-    item?.forEach(child => this.testController.allTestItems.delete(child.id));
     this.testController.allTestItems.delete(id);
   }
 
@@ -509,7 +512,10 @@ export class TestRun {
       result.push('  Output:');
       result.push(...this._renderOutput());
     }
-    return trimLog(result.join(`\n${indent}`)) + `\n${indent}`;
+    let log = trimLog(result.join(`\n${indent}`)) + `\n${indent}`;
+    // Strip Playwright's "Context for AI" details block as it contains absolute paths.
+    log = log.replace(/\n?\s*<br><br><details><summary>Context for AI<\/summary>[\s\S]*?<\/details>/g, '');
+    return log;
   }
 
   renderOutput(): string {
@@ -774,7 +780,7 @@ class Debug {
     this._debuggerProcess = spawn(node, [configuration.program, ...configuration.args], {
       cwd: configuration.cwd,
       stdio: 'pipe',
-      env: { ...configuration.env, VSCODE_MOCK_DEBUGGING: '1' },
+      env: configuration.env,
     });
 
     this._debuggerProcess.stdout.on('data', data => {
@@ -919,6 +925,15 @@ type HoverProvider = {
   provideHover?(document: TextDocument, position: Position, token: CancellationToken): void
 };
 
+class LogOutputChannel {
+  readonly messages: { level: string, args: any[] }[] = [];
+  debug(...args: any[]) { this.messages.push({ level: 'debug', args }); }
+  info(...args: any[]) { this.messages.push({ level: 'info', args }); }
+  warn(...args: any[]) { this.messages.push({ level: 'warn', args }); }
+  error(...args: any[]) { this.messages.push({ level: 'error', args }); }
+  trace(...args: any[]) { this.messages.push({ level: 'trace', args }); }
+}
+
 export class VSCode {
   isUnderTest = true;
   CancellationTokenSource = CancellationTokenSource;
@@ -989,6 +1004,7 @@ export class VSCode {
   readonly connectionLog: any[] = [];
   readonly openExternalUrls: string[] = [];
   readonly diagnosticsCollections: DiagnosticsCollection[] = [];
+  readonly logOutputChannels: LogOutputChannel[] = [];
   private _clipboardText = '';
 
   constructor(readonly versionNumber: number, baseDir: string, browser: Browser) {
@@ -1148,6 +1164,11 @@ export class VSCode {
         return { kind };
       },
     });
+    this.window.createOutputChannel = () => {
+      const channel = new LogOutputChannel();
+      this.logOutputChannels.push(channel);
+      return channel;
+    };
 
     this.workspace.onDidChangeWorkspaceFolders = this.onDidChangeWorkspaceFolders;
     this.workspace.onDidChangeTextDocument = this.onDidChangeTextDocument;

@@ -47,7 +47,6 @@ export interface TestServerInterface {
 
   runGlobalSetup(params: {}): Promise<{
     report: ReportEntry[],
-    env: [string, string | null][],
     status: reporterTypes.FullResult['status']
   }>;
 
@@ -83,13 +82,14 @@ export interface TestServerInterface {
     locations?: string[];
     grep?: string;
     grepInvert?: string;
+    onlyChanged?: string;
   }): Promise<{
     report: ReportEntry[],
     status: reporterTypes.FullResult['status']
   }>;
 
   runTests(params: {
-    locations?: string[];
+    locations: string[];
     grep?: string;
     grepInvert?: string;
     testIds?: string[];

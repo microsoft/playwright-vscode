@@ -89,7 +89,7 @@ export const test = base.extend<TestFixtures>({
       if (packageManager === 'pnpm-pnp')
         await fs.promises.writeFile(path.join(projectPath, '.npmrc'), 'node-linker=pnp');
 
-      spawnSync(`${command} --quiet --browser=chromium --gha --install-deps`, {
+      spawnSync(`${command} --quiet --browser=chromium --gha${process.env.CI ? ' --install-deps' : ''}`, {
         cwd: projectPath,
         stdio: 'inherit',
         shell: true,
