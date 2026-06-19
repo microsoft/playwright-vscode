@@ -72,6 +72,9 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
 }
 
 function quote(s: string): string {
+  // Windows cmd treats single quotes as literal characters.
+  if (process.platform === 'win32')
+    return `"${s}"`;
   return `'${s}'`;
 }
 
