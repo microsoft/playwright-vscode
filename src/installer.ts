@@ -52,6 +52,9 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
 
   terminal.show();
 
+  const shell = path.basename(vscode.env.shell || '').toLowerCase();
+  const q = shell === 'cmd.exe' || shell === 'cmd' ? '"' : '\'';
+
   const args: string[] = [];
   if (result.includes(chromiumItem))
     args.push('--browser=chromium');
@@ -68,11 +71,7 @@ export async function installPlaywright(vscode: vscodeTypes.VSCode) {
   if (result.includes(installDepsItem))
     args.push('--install-deps');
 
-  terminal.sendText(`npm init playwright@latest --yes "--" . ${quote('--quiet')} ${args.map(quote).join(' ')}`, true);
-}
-
-function quote(s: string): string {
-  return `'${s}'`;
+  terminal.sendText(`npm init playwright@latest --yes "--" . ${q}--quiet${q} ${args.map(a => `${q}${a}${q}`).join(' ')}`, true);
 }
 
 export async function installBrowsers(vscode: vscodeTypes.VSCode, model: TestModel) {
