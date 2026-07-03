@@ -735,6 +735,10 @@ export class Extension implements RunHooks {
   }
 
   private _extractAIContext(result: reporterTypes.TestResult): string | undefined {
+    // Respect the global VS Code setting that disables all AI-related features.
+    if (this._vscode.workspace.getConfiguration('chat').get<boolean>('disableAIFeatures', false))
+      return;
+
     const attachment = result.attachments.find(a => ['_error-context', 'error-context'].includes(a.name));
     if (!attachment)
       return;
