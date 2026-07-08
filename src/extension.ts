@@ -310,7 +310,7 @@ export class Extension implements RunHooks {
     this._models.clear();
     this._testTree.startedLoading();
 
-    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mts,mjs}', '**/node_modules/**', undefined, token);
+    const configFiles = await this._vscode.workspace.findFiles('**/*playwright*.config.{ts,js,mts,mjs}', null, undefined, token);
     if (token.isCancellationRequested)
       return;
 
@@ -319,6 +319,8 @@ export class Extension implements RunHooks {
     for (const configFileUri of configFiles) {
       const configFilePath = uriToPath(configFileUri);
       // TODO: parse .gitignore
+      if (configFilePath.includes('node_modules'))
+        continue;
       if (!this._isUnderTest && configFilePath.includes('test-results'))
         continue;
 
