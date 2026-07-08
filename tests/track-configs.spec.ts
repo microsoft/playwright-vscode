@@ -202,3 +202,20 @@ test('git checkout should not lead to duplicate configs', { annotation: { type: 
     return testItems.map(i => i.label);
   }).toEqual(['playwright.config.js', 'playwright-two.config.js']);
 });
+
+test('should discover config hidden by files.exclude', async ({ activate }) => {
+  const { vscode, testController, workspaceFolder } = await activate({});
+
+  vscode.workspace.getConfiguration('files').update('exclude', { '**/*config*': true }, true);
+
+  await workspaceFolder.addFile('playwright.config.js', `module.exports = { testDir: 'tests' }`);
+  await workspaceFolder.addFile('tests/test.spec.ts', `
+    import { test } from '@playwright/test';
+    test('one', async () => {});
+  `);
+
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   test.spec.ts
+  `);
+});
