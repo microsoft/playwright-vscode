@@ -32,6 +32,32 @@ test('should list files', async ({ activate }) => {
   ]);
 });
 
+test('should list tests with inline source map', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'build' }`,
+    'tests/test.spec.ts': testSpecTs,
+    'build/test.spec.js': testSpecJsWithInlineSourceMap('test.spec'),
+  });
+
+  await testController.expandTestItems(/test.spec.ts/);
+  await expect(testController).toHaveTestTree(`
+    -   tests
+      -   test.spec.ts
+        -   one [2:0]
+        -   two [3:0]
+  `);
+
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)],
+      })
+    },
+  ]);
+});
+
 test('should list tests on expand', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'build' }`,
@@ -302,12 +328,12 @@ test('one', async ({}) => {});
 test('two', async ({}) => {});`;
 
 
-const testSpecJs = (name: string) => `var import_test = require("@playwright/test");
+const testSpecJs = (name: string, sourceMappingURL = `${name}.js.map`) => `var import_test = require("@playwright/test");
 (0, import_test.test)("one", async ({}) => {
 });
 (0, import_test.test)("two", async ({}) => {
 });
-//# sourceMappingURL=${name}.js.map`;
+//# sourceMappingURL=${sourceMappingURL}`;
 
 
 const testSpecJsMap = (name: string) => `{
@@ -316,6 +342,9 @@ const testSpecJsMap = (name: string) => `{
   "mappings": "AAAA,kBAAqB;AAErB,sBAAK,OAAO,OAAO,OAAO;AAAA;AAC1B,sBAAK,OAAO,OAAO,OAAO;AAAA;",
   "names": []
 }`;
+
+
+const testSpecJsWithInlineSourceMap = (name: string) => testSpecJs(name, `data:application/json;charset=utf-8;base64,${Buffer.from(testSpecJsMap(name)).toString('base64')}`);
 
 
 const testSpecTsAfter = `import { test } from '@playwright/test';
