@@ -32,6 +32,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _cancelRecording: (() => void) | undefined;
   private _isRunningTests?: 'run' | 'debug';
   private _insertedEditActionCount = 0;
+  private _lastInsertedActionText: string | undefined;
   private _envProvider: (configFile: string) => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
   private _pageCount = 0;
@@ -172,31 +173,51 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
         if (!params.actions || !params.actions.length)
           return;
         const targetIndentation = guessIndentation(editor);
+        const newText = indentBlock(params.actions[params.actions.length - 1], targetIndentation);
+        const isNewAction = params.actions.length > this._insertedEditActionCount;
 
-        // Previous action committed, insert new line & collapse selection.
-        if (params.actions.length > 1 && params.actions?.length > this._insertedEditActionCount) {
-          const range = new this._vscode.Range(editor.selection.end, editor.selection.end);
-          await editor.edit(async editBuilder => {
-            editBuilder.replace(range, '\n' + ' '.repeat(targetIndentation));
-          });
-          editor.selection = new this._vscode.Selection(editor.selection.end, editor.selection.end);
-          this._insertedEditActionCount = params.actions.length;
-        }
+        if (isNewAction) {
+          // Previous action committed, insert new line & collapse selection.
+          if (params.actions.length > 1) {
+            const range = new this._vscode.Range(editor.selection.end, editor.selection.end);
+            await editor.edit(async editBuilder => {
+              editBuilder.replace(range, '\n' + ' '.repeat(targetIndentation));
+            });
+            editor.selection = new this._vscode.Selection(editor.selection.end, editor.selection.end);
+          }
 
-        // Replace selection with the current action.
-        if (params.actions.length) {
+          // Replace selection with the current action.
           const selectionStart = editor.selection.start;
           await editor.edit(async editBuilder => {
             if (!editor)
               return;
-            const action = params.actions[params.actions.length - 1];
-            const newText = indentBlock(action, targetIndentation);
             if (editor.document.getText(editor.selection) !== newText)
               editBuilder.replace(editor.selection, newText);
           });
           const selectionEnd = editor.selection.end;
           editor.selection = new this._vscode.Selection(selectionStart, selectionEnd);
+          this._insertedEditActionCount = params.actions.length;
+          this._lastInsertedActionText = newText;
+          return;
         }
+
+        // Re-render of the last action, e.g. a dialog/popup/assertion signal
+        // attached to it, or two fills merged into one. Only update the editor
+        // while the selection still spans the text we had inserted; if the user
+        // edited the document meanwhile, respect their edits.
+        if (newText === this._lastInsertedActionText)
+          return;
+        if (editor.document.getText(editor.selection) !== this._lastInsertedActionText)
+          return;
+        const selectionStart = editor.selection.start;
+        await editor.edit(async editBuilder => {
+          if (!editor)
+            return;
+          editBuilder.replace(editor.selection, newText);
+        });
+        const selectionEnd = editor.selection.end;
+        editor.selection = new this._vscode.Selection(selectionStart, selectionEnd);
+        this._lastInsertedActionText = newText;
       });
     });
   }
@@ -323,6 +344,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private async _doRecord(progress: vscodeTypes.Progress<{ message?: string; increment?: number }>, model: TestModel, testIdAttributeName: string | undefined, token: vscodeTypes.CancellationToken) {
     await this._startBackendIfNeeded(model.config);
     this._insertedEditActionCount = 0;
+    this._lastInsertedActionText = undefined;
 
     progress.report({ message: 'starting\u2026' });
 
@@ -398,6 +420,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   private _resetExtensionState() {
     this._insertedEditActionCount = 0;
+    this._lastInsertedActionText = undefined;
     this._cancelRecording?.();
     this._cancelRecording = undefined;
   }
