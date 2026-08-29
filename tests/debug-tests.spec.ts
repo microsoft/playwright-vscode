@@ -175,6 +175,47 @@ test('should end test run when stopping the debugging', async ({ activate }, tes
   testRun.token.source.cancel();
 });
 
+test('should keep reused browser when stopping the debugging', async ({ activate, showBrowser }, testInfo) => {
+  test.skip(!showBrowser);
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should fail', async ({ page }) => {
+        // Simulate breakpoint via stalling.
+        console.log('READY TO BREAK');
+        await page.setContent('<button>Submit</button>');
+        await new Promise(() => {});
+      });
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/fail/);
+
+  const profile = testController.debugProfile();
+  const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
+  void profile.run(testItems);
+  const testRun = await testRunPromise;
+  await expect.poll(() => vscode.debug.output, { timeout: 10000 }).toContain('READY TO BREAK');
+
+  // The debug run has a page in the reused browser.
+  const extension = vscode.extensions[0];
+  await expect.poll(() => extension.reusedBrowserForTest().pageCount()).toBe(1);
+
+  const endPromise = new Promise(f => testRun.onDidEnd(f));
+  vscode.debug.stopDebugging();
+  await endPromise;
+
+  // Stopping the debugging should not tear down the reused browser backend,
+  // so that the user can inspect and record the browser afterwards.
+  await new Promise(f => setTimeout(f, 1000));
+  await expect.poll(() => extension.browserServerWSForTest()).toBeTruthy();
+
+  testRun.token.source.cancel();
+});
+
 test('should end test run when stopping the debugging during config parsing', async ({ activate }) => {
   const { vscode, testController } = await activate({
     'package.json': JSON.stringify({ type: 'module' }),

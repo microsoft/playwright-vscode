@@ -32,6 +32,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   private _cancelRecording: (() => void) | undefined;
   private _isRunningTests?: 'run' | 'debug';
   private _insertedEditActionCount = 0;
+  private _keepBrowserAfterDebugRun = false;
   private _envProvider: (configFile: string) => NodeJS.ProcessEnv;
   private _disposables: vscodeTypes.Disposable[] = [];
   private _pageCount = 0;
@@ -220,6 +221,10 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
       return;
     if (pageCount)
       return;
+    // The page may have been torn down with the debugged test process -
+    // keep the browser around so that the user can inspect and record it.
+    if (this._keepBrowserAfterDebugRun)
+      return;
     this._stop();
   }
 
@@ -365,6 +370,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   async onWillRunTests(config: TestConfig, debug: boolean) {
+    this._keepBrowserAfterDebugRun = false;
     if (!this._settingsModel.showBrowser.get() && !debug)
       return;
     if (!this._checkVersion(config, 'Show & reuse browser'))
@@ -376,10 +382,14 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
   }
 
   async onDidRunTests() {
+    const wasDebug = this._isRunningTests === 'debug';
     if (!this._settingsModel.showBrowser.get()) {
       this._stop();
     } else {
-      if (!this._pageCount)
+      // Keep the browser around after debugging, so that the user can
+      // inspect and record it, e.g. after stopping at a breakpoint.
+      this._keepBrowserAfterDebugRun = wasDebug;
+      if (!this._pageCount && !this._keepBrowserAfterDebugRun)
         this._stop();
     }
     this._isRunningTests = undefined;
@@ -398,6 +408,7 @@ export class ReusedBrowser implements vscodeTypes.Disposable {
 
   private _resetExtensionState() {
     this._insertedEditActionCount = 0;
+    this._keepBrowserAfterDebugRun = false;
     this._cancelRecording?.();
     this._cancelRecording = undefined;
   }
