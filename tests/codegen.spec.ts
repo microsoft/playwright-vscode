@@ -17,6 +17,11 @@
 import { connectToSharedBrowser, expect, test, waitForPage } from './utils';
 import fs from 'node:fs';
 
+// The cross-session reset of the recorded actions landed in core:
+// https://github.com/microsoft/playwright/pull/42458, released with 1.63.0.
+const [pwMajor, pwMinor] = require('@playwright/test/package.json').version.split('.').map((p: string) => parseInt(p, 10));
+const hasCrossSessionReset = pwMajor > 1 || (pwMajor === 1 && pwMinor >= 63);
+
 test('should generate code', async ({ activate }) => {
   test.slow();
 
@@ -223,7 +228,12 @@ test('should not insert stale actions when editing file during recording', async
   const browser = await connectToSharedBrowser(vscode);
   const page = await waitForPage(browser);
   await page.getByRole('button', { name: 'click me' }).click();
-  await expect.poll(() => editor.edits.length).toBe(1);
+  // Wait for the insert to settle: the document contains the action and the
+  // selection spans it, i.e. the extension is done updating the editor.
+  await expect.poll(() => ({
+    clicks: editor.document.text.match(/getByTestId\('foo'\)\.click\(\)/g)?.length,
+    selectionSpansAction: !editor.selection.isEmpty,
+  })).toEqual({ clicks: 1, selectionSpansAction: true });
 
   // The user edits the file while recording, moving the cursor away
   // from the recorded action.
@@ -243,6 +253,58 @@ test('should not insert stale actions when editing file during recording', async
     clicks: editor.document.text.match(/getByTestId\('foo'\)\.click\(\)/g)?.length,
     hasDialogHandler: editor.document.text.includes("page.once('dialog'"),
   })).toEqual({ clicks: 2, hasDialogHandler: false });
+
+  vscode.lastWithProgressToken!.cancel();
+});
+
+test('should not insert stale actions from the previous recording session', async ({ activate, showBrowser }) => {
+  test.skip(!showBrowser);
+  // Requires the core-side reset of the recorded actions between sessions.
+  test.skip(!hasCrossSessionReset, 'needs playwright with https://github.com/microsoft/playwright/pull/42458');
+
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {}`,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async ({ page }) => {
+        await page.setContent('<button data-testid="foo">click me</button>');
+
+      });
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  await expect(await testController.run()).toHaveOutput('1 passed');
+
+  await vscode.openEditors('**/test.spec.ts');
+  const editor = vscode.window.activeTextEditor;
+  expect(editor.document.uri.path).toContain('test.spec.ts');
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  const browser = await connectToSharedBrowser(vscode);
+  const page = await waitForPage(browser);
+
+  // Session 1: record a click at the cursor.
+  editor.selection = new vscode.Selection(4, 0, 4, 0);
+  await webView.getByText('Record at cursor').click();
+  await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+  await page.getByRole('button', { name: 'click me' }).click();
+  await expect.poll(() => editor.document.text.match(/getByTestId\('foo'\)\.click\(\)/g)?.length).toBe(1);
+
+  // Stop recording, then start a new session on the same page, like the
+  // user toggling "Record at cursor" off and on after moving the cursor.
+  vscode.lastWithProgressToken!.cancel();
+  editor.selection = new vscode.Selection(6, 0, 6, 0);
+  await webView.getByText('Record at cursor').click();
+  await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+
+  // A late signal (a dialog auto-dismissed by the recorder) used to re-render
+  // the stale last action of the previous session and insert it at the new
+  // cursor position. The new session must start from a clean action list.
+  await page.evaluate('setTimeout(() => alert("hi"), 0)');
+  await page.waitForTimeout(1000);
+  expect(editor.document.text.match(/getByTestId\('foo'\)\.click\(\)/g)?.length).toBe(1);
+  expect(editor.document.text.includes("page.once('dialog'")).toBe(false);
 
   vscode.lastWithProgressToken!.cancel();
 });
