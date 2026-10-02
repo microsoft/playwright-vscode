@@ -70,11 +70,9 @@ export async function resolveSourceMap(file: string, fileToSources: Map<string, 
   await new Promise(f => rl.on('close', f));
 
   if (lastLine?.startsWith('//# sourceMappingURL=')) {
-    const sourceMappingURL = lastLine.substring('//# sourceMappingURL='.length);
-    const inlineSourceMap = /^data:application\/json[^,]+base64,/.test(sourceMappingURL);
-    const sourceMappingFile = inlineSourceMap ? file : path.resolve(path.dirname(file), sourceMappingURL);
+    const sourceMappingFile = path.resolve(path.dirname(file), lastLine.substring('//# sourceMappingURL='.length));
     try {
-      const sourceMapping = inlineSourceMap ? Buffer.from(sourceMappingURL.substring(sourceMappingURL.indexOf(',') + 1), 'base64').toString() : await fs.promises.readFile(sourceMappingFile, 'utf-8');
+      const sourceMapping = await fs.promises.readFile(sourceMappingFile, 'utf-8');
       const sources = JSON.parse(sourceMapping).sources;
       const sourcePaths = sources.map((s: string) => {
         const source = path.resolve(path.dirname(sourceMappingFile), s);
