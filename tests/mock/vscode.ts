@@ -1185,28 +1185,16 @@ export class VSCode {
       return document;
     };
 
-    this.workspace.findFiles = async (pattern: string, exclude?: string | null) => {
+    this.workspace.findFiles = async (pattern: string) => {
       const uris: Uri[] = [];
       for (const workspaceFolder of this.workspace.workspaceFolders) {
-        const cwd = workspaceFolder.uri.fsPath;
-        const matchGlob = (g: string) => new Promise<string[]>(f => {
-          glob(g, { cwd }, (err, files) => f(files || []));
+        await new Promise<void>(f => {
+          const cwd = workspaceFolder.uri.fsPath;
+          glob(pattern, { cwd }, (err, files) => {
+            uris.push(...files.map(f => Uri.file(path.join(cwd, f))));
+            f();
+          });
         });
-        const included = await matchGlob(pattern);
-        const excluded = new Set<string>();
-        if (exclude !== null) {
-          const filesExclude: Record<string, boolean> = this.workspace.getConfiguration('files').get('exclude') || {};
-          for (const [excludeGlob, enabled] of Object.entries(filesExclude)) {
-            if (!enabled)
-              continue;
-            for (const file of await matchGlob(excludeGlob))
-              excluded.add(file);
-          }
-        }
-        for (const file of included) {
-          if (!excluded.has(file))
-            uris.push(Uri.file(path.join(cwd, file)));
-        }
       }
       return uris;
     };
