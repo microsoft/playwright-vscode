@@ -16,6 +16,9 @@
 import { test, expect } from './baseTest';
 import child_process from 'node:child_process';
 
+// pnpm 10 PnP breaks Playwright on Node.js 22+, and the extension does not find Playwright with pnpm 12 PnP.
+test.fixme(({ packageManager }) => packageManager === 'pnpm-pnp', 'pnpm PnP does not work on Node.js 22+');
+
 test('should be able to execute the first test of the example project', async ({ workbox }) => {
   await workbox.getByRole('treeitem', { name: 'tests', exact: true }).locator('a').click();
   await workbox.getByRole('treeitem', { name: 'example.spec.ts' }).locator('a').click();
