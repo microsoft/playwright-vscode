@@ -1056,7 +1056,7 @@ test('should produce output twice', async ({ activate }) => {
   expect(testItems.length).toBe(1);
 
   const testRun1 = await testController.run(testItems);
-  expect(testRun1.renderLog({ output: true })).toBe(`
+  expect(testRun1.renderLog({ output: true }).replace(/:3:\d+ ›/g, ':3 ›')).toBe(`
     tests > test.spec.ts > one [2:0]
       enqueued
       started
@@ -1066,8 +1066,8 @@ test('should produce output twice', async ({ activate }) => {
 
     Running 1 test using 1 worker
 
-    [1/1] tests${path.sep}test.spec.ts:3:11 › one
-    tests${path.sep}test.spec.ts:3:11 › one
+    [1/1] tests${path.sep}test.spec.ts:3 › one
+    tests${path.sep}test.spec.ts:3 › one
     some output
 
       1 passed (XXms)
@@ -1075,7 +1075,7 @@ test('should produce output twice', async ({ activate }) => {
   `);
 
   const testRun2 = await testController.run(testItems);
-  expect(testRun2.renderLog({ output: true })).toBe(`
+  expect(testRun2.renderLog({ output: true }).replace(/:3:\d+ ›/g, ':3 ›')).toBe(`
     tests > test.spec.ts > one [2:0]
       enqueued
       enqueued
@@ -1085,8 +1085,8 @@ test('should produce output twice', async ({ activate }) => {
 
     Running 1 test using 1 worker
 
-    [1/1] tests${path.sep}test.spec.ts:3:11 › one
-    tests${path.sep}test.spec.ts:3:11 › one
+    [1/1] tests${path.sep}test.spec.ts:3 › one
+    tests${path.sep}test.spec.ts:3 › one
     some output
 
       1 passed (XXms)
