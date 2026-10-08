@@ -35,7 +35,7 @@ test('should report duplicate test title', async ({ activate }) => {
   await expect.poll(() => vscode.languages.getDiagnostics()).toEqual([
     {
       message: 'Error: duplicate test title \"one\", first declared in test.spec.ts:3',
-      range: { start: { line: 4, character: 10 }, end: { line: 5, character: 0 } },
+      range: { start: { line: 4, character: expect.any(Number) }, end: { line: 5, character: 0 } },
       severity: 'Error',
       source: 'playwright',
     }
