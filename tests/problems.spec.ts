@@ -42,7 +42,7 @@ test('should list tests on expand', async ({ activate }) => {
           message: expect.stringMatching(/^SyntaxError: tests[/\\]test.spec.ts: Unexpected reserved word 'await'. \(5:8\)$/),
           range: {
             end: { character: 0, line: 5 },
-            start: { character: 7, line: 4 }
+            start: { character: 8, line: 4 }
           },
           severity: 'Error',
           source: 'playwright'
