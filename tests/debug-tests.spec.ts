@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import { expect, test, escapedPathSep } from './utils';
+import { expect, test, escapedPathSep, enableProjects, connectToSharedBrowser, waitForPage } from './utils';
 import { TestRun, DebugSession, stripAnsi } from './mock/vscode';
 
-test('should debug all tests', async ({ activate }) => {
+test('should debug multiple passing tests', async ({ activate }) => {
   const { vscode } = await activate({
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test-1.spec.ts': `
@@ -26,17 +26,17 @@ test('should debug all tests', async ({ activate }) => {
     `,
     'tests/test-2.spec.ts': `
       import { test, expect } from '@playwright/test';
-      test('should fail', async () => { expect(1).toBe(2); });
+      test('should pass', async () => {});
     `,
   });
 
   const testRun = await vscode.testControllers[0].debug();
   expect(testRun.renderLog()).toBe(`
-    tests > test-2.spec.ts > should fail [2:0]
+    tests > test-1.spec.ts > should pass [2:0]
       enqueued
       started
-      failed
-    tests > test-1.spec.ts > should pass [2:0]
+      passed
+    tests > test-2.spec.ts > should pass [2:0]
       enqueued
       started
       passed
@@ -56,25 +56,46 @@ test('should debug all tests', async ({ activate }) => {
   ]);
 });
 
-test('should debug one test', async ({ activate }) => {
+test('should debug one test and pause at end', async ({ activate }) => {
   const { vscode, testController } = await activate({
-    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'playwright.config.js': `module.exports = {
+      projects: [
+        { name: 'main', use: { testIdAttribute: 'data-testerid', testDir: 'tests' } },
+        { name: 'unused', use: { testIdAttribute: 'unused', testDir: 'nonExistant' } },
+      ]
+    };`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
-      test('should pass', async () => {});
+      test('should pass', async ({ page }) => {
+        await page.setContent('<button data-testerid="foo">click me</button>');
+        setInterval(() => console.log('time passed'), 500);
+
+      });
     `,
   });
 
+  await enableProjects(vscode, ['main']);
+
   await testController.expandTestItems(/test.spec/);
   const testItems = testController.findTestItems(/pass/);
-  const testRun = await testController.debug(testItems);
+  const profile = testController.debugProfile();
+  const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
+  const runPromise = profile.run(testItems);
+  const testRun = await testRunPromise;
+
+  await expect.poll(() => vscode.window.activeTextEditor?.renderDecorations('  '), { timeout: 10000 }).toContain(
+      `[6:6 - 6:6]: decorator pausedAtEnd`
+  );
+
+  // The test should keep running.
+  vscode.debug.output = '';
+  await expect.poll(() => vscode.debug.output, { timeout: 10000 }).toContain('time passed');
 
   expect(testRun.renderLog()).toBe(`
     tests > test.spec.ts > should pass [2:0]
       enqueued
       enqueued
       started
-      passed
   `);
 
   await expect(vscode).toHaveConnectionLog([
@@ -95,7 +116,122 @@ test('should debug one test', async ({ activate }) => {
         testIds: [expect.any(String)]
       })
     },
-    { method: 'runGlobalTeardown', params: {} },
+  ]);
+  vscode.connectionLog.length = 0;
+
+  await vscode.openEditors('**/test.spec.ts');
+  const editor = vscode.window.activeTextEditor;
+  expect(editor.document.uri.path).toContain('test.spec.ts');
+  editor.selection = new vscode.Selection(5, 0, 5, 0);
+
+  const webView = vscode.webViews.get('pw.extension.settingsView')!;
+  await webView.getByText('Record at cursor').click();
+  await expect.poll(() => vscode.lastWithProgressData, { timeout: 0 }).toEqual({ message: 'recording\u2026' });
+
+  const browser = await connectToSharedBrowser(vscode);
+  const page = await waitForPage(browser);
+  await page.getByRole('button', { name: 'click me' }).click();
+  await expect.poll(() => editor.edits).toEqual([
+    {
+      range: '[5:0 - 5:0]',
+      from: `
+      import { test } from '@playwright/test';
+      test('should pass', async ({ page }) => {
+        await page.setContent('<button data-testerid="foo">click me</button>');
+        setInterval(() => console.log('time passed'), 500);
+<selection></selection>
+      });
+    `,
+      to: `
+      import { test } from '@playwright/test';
+      test('should pass', async ({ page }) => {
+        await page.setContent('<button data-testerid="foo">click me</button>');
+        setInterval(() => console.log('time passed'), 500);
+<selection>await page.getByTestId('foo').click();</selection>
+      });
+    `,
+    }
+  ]);
+
+  vscode.lastWithProgressToken!.cancel();
+
+  testRun.token.source.cancel();
+  await runPromise;
+
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'stopTests', params: {} },
+  ]);
+
+  expect(testRun.renderLog()).toBe(`
+    tests > test.spec.ts > should pass [2:0]
+      enqueued
+      enqueued
+      started
+  `);
+});
+
+test('should debug one test and pause on error', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test.spec.ts': `
+      import { test, expect } from '@playwright/test';
+      test('should fail', async () => {
+        setInterval(() => console.log('time passed'), 500);
+        expect(1).toBe(2);
+      });
+    `,
+  });
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/should fail/);
+  const profile = testController.debugProfile();
+  const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
+  const runPromise = profile.run(testItems);
+  const testRun = await testRunPromise;
+
+  await expect.poll(() => vscode.window.activeTextEditor?.renderDecorations('  '), { timeout: 10000 }).toBe(`
+    --------------------------------------------------------------
+    [4:18 - 4:18]: decorator pausedOnError
+  `);
+
+  // The test should keep running.
+  vscode.debug.output = '';
+  await expect.poll(() => vscode.debug.output, { timeout: 10000 }).toContain('time passed');
+
+  expect(testRun.renderLog()).toBe(`
+    tests > test.spec.ts > should fail [2:0]
+      enqueued
+      enqueued
+      started
+      failed
+  `);
+
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    {
+      method: 'listTests',
+      params: expect.objectContaining({
+        locations: [expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`)]
+      })
+    },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [
+          expect.stringContaining(`tests${escapedPathSep}test\\.spec\\.ts`),
+        ],
+        testIds: [expect.any(String)]
+      })
+    },
+  ]);
+  vscode.connectionLog.length = 0;
+
+  testRun.token.source.cancel();
+  await runPromise;
+
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'stopTests', params: {} },
   ]);
 });
 
@@ -144,7 +280,7 @@ test('should end test run when stopping the debugging', async ({ activate }, tes
     'playwright.config.js': `module.exports = { testDir: 'tests' }`,
     'tests/test.spec.ts': `
       import { test } from '@playwright/test';
-      test('should fail', async () => {
+      test('should stall', async () => {
         // Simulate breakpoint via stalling.
         console.log('READY TO BREAK');
         await new Promise(() => {});
@@ -153,7 +289,7 @@ test('should end test run when stopping the debugging', async ({ activate }, tes
   });
 
   await testController.expandTestItems(/test.spec/);
-  const testItems = testController.findTestItems(/fail/);
+  const testItems = testController.findTestItems(/should stall/);
 
   const profile = testController.debugProfile();
   const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
@@ -166,7 +302,7 @@ test('should end test run when stopping the debugging', async ({ activate }, tes
   await endPromise;
 
   expect(testRun.renderLog({ messages: true })).toBe(`
-    tests > test.spec.ts > should fail [2:0]
+    tests > test.spec.ts > should stall [2:0]
       enqueued
       enqueued
       started
@@ -233,9 +369,12 @@ test('should pass all args as string[] when debugging', async ({ activate }) => 
   const profile = testController.debugProfile();
   const onDidStartDebugSession = new Promise<DebugSession>(resolve => vscode.debug.onDidStartDebugSession(resolve));
   const onDidTerminateDebugSession = new Promise(resolve => vscode.debug.onDidTerminateDebugSession(resolve));
+  const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
   void profile.run(testItems);
+  const testRun = await testRunPromise;
   const session = await onDidStartDebugSession;
   expect(session.configuration.args.filter((arg: any) => typeof arg !== 'string')).toEqual([]);
+  testRun.token.source.cancel();
   await onDidTerminateDebugSession;
 });
 
@@ -263,16 +402,121 @@ test('should run global setup before debugging', async ({ activate }, testInfo) 
 
   await testController.expandTestItems(/test.spec/);
   const testItems = testController.findTestItems(/pass/);
-  const testRun = await testController.debug(testItems);
+  const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
+  const runPromise = testController.debugProfile().run(testItems);
+  const testRun = await testRunPromise;
 
-  expect(stripAnsi(vscode.debug.output)).toContain(`RUN GLOBAL SETUP`);
-  expect(stripAnsi(vscode.debug.output)).toContain(`MAGIC NUMBER: 42`);
+  await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`RUN GLOBAL SETUP`);
+  await expect.poll(() => stripAnsi(vscode.debug.output)).toContain(`MAGIC NUMBER: 42`);
+
+  // Single test pauses at the end, so cancel to finish the run.
+  testRun.token.source.cancel();
+  await runPromise;
 
   expect(testRun.renderLog({ messages: true })).toBe(`
     tests > test.spec.ts > should pass [2:0]
       enqueued
       enqueued
       started
+  `);
+});
+
+test('should debug multiple tests and stop on first failure', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = { testDir: 'tests' }`,
+    'tests/test-1.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => {});
+    `,
+    'tests/test-2.spec.ts': `
+      import { test, expect } from '@playwright/test';
+      test('should fail', async () => { expect(1).toBe(2); });
+    `,
+  });
+
+  const profile = testController.debugProfile();
+  const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
+  const runPromise = profile.run();
+  const testRun = await testRunPromise;
+
+  await expect.poll(() => vscode.window.activeTextEditor?.renderDecorations('  '), { timeout: 10000 }).toBe(`
+    --------------------------------------------------------------
+    [2:50 - 2:50]: decorator pausedOnError
+  `);
+
+  expect(testRun.renderLog()).toBe(`
+    tests > test-2.spec.ts > should fail [2:0]
+      enqueued
+      started
+      failed
+    tests > test-1.spec.ts > should pass [2:0]
+      enqueued
+      started
       passed
+  `);
+
+  testRun.token.source.cancel();
+  await runPromise;
+
+  await expect(vscode).toHaveConnectionLog([
+    { method: 'listFiles', params: {} },
+    { method: 'runGlobalSetup', params: {} },
+    {
+      method: 'runTests',
+      params: expect.objectContaining({
+        locations: [],
+        testIds: undefined
+      })
+    },
+    { method: 'stopTests', params: {} },
+  ]);
+});
+
+test('should not pause at the end of a setup test', async ({ activate }) => {
+  const { vscode, testController } = await activate({
+    'playwright.config.js': `module.exports = {
+      testDir: 'tests',
+      projects: [
+        { name: 'setup', testMatch: /.*setup.ts/ },
+        { name: 'main' },
+      ]
+    }`,
+    'tests/auth.setup.ts': `
+      import { test } from '@playwright/test';
+      test('should setup', async () => {
+      });
+    `,
+    'tests/test.spec.ts': `
+      import { test } from '@playwright/test';
+      test('should pass', async () => {
+        setInterval(() => console.log('time passed'), 500);
+      });
+    `,
+  });
+  await enableProjects(vscode, ['setup', 'main']);
+
+  await testController.expandTestItems(/test.spec/);
+  const testItems = testController.findTestItems(/pass/);
+  const profile = testController.debugProfile();
+  const testRunPromise = new Promise<TestRun>(f => testController.onDidCreateTestRun(f));
+  const runPromise = profile.run(testItems);
+  const testRun = await testRunPromise;
+
+  // The "setup" project should not run when running a single test from "main" project.
+  await expect.poll(() => testRun.renderLog()).toBe(`
+    tests > test.spec.ts > should pass [2:0]
+      enqueued
+      enqueued
+      started
+  `);
+
+  testRun.token.source.cancel();
+  await runPromise;
+
+  expect(testRun.renderLog()).toBe(`
+    tests > test.spec.ts > should pass [2:0]
+      enqueued
+      enqueued
+      started
   `);
 });
