@@ -496,7 +496,7 @@ export class Extension implements RunHooks {
       else
         this._watchItemsBatch = undefined;
 
-      return this._runTests(request, 'watch');
+      return this._runTests(new this._vscode.TestRunRequest(items), 'watch');
     }, undefined);
   }
 
