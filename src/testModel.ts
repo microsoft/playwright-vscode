@@ -55,6 +55,7 @@ export type TestModelEmbedder = {
   envProvider: (configFile: string) => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
   requestWatchRun: (files: string[], testItems: vscodeTypes.TestItem[]) => void;
+  testPausedHandler: (params: { errors: reporterTypes.TestError[] }) => any;
   logger: vscodeTypes.LogOutputChannel;
 };
 

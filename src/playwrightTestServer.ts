@@ -51,6 +51,7 @@ export type PlaywrightTestOptions = {
   isUnderTest: boolean;
   envProvider: (configFile: string) => NodeJS.ProcessEnv;
   onStdOut: vscodeTypes.Event<string>;
+  testPausedHandler: (params: { errors: reporterTypes.TestError[] }) => void;
   logger: vscodeTypes.LogOutputChannel;
 };
 
@@ -292,6 +293,7 @@ export class PlaywrightTestServer {
       token = debugEnd.token;
 
       const paths = this._normalizePaths();
+      const kMinTestPausedVersion = 1.58;
 
       await this._vscode.debug.startDebugging(undefined, {
         type: 'pwa-node',
@@ -306,8 +308,8 @@ export class PlaywrightTestServer {
           // Reset VSCode's options that affect nested Electron.
           ELECTRON_RUN_AS_NODE: undefined,
           FORCE_COLOR: '1',
-          PW_TEST_SOURCE_TRANSFORM: require.resolve('./debugTransform'),
-          PW_TEST_SOURCE_TRANSFORM_SCOPE: testDirs.join(pathSeparator),
+          PW_TEST_SOURCE_TRANSFORM: this._model.config.version < kMinTestPausedVersion ? require.resolve('./debugTransform') : undefined,
+          PW_TEST_SOURCE_TRANSFORM_SCOPE: this._model.config.version < kMinTestPausedVersion ? testDirs.join(pathSeparator) : undefined,
           PWDEBUG: 'console',
         },
         program: paths.cli,
@@ -325,7 +327,7 @@ export class PlaywrightTestServer {
       if (token?.isCancellationRequested)
         return;
 
-      const { locations, testIds } = this._model.narrowDownLocations(request);
+      const { locations, testIds, isSingleTest } = this._model.narrowDownLocations(request);
       if (!locations && !testIds)
         return;
 
@@ -340,12 +342,15 @@ export class PlaywrightTestServer {
         locations: locationPatterns,
         testIds,
         timeout: 0,
+        pauseAtEnd: isSingleTest,
+        pauseOnError: true,
         ...runOptions,
       };
 
       disposables.push(token.onCancellationRequested(() => {
         debugTestServer!.stopTestsNoReply({});
       }));
+      disposables.push(debugTestServer.onTestPaused(params => this._options.testPausedHandler(params)));
       this._wireTestServer(debugTestServer, reporter, token, disposables);
       try {
         await debugTestServer.runTests(options);
